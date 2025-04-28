@@ -1,0 +1,18 @@
+<svg width="800" height="300" viewBox="0 0 800 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="300" rx="32" fill="#0ea5e9"/>
+  <rect x="32" y="32" width="736" height="236" rx="24" fill="#22d3ee"/>
+  <g stroke="#fff" stroke-width="3">
+    <rect x="120" y="80" width="560" height="140" rx="20" fill="none"/>
+    <circle cx="180" cy="150" r="12" fill="#0ea5e9"/>
+    <circle cx="620" cy="150" r="12" fill="#0ea5e9"/>
+    <path d="M192 150H608"/>
+    <path d="M180 138V90H400"/>
+    <path d="M620 138V90H400"/>
+    <path d="M180 162V210H400"/>
+    <path d="M620 162V210H400"/>
+    <circle cx="400" cy="90" r="8" fill="#0ea5e9"/>
+    <circle cx="400" cy="210" r="8" fill="#0ea5e9"/>
+  </g>
+  <text x="400" y="170" text-anchor="middle" font-size="48" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-weight="bold">PCB Innovation</text>
+  <text x="400" y="210" text-anchor="middle" font-size="24" fill="#fff" font-family="Arial, Helvetica, sans-serif">High Quality • Fast Turnaround • Global Service</text>
+</svg> 
