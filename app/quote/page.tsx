@@ -122,37 +122,7 @@ export default function QuotePage() {
     setActiveSection(active === -1 ? 2 : Math.max(0, active - 1));
   }
 
-  /**
-   * PCB全字段报价公式说明：
-   * 
-   * 1. 设计思路：
-   *    - 参考PCBWay/JLCPCB等主流PCB打样网站的计价规则，结合实际工厂报价经验。
-   *    - 将所有表单字段（基础信息、工艺信息、服务信息）全部纳入计价，做到"全字段参与"。
-   *    - 每个字段的加价项均以对象表的形式维护，便于后续灵活调整和扩展。
-   *    - 公式结构清晰，便于维护和理解。
-   * 
-   * 2. 为什么这样做：
-   *    - 行业主流报价系统均为"参数化计价"，即每个参数（如层数、板材、表面处理、特殊工艺等）都有独立加价项。
-   *    - 这样做可以让前端预估价格与工厂实际价格高度接近，提升用户体验。
-   *    - 便于后续根据业务需求灵活调整每一项加价，无需大幅重构。
-   *    - 代码可读性强，方便团队协作和后期维护。
-   * 
-   * 3. 是否有更好的方式：
-   *    - 对于大型/复杂项目，建议将所有加价规则抽离为独立的"计价配置文件"或"计价服务"，实现前后端统一。
-   *    - 也可以将所有加价项、折扣等维护在数据库，由运营/产品动态配置，前端只负责展示。
-   *    - 若需支持多币种/多地区/多工厂，可将公式参数化，按需切换。
-   *    - 进一步可将每项加价明细展示给用户，提升透明度。
-   * 
-   * 4. 当前实现优点：
-   *    - 适合中小型PCB打样/小批量平台，前端即可实现较为准确的价格预估。
-   *    - 维护成本低，扩展性强。
-   *    - 便于A/B测试不同计价策略。
-   * 
-   * 5. 后续建议：
-   *    - 若业务量大、需求复杂，建议将计价逻辑后端化，前端仅展示。
-   *    - 可增加"明细弹窗"展示每项加价来源，提升用户信任。
-   */
-  // 全字段参与的PCB报价公式
+  
   const pcbPrice = useMemo(() => calcPcbPrice(form), [form]);
 
   return (
@@ -198,8 +168,8 @@ export default function QuotePage() {
           </Card>
         </aside>
         {/* 主内容和右侧信息栏容器 */}
-        <div className="flex-1 flex flex-row justify-center max-w-6xl mx-auto gap-10">
-          <main className="flex-1 max-w-5xl ml-8">
+        <div className="flex-1 flex flex-row justify-center max-w-8xl mx-auto gap-10 pl-72">
+          <main className="flex-1 max-w-full">
             <Card>
               <CardHeader>
                 <CardTitle>PCB Instant Quote</CardTitle>
