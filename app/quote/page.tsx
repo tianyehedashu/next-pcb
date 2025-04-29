@@ -17,6 +17,7 @@ import ShippingTaxEstimationPanel from "./ShippingTaxEstimationPanel";
 import { Badge } from "@/components/ui/badge";
 import ProductionCycle from "./ProductionCycle";
 import { calcProductionCycle, isHoliday, getRealDeliveryDate, calcPcbPrice } from "@/lib/pcb-calc";
+import { useQuoteStore } from "@/lib/quoteStore";
 
 function RadioGroup({ name, options, value, onChange }: any) {
   return (
@@ -63,46 +64,8 @@ function CheckboxGroup({ name, options, value, onChange }: any) {
 }
 
 export default function QuotePage() {
-  // 表单状态
-  const [form, setForm] = useState({
-    pcbType: "fr4",
-    layers: 2,
-    thickness: "1.6",
-    surfaceFinish: "hasl",
-    copperWeight: "1",
-    minTrace: "6/6",
-    minHole: "0.2",
-    solderMask: "green",
-    silkscreen: "white",
-    goldFingers: "no",
-    castellated: "no",
-    impedance: "no",
-    flyingProbe: "no",
-    quantity: 10,
-    delivery: "standard",
-    gerber: null as File | null,
-    hdi: "none",
-    tg: "TG170",
-    panelCount: 1,
-    shipmentType: "single",
-    singleLength: "10",
-    singleWidth: "10",
-    singleCount: "10",
-    border: "5",
-    maskCover: "cover",
-    edgePlating: "no",
-    halfHole: "none",
-    edgeCover: "none",
-    testMethod: "free",
-    prodCap: "auto",
-    productReport: ["none"],
-    rejectBoard: "accept",
-    yyPin: "none",
-    customerCode: "none",
-    payMethod: "auto",
-    qualityAttach: "standard",
-    smt: "none",
-  });
+  // 表单状态（改为 zustand）
+  const { form, setForm } = useQuoteStore();
   const [errors, setErrors] = useState<any>({});
   const [shippingCost, setShippingCost] = useState(0);
 

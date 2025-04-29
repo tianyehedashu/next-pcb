@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import BasicInfoSection from "./sections/BasicInfoSection";
 import ProcessInfoSection from "./sections/ProcessInfoSection";
 import ServiceInfoSection from "./sections/ServiceInfoSection";
@@ -7,10 +7,14 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Layers, Settings, UserCheck, UploadCloud } from "lucide-react";
 import JSZip from "jszip";
 import { createParser } from "@tracespace/parser";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { fieldMap, mapFormToBackend } from '@/lib/fieldMap';
 
 export default function QuoteForm({ form, errors, setForm, setErrors, sectionRefs }: any) {
   const [debugInfo, setDebugInfo] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   async function handleGerberUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -108,6 +112,7 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
         singleLength,
         singleWidth,
         copperWeight,
+        gerber: file,
       }));
       setDebugInfo((d) => d + `\n自动填充完成！\n`);
     } catch (err: any) {
@@ -115,14 +120,33 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
     }
   }
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setDebugInfo("");
+    // 判断用户是否登录
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      window.localStorage.setItem("quote_auto_submit", "1");
+      alert("Please login to continue your quote.");
+      router.push("/auth?redirect=quote");
+      return;
+    }
+    // 组装所有需要传递的数据
+    setForm({
+      ...form,
+      // 可扩展：quotePrice, gerberFiles 等
+    });
+    router.push("/quote/confirm");
+  }
+
   return (
-    <form className="flex flex-col gap-4 text-xs">
+    <form id="quote-form" className="flex flex-col gap-4 text-xs" onSubmit={handleSubmit}>
       <div className="flex items-center gap-3 mb-2">
         <input
           type="file"
           accept=".zip,.gbr,.gtl,.gbl,.gts,.gbs,.gto,.gbo,.drl,.txt"
           ref={fileInputRef}
-          onChange={handleGerberUpload}
+          onChange={e => { handleGerberUpload(e); e.target.value = ""; }}
           className="hidden"
         />
         <Button

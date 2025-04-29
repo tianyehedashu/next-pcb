@@ -2,6 +2,10 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 const ANCHORS = ["services", "why", "testimonials", "contact"];
 
@@ -9,6 +13,7 @@ export default function Navbar() {
   const [show, setShow] = useState(true);
   const [hover, setHover] = useState(false);
   const [navAnim, setNavAnim] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     let lastScroll = window.scrollY;
@@ -43,6 +48,17 @@ export default function Navbar() {
       setTimeout(() => setNavAnim(false), 400);
     }
   }, [show]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/auth";
+  };
 
   return (
     <div
@@ -87,8 +103,48 @@ export default function Navbar() {
           ))}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="rounded-full border-blue-200 text-blue-700 hover:border-blue-400 hover:bg-blue-50 transition">Login</Button>
-          <Button className="rounded-full bg-blue-600 text-white hover:bg-blue-700 transition shadow">Sign Up</Button>
+          {user ? (
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <Button variant="ghost" className="rounded-full px-2">
+                  <Avatar>
+                    {/* 头像可扩展，暂用首字母 */}
+                    <AvatarFallback>MY</AvatarFallback>
+                  </Avatar>
+                  <span className="ml-2 hidden md:inline font-medium">MY</span>
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content sideOffset={8} className="z-[200] min-w-[160px] rounded-md bg-white p-2 shadow-xl border">
+                <DropdownMenu.Item asChild>
+                  <Link href="/profile">
+                    <Button variant="ghost" className="w-full justify-start">User Center</Button>
+                  </Link>
+                </DropdownMenu.Item>
+                <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
+                <DropdownMenu.Item>
+                  <Button variant="ghost" className="w-full justify-start text-red-500" onClick={handleSignOut}>Sign Out</Button>
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          ) : (
+            <>
+              <Link href="/auth">
+                <Button
+                  variant="outline"
+                  className="rounded-full border-blue-200 text-blue-700 hover:border-blue-400 hover:bg-blue-50 transition"
+                >
+                  Login
+                </Button>
+              </Link>
+              <Link href="/auth?signup=1">
+                <Button
+                  className="rounded-full bg-blue-600 text-white hover:bg-blue-700 transition shadow"
+                >
+                  Sign Up
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </nav>
       {/* 悬浮区 */}
