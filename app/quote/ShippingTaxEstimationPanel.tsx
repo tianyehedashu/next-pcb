@@ -2,46 +2,9 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import React from "react";
 
-export default function SideInfoPanel() {
+export default function ShippingTaxEstimationPanel() {
   return (
     <div className="flex flex-col gap-4 w-full max-w-xs text-sm">
-      {/* Production Cycle */}
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-center">
-            <span className="font-semibold">Production Cycle</span>
-            <a href="#" className="text-blue-600 text-xs underline">Shipping Standard</a>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="border rounded-md bg-slate-50 mb-2">
-            <table className="w-full text-xs text-center">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-1 font-medium">#</th>
-                  <th className="py-1 font-medium">Cycle</th>
-                  <th className="py-1 font-medium">Oil</th>
-                  <th className="py-1 font-medium">Thickness</th>
-                  <th className="py-1 font-medium">Urgent</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td colSpan={5} className="py-2 text-muted-foreground">No cycle</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div className="text-xs text-muted-foreground mb-3">
-            No shipping time yet, please fill in the parameters.
-            <ul className="list-disc pl-4 mt-1">
-              <li><span className="text-red-500">18:00</span> order, test board: <span className="font-semibold">1 day</span></li>
-              <li><span className="text-red-500">21:00</span> after, test board: <span className="font-semibold">1 day</span></li>
-              <li>User order not scheduled, production cycle is consistent with <span className="font-semibold">Monday</span></li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
       {/* Shipping/Tax Estimation & Place Order */}
       <Card>
         <CardHeader>

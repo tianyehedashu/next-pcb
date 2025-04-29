@@ -21,9 +21,9 @@ export function Tabs({ value, onValueChange, orientation = "horizontal", classNa
     >
       {React.Children.map(children, child => {
         if (!React.isValidElement(child)) return child;
-        const tabValue = child.props.tabValue;
+        const tabValue = (child as React.ReactElement<any>).props.tabValue;
         const active = value === tabValue;
-        return React.cloneElement(child, { active, onValueChange });
+        return React.cloneElement(child as React.ReactElement<any>, { active, onValueChange });
       })}
     </div>
   );
