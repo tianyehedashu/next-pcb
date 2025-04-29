@@ -4,12 +4,11 @@ FROM node:20-alpine AS builder
 # 设置工作目录
 WORKDIR /app
 
+# 启用 corepack 以支持 pnpm
+RUN corepack enable
 
 # 拷贝依赖文件
 COPY package.json pnpm-lock.yaml ./
-
-# 安装pnpm
-RUN npm install -g pnpm
 
 # 安装依赖
 RUN pnpm install --frozen-lockfile
@@ -23,6 +22,9 @@ RUN pnpm build
 # 生产环境镜像，减小体积
 FROM node:20-alpine AS runner
 WORKDIR /app
+
+# 启用 corepack
+RUN corepack enable
 
 # 只拷贝生产依赖和构建产物
 COPY --from=builder /app/package.json ./
