@@ -42,7 +42,7 @@ function CheckboxGroup({ name, options, value, onChange }: any) {
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((opt: any) => (
-        <label key={opt.value} className="flex items-center gap-1 text-sm">
+        <label key={opt.value} className="flex items-center gap-1 text-xs">
           <input
             type="checkbox"
             checked={value.includes(opt.value)}
@@ -68,7 +68,6 @@ export default function QuotePage() {
     pcbType: "fr4",
     layers: 2,
     thickness: "1.6",
-    boardColor: "green",
     surfaceFinish: "hasl",
     copperWeight: "1",
     minTrace: "6/6",
@@ -105,6 +104,7 @@ export default function QuotePage() {
     smt: "none",
   });
   const [errors, setErrors] = useState<any>({});
+  const [shippingCost, setShippingCost] = useState(0);
 
   // 当前分区索引
   const [activeSection, setActiveSection] = useState(0);
@@ -122,14 +122,18 @@ export default function QuotePage() {
     setActiveSection(active === -1 ? 2 : Math.max(0, active - 1));
   }
 
-  
   const pcbPrice = useMemo(() => calcPcbPrice(form), [form]);
+
+  // 计算总价
+  const totalPrice = useMemo(() => {
+    return pcbPrice + shippingCost;
+  }, [pcbPrice, shippingCost]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 pt-16">
       <div className="relative flex flex-row w-full min-h-[600px]">
         {/* 左侧分区导航（fixed） */}
-        <aside className="hidden md:flex flex-col w-64 gap-3 fixed left-8 top-1/2 -translate-y-1/2 z-30">
+        <aside className="hidden md:flex flex-col w-64 gap-2 fixed left-8 top-1/2 -translate-y-1/2 z-30">
           <SectionNav
             sectionList={sectionList}
             activeSection={activeSection}
@@ -137,31 +141,31 @@ export default function QuotePage() {
             sectionRefs={sectionRefs}
           />
           {/* PCB Cost Details Card */}
-          <Card className="py-2">
-            <CardHeader className="py-2">
-              <span className="font-semibold text-sm">PCB Cost Details</span>
+          <Card className="py-1">
+            <CardHeader className="py-0">
+              <span className="font-semibold text-xs">PCB Cost Details</span>
             </CardHeader>
-            <CardContent className="py-2">
-              <div className="border rounded-md bg-slate-50 text-xs text-muted-foreground mb-2 p-2">
-                <div className="flex justify-between"><span>PCB Cost:</span><span>¥ {pcbPrice.toFixed(2)}</span></div>
+            <CardContent className="py-1">
+              <div className="border rounded-md bg-slate-50 text-xs text-muted-foreground mb-1 p-1">
+                <div className="flex justify-between py-0"><span>PCB Cost:</span><span>¥ {pcbPrice.toFixed(2)}</span></div>
               </div>
             </CardContent>
           </Card>
           {/* Cost Details Card 吸底 */}
-          <Card className="py-2">
-            <CardHeader className="py-2">
+          <Card className="py-1">
+            <CardHeader className="py-1">
               <span className="font-semibold text-sm">Cost Details</span>
             </CardHeader>
-            <CardContent className="py-2">
+            <CardContent className="py-1">
               <div className="border rounded-md bg-slate-50 text-xs mb-2 p-2">
-                <div className="flex justify-between"><span>PCB Cost:</span><span>¥ 0.00</span></div>
-                <div className="flex justify-between"><span>Shipping:</span><span>¥ 0.00</span></div>
+                <div className="flex justify-between"><span>PCB Cost:</span><span>¥ {pcbPrice.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Shipping:</span><span>¥ {shippingCost.toFixed(2)}</span></div>
                 <div className="flex justify-between"><span>Tax:</span><span>¥ 0.00</span></div>
                 <div className="flex justify-between"><span>Discount:</span><span className="text-green-600">-¥ 0.00</span></div>
               </div>
               <div className="flex justify-between items-center mb-2">
                 <span className="font-semibold">Estimated Total:</span>
-                <span className="text-lg font-bold text-red-600">¥ 0.00</span>
+                <span className="text-lg font-bold text-red-600">¥ {totalPrice.toFixed(2)}</span>
               </div>
               <div className="text-xs text-muted-foreground">For reference only, final price is subject to review.</div>
             </CardContent>
@@ -189,13 +193,12 @@ export default function QuotePage() {
           <aside className="md:block w-[420px] flex flex-col gap-4">
             <div className="sticky top-4 z-10">
               <ProductionCycle form={form} calcProductionCycle={calcProductionCycle} getRealDeliveryDate={getRealDeliveryDate} />
-
-              <ShippingTaxEstimationPanel />
+              <ShippingTaxEstimationPanel form={form} onShippingCostChange={setShippingCost} />
             </div>
           </aside>
         </div>
       </div>
-      <Button className="w-full mt-2 text-xs" type="button">Estimate Shipping & Tax</Button>
+    
     </div>
   );
 } 

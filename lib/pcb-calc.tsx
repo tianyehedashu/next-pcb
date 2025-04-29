@@ -66,10 +66,6 @@ export function calcProductionCycle(form: any, orderTime: Date = new Date()): { 
   }
 
   // 6. 板色/阻焊色
-  if (["black", "blue", "yellow", "red", "white"].includes(form.boardColor) || ["black", "blue", "yellow", "red", "white"].includes(form.solderMask)) {
-    baseDays += 1;
-    reason.push("Special soldermask/board color: +1 day");
-  }
 
   // 7. 拼板/Panel
   if (Number(form.panelCount) > 1) {
@@ -266,7 +262,6 @@ export function calcPcbPrice(form: any): number {
     (Number(form.copperWeight) - 1) * 10 + // 铜厚加价
     MINTRACE_EXTRA[form.minTrace] + // 最小线宽线距
     MINHOLE_EXTRA[form.minHole] + // 最小孔径
-    COLOR_EXTRA[form.boardColor] + // 板色
     COLOR_EXTRA[form.solderMask] + // 阻焊色
     SILK_EXTRA[form.silkscreen] + // 字符色
     SURFACE_EXTRA[form.surfaceFinish] + // 表面处理

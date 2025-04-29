@@ -44,38 +44,6 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
             onChange={(v: string) => setForm({ ...form, thickness: v })}
           />
         </div>
-        {/* Board Color */}
-        <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Board Color</label>
-          <div className="flex flex-wrap gap-3">
-            {["green","blue","red","black","white","yellow"].map(v => (
-              <button
-                key={v}
-                type="button"
-                className={`relative w-12 h-8 rounded-md border text-xs font-normal transition-all flex items-center justify-center
-                  ${form.boardColor === v
-                    ? "ring-2 ring-blue-500 border-blue-600"
-                    : "border-gray-300 hover:border-blue-400"}
-                  ${v === "green" ? "bg-green-500 text-white" : ""}
-                  ${v === "blue" ? "bg-blue-500 text-white" : ""}
-                  ${v === "red" ? "bg-red-500 text-white" : ""}
-                  ${v === "black" ? "bg-black text-white" : ""}
-                  ${v === "white" ? "bg-white text-gray-700 border" : ""}
-                  ${v === "yellow" ? "bg-yellow-300 text-gray-900" : ""}
-                `}
-                onClick={() => setForm({ ...form, boardColor: v })}
-                aria-label={v.charAt(0).toUpperCase() + v.slice(1)}
-              >
-                {v.charAt(0).toUpperCase() + v.slice(1)}
-                {form.boardColor === v && (
-                  <span className="absolute right-0.5 bottom-0.5">
-                    <Check size={14} className="text-blue-100 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]" />
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
         {/* HDI */}
         <div className="flex items-center gap-4">
           <label className="w-32 text-xs font-normal text-right">HDI (Blind/Buried Vias)</label>

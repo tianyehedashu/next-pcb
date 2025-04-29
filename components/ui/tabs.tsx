@@ -43,7 +43,7 @@ export function Tab({ tabValue, active, onValueChange, icon, children }: TabProp
       role="tab"
       aria-selected={active}
       className={cn(
-        "flex items-center gap-2 px-6 py-3 text-base text-left transition-all relative",
+        "flex items-center gap-2 px-6 py-3 text-left transition-all relative",
         active ? "font-bold text-green-600 bg-green-50 border-l-2 border-green-500" : "text-black font-normal border-l-2 border-transparent hover:bg-slate-100"
       )}
       onClick={() => onValueChange && onValueChange(tabValue)}

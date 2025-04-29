@@ -1,10 +1,10 @@
 import { Tabs, Tab } from "@/components/ui/tabs";
-import { MapPin } from "lucide-react";
+import { Layers, Settings, UserCheck } from "lucide-react";
 import React from "react";
 
 export default function SectionNav({ sectionList, activeSection, onTabChange, sectionRefs }: any) {
   return (
-    <div className="bg-white/80 shadow-md border border-blue-100 rounded-xl py-4 text-xs">
+    <div className="bg-white/80 shadow-md border border-blue-100 rounded-xl py-2 text-xs">
       <Tabs
         value={sectionList[activeSection].label}
         onValueChange={v => {
@@ -14,9 +14,9 @@ export default function SectionNav({ sectionList, activeSection, onTabChange, se
         }}
         orientation="vertical"
       >
-        <Tab tabValue="Basic Information" icon={<MapPin size={18} />}>Basic Information</Tab>
-        <Tab tabValue="Process Information">Process Information</Tab>
-        <Tab tabValue="Service Information">Service Information</Tab>
+        <Tab tabValue="Basic Information" icon={<Layers size={15} />}>Basic Information</Tab>
+        <Tab tabValue="Process Information" icon={<Settings size={15} />}>Process Information</Tab>
+        <Tab tabValue="Service Information" icon={<UserCheck size={15} />}>Service Information</Tab>
       </Tabs>
     </div>
   );

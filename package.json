@@ -5,7 +5,7 @@
   "packageManager": "pnpm@8.15.4",
   "engines": {
     "node": ">=20.0.0",
-    "pnpm": ">=8.15.4"
+    "pnpm": ">=8.15.1"
   },
   "scripts": {
     "dev": "next dev --turbopack",
@@ -20,6 +20,7 @@
     "@radix-ui/react-toast": "^1.2.11",
     "@radix-ui/react-tooltip": "^1.2.4",
     "@shadcn/ui": "^0.0.4",
+    "@supabase/supabase-js": "^2.49.4",
     "@tracespace/parser": "5.0.0-next.0",
     "@tracespace/plotter": "5.0.0-alpha.0",
     "class-variance-authority": "^0.7.1",

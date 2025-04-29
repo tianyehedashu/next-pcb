@@ -38,21 +38,21 @@ export default function ProductionCycle({ form, className = "", calcProductionCy
   }, [form]);
 
   return (
-    <Card className={className}>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-center">
-          <span className="font-semibold">Production Cycle</span>
+    <Card className={`${className} rounded-2xl shadow-lg border-blue-100`}>
+      <CardHeader className="pb-1 flex flex-row items-center gap-2 bg-gradient-to-r from-blue-50 to-white rounded-t-2xl">
+        <div className="flex justify-between items-center w-full">
+          <span className="text-base font-bold tracking-wide">Production Cycle</span>
           <a href="#" className="text-blue-600 text-xs underline">Shipping Standard</a>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-3 pb-4 px-4">
         <div className="border rounded-md bg-slate-50 mb-2 overflow-x-auto">
           <table className="w-full text-xs text-center">
             <thead>
               <tr className="border-b">
-                <th className="py-1 font-medium">Cycle</th>
-                <th className="py-1 font-medium">Urgent</th>
-                <th className="py-1 font-medium">Est. Finish</th>
+                <th className="py-2 font-medium">Cycle</th>
+                <th className="py-2 font-medium">Type</th>
+                <th className="py-2 font-medium">Est. Finish</th>
               </tr>
             </thead>
             <tbody>
@@ -68,13 +68,13 @@ export default function ProductionCycle({ form, className = "", calcProductionCy
                   >
                     <td className="py-2">
                       <span
-                        className={`inline-block transition-all duration-300 font-bold text-base ${animateArr[idx] ? (isUrgent ? "scale-125 bg-red-100" : "scale-125 bg-blue-50") : ""}`}
+                        className={`inline-block transition-all duration-300 font-bold text-xs ${animateArr[idx] ? (isUrgent ? "scale-125 bg-red-100" : "scale-125 bg-blue-50") : ""}`}
                       >
                         {info.cycleDays} day(s)
                       </span>
                     </td>
                     <td className="py-2 flex items-center justify-center gap-1">
-                      {isUrgent && <span className="text-lg">⚡</span>}
+                      {isUrgent && <span className="text-base">⚡</span>}
                       {opt.label}
                     </td>
                     <td className="py-2">{finishDate.toISOString().slice(0, 10)}</td>
