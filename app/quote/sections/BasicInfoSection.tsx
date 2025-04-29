@@ -1,6 +1,6 @@
 import { Input } from "@/components/ui/input";
 import RadioGroup from "../RadioGroup";
-import { Tooltip } from "@/components/ui/tooltip";
+import { Tooltip } from "@components/ui/tooltip";
 import React from "react";
 import { Check } from "lucide-react";
 
@@ -81,7 +81,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
           <Input
             type="number"
             min={1}
-            value={form.panelCount}
+            value={form.panelCount ?? 1}
             onChange={e => setForm({ ...form, panelCount: Number(e.target.value) })}
             className="flex-1"
           />
@@ -110,7 +110,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               min={0.1}
               step={0.01}
               placeholder="Length"
-              value={form.singleLength}
+              value={form.singleLength ?? ''}
               onChange={e => setForm({ ...form, singleLength: e.target.value })}
               aria-invalid={!!errors.singleLength}
               className="w-24"
@@ -121,7 +121,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               min={0.1}
               step={0.01}
               placeholder="Width"
-              value={form.singleWidth}
+              value={form.singleWidth ?? ''}
               onChange={e => setForm({ ...form, singleWidth: e.target.value })}
               aria-invalid={!!errors.singleWidth}
               className="w-24"
@@ -133,7 +133,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
           <label className="w-32 text-xs font-normal text-right">Single Count</label>
           <select
             className="border rounded-md px-3 py-2 flex-1 text-sm"
-            value={form.singleCount}
+            value={form.singleCount ?? ''}
             onChange={e => setForm({ ...form, singleCount: e.target.value })}
             aria-invalid={!!errors.singleCount}
           >
@@ -149,7 +149,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
           <label className="w-32 text-xs font-normal text-right">Process Border (mm)</label>
           <select
             className="border rounded-md px-3 py-2 flex-1 text-sm"
-            value={form.border}
+            value={form.border ?? ''}
             onChange={e => setForm({ ...form, border: e.target.value })}
           >
             <option value="none">None</option>

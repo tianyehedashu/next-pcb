@@ -115,6 +115,7 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
         gerber: file,
       }));
       setDebugInfo((d) => d + `\n自动填充完成！\n`);
+      console.log('form.gerber', form.gerber);
     } catch (err: any) {
       setDebugInfo((d) => d + `解析异常: ${err.message}\n`);
     }
@@ -157,6 +158,9 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
         >
           <UploadCloud size={16} /> Upload Gerber/Zip
         </Button>
+        {form.gerber && (
+          <span className="text-xs text-blue-600 ml-2">{form.gerber.name}</span>
+        )}
         <span className="text-muted-foreground text-xs">Auto parse and fill PCB parameters</span>
       </div>
       <Card className="mb-4 rounded-2xl shadow-lg border-blue-100">
