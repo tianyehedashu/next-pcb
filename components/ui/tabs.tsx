@@ -1,55 +1,99 @@
-import * as React from "react";
-import { cn } from "@/lib/utils";
+"use client"
 
-interface TabsProps {
-  value: string;
-  onValueChange?: (value: string) => void;
-  orientation?: "horizontal" | "vertical";
-  className?: string;
-  children: React.ReactNode;
-}
+import * as React from "react"
+import * as TabsPrimitive from "@radix-ui/react-tabs"
+import { cn } from "@/lib/utils"
 
-export function Tabs({ value, onValueChange, orientation = "horizontal", className, children }: TabsProps) {
-  return (
-    <div
-      className={cn(
-        "flex",
-        orientation === "vertical" ? "flex-col" : "flex-row",
-        className
-      )}
-      role="tablist"
-    >
-      {React.Children.map(children, child => {
-        if (!React.isValidElement(child)) return child;
-        const tabValue = (child as React.ReactElement<any>).props.tabValue;
-        const active = value === tabValue;
-        return React.cloneElement(child as React.ReactElement<any>, { active, onValueChange });
-      })}
-    </div>
-  );
-}
+const Tabs = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root> & {
+    orientation?: "horizontal" | "vertical"
+  }
+>(({ className, orientation = "horizontal", ...props }, ref) => (
+  <TabsPrimitive.Root
+    ref={ref}
+    className={cn(
+      "w-full",
+      orientation === "vertical" ? "flex" : "block",
+      className
+    )}
+    {...props}
+  />
+))
+Tabs.displayName = TabsPrimitive.Root.displayName
+
+const TabsList = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.List>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.List
+    ref={ref}
+    className={cn(
+      "inline-flex items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
+      className
+    )}
+    {...props}
+  />
+))
+TabsList.displayName = TabsPrimitive.List.displayName
+
+const TabsTrigger = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+      className
+    )}
+    {...props}
+  />
+))
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
+
+const TabsContent = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Content
+    ref={ref}
+    className={cn(
+      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      className
+    )}
+    {...props}
+  />
+))
+TabsContent.displayName = TabsPrimitive.Content.displayName
 
 interface TabProps {
-  tabValue: string;
-  active?: boolean;
-  onValueChange?: (value: string) => void;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
+  tabValue: string
+  icon?: React.ReactNode
+  children: React.ReactNode
+  className?: string
 }
 
-export function Tab({ tabValue, active, onValueChange, icon, children }: TabProps) {
-  return (
-    <button
-      role="tab"
-      aria-selected={active}
-      className={cn(
-        "flex items-center gap-2 px-6 py-3 text-left transition-all relative",
-        active ? "font-bold text-green-600 bg-green-50 border-l-2 border-green-500" : "text-black font-normal border-l-2 border-transparent hover:bg-slate-100"
-      )}
-      onClick={() => onValueChange && onValueChange(tabValue)}
-    >
-      {active && icon && <span className="text-green-600">{icon}</span>}
-      <span>{children}</span>
-    </button>
-  );
-} 
+const Tab = React.forwardRef<HTMLButtonElement, TabProps>(
+  ({ tabValue, icon, children, className, ...props }, ref) => {
+    return (
+      <TabsTrigger
+        ref={ref}
+        value={tabValue}
+        className={cn(
+          "flex w-full items-center gap-2 px-4 py-2 text-left",
+          "data-[state=active]:bg-primary/5 data-[state=active]:text-primary",
+          "hover:bg-muted/50",
+          className
+        )}
+        {...props}
+      >
+        {icon && <span className="shrink-0">{icon}</span>}
+        <span className="truncate">{children}</span>
+      </TabsTrigger>
+    )
+  }
+)
+Tab.displayName = "Tab"
+
+export { Tabs, TabsList, TabsTrigger, TabsContent, Tab } 

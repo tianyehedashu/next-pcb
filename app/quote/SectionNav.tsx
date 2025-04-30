@@ -1,4 +1,4 @@
-import { Tabs, Tab } from "@/components/ui/tabs";
+import { Tabs, TabsList, Tab } from "@/components/ui/tabs";
 import { Layers, Settings, UserCheck } from "lucide-react";
 import React from "react";
 
@@ -14,9 +14,11 @@ export default function SectionNav({ sectionList, activeSection, onTabChange, se
         }}
         orientation="vertical"
       >
-        <Tab tabValue="Basic Information" icon={<Layers size={15} />}>Basic Information</Tab>
-        <Tab tabValue="Process Information" icon={<Settings size={15} />}>Process Information</Tab>
-        <Tab tabValue="Service Information" icon={<UserCheck size={15} />}>Service Information</Tab>
+        <TabsList className="flex flex-col w-full gap-1 bg-transparent p-2">
+          <Tab tabValue="Basic Information" icon={<Layers size={15} />}>Basic Information</Tab>
+          <Tab tabValue="Process Information" icon={<Settings size={15} />}>Process Information</Tab>
+          <Tab tabValue="Service Information" icon={<UserCheck size={15} />}>Service Information</Tab>
+        </TabsList>
       </Tabs>
     </div>
   );

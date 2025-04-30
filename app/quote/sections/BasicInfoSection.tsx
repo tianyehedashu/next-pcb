@@ -1,10 +1,17 @@
 import { Input } from "@/components/ui/input";
 import RadioGroup from "../RadioGroup";
-import { Tooltip } from "@components/ui/tooltip";
+import { Tooltip } from "@/components/ui/tooltip";
 import React from "react";
 import { Check } from "lucide-react";
 
-export default function BasicInfoSection({ form, errors, setForm, sectionRef }: any) {
+interface BasicInfoSectionProps {
+  form: any;
+  errors: any;
+  setForm: (form: any) => void;
+  sectionRef: React.RefObject<HTMLDivElement>;
+}
+
+export default function BasicInfoSection({ form, errors, setForm, sectionRef }: BasicInfoSectionProps) {
   return (
     <div ref={sectionRef} className="scroll-mt-32">
       <div className="flex flex-col gap-3 text-xs">
