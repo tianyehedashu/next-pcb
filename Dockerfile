@@ -9,6 +9,7 @@ RUN corepack enable
 
 # 拷贝依赖文件
 COPY package.json pnpm-lock.yaml ./
+COPY .env.local .env.local
 
 # 安装依赖
 RUN pnpm install --frozen-lockfile
@@ -34,6 +35,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.* ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/.env.local ./.env.local
 
 # 启动端口（阿里云会自动注入PORT环境变量）
 ENV PORT=3000

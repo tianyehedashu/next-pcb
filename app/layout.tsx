@@ -4,8 +4,8 @@ import "./globals.css";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
 import { UserProvider } from "@/lib/UserContext";
-import { createServerSupabaseClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies, headers } from "next/headers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,15 +28,26 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // SSR 获取用户
-  const supabase = createServerSupabaseClient({ cookies });
+  const supabase = createPagesServerClient({ cookies, headers });
   const { data: { user } } = await supabase.auth.getUser();
+
+  // 只传递基础字段，兼容 UserProvider 类型
+  const safeUser = user
+    ? {
+        id: user.id,
+        email: user.email,
+        aud: user.aud,
+        role: user.role,
+        // 可根据 ExtendedUser 类型补充其它字段
+      }
+    : null;
 
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <UserProvider initialUser={user}>
+        <UserProvider initialUser={safeUser}>
           <Navbar />
           {children}
           <Footer />
