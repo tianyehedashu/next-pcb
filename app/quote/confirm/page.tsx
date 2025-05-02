@@ -1,7 +1,5 @@
 "use client";
 
-import React from "react";
-import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +11,23 @@ import { calcPcbPrice, calcProductionCycle, getRealDeliveryDate } from "@/lib/pc
 import { calculateShippingCost } from "@/lib/shipping-calculator";
 import OrderStepBar from "@/components/ui/OrderStepBar";
 import { calculateCustomsFee } from "@/lib/customs-fee";
+import { checkQuoteConfirmRequired, countryRequiresTaxId, countryRequiresPersonalId, QuoteConfirmForm } from "./validate";
+import { createLocalStoragePersistor } from "./persistLocal";
+import { createZustandPersistor } from "./persistZustand";
+import { FormPersistor } from "./persist";
+import {
+  Command,
+  CommandInput,
+  CommandGroup,
+  CommandItem,
+  CommandEmpty
+} from "@/components/ui/command";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import dynamic from "next/dynamic";
+const ReactSelect = dynamic(() => import("react-select"), { ssr: false });
 
 // 添加类型定义
 interface GeoState {
@@ -60,6 +75,12 @@ const steps = [
   { label: "Complete", key: "complete" },
 ];
 
+// 选择持久化方式
+const useLocal = true; // 可根据需要切换
+const persistor: FormPersistor<QuoteConfirmForm> = useLocal
+  ? createLocalStoragePersistor<QuoteConfirmForm>("quote_confirm_form")
+  : createZustandPersistor<QuoteConfirmForm>();
+
 export default function QuoteConfirmPage() {
   const router = useRouter();
   const { form: quote, clearForm } = useQuoteStore();
@@ -93,16 +114,68 @@ export default function QuoteConfirmPage() {
   const [customsNote, setCustomsNote] = useState("");
   const [pcbNote, setPcbNote] = useState("");
   const [userNote, setUserNote] = useState("");
+  const [cityPopoverOpen, setCityPopoverOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState("");
+  const filteredCities = useMemo(() => {
+    if (!citySearch) return cities;
+    return cities.filter(c => c.name.toLowerCase().includes(citySearch.toLowerCase()));
+  }, [cities, citySearch]);
 
   // 动态必填逻辑
-  const countryRequiresTaxId = useMemo(() => [
-    "BR", "RU", "KR", "TR", "IN", "ID", "UA", "BY", "KZ", "UZ", "EG", "SA", "AE", "IR", "IQ", "VN", "TH", "PH", "MY", "SG", "TW", "HK", "MO", "CN", "JP", "DE", "FR", "IT", "ES", "GB", "PL", "NL", "BE", "SE", "FI", "NO", "DK", "CZ", "SK", "HU", "AT", "CH", "PT", "IE", "GR", "RO", "BG", "HR", "SI", "LT", "LV", "EE"
-  ].includes(country), [country]);
-  const countryRequiresPersonalId = useMemo(() => ["BR", "RU", "KR"].includes(country), [country]);
+  const countryRequiresTaxIdMemo = useMemo(() => countryRequiresTaxId(country), [country]);
+  const countryRequiresPersonalIdMemo = useMemo(() => countryRequiresPersonalId(country), [country]);
 
   // 步骤条动态高亮逻辑
   const orderStatus = (quote && quote.status) || "inquiry";
   const currentStep = steps.findIndex(s => s.key === orderStatus);
+
+  // 恢复表单（优先级：quote > persistor > 默认值）
+  useEffect(() => {
+    const saved = persistor.load();
+    if (saved) {
+      if (saved.country) setCountry(saved.country);
+      if (saved.state) setState(saved.state);
+      if (saved.city) setCity(saved.city);
+      if (saved.zip) setZip(saved.zip);
+      if (saved.phone) setPhone(saved.phone);
+      if (saved.email) setEmail(saved.email);
+      if (saved.address) setAddress(saved.address);
+      if (saved.courier) setCourier(saved.courier as "dhl" | "fedex" | "ups" | "");
+      if (saved.pcbFile) setPcbFile(saved.pcbFile);
+      if (saved.companyName) setCompanyName(saved.companyName);
+      if (saved.taxId) setTaxId(saved.taxId);
+      if (saved.personalId) setPersonalId(saved.personalId);
+      if (saved.declarationMethod) setDeclarationMethod(saved.declarationMethod);
+      if (saved.purpose) setPurpose(saved.purpose);
+      if (saved.declaredValue) setDeclaredValue(saved.declaredValue);
+      if (saved.customsNote) setCustomsNote(saved.customsNote);
+      if (saved.pcbNote) setPcbNote(saved.pcbNote);
+      if (saved.userNote) setUserNote(saved.userNote);
+    }
+  }, []);
+
+  // 自动保存表单
+  useEffect(() => {
+    const data: QuoteConfirmForm = {
+      country,
+      state,
+      city,
+      zip,
+      phone,
+      email,
+      address,
+      courier,
+      pcbFile,
+      gerberUrl: quote?.gerber?.url,
+      declarationMethod,
+      taxId,
+      personalId,
+      purpose,
+      declaredValue,
+    };
+    persistor.save(data);
+    // eslint-disable-next-line
+  }, [country, state, city, zip, phone, email, address, courier, pcbFile, declarationMethod, taxId, personalId, purpose, declaredValue]);
 
   useEffect(() => {
     // 登录校验
@@ -167,6 +240,7 @@ export default function QuoteConfirmPage() {
     if (!country || !state) {
       setCities([]);
       setCity("");
+      setCityPopoverOpen(false); // 省份变了，先关闭城市下拉
       return;
     }
     setLoadingCity(true);
@@ -184,11 +258,12 @@ export default function QuoteConfirmPage() {
         setCities(validCities);
         setLoadingCity(false);
         setCity("");
+        setCityPopoverOpen(true); // 数据加载完再弹出城市下拉
       })
       .catch(err => {
-        console.error('Failed to fetch cities:', err);
         setCities([]);
         setLoadingCity(false);
+        setCityPopoverOpen(false);
       });
   }, [state, country]);
 
@@ -226,22 +301,31 @@ export default function QuoteConfirmPage() {
   }, [country, declarationMethod, courier, declaredValueNum, quote]);
 
   const checkRequired = () => {
-    if (!address) {
-      setError("Please enter your detailed address.");
-      return false;
-    }
-    if (!pcbFile) {
-      setError("Please upload your PCB file.");
-      return false;
-    }
-    return true;
+    return checkQuoteConfirmRequired({
+      country,
+      state,
+      city,
+      zip,
+      phone,
+      email,
+      address,
+      courier,
+      pcbFile,
+      gerberUrl: quote?.gerber?.url,
+      declarationMethod,
+      taxId,
+      personalId,
+      purpose,
+      declaredValue,
+    }, setError, quote);
   };
 
   const handleFinalSubmit = async () => {
     setError("");
     if (!checkRequired()) return;
     setLoading(true);
-    // 上传 PCB 文件到 Supabase Storage (或你自己的后端)
+
+    // 1. 上传 PCB 文件
     let pcbFileUrl = "";
     if (pcbFile) {
       const { data, error: uploadError } = await supabase.storage
@@ -253,48 +337,144 @@ export default function QuoteConfirmPage() {
         return;
       }
       pcbFileUrl = data?.path || "";
+    } else if (quote?.gerber?.url) {
+      pcbFileUrl = quote.gerber.url;
     }
-    // 计算 PCB 报价和交期
+
+    // 2. 上传地址信息
+    let addressId = null;
+    const { data: addressData, error: addressError } = await supabase
+      .from("addresses")
+      .insert([
+        {
+          country,
+          state,
+          city,
+          zip,
+          address,
+          phone,
+          email,
+          user_id: quote?.user_id || null,
+        },
+      ])
+      .select()
+      .single();
+    if (addressError) {
+      setError("Failed to save address.");
+      setLoading(false);
+      return;
+    }
+    addressId = addressData.id;
+
+    // 3. 上传报关信息
+    let customsId = null;
+    const { data: customsData, error: customsError } = await supabase
+      .from("customs_declarations")
+      .insert([
+        {
+          declaration_method: declarationMethod,
+          company_name: companyName,
+          tax_id: taxId,
+          personal_id: personalId,
+          incoterm,
+          purpose,
+          declared_value: declaredValue,
+          customs_note: customsNote,
+          user_id: quote?.user_id || null,
+        },
+      ])
+      .select()
+      .single();
+    if (customsError) {
+      setError("Failed to save customs info.");
+      setLoading(false);
+      return;
+    }
+    customsId = customsData.id;
+
+    // 4. 上传订单主信息
     const pcbPrice = quote ? calcPcbPrice(quote) : 0;
-    const cycle = quote ? calcProductionCycle(quote) : { cycleDays: 0, reason: [] };
-    const finishDate = quote ? getRealDeliveryDate(new Date(), cycle.cycleDays) : null;
-    // 提交所有数据到后端
-    const submitData = {
-      ...quote,
-      address,
-      country,
-      state,
-      city,
-      zip,
-      courier,
-      pcbFile: pcbFileUrl,
-      phone,
-      email,
-      customsDeclareType,
-      companyName,
-      taxId,
-      personalId,
-      declarationMethod,
-      incoterm,
-      purpose,
-      declaredValue,
-      customsNote,
-      pcbNote,
-      userNote,
-    };
-    const res = await fetch("/api/quote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(submitData),
-    });
+    const shipping = shippingCost ?? 0;
+    const customs = customsFee?.total ?? 0;
+    const total = pcbPrice + shipping + customs;
+    const { data: orderData, error: orderError } = await supabase
+      .from("orders")
+      .insert([
+        {
+          user_id: quote?.user_id || null,
+          address_id: addressId,
+          customs_id: customsId,
+          pcb_spec: quote,
+          gerber_file_url: pcbFileUrl,
+          courier,
+          price: pcbPrice,
+          shipping_cost: shipping,
+          customs_fee: customs,
+          total,
+          pcb_note: pcbNote,
+          user_note: userNote,
+          status: "pending",
+          admin_price: null, // 管理员审核后可填写
+          admin_note: null, // 管理员审核备注
+        },
+      ])
+      .select()
+      .single();
     setLoading(false);
-    if (res.ok) {
-      clearForm();
-      router.push("/quote/success");
-    } else {
-      setError("Failed to submit. Please try again.");
+    if (orderError) {
+      setError("Failed to submit order.");
+      return;
     }
+    persistor.clear(); // 清除缓存
+    clearForm();
+    router.push("/quote/success");
   };
+
+  // 生成 react-select 需要的 options（动态补充当前值）
+  const countryOptions = useMemo(() => {
+    const exists = countries.some(c => c.iso2 === country);
+    let opts = countries.map(c => ({
+      value: c.iso2,
+      label: `${c.emoji ? c.emoji + " " : ""}${c.name}`,
+    }));
+    if (country && !exists) {
+      opts = [
+        ...opts,
+        { value: country, label: country }
+      ];
+    }
+    return opts;
+  }, [countries, country]);
+
+  const stateOptions = useMemo(() => {
+    const exists = states.some(s => s.code === state);
+    let opts = states.map(s => ({
+      value: s.code,
+      label: s.name,
+    }));
+    if (state && !exists) {
+      opts = [
+        ...opts,
+        { value: state, label: state }
+      ];
+    }
+    return opts;
+  }, [states, state]);
+
+  const cityOptions = useMemo(() => {
+    const exists = cities.some(c => c.code === city);
+    let opts = cities.map(c => ({
+      value: c.code,
+      label: c.name,
+    }));
+    if (city && !exists) {
+      opts = [
+        ...opts,
+        { value: city, label: city }
+      ];
+    }
+    return opts;
+  }, [cities, city]);
 
   if (!quote) return null;
 
@@ -324,6 +504,7 @@ export default function QuoteConfirmPage() {
                       ref={fileInputRef}
                       onChange={e => { setPcbFile(e.target.files?.[0] || null); e.target.value = ""; }}
                       className="file:rounded-md file:border file:border-blue-200 file:bg-blue-50 file:text-blue-700 file:font-semibold file:px-3 file:py-1.5 file:mr-3"
+                      required
                     />
                     <p className="text-xs text-muted-foreground mt-1">Supported: .zip, .rar, .7z, .pcb, .gerber</p>
                   </div>
@@ -366,96 +547,117 @@ export default function QuoteConfirmPage() {
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="text-sm font-semibold text-blue-700">Country</label>
-                    <Select value={country} onValueChange={setCountry} disabled={loadingCountry}>
-                      <SelectTrigger className="mt-1" size="default">
-                        <SelectValue placeholder={loadingCountry ? "Loading..." : "Select country"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {countries.map((c: any) => (
-                          <SelectItem key={`country-${c.iso2}`} value={c.iso2}>
-                            {c.emoji} {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <label className="text-sm font-semibold text-blue-700">Country <span className="text-red-500">*</span></label>
+                    <ReactSelect
+                      className="mt-1"
+                      isLoading={loadingCountry}
+                      isDisabled={loadingCountry}
+                      options={countryOptions}
+                      value={countryOptions.find(opt => opt.value === country) || undefined}
+                      onChange={(option: any) => setCountry(option ? option.value : "")}
+                      placeholder={loadingCountry ? "Loading..." : "Select country"}
+                      isClearable
+                      styles={{
+                        control: (base: any) => ({
+                          ...base,
+                          minHeight: 40,
+                          borderColor: "#cbd5e1",
+                          boxShadow: "none",
+                          '&:hover': { borderColor: "#3b82f6" },
+                        }),
+                        menu: (base: any) => ({
+                          ...base,
+                          zIndex: 9999,
+                        }),
+                      }}
+                    />
                   </div>
                   <div>
-                    <label className="text-sm font-semibold text-blue-700">State/Province</label>
-                    <Select
-                      value={state}
-                      onValueChange={setState}
-                      disabled={loadingState}
-                    >
-                      <SelectTrigger className="mt-1" size="default">
-                        <SelectValue placeholder={
-                          loadingState
-                            ? "Loading..."
-                            : (!country
-                                ? "Select Country First"
-                                : (states.length === 0 ? "No states available" : "Select state/province"))
-                        } />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {states.length === 0 ? (
-                          <div className="px-3 py-2 text-muted-foreground text-sm">No states available</div>
-                        ) : (
-                          states.filter(s => s.code).map((s: GeoState) => (
-                            <SelectItem key={s.code} value={s.code}>
-                              {s.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                    <label className="text-sm font-semibold text-blue-700">State/Province <span className="text-red-500">*</span></label>
+                    <ReactSelect
+                      className="mt-1"
+                      isLoading={loadingState}
+                      isDisabled={!country || loadingState}
+                      options={stateOptions}
+                      value={stateOptions.find(opt => opt.value === state) || undefined}
+                      onChange={(option: any) => {
+                        setState(option ? option.value : "");
+                        setCity("");
+                      }}
+                      placeholder={
+                        loadingState
+                          ? "Loading..."
+                          : (!country
+                              ? "Select Country First"
+                              : (states.length === 0 ? "No states available" : "Select state/province"))
+                      }
+                      isClearable
+                      styles={{
+                        control: (base: any) => ({
+                          ...base,
+                          minHeight: 40,
+                          borderColor: "#cbd5e1",
+                          boxShadow: "none",
+                          '&:hover': { borderColor: "#3b82f6" },
+                        }),
+                        menu: (base: any) => ({
+                          ...base,
+                          zIndex: 9999,
+                        }),
+                      }}
+                    />
                   </div>
                   <div>
-                    <label className="text-sm font-semibold text-blue-700">City</label>
-                    <Select value={city} onValueChange={setCity} disabled={!state || loadingCity}>
-                      <SelectTrigger className="mt-1" size="default">
-                        <SelectValue placeholder={loadingCity ? "Loading..." : (!state ? "Select State First" : "Select city")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cities.map((c: GeoCity, index: number) => (
-                          <SelectItem key={c.code ? `city-${c.code}` : `city-${index}`} value={c.code}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <label className="text-sm font-semibold text-blue-700">City <span className="text-red-500">*</span></label>
+                    <ReactSelect
+                      className="mt-1"
+                      isLoading={loadingCity}
+                      isDisabled={!state || loadingCity}
+                      options={cityOptions}
+                      value={cityOptions.find(opt => opt.value === city) || undefined}
+                      onChange={(option: any) => setCity(option ? option.value : "")}
+                      placeholder={
+                        loadingCity
+                          ? "Loading..."
+                          : (!state
+                              ? "Select State First"
+                              : (cities.length === 0 ? "No cities available" : "Select city"))
+                      }
+                      isClearable
+                      styles={{
+                        control: (base: any) => ({
+                          ...base,
+                          minHeight: 40,
+                          borderColor: "#cbd5e1",
+                          boxShadow: "none",
+                          '&:hover': { borderColor: "#3b82f6" },
+                        }),
+                        menu: (base: any) => ({
+                          ...base,
+                          zIndex: 9999,
+                        }),
+                      }}
+                    />
                   </div>
                   <div>
-                    <label className="text-sm font-semibold text-blue-700">Zip/Postal Code</label>
+                    <label className="text-sm font-semibold text-blue-700">Zip/Postal Code <span className="text-red-500">*</span></label>
                     <Input className="mt-1" value={zip} onChange={e => setZip(e.target.value)} placeholder="Enter zip/postal code" />
                   </div>
                   <div>
-                    <label className="text-sm font-semibold text-blue-700">Phone</label>
+                    <label className="text-sm font-semibold text-blue-700">Phone <span className="text-red-500">*</span></label>
                     <Input className="mt-1" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Enter phone number" />
                   </div>
                   <div>
-                    <label className="text-sm font-semibold text-blue-700">Email</label>
+                    <label className="text-sm font-semibold text-blue-700">Email <span className="text-red-500">*</span></label>
                     <Input className="mt-1" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter email address" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-sm font-semibold text-blue-700">Detailed Address</label>
+                    <label className="text-sm font-semibold text-blue-700">Detailed Address <span className="text-red-500">*</span></label>
                     <Input className="mt-1" value={address} onChange={e => setAddress(e.target.value)} placeholder="Enter your detailed address" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-sm font-semibold text-blue-700">Courier</label>
+                    <label className="text-sm font-semibold text-blue-700">Courier <span className="text-red-500">*</span></label>
                     <select className="mt-1 w-full border rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-400" value={courier} onChange={e => setCourier(e.target.value as "dhl" | "fedex" | "ups" | "")}> <option key="default" value="">Select Courier</option> <option key="dhl" value="dhl">DHL Express</option> <option key="fedex" value="fedex">FedEx International</option> <option key="ups" value="ups">UPS Worldwide</option> </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold text-blue-700">Customs Declaration Method</label>
-                    <Select value={customsDeclareType} onValueChange={setCustomsDeclareType}>
-                      <SelectTrigger className="mt-1" size="default">
-                        <SelectValue placeholder="Select declaration method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="self">Self-declare</SelectItem>
-                        <SelectItem value="agent">Agent declare</SelectItem>
-                        <SelectItem value="dutyfree">Duty Free</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                 </div>
                 <div className="col-span-2">
@@ -472,8 +674,8 @@ export default function QuoteConfirmPage() {
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="text-sm font-semibold text-blue-700">Declaration Method *</label>
-                    <Select value={declarationMethod} onValueChange={setDeclarationMethod}>
+                    <label className="text-sm font-semibold text-blue-700">Declaration Method <span className="text-red-500">*</span></label>
+                    <Select value={declarationMethod} onValueChange={v => { setDeclarationMethod(v); setPurpose(""); setDeclaredValue(""); setTaxId(""); setPersonalId(""); }}>
                       <SelectTrigger className="mt-1" size="default">
                         <SelectValue placeholder="Select declaration method" />
                       </SelectTrigger>
@@ -496,15 +698,15 @@ export default function QuoteConfirmPage() {
                         <Input className="mt-1" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Enter company name" />
                       </div>
                       <div>
-                        <label className="text-sm font-semibold text-blue-700">Tax ID / VAT ID / EORI{countryRequiresTaxId ? " *" : ""}</label>
-                        <Input className="mt-1" value={taxId} onChange={e => setTaxId(e.target.value)} placeholder="Enter tax or VAT ID" required={countryRequiresTaxId} />
+                        <label className="text-sm font-semibold text-blue-700">Tax ID / VAT ID / EORI{countryRequiresTaxIdMemo && <span className="text-red-500">*</span>}</label>
+                        <Input className="mt-1" value={taxId} onChange={e => setTaxId(e.target.value)} placeholder="Enter tax or VAT ID" required={countryRequiresTaxIdMemo} />
                       </div>
                       <div>
-                        <label className="text-sm font-semibold text-blue-700">Personal ID / Passport No.{countryRequiresPersonalId ? " *" : ""}</label>
-                        <Input className="mt-1" value={personalId} onChange={e => setPersonalId(e.target.value)} placeholder="Enter personal ID or passport number" required={countryRequiresPersonalId} />
+                        <label className="text-sm font-semibold text-blue-700">Personal ID / Passport No.{countryRequiresPersonalIdMemo && <span className="text-red-500">*</span>}</label>
+                        <Input className="mt-1" value={personalId} onChange={e => setPersonalId(e.target.value)} placeholder="Enter personal ID or passport number" required={countryRequiresPersonalIdMemo} />
                       </div>
                       <div>
-                        <label className="text-sm font-semibold text-blue-700">Purpose *</label>
+                        <label className="text-sm font-semibold text-blue-700">Purpose {declarationMethod !== "dutyfree" && <span className="text-red-500">*</span>}</label>
                         <Select value={purpose} onValueChange={setPurpose}>
                           <SelectTrigger className="mt-1" size="default">
                             <SelectValue placeholder="Select purpose" />
@@ -518,7 +720,7 @@ export default function QuoteConfirmPage() {
                         </Select>
                       </div>
                       <div>
-                        <label className="text-sm font-semibold text-blue-700">Declared Value (USD) *</label>
+                        <label className="text-sm font-semibold text-blue-700">Declared Value (USD) {declarationMethod !== "dutyfree" && <span className="text-red-500">*</span>}</label>
                         <Input className="mt-1" value={declaredValue} onChange={e => setDeclaredValue(e.target.value)} placeholder="Enter declared value" required />
                       </div>
                       <div className="col-span-2">

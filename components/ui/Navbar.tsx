@@ -50,9 +50,17 @@ export default function Navbar() {
   }, [show]);
 
   useEffect(() => {
+    // 初始获取
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
     });
+    // 监听登录/登出
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
   }, []);
 
   const handleSignOut = async () => {

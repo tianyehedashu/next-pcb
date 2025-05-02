@@ -1,19 +1,19 @@
 import * as React from "react";
 
 export function Popover({ open, onOpenChange, children }: any) {
-  const [isOpen, setIsOpen] = React.useState(open ?? false);
-  React.useEffect(() => {
-    setIsOpen(open);
-  }, [open]);
   return (
     <div className="relative">
       {React.Children.map(children, child => {
         if (child.type.displayName === "PopoverTrigger") {
           return React.cloneElement(child, {
-            onClick: () => onOpenChange && onOpenChange(!isOpen),
+            onClick: () => {
+              if (!open) {
+                onOpenChange && onOpenChange(true);
+              }
+            }
           });
         }
-        if (child.type.displayName === "PopoverContent" && isOpen) {
+        if (child.type.displayName === "PopoverContent" && open) {
           return child;
         }
         return child;
