@@ -80,4 +80,60 @@
 
 本公式已覆盖绝大多数PCB打样/小批量场景，结构清晰、易维护、易扩展。后续可根据实际业务需求灵活调整和补充。
 
-如需进一步优化或有特殊业务场景，建议结合实际工厂报价规则持续完善。 
+如需进一步优化或有特殊业务场景，建议结合实际工厂报价规则持续完善。
+
+## 5. 新版计价公式核心逻辑
+
+新版计价公式已支持"单片出货"与"联片出货"两种模式，具体如下：
+
+### 出货形式联动逻辑
+
+- **单片出货（Single Piece）**
+  - 数量（qty）：`singleCount`，单位为 Pcs
+  - 面积（area）：`singleLength * singleWidth`，为单片尺寸
+  - 总价 = 单片单价 × 数量 × 折扣
+
+- **联片出货（Panel by file / Panel Agent）**
+  - 数量（qty）：`singleCount`，单位为 Set（套）
+  - 面积（area）：`singleLength * singleWidth`，为联片尺寸
+  - 若有 `panelSetCount` 字段，则总数量 = `singleCount * panelSetCount`（即总单片数）
+  - 总价 = 联片单价 × 总数量 × 折扣
+
+- **其它参数**
+  - 层数、板材、工艺、表面处理等所有字段均参与加价，详见下方"全字段加价项"。
+  - 数量折扣：批量越大单价越低，折扣规则见代码注释。
+  - 最低价保护：总价最低为30元。
+
+### 公式伪代码
+
+```ts
+if (shipmentType === 'single') {
+  qty = singleCount;
+  area = singleLength * singleWidth;
+} else if (shipmentType === 'panel' || shipmentType === 'panel_agent') {
+  qty = singleCount;
+  area = singleLength * singleWidth;
+  if (panelSetCount) {
+    qty = qty * panelSetCount;
+  }
+}
+// price = (基础价 + 面积 + 层数 + ...所有参数加价) * qty * 折扣
+```
+
+## 6. 主要参数说明
+- `singleCount`：单片/联片数量（Pcs/Set）
+- `singleLength`、`singleWidth`：单片/联片尺寸
+- `panelSetCount`：每套联片包含的单片数（如有）
+- 其它参数见代码注释
+
+## 7. 典型场景举例
+- 单片出货：10片 5x5cm，qty=10，area=25
+- 联片出货：5套 10x10cm，每套含4片，qty=5*4=20，area=100
+
+## 8. 维护建议
+- 若有新出货类型或panel规则，需同步调整UI、详情页和计价公式
+- 详情页、表单、计价公式三者参数需完全一致
+
+---
+
+其余全字段加价项、折扣、最低价保护等逻辑详见源码注释。 

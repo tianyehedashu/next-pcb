@@ -12,6 +12,19 @@ interface BasicInfoSectionProps {
 }
 
 export default function BasicInfoSection({ form, errors, setForm, sectionRef }: BasicInfoSectionProps) {
+  // 联动配置
+  const isSingle = form.shipmentType === "single";
+  const isPanel = form.shipmentType === "panel" || form.shipmentType === "panel_agent";
+  // 单位和label
+  const sizeLabel = isSingle ? "Single Size (cm)" : "Panel Size (cm)";
+  const countLabel = isSingle ? "Single Count" : "Panel Count";
+  const countUnit = isSingle ? "Pcs" : "Set";
+  const sizePlaceholder = isSingle ? ["Length/x", "Width/y"] : ["Length/x", "Width/y"];
+  const countOptions = isSingle ? [1,5,10,20,50,100,200,500,1000] : [1,2,5,10,20,50,100];
+  const sizeRequired = true;
+  const countRequired = true;
+  const borderTip = isPanel ? "If panelization, set ≥5mm. No border may increase cost." : "If you need panelization, suggest set border ≥5mm.";
+
   return (
     <div ref={sectionRef} className="scroll-mt-32">
       <div className="flex flex-col gap-3 text-xs">
@@ -82,18 +95,6 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
             onChange={(v: string) => setForm({ ...form, tg: v })}
           />
         </div>
-        {/* Panel Count */}
-        <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Panel Count</label>
-          <Input
-            type="number"
-            min={1}
-            value={form.panelCount ?? 1}
-            onChange={e => setForm({ ...form, panelCount: Number(e.target.value) })}
-            className="flex-1"
-          />
-          <span className="text-xs text-muted-foreground">How many different panels in the file <span className="text-blue-600 cursor-pointer">Example</span></span>
-        </div>
         {/* Shipment Type */}
         <div className="flex items-center gap-4">
           <label className="w-32 text-xs font-normal text-right">Shipment Type</label>
@@ -108,15 +109,15 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
             onChange={(v: string) => setForm({ ...form, shipmentType: v })}
           />
         </div>
-        {/* Single Size (cm) */}
+        {/* Size (cm) 联动label/placeholder/校验 */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Single Size (cm)</label>
+          <label className="w-32 text-xs font-normal text-right">{sizeLabel}</label>
           <div className="flex items-center gap-3 flex-1">
             <Input
               type="number"
               min={0.1}
               step={0.01}
-              placeholder="Length"
+              placeholder={sizePlaceholder[0]}
               value={form.singleLength ?? ''}
               onChange={e => setForm({ ...form, singleLength: e.target.value })}
               aria-invalid={!!errors.singleLength}
@@ -127,17 +128,19 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               type="number"
               min={0.1}
               step={0.01}
-              placeholder="Width"
+              placeholder={sizePlaceholder[1]}
               value={form.singleWidth ?? ''}
               onChange={e => setForm({ ...form, singleWidth: e.target.value })}
               aria-invalid={!!errors.singleWidth}
               className="w-24"
             />
+            <span className="ml-2 text-xs text-muted-foreground">cm</span>
+            {sizeRequired && <span className="text-destructive text-xs ml-2">* Required</span>}
           </div>
         </div>
-        {/* Single Count */}
+        {/* Count 联动label/单位/校验 */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Single Count</label>
+          <label className="w-32 text-xs font-normal text-right">{countLabel}</label>
           <select
             className="border rounded-md px-3 py-2 flex-1 text-sm"
             value={form.singleCount ?? ''}
@@ -145,13 +148,14 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
             aria-invalid={!!errors.singleCount}
           >
             <option value="">Select</option>
-            {[1,5,10,20,50,100,200,500,1000].map(v => (
-              <option key={v} value={v}>{v} pcs</option>
+            {countOptions.map(v => (
+              <option key={v} value={v}>{v} {countUnit}</option>
             ))}
           </select>
-          {errors.singleCount && <span className="text-destructive text-xs">* Required</span>}
+          <span className="ml-2 text-xs text-muted-foreground">{countUnit}</span>
+          {countRequired && errors.singleCount && <span className="text-destructive text-xs">* Required</span>}
         </div>
-        {/* Process Border (mm) */}
+        {/* 工艺边框说明联动 */}
         <div className="flex items-center gap-4">
           <label className="w-32 text-xs font-normal text-right">Process Border (mm)</label>
           <select
@@ -163,7 +167,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
             <option value="5">5</option>
             <option value="10">10</option>
           </select>
-          <span className="text-xs text-muted-foreground">If panelization, set ≥5mm. No border may increase cost.</span>
+          <span className="text-xs text-muted-foreground">{borderTip}</span>
         </div>
       </div>
     </div>

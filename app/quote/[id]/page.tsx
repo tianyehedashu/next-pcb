@@ -39,6 +39,16 @@ function renderField(label: string, value: any) {
   );
 }
 
+function getSizeLabel(shipmentType: string) {
+  return shipmentType === "single" ? "Single Size (cm)" : "Panel Size (cm)";
+}
+function getCountLabel(shipmentType: string) {
+  return shipmentType === "single" ? "Single Count" : "Panel Count";
+}
+function getCountUnit(shipmentType: string) {
+  return shipmentType === "single" ? "Pcs" : "Set";
+}
+
 export default function QuoteDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -98,7 +108,25 @@ export default function QuoteDetailPage() {
               <span className="font-semibold text-sm">Basic Information</span>
             </div>
             <div className="grid grid-cols-3 gap-x-2 gap-y-1">
-              {BASIC_FIELDS.filter(f => quote[f] !== undefined).map(f => renderField(f, quote[f]))}
+              {BASIC_FIELDS.filter(f => quote[f] !== undefined).map(f => {
+                if (f === "singleLength" || f === "singleWidth") {
+                  return (
+                    <div key={f}>
+                      <span className="font-semibold text-muted-foreground text-xs w-36 truncate">{getSizeLabel(quote.shipmentType)}</span>
+                      <span className="break-all text-sm flex-1">{quote.singleLength} × {quote.singleWidth} <span className="text-xs text-muted-foreground">cm</span></span>
+                    </div>
+                  );
+                }
+                if (f === "singleCount") {
+                  return (
+                    <div key={f}>
+                      <span className="font-semibold text-muted-foreground text-xs w-36 truncate">{getCountLabel(quote.shipmentType)}</span>
+                      <span className="break-all text-sm flex-1">{quote.singleCount} <span className="text-xs text-muted-foreground">{getCountUnit(quote.shipmentType)}</span></span>
+                    </div>
+                  );
+                }
+                return renderField(f, quote[f]);
+              })}
             </div>
           </div>
           {/* Process Info */}

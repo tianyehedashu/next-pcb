@@ -6,6 +6,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useUserStore } from "@/lib/userStore";
+import { User, ListOrdered, LogOut } from "lucide-react";
 
 const ANCHORS = ["services", "why", "testimonials", "contact"];
 
@@ -13,7 +15,7 @@ export default function Navbar() {
   const [show, setShow] = useState(true);
   const [hover, setHover] = useState(false);
   const [navAnim, setNavAnim] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const user = useUserStore(state => state.user);
 
   useEffect(() => {
     let lastScroll = window.scrollY;
@@ -48,20 +50,6 @@ export default function Navbar() {
       setTimeout(() => setNavAnim(false), 400);
     }
   }, [show]);
-
-  useEffect(() => {
-    // 初始获取
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
-    // 监听登录/登出
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => {
-      listener?.subscription.unsubscribe();
-    };
-  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -114,23 +102,35 @@ export default function Navbar() {
           {user ? (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <Button variant="ghost" className="rounded-full px-2">
+                <Button variant="ghost" className="rounded-full px-2 border-2 border-blue-200 shadow-md hover:scale-105 transition">
                   <Avatar>
-                    {/* 头像可扩展，暂用首字母 */}
-                    <AvatarFallback>MY</AvatarFallback>
+                    <AvatarFallback className="bg-gradient-to-tr from-blue-400 to-blue-200 text-white">MY</AvatarFallback>
                   </Avatar>
-                  <span className="ml-2 hidden md:inline font-medium">MY</span>
                 </Button>
               </DropdownMenu.Trigger>
-              <DropdownMenu.Content sideOffset={8} className="z-[200] min-w-[160px] rounded-md bg-white p-2 shadow-xl border">
+              <DropdownMenu.Content sideOffset={8} className="z-[200] min-w-[180px] rounded-2xl bg-white/80 backdrop-blur-xl p-2 shadow-2xl border border-blue-100">
                 <DropdownMenu.Item asChild>
                   <Link href="/profile">
-                    <Button variant="ghost" className="w-full justify-start">User Center</Button>
+                    <Button variant="ghost" className="w-full justify-start gap-2 rounded-xl px-3 py-2 hover:bg-blue-50/80 transition">
+                      <User className="w-4 h-4 text-blue-500" />
+                      <span>User Center</span>
+                    </Button>
                   </Link>
                 </DropdownMenu.Item>
-                <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
+                <DropdownMenu.Item asChild>
+                  <Link href="/quote/orders">
+                    <Button variant="ghost" className="w-full justify-start gap-2 rounded-xl px-3 py-2 hover:bg-blue-50/80 transition">
+                      <ListOrdered className="w-4 h-4 text-blue-500" />
+                      <span>My Orders</span>
+                    </Button>
+                  </Link>
+                </DropdownMenu.Item>
+                <DropdownMenu.Separator className="my-2 h-px bg-blue-100" />
                 <DropdownMenu.Item>
-                  <Button variant="ghost" className="w-full justify-start text-red-500" onClick={handleSignOut}>Sign Out</Button>
+                  <Button variant="ghost" className="w-full justify-start gap-2 rounded-xl px-3 py-2 text-red-500 hover:bg-red-50/80 transition" onClick={handleSignOut}>
+                    <LogOut className="w-4 h-4" />
+                    <span>Sign Out</span>
+                  </Button>
                 </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Root>

@@ -5,54 +5,34 @@ import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
-
-const ADMIN_EMAILS = ["admin@example.com"];
+import { useAdminGuard } from "@/lib/useAdminGuard";
 
 export default function AdminQuotePage() {
   const router = useRouter();
   const [quotes, setQuotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { loading: adminLoading, error: adminError, isAdmin: isAdminGuard } = useAdminGuard();
 
   useEffect(() => {
-    async function checkAdminAndFetch() {
+    (async () => {
       setLoading(true);
       setError("");
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!user || !session) {
-        setError("Please login as admin.");
-        setLoading(false);
-        return;
-      }
-      // 简单用邮箱判断管理员
-      if (!ADMIN_EMAILS.includes(user.email!)) {
-        setError("You are not authorized to view this page.");
-        setLoading(false);
-        return;
-      }
-      setIsAdmin(true);
       // 获取所有quote
-      const access_token = session.access_token;
-      const res = await fetch("/api/quote/admin", {
-        headers: { "Authorization": `Bearer ${access_token}` }
-      });
-      if (!res.ok) {
-        setError("Failed to fetch quotes.");
+      const { data, error: ordersError } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+      if (ordersError) {
+        setError("Failed to fetch orders.");
         setLoading(false);
         return;
       }
-      const result = await res.json();
-      setQuotes(result.data || []);
+      setQuotes(data || []);
       setLoading(false);
-    }
-    checkAdminAndFetch();
+    })();
   }, []);
 
-  if (loading) return <div className="flex justify-center items-center min-h-[60vh]">Loading...</div>;
-  if (error) return <div className="flex justify-center items-center min-h-[60vh] text-destructive">{error}</div>;
-  if (!isAdmin) return null;
+  if (loading || adminLoading) return <div className="flex justify-center items-center min-h-[60vh]">Loading...</div>;
+  if (error || adminError) return <div className="flex justify-center items-center min-h-[60vh] text-destructive">{error || adminError}</div>;
+  if (!isAdminGuard) return null;
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-background py-10">
@@ -81,7 +61,7 @@ export default function AdminQuotePage() {
                   <td className="p-2 border">{q.layers}</td>
                   <td className="p-2 border">{q.status || "pending"}</td>
                   <td className="p-2 border">
-                    <Button size="sm" variant="outline" onClick={() => router.push(`/quote/admin/${q.id}`)}>Review</Button>
+                    <Button size="sm" variant="outline" onClick={() => router.push(`/quote/admin/orders/${q.id}`)}>Review</Button>
                   </td>
                 </tr>
               ))}

@@ -52,6 +52,7 @@ create table if not exists public.addresses (
   address text not null,
   phone text,
   email text,
+  note text,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -83,6 +84,9 @@ create table if not exists public.orders (
   shipping_cost numeric,
   customs_fee numeric,
   total numeric,
+  pcb_price numeric, -- 新增：PCB价格
+  production_cycle integer, -- 新增：生产周期（天）
+  estimated_finish_date date, -- 新增：预计完成日期
   pcb_note text,
   user_note text,
   status text default 'pending',

@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import ProductionCycle from "./ProductionCycle";
 import { calcProductionCycle, isHoliday, getRealDeliveryDate, calcPcbPrice } from "@/lib/pcb-calc";
 import { useQuoteStore } from "@/lib/quoteStore";
+import QuoteSummaryCard from "./QuoteSummaryCard";
 
 function RadioGroup({ name, options, value, onChange }: any) {
   return (
@@ -154,6 +155,11 @@ export default function QuotePage() {
           </main>
           {/* 右侧信息栏 */}
           <aside className="md:block w-[420px] flex flex-col gap-4">
+            <QuoteSummaryCard
+              pcbPrice={pcbPrice}
+              shippingCost={shippingCost}
+              totalPrice={totalPrice}
+            />
             <div className="sticky top-4 z-10">
               <ProductionCycle form={form} calcProductionCycle={calcProductionCycle} getRealDeliveryDate={getRealDeliveryDate} />
               <ShippingTaxEstimationPanel form={form} onShippingCostChange={setShippingCost} />

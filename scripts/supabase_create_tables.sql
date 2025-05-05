@@ -45,5 +45,6 @@ create table if not exists public.orders (
   status text default 'pending',
   admin_price numeric, -- 管理员审核后可填写
   admin_note text,     -- 管理员审核备注
+  admin_update_reason text[], -- 管理员多次修改原因
   created_at timestamp with time zone default timezone('utc'::text, now())
 ); 

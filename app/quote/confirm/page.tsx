@@ -15,18 +15,16 @@ import { checkQuoteConfirmRequired, countryRequiresTaxId, countryRequiresPersona
 import { createLocalStoragePersistor } from "./persistLocal";
 import { createZustandPersistor } from "./persistZustand";
 import { FormPersistor } from "./persist";
-import {
-  Command,
-  CommandInput,
-  CommandGroup,
-  CommandItem,
-  CommandEmpty
-} from "@/components/ui/command";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+
+
+
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
+
+import { useEnsureLogin } from "@/lib/auth";
+import { useUserStore } from "@/lib/userStore";
+import { ORDER_STEPS } from "@/components/ui/order-steps";
+import FileUpload from "@/app/components/custom-ui/FileUpload";
 const ReactSelect = dynamic(() => import("react-select"), { ssr: false });
 
 // 添加类型定义
@@ -63,22 +61,10 @@ const COMMON_COUNTRIES = [
   { iso2: 'MX', name: 'Mexico', emoji: '🇲🇽' },
 ];
 
-// 步骤条组件（主流PCB厂商风格，支持动态高亮）
-const steps = [
-  { label: "Inquiry", key: "inquiry" },
-  { label: "Review", key: "review" },
-  { label: "Confirm & Pay", key: "confirm_pay" },
-  { label: "Scheduling", key: "scheduling" },
-  { label: "Production", key: "production" },
-  { label: "Shipping", key: "shipping" },
-  { label: "Receiving", key: "receiving" },
-  { label: "Complete", key: "complete" },
-];
-
 // 选择持久化方式
 const useLocal = true; // 可根据需要切换
 const persistor: FormPersistor<QuoteConfirmForm> = useLocal
-  ? createLocalStoragePersistor<QuoteConfirmForm>("quote_confirm_form")
+  ? createLocalStoragePersistor<QuoteConfirmForm>(`quote_confirm_form_${typeof window !== "undefined" ? window.location.pathname : "default"}`)
   : createZustandPersistor<QuoteConfirmForm>();
 
 export default function QuoteConfirmPage() {
@@ -127,7 +113,7 @@ export default function QuoteConfirmPage() {
 
   // 步骤条动态高亮逻辑
   const orderStatus = (quote && quote.status) || "inquiry";
-  const currentStep = steps.findIndex(s => s.key === orderStatus);
+  const currentStep = ORDER_STEPS.findIndex(s => s.key === orderStatus);
 
   // 恢复表单（优先级：quote > persistor > 默认值）
   useEffect(() => {
@@ -177,27 +163,26 @@ export default function QuoteConfirmPage() {
     // eslint-disable-next-line
   }, [country, state, city, zip, phone, email, address, courier, pcbFile, declarationMethod, taxId, personalId, purpose, declaredValue]);
 
+  const user = useUserStore(state => state.user);
   useEffect(() => {
-    // 登录校验
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.push(`/login?redirect=/quote/confirm`);
-      // 自动填充邮箱和电话
-      if (session?.user) {
-        setEmail(session.user.email || "");
-        // 假设用户profile表有phone字段
-        supabase
-          .from('profiles')
-          .select('phone')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data: profile }) => {
-            if (profile?.phone) setPhone(profile.phone);
-          });
-      }
-    });
+    // 自动填充邮箱和电话（优先用 userStore）
+    if (user?.email) setEmail(user.email);
+    if (user?.phone) {
+      setPhone(user.phone);
+    } else if (user?.id) {
+      // userStore 没有 phone 时，自动查 profiles 表
+      supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', user.id)
+        .single()
+        .then(({ data: profile }) => {
+          if (profile?.phone) setPhone(profile.phone);
+        });
+    }
     // 取回表单数据
     if (!quote) router.push("/quote"); // 没有数据返回表单页
-  }, [router, quote]);
+  }, [user, quote, router]);
 
   // 国家变化时，重置省/州和城市，并拉取省/州
   useEffect(() => {
@@ -288,7 +273,7 @@ export default function QuoteConfirmPage() {
   }, [quote, country, courier, zip]);
 
   // 计算报关费用
-  const declaredValueNum = Number(declaredValue) || calcPcbPrice(quote);
+  const declaredValueNum = declaredValue === "" ? null : Number(declaredValue);
   const customsFee = useMemo(() => {
     if (!country || !declarationMethod || !courier || !declaredValueNum) return null;
     return calculateCustomsFee({
@@ -320,6 +305,14 @@ export default function QuoteConfirmPage() {
     }, setError, quote);
   };
 
+  // 计算订单金额、周期、预计完成时间，提升到组件作用域
+  const pcbPrice = quote ? calcPcbPrice(quote) : 0;
+  const productionCycle = quote ? calcProductionCycle(quote).cycleDays : null;
+  const estimatedFinishDate = productionCycle ? getRealDeliveryDate(new Date(), productionCycle) : null;
+  const shipping = shippingCost ?? 0;
+  const customs = customsFee?.total ?? 0;
+  const total = pcbPrice + shipping + customs;
+
   const handleFinalSubmit = async () => {
     setError("");
     if (!checkRequired()) return;
@@ -329,16 +322,19 @@ export default function QuoteConfirmPage() {
     let pcbFileUrl = "";
     if (pcbFile) {
       const { data, error: uploadError } = await supabase.storage
-        .from("pcb-files")
+        .from("next-pcb")
         .upload(`pcb_${Date.now()}_${pcbFile.name}`, pcbFile);
       if (uploadError) {
         setError("Failed to upload PCB file.");
         setLoading(false);
+        console.log("[DEBUG] PCB upload error:", uploadError);
         return;
       }
       pcbFileUrl = data?.path || "";
+      console.log("[DEBUG] PCB file uploaded:", pcbFileUrl);
     } else if (quote?.gerber?.url) {
       pcbFileUrl = quote.gerber.url;
+      console.log("[DEBUG] Use existing gerber url:", pcbFileUrl);
     }
 
     // 2. 上传地址信息
@@ -354,7 +350,8 @@ export default function QuoteConfirmPage() {
           address,
           phone,
           email,
-          user_id: quote?.user_id || null,
+          note: userNote,
+          user_id: user?.id || null,
         },
       ])
       .select()
@@ -362,12 +359,15 @@ export default function QuoteConfirmPage() {
     if (addressError) {
       setError("Failed to save address.");
       setLoading(false);
+      console.log("[DEBUG] Address insert error:", addressError);
       return;
     }
     addressId = addressData.id;
+    console.log("[DEBUG] Address saved, id:", addressId);
 
     // 3. 上传报关信息
     let customsId = null;
+    const declaredValueNumForInsert = declaredValue === "" ? null : Number(declaredValue);
     const { data: customsData, error: customsError } = await supabase
       .from("customs_declarations")
       .insert([
@@ -378,9 +378,9 @@ export default function QuoteConfirmPage() {
           personal_id: personalId,
           incoterm,
           purpose,
-          declared_value: declaredValue,
+          declared_value: declaredValueNumForInsert,
           customs_note: customsNote,
-          user_id: quote?.user_id || null,
+          user_id: user?.id || null,
         },
       ])
       .select()
@@ -388,20 +388,35 @@ export default function QuoteConfirmPage() {
     if (customsError) {
       setError("Failed to save customs info.");
       setLoading(false);
+      console.log("[DEBUG] Customs insert error:", customsError);
       return;
     }
     customsId = customsData.id;
+    console.log("[DEBUG] Customs saved, id:", customsId);
 
     // 4. 上传订单主信息
-    const pcbPrice = quote ? calcPcbPrice(quote) : 0;
-    const shipping = shippingCost ?? 0;
-    const customs = customsFee?.total ?? 0;
-    const total = pcbPrice + shipping + customs;
+    console.log("[DEBUG] Order insert params:", {
+      user_id: user?.id,
+      address_id: addressId,
+      customs_id: customsId,
+      pcb_spec: quote,
+      gerber_file_url: pcbFileUrl,
+      courier,
+      price: pcbPrice,
+      shipping_cost: shipping,
+      customs_fee: customs,
+      total,
+      pcb_note: pcbNote,
+      user_note: userNote,
+      status: "inquiry",
+      admin_price: null,
+      admin_note: null,
+    });
     const { data: orderData, error: orderError } = await supabase
       .from("orders")
       .insert([
         {
-          user_id: quote?.user_id || null,
+          user_id: user?.id,
           address_id: addressId,
           customs_id: customsId,
           pcb_spec: quote,
@@ -411,9 +426,12 @@ export default function QuoteConfirmPage() {
           shipping_cost: shipping,
           customs_fee: customs,
           total,
+          pcb_price: pcbPrice,
+          production_cycle: productionCycle,
+          estimated_finish_date: estimatedFinishDate ? estimatedFinishDate.toISOString().slice(0, 10) : null,
           pcb_note: pcbNote,
           user_note: userNote,
-          status: "pending",
+          status: "inquiry",
           admin_price: null, // 管理员审核后可填写
           admin_note: null, // 管理员审核备注
         },
@@ -421,13 +439,15 @@ export default function QuoteConfirmPage() {
       .select()
       .single();
     setLoading(false);
+    console.log("[DEBUG] Order insert result:", { orderData, orderError });
     if (orderError) {
       setError("Failed to submit order.");
       return;
     }
     persistor.clear(); // 清除缓存
     clearForm();
-    router.push("/quote/success");
+    // 跳转到订单详情页
+    router.push(`/quote/orders/${orderData.id}`);
   };
 
   // 生成 react-select 需要的 options（动态补充当前值）
@@ -476,15 +496,34 @@ export default function QuoteConfirmPage() {
     return opts;
   }, [cities, city]);
 
+  useEnsureLogin();
+
   if (!quote) return null;
 
+  // 右侧订单摘要区变量作用域修正
+  const pcbPriceDisplay = pcbPrice;
+  const productionCycleDisplay = productionCycle;
+  const estimatedFinishDateDisplay = estimatedFinishDate;
+  const totalDisplay = total;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-100 font-sans">
-      <div className="container max-w-7xl mx-auto py-10 px-2 md:px-6">
-        <h1 className="text-3xl md:text-4xl font-extrabold text-blue-800 mb-8 tracking-tight drop-shadow-sm">Order Confirmation</h1>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-100 font-sans pt-16">
+      <div className="container max-w-7xl mx-auto py-10 px-2 md:px-4">
+        <div className="flex items-center gap-4 mt-2 mb-8">
+          <Button
+            variant="outline"
+            onClick={() => router.back()}
+            className="h-10"
+          >
+            ← Back
+          </Button>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-blue-800 tracking-tight drop-shadow-sm">
+            Order Confirmation
+          </h1>
+        </div>
         {/* 订单进度步骤条 */}
         <div className="mb-10">
-          <OrderStepBar currentStatus={orderStatus} />
+          <OrderStepBar currentStatus={orderStatus} steps={ORDER_STEPS} />
         </div>
         <div className="grid grid-cols-12 gap-8">
           {/* 左侧主要内容区域 */}
@@ -494,34 +533,20 @@ export default function QuoteConfirmPage() {
               <CardHeader className="border-b pb-4">
                 <CardTitle className="text-xl font-bold text-blue-700">PCB Specifications</CardTitle>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="pt-2 pb-6 px-6">
                 {/* PCB 文件上传区域（顶部，紧凑横向布局） */}
-                <div className="mb-6 flex flex-col md:flex-row items-start gap-4">
-                  <div className="flex-1 max-w-xs">
-                    <Input
-                      type="file"
-                      accept=".zip,.rar,.7z,.pcb,.gerber"
-                      ref={fileInputRef}
-                      onChange={e => { setPcbFile(e.target.files?.[0] || null); e.target.value = ""; }}
-                      className="file:rounded-md file:border file:border-blue-200 file:bg-blue-50 file:text-blue-700 file:font-semibold file:px-3 file:py-1.5 file:mr-3"
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">Supported: .zip, .rar, .7z, .pcb, .gerber</p>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {pcbFile && (
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">
-                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-                        <p className="text-sm text-green-700 truncate font-medium">✓ {pcbFile.name}</p>
-                      </div>
-                    )}
-                    {!pcbFile && quote?.gerber && (
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2">
-                        <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
-                        <p className="text-sm text-blue-700 truncate font-medium">ℹ {quote.gerber.name}</p>
-                      </div>
-                    )}
-                  </div>
+                <div className="mb-2">
+                  <FileUpload
+                    value={pcbFile}
+                    onChange={setPcbFile}
+                    required
+                  />
+                  {!pcbFile && quote?.gerber && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2 w-full mt-2">
+                      <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
+                      <p className="text-sm text-blue-700 truncate font-medium">ℹ {quote.gerber.name}</p>
+                    </div>
+                  )}
                 </div>
                 {/* PCB参数信息 */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -743,15 +768,15 @@ export default function QuoteConfirmPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">PCB Price</span>
-                    <span className="text-lg font-bold text-blue-700">¥ {calcPcbPrice(quote).toFixed(2)}</span>
+                    <span className="text-lg font-bold text-blue-700">¥ {pcbPriceDisplay.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Production Time</span>
-                    <span className="text-base font-semibold text-gray-700">{calcProductionCycle(quote).cycleDays} days</span>
+                    <span className="text-base font-semibold text-gray-700">{productionCycleDisplay != null ? `${productionCycleDisplay} days` : '-'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Estimated Finish</span>
-                    <span className="text-base font-semibold text-gray-700">{quote ? getRealDeliveryDate(new Date(), calcProductionCycle(quote).cycleDays).toLocaleDateString() : '-'}</span>
+                    <span className="text-base font-semibold text-gray-700">{estimatedFinishDateDisplay ? estimatedFinishDateDisplay.toLocaleDateString() : '-'}</span>
                   </div>
                   <div className="flex justify-between items-center pt-3">
                     <span className="text-sm text-muted-foreground">Shipping Cost</span>
@@ -769,7 +794,7 @@ export default function QuoteConfirmPage() {
                   <div className="pt-3 border-t">
                     <div className="flex justify-between items-center">
                       <span className="text-xl font-bold text-blue-900">Total</span>
-                      <span className="text-2xl font-extrabold text-blue-700">¥ {(calcPcbPrice(quote) + (shippingCost ?? 0) + (customsFee?.total ?? 0)).toFixed(2)}</span>
+                      <span className="text-2xl font-extrabold text-blue-700">¥ {totalDisplay.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>

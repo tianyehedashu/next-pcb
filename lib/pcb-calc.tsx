@@ -241,18 +241,26 @@ export function calcPcbPrice(form: any): number {
   // SMT贴片加价
   const SMT_EXTRA = (v: string) => v === "need" ? 50 : 0;
 
-  // 计算面积（mm²）
-  const area = Number(form.singleLength) * Number(form.singleWidth);
-  // 层数
-  const layers = Number(form.layers);
-  // 数量
-  const qty = Number(form.quantity);
+  // 优化：根据出货形式动态计算数量和面积
+  let qty = 1;
+  let area = 0;
+  if (form.shipmentType === 'single') {
+    qty = Number(form.singleCount) || 1;
+    area = Number(form.singleLength) * Number(form.singleWidth) || 0;
+  } else if (form.shipmentType === 'panel' || form.shipmentType === 'panel_agent') {
+    qty = Number(form.singleCount) || 1; // 这里singleCount表示Set数
+    area = Number(form.singleLength) * Number(form.singleWidth) || 0; // 联片尺寸
+    // 若有panelSetCount字段，表示每Set包含多少单片
+    if (form.panelSetCount) {
+      qty = qty * Number(form.panelSetCount);
+    }
+  }
 
   // 价格主公式：基础价+面积+层数+所有参数加价
   let price =
     20 + // 基础费用
     area * 0.05 + // 面积单价
-    (layers - 2) * 8 + // 层数加价（2层起步）
+    (Number(form.layers) - 2) * 8 + // 层数加价（2层起步）
     PCB_TYPE_EXTRA[form.pcbType] + // 板材类型
     HDI_EXTRA[form.hdi] + // HDI工艺
     TG_EXTRA[form.tg] + // TG值
