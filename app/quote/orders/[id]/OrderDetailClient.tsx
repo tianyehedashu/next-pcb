@@ -477,7 +477,7 @@ export default function OrderDetailClient({ user, order }: { user: any, order: D
   const [actionLoading, setActionLoading] = useState(false);
   const [address, setAddress] = useState<Database["public"]["Tables"]["addresses"]["Row"] | null>(null);
   const [customs, setCustoms] = useState<Database["public"]["Tables"]["customs_declarations"]["Row"] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [detailsLoading, setDetailsLoading] = useState(true);
 
   useEffect(() => {
     if (user) setUser(user);
@@ -485,7 +485,7 @@ export default function OrderDetailClient({ user, order }: { user: any, order: D
 
   useEffect(() => {
     async function fetchDetails() {
-      setLoading(true);
+      setDetailsLoading(true);
       const supabase = createClientComponentClient<Database>();
       let addressData = null;
       let customsData = null;
@@ -499,13 +499,13 @@ export default function OrderDetailClient({ user, order }: { user: any, order: D
       }
       setAddress(addressData);
       setCustoms(customsData);
-      setLoading(false);
+      setDetailsLoading(false);
     }
     fetchDetails();
   }, [order.address_id, order.customs_id]);
 
   if (!order) return <div className="flex justify-center items-center min-h-[60vh] text-muted-foreground">No order found.</div>;
-  if (loading) return <div className="flex justify-center items-center min-h-[60vh] text-muted-foreground">Loading...</div>;
+  if (detailsLoading) return <div className="flex justify-center items-center min-h-[60vh] text-muted-foreground">Loading...</div>;
 
   // 取消订单
   async function handleCancelOrder() {
