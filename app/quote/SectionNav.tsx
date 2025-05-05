@@ -1,41 +1,49 @@
-import { Layers, Settings, UserCheck } from "lucide-react";
 import React from "react";
 
+// 英文步骤列表
 const steps = [
-  { label: "Basic Information", icon: <Layers size={16} /> },
-  { label: "Process Information", icon: <Settings size={16} /> },
-  { label: "Service Information", icon: <UserCheck size={16} /> },
+  "Basic Information",
+  "Process Information",
+  "Service Information",
+  "Shipping Information"
 ];
 
-export default function SectionNav({ sectionList, activeSection, onTabChange, sectionRefs }: any) {
+export default function SectionNav({ activeSection, onTabChange, sectionRefs }: { activeSection: number, onTabChange?: (idx: number) => void, sectionRefs: React.RefObject<HTMLDivElement | null>[] }) {
   return (
-    <nav className="bg-white/90 shadow-md border border-blue-100 rounded-2xl py-4 px-2 flex flex-col gap-2 w-full">
-      {sectionList.map((sec: any, idx: number) => {
-        const isActive = idx === activeSection;
-        return (
+    <nav className="w-40 flex flex-col items-center py-4 bg-gradient-to-b from-blue-50/80 via-white to-blue-100/60 rounded-xl shadow-sm select-none">
+      {steps.map((label, idx) => (
+        <React.Fragment key={label}>
           <button
-            key={sec.label}
             type="button"
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all font-semibold text-sm text-left
-              ${isActive
-                ? "bg-blue-50 text-blue-700 shadow border border-blue-500"
-                : "bg-white text-gray-500 border border-transparent hover:bg-blue-50 hover:text-blue-600"}
-            `}
+            className="flex flex-col items-center group bg-transparent border-0 p-0 focus:outline-none transition-all"
             onClick={() => {
-              sectionRefs[idx]?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-              if (onTabChange) onTabChange(idx);
+              if (sectionRefs && sectionRefs[idx]?.current) {
+                sectionRefs[idx].current.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+              onTabChange && onTabChange(idx);
             }}
-            aria-current={isActive ? "step" : undefined}
+            aria-current={idx === activeSection ? "step" : undefined}
           >
-            <span className={`flex items-center justify-center w-7 h-7 rounded-full border-2 mr-2 transition-all
-              ${isActive ? "bg-blue-600 border-blue-600 text-white" : "bg-gray-100 border-gray-300 text-gray-400"}
-            `}>
-              {steps[idx]?.icon}
+            {idx === activeSection ? (
+              <span className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center mb-2 mt-1 shadow-md" />
+            ) : (
+              <span className="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center mb-2 mt-1" />
+            )}
+            <span
+              className={`mb-2 text-xs truncate max-w-[120px] transition
+                ${idx === activeSection
+                  ? "text-blue-700 font-bold"
+                  : "text-gray-400 group-hover:text-blue-500"}
+              `}
+            >
+              {label}
             </span>
-            <span className="truncate">{sec.label}</span>
           </button>
-        );
-      })}
+          {idx < steps.length - 1 && (
+            <div className="h-8 border-l border-dashed border-gray-300 mx-auto" />
+          )}
+        </React.Fragment>
+      ))}
     </nav>
   );
 } 

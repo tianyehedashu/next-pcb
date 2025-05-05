@@ -25,6 +25,7 @@ import { useEnsureLogin } from "@/lib/auth";
 import { useUserStore } from "@/lib/userStore";
 import { ORDER_STEPS } from "@/components/ui/order-steps";
 import FileUpload from "@/app/components/custom-ui/FileUpload";
+import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
 const ReactSelect = dynamic(() => import("react-select"), { ssr: false });
 
 // 添加类型定义
@@ -194,7 +195,6 @@ export default function QuoteConfirmPage() {
       return;
     }
     setLoadingState(true);
-    console.log('Fetching states for country:', country);
     fetch(`/api/geo/states?country=${country}`)
       .then(res => {
         if (!res.ok) {
@@ -214,7 +214,6 @@ export default function QuoteConfirmPage() {
         setCity("");
       })
       .catch(err => {
-        console.error('Failed to fetch states:', err);
         setStates([]);
         setLoadingState(false);
       });
@@ -327,14 +326,11 @@ export default function QuoteConfirmPage() {
       if (uploadError) {
         setError("Failed to upload PCB file.");
         setLoading(false);
-        console.log("[DEBUG] PCB upload error:", uploadError);
         return;
       }
       pcbFileUrl = data?.path || "";
-      console.log("[DEBUG] PCB file uploaded:", pcbFileUrl);
     } else if (quote?.gerber?.url) {
       pcbFileUrl = quote.gerber.url;
-      console.log("[DEBUG] Use existing gerber url:", pcbFileUrl);
     }
 
     // 2. 上传地址信息
@@ -359,11 +355,9 @@ export default function QuoteConfirmPage() {
     if (addressError) {
       setError("Failed to save address.");
       setLoading(false);
-      console.log("[DEBUG] Address insert error:", addressError);
       return;
     }
     addressId = addressData.id;
-    console.log("[DEBUG] Address saved, id:", addressId);
 
     // 3. 上传报关信息
     let customsId = null;
@@ -388,30 +382,11 @@ export default function QuoteConfirmPage() {
     if (customsError) {
       setError("Failed to save customs info.");
       setLoading(false);
-      console.log("[DEBUG] Customs insert error:", customsError);
       return;
     }
     customsId = customsData.id;
-    console.log("[DEBUG] Customs saved, id:", customsId);
 
     // 4. 上传订单主信息
-    console.log("[DEBUG] Order insert params:", {
-      user_id: user?.id,
-      address_id: addressId,
-      customs_id: customsId,
-      pcb_spec: quote,
-      gerber_file_url: pcbFileUrl,
-      courier,
-      price: pcbPrice,
-      shipping_cost: shipping,
-      customs_fee: customs,
-      total,
-      pcb_note: pcbNote,
-      user_note: userNote,
-      status: "inquiry",
-      admin_price: null,
-      admin_note: null,
-    });
     const { data: orderData, error: orderError } = await supabase
       .from("orders")
       .insert([
@@ -439,7 +414,6 @@ export default function QuoteConfirmPage() {
       .select()
       .single();
     setLoading(false);
-    console.log("[DEBUG] Order insert result:", { orderData, orderError });
     if (orderError) {
       setError("Failed to submit order.");
       return;
@@ -497,6 +471,9 @@ export default function QuoteConfirmPage() {
   }, [cities, city]);
 
   useEnsureLogin();
+
+  const { rate, loading: rateLoading, error: rateError } = useCnyToUsdRate();
+  const toUSD = (cny: number) => cny * rate;
 
   if (!quote) return null;
 
@@ -760,7 +737,7 @@ export default function QuoteConfirmPage() {
           </div>
           {/* 右侧订单摘要 */}
           <div className="col-span-12 lg:col-span-4 space-y-8">
-            <Card className="sticky top-24 shadow-xl border-blue-200 bg-gradient-to-br from-blue-100/80 via-white to-blue-50/80">
+            <Card className="sticky top-24 shadow-xl border-blue-200 bg-gradient-to-br from-blue-100/80 via-white to-blue-50/80 max-w-xl w-full">
               <CardHeader className="border-b pb-4">
                 <CardTitle className="text-xl font-bold text-blue-800">Order Summary</CardTitle>
               </CardHeader>
@@ -768,7 +745,7 @@ export default function QuoteConfirmPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">PCB Price</span>
-                    <span className="text-lg font-bold text-blue-700">¥ {pcbPriceDisplay.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-blue-700">$ {toUSD(pcbPriceDisplay).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Production Time</span>
@@ -794,7 +771,7 @@ export default function QuoteConfirmPage() {
                   <div className="pt-3 border-t">
                     <div className="flex justify-between items-center">
                       <span className="text-xl font-bold text-blue-900">Total</span>
-                      <span className="text-2xl font-extrabold text-blue-700">¥ {totalDisplay.toFixed(2)}</span>
+                      <span className="text-2xl font-extrabold text-blue-700">$ {toUSD(totalDisplay).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>

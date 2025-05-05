@@ -3,6 +3,9 @@ import RadioGroup from "../RadioGroup";
 import { Tooltip } from "@/components/ui/tooltip";
 import React from "react";
 import { Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import CustomNumberSelect from "@/app/components/custom-ui/CustomNumberSelect";
 
 interface BasicInfoSectionProps {
   form: any;
@@ -24,13 +27,17 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
   const sizeRequired = true;
   const countRequired = true;
   const borderTip = isPanel ? "If panelization, set ≥5mm. No border may increase cost." : "If you need panelization, suggest set border ≥5mm.";
+  // 常用数量选项
+  const commonCounts = [1, 5, 10, 20, 50, 100, 200, 500, 1000];
 
   return (
     <div ref={sectionRef} className="scroll-mt-32">
       <div className="flex flex-col gap-3 text-xs">
         {/* PCB Type */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">PCB Type</label>
+          <Tooltip content={<div className="max-w-xs text-left">Select the base material for your PCB. FR-4 is the most common.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">PCB Type</label>
+          </Tooltip>
           <RadioGroup
             name="pcbType"
             options={[
@@ -46,7 +53,9 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
         </div>
         {/* Layers */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Layers</label>
+          <Tooltip content={<div className="max-w-xs text-left">Number of copper layers. More layers allow for complex circuits.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Layers</label>
+          </Tooltip>
           <RadioGroup
             name="layers"
             options={[1,2,4,6,8,10,12,14,16,18,20].map(v => ({ value: v, label: `${v}` }))}
@@ -56,7 +65,9 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
         </div>
         {/* Board Thickness */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Board Thickness (mm)</label>
+          <Tooltip content={<div className="max-w-xs text-left">Standard thickness is 1.6mm. Thicker boards are more robust but costlier.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Board Thickness (mm)</label>
+          </Tooltip>
           <RadioGroup
             name="thickness"
             options={["0.6","0.8","1.0","1.2","1.6","2.0","2.5","3.0","3.2"].map(v => ({ value: v, label: v }))}
@@ -66,7 +77,9 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
         </div>
         {/* HDI */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">HDI (Blind/Buried Vias)</label>
+          <Tooltip content={<div className="max-w-xs text-left">High Density Interconnect. Required for fine-pitch and high-layer-count PCBs.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">HDI (Blind/Buried Vias)</label>
+          </Tooltip>
           <RadioGroup
             name="hdi"
             options={[
@@ -81,15 +94,15 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
         </div>
         {/* TG Value */}
         <div className="flex items-center gap-4">
-          <Tooltip content="TG Value (Glass Transition Temperature) indicates the temperature at which the PCB base material changes from glassy to rubbery state. Higher TG means better heat resistance.">
+          <Tooltip content={<div className="whitespace-pre-line max-w-xs text-left">TG Value (Glass Transition Temperature) indicates the temperature at which the PCB base material changes from glassy to rubbery state.\nHigher TG means better heat resistance.</div>}>
             <label className="w-32 text-xs font-normal text-right cursor-help">TG Value</label>
           </Tooltip>
           <RadioGroup
             name="tg"
             options={[
-              { value: "TG170", label: "TG170" },
+              { value: "TG130", label: "TG130" },
               { value: "TG150", label: "TG150" },
-              { value: "TG135", label: "TG135" },
+              { value: "TG170", label: "TG170" },
             ]}
             value={form.tg}
             onChange={(v: string) => setForm({ ...form, tg: v })}
@@ -97,7 +110,9 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
         </div>
         {/* Shipment Type */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Shipment Type</label>
+          <Tooltip content={<div className="max-w-xs text-left">Single: Individual boards. Panel: Multiple boards in one panel for assembly.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Shipment Type</label>
+          </Tooltip>
           <RadioGroup
             name="shipmentType"
             options={[
@@ -111,7 +126,9 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
         </div>
         {/* Size (cm) 联动label/placeholder/校验 */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">{sizeLabel}</label>
+          <Tooltip content={<div className="max-w-xs text-left">Enter the finished size of your PCB in centimeters (cm).</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">{sizeLabel}</label>
+          </Tooltip>
           <div className="flex items-center gap-3 flex-1">
             <Input
               type="number"
@@ -138,26 +155,25 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
             {sizeRequired && <span className="text-destructive text-xs ml-2">* Required</span>}
           </div>
         </div>
-        {/* Count 联动label/单位/校验 */}
-        <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">{countLabel}</label>
-          <select
-            className="border rounded-md px-3 py-2 flex-1 text-sm"
-            value={form.singleCount ?? ''}
-            onChange={e => setForm({ ...form, singleCount: e.target.value })}
-            aria-invalid={!!errors.singleCount}
-          >
-            <option value="">Select</option>
-            {countOptions.map(v => (
-              <option key={v} value={v}>{v} {countUnit}</option>
-            ))}
-          </select>
+        {/* Single Count 区块（批量选项+自定义输入+确定） */}
+        <div className="flex items-center gap-2 mb-2">
+          <Tooltip content={<div className="max-w-xs text-left">Total quantity of boards or panels you need.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">{countLabel}</label>
+          </Tooltip>
+          <CustomNumberSelect
+            value={form.singleCount}
+            onChange={v => setForm({ ...form, singleCount: v })}
+            options={[5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 125, 150, 200, 250, 300, 350, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 6500, 7000, 7500, 9000]}
+            unit={countUnit}
+            placeholder="请选择"
+          />
           <span className="ml-2 text-xs text-muted-foreground">{countUnit}</span>
-          {countRequired && errors.singleCount && <span className="text-destructive text-xs">* Required</span>}
         </div>
         {/* 工艺边框说明联动 */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Process Border (mm)</label>
+          <Tooltip content={<div className="max-w-xs text-left">If panelization, set border ≥5mm. No border may increase cost.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Process Border (mm)</label>
+          </Tooltip>
           <select
             className="border rounded-md px-3 py-2 flex-1 text-sm"
             value={form.border ?? ''}

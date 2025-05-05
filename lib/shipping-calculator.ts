@@ -118,9 +118,12 @@ const serviceTypeMultipliers = {
 
 // 材料密度 (g/cm³)
 const materialDensity = {
-  'fr4': 1.85, // FR4标准密度
-  'aluminum': 2.7,
-  'copper': 8.96
+  fr4: 1.85, // FR4标准密度
+  aluminum: 2.7,
+  copper: 8.96,
+  rogers: 2.2,      // 典型Rogers板密度
+  flex: 1.7,        // 典型柔性板密度
+  "rigid-flex": 1.8 // 典型刚挠结合板密度
 };
 
 // 铜层厚度换算 (1 oz = 35 微米)
@@ -128,14 +131,15 @@ const OZ_TO_MM = 0.035;
 
 // 计算单片PCB重量（克）
 function calculateSinglePCBWeight(specs: PCBSpecs): number {
-  const length = parseFloat(specs.singleLength);
-  const width = parseFloat(specs.singleWidth);
-  const thickness = parseFloat(specs.thickness); // 单位：mm
+  const length = parseFloat(specs.singleLength) || 0;
+  const width = parseFloat(specs.singleWidth) || 0;
+  const thickness = parseFloat(specs.thickness) || 0; // 单位：mm
   const area = length * width; // 面积(cm²)
   
   // 1. 计算基材重量
+  const density = materialDensity[specs.pcbType as keyof typeof materialDensity] ?? 1.85; // 默认FR4密度兜底
   const baseVolume = area * (thickness / 10); // 体积(cm³)
-  const baseWeight = baseVolume * materialDensity[specs.pcbType as keyof typeof materialDensity];
+  const baseWeight = baseVolume * density;
   
   // 2. 计算铜层重量
   const copperOz = parseFloat(specs.copperWeight); // 单位：oz

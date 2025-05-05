@@ -12,13 +12,14 @@ import { ArrowRight, Download, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import OrderStepBar from "@/components/ui/OrderStepBar";
 import Pagination from "../../components/ui/pagination";
+import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 
 export default function OrdersPage() {
-  useEnsureLogin();
+  const { rate, loading, error } = useCnyToUsdRate();
+  const toUSD = (cny: number) => cny * rate;
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const supabase = createClientComponentClient<Database>();
   const user = useUserStore(state => state.user);
@@ -99,7 +100,7 @@ export default function OrdersPage() {
               <Card className="rounded-xl shadow border-blue-100 bg-white/90">
                 <CardHeader className="pb-2">
                   <span className="text-xs text-slate-400">Total Amount</span>
-                  <span className="text-2xl font-bold text-blue-900 mt-1">¥ {totalAmount.toFixed(2)}</span>
+                  <span className="text-2xl font-bold text-blue-900 mt-1">$ {toUSD(totalAmount).toFixed(2)}</span>
                 </CardHeader>
               </Card>
             </div>

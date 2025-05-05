@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectItem, SelectContent, SelectTrigger } from "@/components/ui/select";
 import { getPublicFileUrl } from "@/lib/supabase-file-url";
 import DownloadButton from "../../../../components/custom-ui/DownloadButton";
+import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
 
 // 字段分组与友好名映射
 const FIELD_GROUPS = [
@@ -138,6 +139,8 @@ function OrderShippingCard({ order }: { order: any }) {
 }
 
 function OrderCustomsCard({ customs }: { customs: any }) {
+  const { rate, loading, error } = useCnyToUsdRate();
+  const toUSD = (cny: number) => cny * rate;
   return (
     <Card className="mb-4">
       <CardHeader className="pb-2">
@@ -150,7 +153,7 @@ function OrderCustomsCard({ customs }: { customs: any }) {
         <div><span className="text-xs text-muted-foreground font-semibold uppercase">个人ID</span><div className="text-base font-semibold text-gray-800 break-all">{customs?.personal_id ?? "-"}</div></div>
         <div><span className="text-xs text-muted-foreground font-semibold uppercase">贸易术语</span><div className="text-base font-semibold text-gray-800 break-all">{customs?.incoterm ?? "-"}</div></div>
         <div><span className="text-xs text-muted-foreground font-semibold uppercase">用途</span><div className="text-base font-semibold text-gray-800 break-all">{customs?.purpose ?? "-"}</div></div>
-        <div><span className="text-xs text-muted-foreground font-semibold uppercase">申报价值</span><div className="text-base font-semibold text-gray-800 break-all">{customs?.declared_value != null ? `¥ ${customs?.declared_value}` : "-"}</div></div>
+        <div><span className="text-xs text-muted-foreground font-semibold uppercase">申报价值</span><div className="text-base font-semibold text-gray-800 break-all">{customs?.declared_value != null ? `$ ${toUSD(customs?.declared_value).toFixed(2)}` : "-"}</div></div>
         <div className="col-span-2"><span className="text-xs text-muted-foreground font-semibold uppercase">报关备注</span><div className="text-base font-semibold text-gray-800 break-all">{customs?.customs_note ?? "-"}</div></div>
       </CardContent>
     </Card>
@@ -328,6 +331,8 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
   });
   const [saving, setSaving] = useState(false);
   const [recalcLoading, setRecalcLoading] = useState(false);
+  const { rate, loading, error } = useCnyToUsdRate();
+  const toUSD = (cny: number) => cny * rate;
   // 重新计算
   function handleRecalc() {
 
@@ -446,7 +451,7 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
             {edit ? (
               <Input type="number" value={form.pcb_price} onChange={e => setForm(f => ({ ...f, pcb_price: e.target.value }))} className="w-32" />
             ) : (
-              <span className="text-lg font-bold text-blue-700">¥ {order.pcb_price?.toFixed(2) ?? '-'}</span>
+              <span className="text-lg font-bold text-blue-700">$ {order.pcb_price ? toUSD(order.pcb_price).toFixed(2) : '-'}</span>
             )}
           </div>
           <div className="flex justify-between items-center">
@@ -475,7 +480,7 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
             {edit ? (
               <Input type="number" value={form.shipping_cost} onChange={e => setForm(f => ({ ...f, shipping_cost: e.target.value }))} className="w-32" />
             ) : (
-              <span className="text-lg font-bold text-blue-700">¥ {order.shipping_cost?.toFixed(2) ?? '-'}</span>
+              <span className="text-lg font-bold text-blue-700">$ {order.shipping_cost ? toUSD(order.shipping_cost).toFixed(2) : '-'}</span>
             )}
           </div>
           <div className="flex justify-between items-center">
@@ -483,7 +488,7 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
             {edit ? (
               <Input type="number" value={form.customs_fee} onChange={e => setForm(f => ({ ...f, customs_fee: e.target.value }))} className="w-32" />
             ) : (
-              <span className="text-base font-semibold text-blue-700">¥ {order.customs_fee?.toFixed(2) ?? '-'}</span>
+              <span className="text-base font-semibold text-blue-700">$ {order.customs_fee ? toUSD(order.customs_fee).toFixed(2) : '-'}</span>
             )}
           </div>
           <div className="pt-3 border-t">
@@ -492,7 +497,7 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
               {edit ? (
                 <Input type="number" value={form.total} onChange={e => setForm(f => ({ ...f, total: e.target.value }))} className="w-32" />
               ) : (
-                <span className="text-2xl font-extrabold text-blue-700">¥ {order.total?.toFixed(2) ?? '-'}</span>
+                <span className="text-2xl font-extrabold text-blue-700">$ {order.total ? toUSD(order.total).toFixed(2) : '-'}</span>
               )}
             </div>
           </div>

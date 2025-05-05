@@ -18,7 +18,7 @@ const defaultForm = {
   delivery: "standard",
   gerber: null as File | null,
   hdi: "none",
-  tg: "TG170",
+  tg: "TG130",
   panelCount: 1,
   shipmentType: "single",
   singleLength: "10",

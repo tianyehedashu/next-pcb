@@ -1,6 +1,7 @@
 import RadioGroup from "../RadioGroup";
 import React from "react";
 import { Check } from "lucide-react";
+import { Tooltip } from "@/components/ui/tooltip";
 
 export default function ProcessInfoSection({ form, errors, setForm, sectionRef }: any) {
   return (
@@ -8,7 +9,9 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
       <div className="flex flex-col gap-3 text-xs">
         {/* Copper Weight (oz) */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Copper Weight (oz)</label>
+          <Tooltip content={<div className="max-w-xs text-left">Copper thickness per square foot. 1oz is standard for most PCBs.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Copper Weight (oz)</label>
+          </Tooltip>
           <RadioGroup
             name="copperWeight"
             options={["1","2","3","4"].map(v => ({ value: v, label: v+"oz" }))}
@@ -18,7 +21,9 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Min Trace/Spacing (mil) */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Min Trace/Spacing (mil)</label>
+          <Tooltip content={<div className="max-w-xs text-left">Minimum width and spacing of copper traces. Smaller values allow for denser routing but are harder to manufacture.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Min Trace/Spacing (mil)</label>
+          </Tooltip>
           <RadioGroup
             name="minTrace"
             options={["10/10","8/8","6/6","5/5","4/4","3.5/3.5"].map(v => ({ value: v, label: v }))}
@@ -28,7 +33,9 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Min Hole Size (mm) */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Min Hole Size (mm)</label>
+          <Tooltip content={<div className="max-w-xs text-left">Smallest drill hole diameter allowed on your PCB.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Min Hole Size (mm)</label>
+          </Tooltip>
           <RadioGroup
             name="minHole"
             options={["0.3","0.25","0.2","0.15"].map(v => ({ value: v, label: v }))}
@@ -38,67 +45,43 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Solder Mask Color */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Solder Mask Color</label>
-          <div className="flex flex-wrap gap-3">
-            {["green","blue","red","yellow","black","white"].map(v => (
-              <button
-                key={v}
-                type="button"
-                className={`relative w-12 h-8 rounded-md border text-xs font-normal transition-all flex items-center justify-center
-                  ${form.solderMask === v
-                    ? "ring-2 ring-blue-500 border-blue-600"
-                    : "border-gray-300 hover:border-blue-400"}
-                  ${v === "green" ? "bg-green-500 text-white" : ""}
-                  ${v === "blue" ? "bg-blue-500 text-white" : ""}
-                  ${v === "red" ? "bg-red-500 text-white" : ""}
-                  ${v === "black" ? "bg-neutral-800 text-white" : ""}
-                  ${v === "white" ? "bg-white text-gray-700 border" : ""}
-                  ${v === "yellow" ? "bg-yellow-300 text-gray-900" : ""}
-                `}
-                onClick={() => setForm({ ...form, solderMask: v })}
-                aria-label={v.charAt(0).toUpperCase() + v.slice(1)}
-              >
-                {v.charAt(0).toUpperCase() + v.slice(1)}
-                {form.solderMask === v && (
-                  <span className="absolute right-0.5 bottom-0.5">
-                    <Check size={14} className="text-blue-100 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]" />
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+          <Tooltip content={<div className="max-w-xs text-left">Protective layer color applied to PCB surface. Green is most common.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Solder Mask Color</label>
+          </Tooltip>
+          <RadioGroup
+            name="solderMask"
+            options={[
+              { value: "green", label: <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-green-500 border border-gray-300"></span>Green</span> },
+              { value: "blue", label: <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-blue-500 border border-gray-300"></span>Blue</span> },
+              { value: "red", label: <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-red-500 border border-gray-300"></span>Red</span> },
+              { value: "yellow", label: <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-yellow-300 border border-gray-300"></span>Yellow</span> },
+              { value: "black", label: <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-neutral-800 border border-gray-300"></span>Black</span> },
+              { value: "white", label: <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-white border border-gray-300"></span>White</span> },
+            ]}
+            value={form.solderMask}
+            onChange={(v: string) => setForm({ ...form, solderMask: v })}
+          />
         </div>
         {/* Silkscreen Color */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Silkscreen Color</label>
-          <div className="flex flex-wrap gap-3">
-            {[{ value: "white", label: "White" }, { value: "black", label: "Black" }].map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`relative w-16 h-8 rounded-md border text-xs font-normal transition-all flex items-center justify-center
-                  ${form.silkscreen === opt.value
-                    ? "ring-2 ring-blue-500 border-blue-600"
-                    : "border-gray-300 hover:border-blue-400"}
-                  ${opt.value === "white" ? "bg-white text-gray-700" : ""}
-                  ${opt.value === "black" ? "bg-neutral-800 text-white" : ""}
-                `}
-                onClick={() => setForm({ ...form, silkscreen: opt.value })}
-                aria-label={opt.label}
-              >
-                {opt.label}
-                {form.silkscreen === opt.value && (
-                  <span className="absolute right-0.5 bottom-0.5">
-                    <Check size={14} className="text-blue-100 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]" />
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+          <Tooltip content={<div className="max-w-xs text-left">Color of printed text/graphics on PCB. White is standard.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Silkscreen Color</label>
+          </Tooltip>
+          <RadioGroup
+            name="silkscreen"
+            options={[
+              { value: "white", label: <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-white border border-gray-300"></span>White</span> },
+              { value: "black", label: <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-neutral-800 border border-gray-300"></span>Black</span> },
+            ]}
+            value={form.silkscreen}
+            onChange={(v: string) => setForm({ ...form, silkscreen: v })}
+          />
         </div>
         {/* Surface Finish */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Surface Finish</label>
+          <Tooltip content={<div className="max-w-xs text-left">Final coating on exposed copper pads. Affects solderability and shelf life.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Surface Finish</label>
+          </Tooltip>
           <RadioGroup
             name="surfaceFinish"
             options={[
@@ -115,7 +98,9 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Impedance Control */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Impedance Control</label>
+          <Tooltip content={<div className="max-w-xs text-left">Required for high-speed signal PCBs to ensure signal integrity.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Impedance Control</label>
+          </Tooltip>
           <RadioGroup
             name="impedance"
             options={[
@@ -128,7 +113,9 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Castellated Holes */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Castellated Holes</label>
+          <Tooltip content={<div className="max-w-xs text-left">Half-plated holes on PCB edge, used for board-to-board soldering.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Castellated Holes</label>
+          </Tooltip>
           <RadioGroup
             name="castellated"
             options={[
@@ -141,7 +128,9 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Edge Gold Fingers */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Edge Gold Fingers</label>
+          <Tooltip content={<div className="max-w-xs text-left">Gold-plated contacts on PCB edge, used for connectors.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Edge Gold Fingers</label>
+          </Tooltip>
           <RadioGroup
             name="goldFingers"
             options={[
@@ -154,7 +143,9 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Edge Plating */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Edge Plating</label>
+          <Tooltip content={<div className="max-w-xs text-left">Plating on the edge of the PCB for special connection needs.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Edge Plating</label>
+          </Tooltip>
           <RadioGroup
             name="edgePlating"
             options={[
@@ -167,7 +158,9 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Half Holes */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Half Holes</label>
+          <Tooltip content={<div className="max-w-xs text-left">Plated half-holes on PCB edge, often for module mounting.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Half Holes</label>
+          </Tooltip>
           <RadioGroup
             name="halfHole"
             options={[
@@ -186,7 +179,9 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Edge Covering */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Edge Covering</label>
+          <Tooltip content={<div className="max-w-xs text-left">Solder mask coverage on PCB edge for protection.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Edge Covering</label>
+          </Tooltip>
           <RadioGroup
             name="edgeCover"
             options={[
@@ -205,7 +200,9 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Solder Mask Coverage */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Solder Mask Coverage</label>
+          <Tooltip content={<div className="max-w-xs text-left">Choose how vias are covered or plugged with solder mask.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Solder Mask Coverage</label>
+          </Tooltip>
           <div className="flex-1">
             <RadioGroup
               name="maskCover"

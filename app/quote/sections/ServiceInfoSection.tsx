@@ -1,6 +1,7 @@
 import RadioGroup from "../RadioGroup";
 import CheckboxGroup from "../CheckboxGroup";
 import React from "react";
+import { Tooltip } from "@/components/ui/tooltip";
 
 export default function ServiceInfoSection({ form, errors, setForm, sectionRef }: any) {
   return (
@@ -8,7 +9,9 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
       <div className="flex flex-col gap-3 text-xs">
         {/* Test Method */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Test Method</label>
+          <Tooltip content={<div className="max-w-xs text-left">Electrical test method for finished PCBs. Sample free: basic test; Paid: full test for all boards.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Test Method</label>
+          </Tooltip>
           <RadioGroup
             name="testMethod"
             options={[
@@ -21,7 +24,9 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Production Cap Confirmation */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Production Cap Confirmation</label>
+          <Tooltip content={<div className="max-w-xs text-left">Confirm production capacity before order. Auto: system confirms; Manual: staff confirms.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Production Cap Confirmation</label>
+          </Tooltip>
           <RadioGroup
             name="prodCap"
             options={[
@@ -35,7 +40,9 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Product Report */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Product Report</label>
+          <Tooltip content={<div className="max-w-xs text-left">Select which reports you need with your shipment, e.g. cut sheet, sample coupon, etc.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Product Report</label>
+          </Tooltip>
           <CheckboxGroup
             name="productReport"
             options={[
@@ -50,7 +57,9 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Reject Board */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Reject Board</label>
+          <Tooltip content={<div className="max-w-xs text-left">Accept or reject boards that do not meet quality standards.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Reject Board</label>
+          </Tooltip>
           <RadioGroup
             name="rejectBoard"
             options={[
@@ -63,7 +72,9 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Yin Yang Pin */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Yin Yang Pin</label>
+          <Tooltip content={<div className="max-w-xs text-left">Special pin for assembly orientation. Required for some assembly processes.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Yin Yang Pin</label>
+          </Tooltip>
           <RadioGroup
             name="yyPin"
             options={[
@@ -76,7 +87,9 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Customer Code */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Customer Code</label>
+          <Tooltip content={<div className="max-w-xs text-left">Add customer-specific code or marking to the PCB.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Customer Code</label>
+          </Tooltip>
           <RadioGroup
             name="customerCode"
             options={[
@@ -90,7 +103,9 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Payment Method */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Payment Method</label>
+          <Tooltip content={<div className="max-w-xs text-left">Choose how to confirm and pay for your order.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Payment Method</label>
+          </Tooltip>
           <RadioGroup
             name="payMethod"
             options={[
@@ -103,7 +118,9 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* Quality Attachment */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">Quality Attachment</label>
+          <Tooltip content={<div className="max-w-xs text-left">Standard: basic quality documents. Full: all available quality documents (extra cost).</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">Quality Attachment</label>
+          </Tooltip>
           <RadioGroup
             name="qualityAttach"
             options={[
@@ -116,7 +133,9 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
         </div>
         {/* SMT Assembly */}
         <div className="flex items-center gap-4">
-          <label className="w-32 text-xs font-normal text-right">SMT Assembly</label>
+          <Tooltip content={<div className="max-w-xs text-left">Surface Mount Technology assembly service for your PCBs.</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">SMT Assembly</label>
+          </Tooltip>
           <RadioGroup
             name="smt"
             options={[
