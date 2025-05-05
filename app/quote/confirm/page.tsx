@@ -8,21 +8,16 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { supabase } from "@/lib/supabaseClient";
 import { useQuoteStore } from "@/lib/quoteStore";
 import { calcPcbPrice, calcProductionCycle, getRealDeliveryDate } from "@/lib/pcb-calc";
-import { calculateShippingCost } from "@/lib/shipping-calculator";
+import { calculateShippingCost, shippingZones } from "@/lib/shipping-calculator";
 import OrderStepBar from "@/components/ui/OrderStepBar";
 import { calculateCustomsFee } from "@/lib/customs-fee";
 import { checkQuoteConfirmRequired, countryRequiresTaxId, countryRequiresPersonalId, QuoteConfirmForm } from "./validate";
-import { createLocalStoragePersistor } from "./persistLocal";
-import { createZustandPersistor } from "./persistZustand";
-import { FormPersistor } from "./persist";
-
-
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 
-import { useEnsureLogin } from "@/lib/auth";
-import { useUserStore } from "@/lib/userStore";
+import { useEnsureLoginClient } from "@/lib/auth";
+import { useUserStore, useSyncUser } from "@/lib/userStore";
 import { ORDER_STEPS } from "@/components/ui/order-steps";
 import FileUpload from "@/app/components/custom-ui/FileUpload";
 import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
@@ -39,7 +34,10 @@ interface GeoCity {
   name: string;
 }
 
-// 添加常用国家常量数组
+// 生成 shippingZones 支持的国家列表
+const SUPPORTED_COUNTRIES: string[] = Array.from(new Set(shippingZones.flatMap((z: typeof shippingZones[number]) => z.countries)));
+
+// 修改 COMMON_COUNTRIES 只保留受支持的国家
 const COMMON_COUNTRIES = [
   { iso2: 'US', name: 'United States', emoji: '🇺🇸' },
   { iso2: 'CN', name: 'China', emoji: '🇨🇳' },
@@ -47,30 +45,29 @@ const COMMON_COUNTRIES = [
   { iso2: 'DE', name: 'Germany', emoji: '🇩🇪' },
   { iso2: 'GB', name: 'United Kingdom', emoji: '🇬🇧' },
   { iso2: 'FR', name: 'France', emoji: '🇫🇷' },
+  { iso2: 'IT', name: 'Italy', emoji: '🇮🇹' },
+  { iso2: 'ES', name: 'Spain', emoji: '🇪🇸' },
+  { iso2: 'NL', name: 'Netherlands', emoji: '🇳🇱' },
+  { iso2: 'BE', name: 'Belgium', emoji: '🇧🇪' },
+  { iso2: 'CH', name: 'Switzerland', emoji: '🇨🇭' },
+  { iso2: 'SE', name: 'Sweden', emoji: '🇸🇪' },
+  { iso2: 'NO', name: 'Norway', emoji: '🇳🇴' },
+  { iso2: 'DK', name: 'Denmark', emoji: '🇩🇰' },
+  { iso2: 'FI', name: 'Finland', emoji: '🇫🇮' },
   { iso2: 'CA', name: 'Canada', emoji: '🇨🇦' },
   { iso2: 'AU', name: 'Australia', emoji: '🇦🇺' },
   { iso2: 'KR', name: 'South Korea', emoji: '🇰🇷' },
   { iso2: 'SG', name: 'Singapore', emoji: '🇸🇬' },
   { iso2: 'IN', name: 'India', emoji: '🇮🇳' },
-  { iso2: 'IT', name: 'Italy', emoji: '🇮🇹' },
-  { iso2: 'ES', name: 'Spain', emoji: '🇪🇸' },
-  { iso2: 'NL', name: 'Netherlands', emoji: '🇳🇱' },
-  { iso2: 'CH', name: 'Switzerland', emoji: '🇨🇭' },
-  { iso2: 'SE', name: 'Sweden', emoji: '🇸🇪' },
   { iso2: 'BR', name: 'Brazil', emoji: '🇧🇷' },
   { iso2: 'RU', name: 'Russia', emoji: '🇷🇺' },
   { iso2: 'MX', name: 'Mexico', emoji: '🇲🇽' },
-];
-
-// 选择持久化方式
-const useLocal = true; // 可根据需要切换
-const persistor: FormPersistor<QuoteConfirmForm> = useLocal
-  ? createLocalStoragePersistor<QuoteConfirmForm>(`quote_confirm_form_${typeof window !== "undefined" ? window.location.pathname : "default"}`)
-  : createZustandPersistor<QuoteConfirmForm>();
+].filter(c => SUPPORTED_COUNTRIES.includes(c.iso2.toLowerCase()));
 
 export default function QuoteConfirmPage() {
   const router = useRouter();
-  const { form: quote, clearForm } = useQuoteStore();
+  const { form: quote, clearForm, setForm } = useQuoteStore();
+  console.log('quote', quote); // 调试用，查看全局表单数据
   const [address, setAddress] = useState("");
   const [pcbFile, setPcbFile] = useState<File | null>(null);
   const [error, setError] = useState("");
@@ -118,32 +115,31 @@ export default function QuoteConfirmPage() {
 
   // 恢复表单（优先级：quote > persistor > 默认值）
   useEffect(() => {
-    const saved = persistor.load();
-    if (saved) {
-      if (saved.country) setCountry(saved.country);
-      if (saved.state) setState(saved.state);
-      if (saved.city) setCity(saved.city);
-      if (saved.zip) setZip(saved.zip);
-      if (saved.phone) setPhone(saved.phone);
-      if (saved.email) setEmail(saved.email);
-      if (saved.address) setAddress(saved.address);
-      if (saved.courier) setCourier(saved.courier as "dhl" | "fedex" | "ups" | "");
-      if (saved.pcbFile) setPcbFile(saved.pcbFile);
-      if (saved.companyName) setCompanyName(saved.companyName);
-      if (saved.taxId) setTaxId(saved.taxId);
-      if (saved.personalId) setPersonalId(saved.personalId);
-      if (saved.declarationMethod) setDeclarationMethod(saved.declarationMethod);
-      if (saved.purpose) setPurpose(saved.purpose);
-      if (saved.declaredValue) setDeclaredValue(saved.declaredValue);
-      if (saved.customsNote) setCustomsNote(saved.customsNote);
-      if (saved.pcbNote) setPcbNote(saved.pcbNote);
-      if (saved.userNote) setUserNote(saved.userNote);
+    if (quote) {
+      if (quote.country) setCountry(quote.country);
+      if (quote.state) setState(quote.state);
+      if (quote.city) setCity(quote.city);
+      if (quote.zip) setZip(quote.zip);
+      if (quote.phone) setPhone(quote.phone);
+      if (quote.email) setEmail(quote.email);
+      if (quote.address) setAddress(quote.address);
+      if (quote.courier) setCourier(quote.courier as "dhl" | "fedex" | "ups" | "");
+      if (quote.pcbFile) setPcbFile(quote.pcbFile);
+      if (quote.companyName) setCompanyName(quote.companyName);
+      if (quote.taxId) setTaxId(quote.taxId);
+      if (quote.personalId) setPersonalId(quote.personalId);
+      if (quote.declarationMethod) setDeclarationMethod(quote.declarationMethod);
+      if (quote.purpose) setPurpose(quote.purpose);
+      if (quote.declaredValue) setDeclaredValue(quote.declaredValue);
+      if (quote.customsNote) setCustomsNote(quote.customsNote);
+      if (quote.pcbNote) setPcbNote(quote.pcbNote);
+      if (quote.userNote) setUserNote(quote.userNote);
     }
-  }, []);
+  }, [quote]);
 
   // 自动保存表单
   useEffect(() => {
-    const data: QuoteConfirmForm = {
+    const data: any = {
       country,
       state,
       city,
@@ -159,10 +155,14 @@ export default function QuoteConfirmPage() {
       personalId,
       purpose,
       declaredValue,
+      companyName,
+      customsNote,
+      pcbNote,
+      userNote,
     };
-    persistor.save(data);
+    setForm((prev: any) => ({ ...prev, ...data }));
     // eslint-disable-next-line
-  }, [country, state, city, zip, phone, email, address, courier, pcbFile, declarationMethod, taxId, personalId, purpose, declaredValue]);
+  }, [country, state, city, zip, phone, email, address, courier, pcbFile, declarationMethod, taxId, personalId, purpose, declaredValue, companyName, customsNote, pcbNote, userNote]);
 
   const user = useUserStore(state => state.user);
   useEffect(() => {
@@ -271,19 +271,6 @@ export default function QuoteConfirmPage() {
     }
   }, [quote, country, courier, zip]);
 
-  // 计算报关费用
-  const declaredValueNum = declaredValue === "" ? null : Number(declaredValue);
-  const customsFee = useMemo(() => {
-    if (!country || !declarationMethod || !courier || !declaredValueNum) return null;
-    return calculateCustomsFee({
-      country,
-      declarationMethod,
-      courier,
-      declaredValue: declaredValueNum,
-      pcbType: quote?.pcbType || undefined,
-    });
-  }, [country, declarationMethod, courier, declaredValueNum, quote]);
-
   const checkRequired = () => {
     return checkQuoteConfirmRequired({
       country,
@@ -304,12 +291,23 @@ export default function QuoteConfirmPage() {
     }, setError, quote);
   };
 
-  // 计算订单金额、周期、预计完成时间，提升到组件作用域
+  // 计算订单金额、周期、预计完成时间，全部依赖 quote（form）
   const pcbPrice = quote ? calcPcbPrice(quote) : 0;
+  console.log('quote for pcbPrice', quote);
+  console.log('pcbPrice', pcbPrice);
   const productionCycle = quote ? calcProductionCycle(quote).cycleDays : null;
   const estimatedFinishDate = productionCycle ? getRealDeliveryDate(new Date(), productionCycle) : null;
-  const shipping = shippingCost ?? 0;
-  const customs = customsFee?.total ?? 0;
+  const shipping = quote && quote.country && quote.courier && quote.zip
+    ? calculateShippingCost(quote, quote.country, quote.courier, "standard", quote.zip).finalCost
+    : 0;
+  const declaredValueNumber = quote && quote.declaredValue !== undefined && quote.declaredValue !== "" ? Number(quote.declaredValue) : 0;
+  const customs = calculateCustomsFee({
+    country: quote.country,
+    declarationMethod: quote.declarationMethod,
+    courier: quote.courier,
+    declaredValue: declaredValueNumber,
+    pcbType: quote.pcbType || undefined,
+  })?.total ?? 0;
   const total = pcbPrice + shipping + customs;
 
   const handleFinalSubmit = async () => {
@@ -361,7 +359,6 @@ export default function QuoteConfirmPage() {
 
     // 3. 上传报关信息
     let customsId = null;
-    const declaredValueNumForInsert = declaredValue === "" ? null : Number(declaredValue);
     const { data: customsData, error: customsError } = await supabase
       .from("customs_declarations")
       .insert([
@@ -372,7 +369,7 @@ export default function QuoteConfirmPage() {
           personal_id: personalId,
           incoterm,
           purpose,
-          declared_value: declaredValueNumForInsert,
+          declared_value: quote.declaredValue ? Number(quote.declaredValue) : null,
           customs_note: customsNote,
           user_id: user?.id || null,
         },
@@ -418,20 +415,21 @@ export default function QuoteConfirmPage() {
       setError("Failed to submit order.");
       return;
     }
-    persistor.clear(); // 清除缓存
     clearForm();
     // 跳转到订单详情页
     router.push(`/quote/orders/${orderData.id}`);
   };
 
-  // 生成 react-select 需要的 options（动态补充当前值）
+  // 生成 shippingZones 支持的国家列表
   const countryOptions = useMemo(() => {
     const exists = countries.some(c => c.iso2 === country);
-    let opts = countries.map(c => ({
-      value: c.iso2,
-      label: `${c.emoji ? c.emoji + " " : ""}${c.name}`,
-    }));
-    if (country && !exists) {
+    let opts = countries
+      .filter(c => SUPPORTED_COUNTRIES.includes(c.iso2.toLowerCase()))
+      .map(c => ({
+        value: c.iso2,
+        label: `${c.emoji ? c.emoji + " " : ""}${c.name}`,
+      }));
+    if (country && !exists && SUPPORTED_COUNTRIES.includes(country.toLowerCase())) {
       opts = [
         ...opts,
         { value: country, label: country }
@@ -470,10 +468,11 @@ export default function QuoteConfirmPage() {
     return opts;
   }, [cities, city]);
 
-  useEnsureLogin();
+  useEnsureLoginClient();
+  useSyncUser();
 
   const { rate, loading: rateLoading, error: rateError } = useCnyToUsdRate();
-  const toUSD = (cny: number) => cny * rate;
+  const toUSD = (cny: number) => rate ? cny * rate : 0;
 
   if (!quote) return null;
 
@@ -745,7 +744,9 @@ export default function QuoteConfirmPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">PCB Price</span>
-                    <span className="text-lg font-bold text-blue-700">$ {toUSD(pcbPriceDisplay).toFixed(2)}</span>
+                    <span className="text-lg font-bold text-blue-700">
+                      {rateLoading || !rate ? '-' : `$ ${toUSD(pcbPriceDisplay).toFixed(2)}`}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Production Time</span>
@@ -757,21 +758,27 @@ export default function QuoteConfirmPage() {
                   </div>
                   <div className="flex justify-between items-center pt-3">
                     <span className="text-sm text-muted-foreground">Shipping Cost</span>
-                    <span className="text-lg font-bold text-blue-700">${(shippingCost ?? 0).toFixed(2)}</span>
+                    <span className="text-lg font-bold text-blue-700">
+                      {rateLoading || !rate ? '-' : `$ ${(shippingCost ?? 0).toFixed(2)}`}
+                    </span>
                   </div>
                   <div className="flex flex-col mb-1">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Customs Fee</span>
-                      <span className="text-base font-semibold text-blue-700">${(customsFee?.total ?? 0).toFixed(2)}</span>
+                      <span className="text-base font-semibold text-blue-700">
+                        {rateLoading || !rate ? '-' : `$ ${(customs).toFixed(2)}`}
+                      </span>
                     </div>
                     <div className="ml-2 text-xs text-gray-500">
-                      Duty: ${(customsFee?.duty ?? 0).toFixed(2)} | VAT: ${(customsFee?.vat ?? 0).toFixed(2)}{(customsFee?.agentFee ?? 0) > 0 ? ` | Agent: $${customsFee?.agentFee.toFixed(2)}` : ""}
+                      Duty: ${(customs).toFixed(2)} | VAT: ${(customs).toFixed(2)}
                     </div>
                   </div>
                   <div className="pt-3 border-t">
                     <div className="flex justify-between items-center">
                       <span className="text-xl font-bold text-blue-900">Total</span>
-                      <span className="text-2xl font-extrabold text-blue-700">$ {toUSD(totalDisplay).toFixed(2)}</span>
+                      <span className="text-2xl font-extrabold text-blue-700">
+                        {rateLoading || !rate ? '-' : `$ ${toUSD(totalDisplay).toFixed(2)}`}
+                      </span>
                     </div>
                   </div>
                 </div>

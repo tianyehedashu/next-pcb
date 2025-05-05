@@ -19,4 +19,14 @@ export function useEnsureLogin() {
       }
     }
   }, [user, router]);
+}
+
+export function useEnsureLoginClient() {
+  const user = useUserStore(state => state.user);
+  const router = useRouter();
+  useEffect(() => {
+    if (user === null) {
+      router.replace("/auth/page");
+    }
+  }, [user, router]);
 } 

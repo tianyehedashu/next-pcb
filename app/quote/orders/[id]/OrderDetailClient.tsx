@@ -466,7 +466,7 @@ function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status
 
 export default function OrderDetailClient({ user, order }: { user: any, order: Database["public"]["Tables"]["orders"]["Row"] }) {
   const { rate, loading, error } = useCnyToUsdRate();
-  const toUSD = (cny: number) => cny * rate;
+  const toUSD = (cny: number) => rate ? cny * rate : 0;
   useInitExchangeRate();
   const setUser = useUserStore(state => state.setUser);
   const router = useRouter();

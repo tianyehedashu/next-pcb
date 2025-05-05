@@ -19,7 +19,7 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
               { value: "paid", label: "Paid" },
             ]}
             value={form.testMethod || "free"}
-            onChange={(v: string) => setForm({ ...form, testMethod: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, testMethod: v }))}
           />
         </div>
         {/* Production Cap Confirmation */}
@@ -35,7 +35,7 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
               { value: "auto", label: "Auto (system auto confirm)" },
             ]}
             value={form.prodCap || "auto"}
-            onChange={(v: string) => setForm({ ...form, prodCap: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, prodCap: v }))}
           />
         </div>
         {/* Product Report */}
@@ -52,7 +52,7 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
               { value: "sample", label: "Sample Coupon" },
             ]}
             value={form.productReport || ["none"]}
-            onChange={(v: string[]) => setForm({ ...form, productReport: v })}
+            onChange={(v: string[]) => setForm((prev: any) => ({ ...prev, productReport: v }))}
           />
         </div>
         {/* Reject Board */}
@@ -67,7 +67,7 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
               { value: "reject", label: "Reject" },
             ]}
             value={form.rejectBoard || "accept"}
-            onChange={(v: string) => setForm({ ...form, rejectBoard: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, rejectBoard: v }))}
           />
         </div>
         {/* Yin Yang Pin */}
@@ -82,7 +82,7 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
               { value: "need", label: "Required" },
             ]}
             value={form.yyPin || "none"}
-            onChange={(v: string) => setForm({ ...form, yyPin: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, yyPin: v }))}
           />
         </div>
         {/* Customer Code */}
@@ -98,7 +98,7 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
               { value: "none", label: "None" },
             ]}
             value={form.customerCode || "none"}
-            onChange={(v: string) => setForm({ ...form, customerCode: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, customerCode: v }))}
           />
         </div>
         {/* Payment Method */}
@@ -113,7 +113,7 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
               { value: "manual", label: "Manual Confirm & Pay" },
             ]}
             value={form.payMethod || "auto"}
-            onChange={(v: string) => setForm({ ...form, payMethod: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, payMethod: v }))}
           />
         </div>
         {/* Quality Attachment */}
@@ -128,7 +128,7 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
               { value: "full", label: "Full (extra cost)" },
             ]}
             value={form.qualityAttach || "standard"}
-            onChange={(v: string) => setForm({ ...form, qualityAttach: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, qualityAttach: v }))}
           />
         </div>
         {/* SMT Assembly */}
@@ -143,7 +143,7 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
               { value: "none", label: "Not Required" },
             ]}
             value={form.smt || "none"}
-            onChange={(v: string) => setForm({ ...form, smt: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, smt: v }))}
           />
         </div>
       </div>

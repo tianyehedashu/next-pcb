@@ -40,7 +40,7 @@ interface ShippingZone {
 }
 
 // 定义运输区域和各快递公司的价格
-const shippingZones: ShippingZone[] = [
+export const shippingZones: ShippingZone[] = [
   {
     name: 'Zone 1 - North America',
     countries: ['us', 'ca'],
@@ -244,7 +244,7 @@ export function calculateShippingCost(
   const chargeableWeight = calculateChargeableWeight(dimensions, totalWeight);
   
   // 查找对应的运输区域
-  const zone = shippingZones.find(zone => zone.countries.includes(countryCode));
+  const zone = shippingZones.find(zone => zone.countries.includes(countryCode.toLowerCase()));
   if (!zone) {
     throw new Error('Unsupported shipping destination');
   }

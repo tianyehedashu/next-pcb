@@ -28,7 +28,7 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
 }) => {
   const [showDetail, setShowDetail] = useState(true);
   const rate = useExchangeRateStore((s) => s.cnyToUsd);
-  const toUSD = (cny: number) => cny * rate;
+  const toUSD = (cny: number) => rate ? cny * rate : 0;
   const now = new Date();
 
   // 生产周期信息
@@ -75,7 +75,7 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-blue-700 font-medium">Shipping</span>
-          <span className="font-semibold">$ {shippingCost.toFixed(2)}</span>
+          <span className="font-semibold">$ {toUSD(shippingCost).toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-blue-700 font-medium">Tax</span>
@@ -111,7 +111,7 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
       {/* 总价区 */}
       <div className="flex justify-between items-center py-3 px-2 rounded-xl bg-blue-50 mb-2">
         <span className="font-bold text-blue-700 text-lg">Estimated Total</span>
-        <span className="text-3xl font-extrabold text-blue-700">$ {totalPrice.toFixed(2)}</span>
+        <span className="text-3xl font-extrabold text-blue-700">$ {toUSD(totalPrice).toFixed(2)}</span>
       </div>
       {/* 交付日期（如有） */}
       {deliveryDate && (

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 const defaultForm = {
   pcbType: "fr4",
@@ -23,7 +24,7 @@ const defaultForm = {
   shipmentType: "single",
   singleLength: "10",
   singleWidth: "10",
-  singleCount: "10",
+  singleCount: 10,
   border: "5",
   maskCover: "cover",
   edgePlating: "no",
@@ -38,6 +39,25 @@ const defaultForm = {
   payMethod: "auto",
   qualityAttach: "standard",
   smt: "none",
+  country: "",
+  state: "",
+  city: "",
+  zip: "",
+  phone: "",
+  email: "",
+  address: "",
+  courier: "",
+  pcbFile: null as File | null,
+  gerberUrl: "",
+  declarationMethod: "",
+  taxId: "",
+  personalId: "",
+  purpose: "",
+  declaredValue: "",
+  companyName: "",
+  customsNote: "",
+  pcbNote: "",
+  userNote: "",
 };
 
 interface QuoteState {
@@ -46,13 +66,18 @@ interface QuoteState {
   clearForm: () => void;
 }
 
-export const useQuoteStore = create<QuoteState>((set) => ({
-  form: defaultForm,
-  setForm: (updater: any) =>
-    set((state) => ({
-      form: typeof updater === "function"
-        ? { ...state.form, ...updater(state.form) }
-        : { ...state.form, ...updater }
-    })),
-  clearForm: () => set(() => ({ form: { ...defaultForm } })),
-})); 
+export const useQuoteStore = create(
+  persist<QuoteState>(
+    (set) => ({
+      form: defaultForm,
+      setForm: (updater: any) =>
+        set((state) => ({
+          form: typeof updater === "function"
+            ? { ...state.form, ...updater(state.form) }
+            : { ...state.form, ...updater }
+        })),
+      clearForm: () => set(() => ({ form: { ...defaultForm } })),
+    }),
+    { name: "quote-store" }
+  )
+); 

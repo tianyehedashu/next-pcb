@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { supabase } from "@/lib/supabaseClient";
+import { useEffect } from "react";
 
 export type UserRole = "admin" | "user" | "guest";
 
@@ -66,4 +67,25 @@ export const useUserStore = create(
     }),
     { name: "user-store" }
   )
-); 
+);
+
+export function useSyncUser() {
+  const setUser = useUserStore(state => state.setUser);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser({ id: user.id, email: user.email, ...user.user_metadata });
+      }
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({ id: session.user.id, email: session.user.email, ...session.user.user_metadata });
+      } else {
+        setUser(null);
+      }
+    });
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, [setUser]);
+} 

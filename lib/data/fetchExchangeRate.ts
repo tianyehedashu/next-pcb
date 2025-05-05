@@ -6,7 +6,9 @@ import type { NextApiRequest, NextApiResponse } from "next";
  */
 export async function fetchCnyToUsdRate(): Promise<number> {
   const res = await fetch("https://api.exchangerate.host/latest?base=CNY&symbols=USD");
-  if (!res.ok) throw new Error("Failed to fetch exchange rate");
+  if (!res.ok) return 0.14;
   const data = await res.json();
-  return data.rates?.USD ?? 0;
+  const rate = data && data.rates && data.rates.USD;
+  if (rate && rate > 0) return rate;
+  return 0.14;
 } 

@@ -140,7 +140,7 @@ function OrderShippingCard({ order }: { order: any }) {
 
 function OrderCustomsCard({ customs }: { customs: any }) {
   const { rate, loading, error } = useCnyToUsdRate();
-  const toUSD = (cny: number) => cny * rate;
+  const toUSD = (cny: number) => rate ? cny * rate : 0;
   return (
     <Card className="mb-4">
       <CardHeader className="pb-2">
@@ -332,7 +332,7 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
   const [saving, setSaving] = useState(false);
   const [recalcLoading, setRecalcLoading] = useState(false);
   const { rate, loading, error } = useCnyToUsdRate();
-  const toUSD = (cny: number) => cny * rate;
+  const toUSD = (cny: number) => rate ? cny * rate : 0;
   // 重新计算
   function handleRecalc() {
 

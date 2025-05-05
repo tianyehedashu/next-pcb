@@ -3,7 +3,6 @@ import { fetchCnyToUsdRate } from "@/lib/data/fetchExchangeRate";
 
 /**
  * 获取最新CNY->USD汇率，内部有状态，只有调用时才请求
- * @returns { rate, loading, error }
  */
 export function useCnyToUsdRate() {
   const [rate, setRate] = useState<number>(0.14); // 默认值
@@ -14,7 +13,8 @@ export function useCnyToUsdRate() {
     setLoading(true);
     fetchCnyToUsdRate()
       .then((r) => {
-        setRate(r);
+        console.log('fetchCnyToUsdRate result:', r);
+        setRate(r && r > 0 ? r : 0.14); // 兜底
         setLoading(false);
       })
       .catch((e) => {

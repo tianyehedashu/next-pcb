@@ -18,7 +18,7 @@ type Order = Database["public"]["Tables"]["orders"]["Row"];
 
 export default function OrdersPage() {
   const { rate, loading, error } = useCnyToUsdRate();
-  const toUSD = (cny: number) => cny * rate;
+  const toUSD = (cny: number) => rate ? cny * rate : 0;
   const [orders, setOrders] = useState<Order[]>([]);
   const router = useRouter();
   const supabase = createClientComponentClient<Database>();

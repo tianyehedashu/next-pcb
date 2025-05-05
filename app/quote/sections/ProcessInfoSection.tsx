@@ -16,7 +16,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
             name="copperWeight"
             options={["1","2","3","4"].map(v => ({ value: v, label: v+"oz" }))}
             value={form.copperWeight}
-            onChange={(v: string) => setForm({ ...form, copperWeight: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, copperWeight: v }))}
           />
         </div>
         {/* Min Trace/Spacing (mil) */}
@@ -28,7 +28,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
             name="minTrace"
             options={["10/10","8/8","6/6","5/5","4/4","3.5/3.5"].map(v => ({ value: v, label: v }))}
             value={form.minTrace}
-            onChange={(v: string) => setForm({ ...form, minTrace: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, minTrace: v }))}
           />
         </div>
         {/* Min Hole Size (mm) */}
@@ -40,7 +40,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
             name="minHole"
             options={["0.3","0.25","0.2","0.15"].map(v => ({ value: v, label: v }))}
             value={form.minHole}
-            onChange={(v: string) => setForm({ ...form, minHole: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, minHole: v }))}
           />
         </div>
         {/* Solder Mask Color */}
@@ -59,7 +59,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
               { value: "white", label: <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-white border border-gray-300"></span>White</span> },
             ]}
             value={form.solderMask}
-            onChange={(v: string) => setForm({ ...form, solderMask: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, solderMask: v }))}
           />
         </div>
         {/* Silkscreen Color */}
@@ -74,7 +74,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
               { value: "black", label: <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full bg-neutral-800 border border-gray-300"></span>Black</span> },
             ]}
             value={form.silkscreen}
-            onChange={(v: string) => setForm({ ...form, silkscreen: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, silkscreen: v }))}
           />
         </div>
         {/* Surface Finish */}
@@ -93,7 +93,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
               { value: "immersion_tin", label: "Immersion Tin" },
             ]}
             value={form.surfaceFinish}
-            onChange={(v: string) => setForm({ ...form, surfaceFinish: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, surfaceFinish: v }))}
           />
         </div>
         {/* Impedance Control */}
@@ -108,7 +108,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
               { value: "yes", label: "Yes" },
             ]}
             value={form.impedance}
-            onChange={(v: string) => setForm({ ...form, impedance: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, impedance: v }))}
           />
         </div>
         {/* Castellated Holes */}
@@ -123,7 +123,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
               { value: "yes", label: "Yes" },
             ]}
             value={form.castellated}
-            onChange={(v: string) => setForm({ ...form, castellated: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, castellated: v }))}
           />
         </div>
         {/* Edge Gold Fingers */}
@@ -138,7 +138,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
               { value: "yes", label: "Required" },
             ]}
             value={form.goldFingers}
-            onChange={(v: string) => setForm({ ...form, goldFingers: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, goldFingers: v }))}
           />
         </div>
         {/* Edge Plating */}
@@ -153,7 +153,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
               { value: "yes", label: "Required" },
             ]}
             value={form.edgePlating || "no"}
-            onChange={(v: string) => setForm({ ...form, edgePlating: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, edgePlating: v }))}
           />
         </div>
         {/* Half Holes */}
@@ -174,7 +174,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
               { value: "4half", label: "4 Sides Half" },
             ]}
             value={form.halfHole || "none"}
-            onChange={(v: string) => setForm({ ...form, halfHole: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, halfHole: v }))}
           />
         </div>
         {/* Edge Covering */}
@@ -195,7 +195,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
               { value: "4cover", label: "4 Sides Cover" },
             ]}
             value={form.edgeCover || "none"}
-            onChange={(v: string) => setForm({ ...form, edgeCover: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, edgeCover: v }))}
           />
         </div>
         {/* Solder Mask Coverage */}
@@ -213,7 +213,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
                 { value: "plug_flat", label: "Via Plugging + Flat" },
               ]}
               value={form.maskCover || "cover"}
-              onChange={(v: string) => setForm({ ...form, maskCover: v })}
+              onChange={(v: string) => setForm((prev: any) => ({ ...prev, maskCover: v }))}
             />
             <div className="text-xs text-muted-foreground mt-1">
               If Gerber file, select [Via Plugging] or [Via Opening] as needed. For special process, please contact us.

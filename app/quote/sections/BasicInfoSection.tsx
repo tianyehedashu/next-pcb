@@ -48,7 +48,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               { value: "rigid-flex", label: "Rigid-Flex" },
             ]}
             value={form.pcbType}
-            onChange={(v: string) => setForm({ ...form, pcbType: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, pcbType: v }))}
           />
         </div>
         {/* Layers */}
@@ -60,7 +60,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
             name="layers"
             options={[1,2,4,6,8,10,12,14,16,18,20].map(v => ({ value: v, label: `${v}` }))}
             value={form.layers}
-            onChange={(v: number) => setForm({ ...form, layers: v })}
+            onChange={(v: number) => setForm((prev: any) => ({ ...prev, layers: v }))}
           />
         </div>
         {/* Board Thickness */}
@@ -72,7 +72,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
             name="thickness"
             options={["0.6","0.8","1.0","1.2","1.6","2.0","2.5","3.0","3.2"].map(v => ({ value: v, label: v }))}
             value={form.thickness}
-            onChange={(v: string) => setForm({ ...form, thickness: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, thickness: v }))}
           />
         </div>
         {/* HDI */}
@@ -89,7 +89,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               { value: "3step", label: "3 Step" },
             ]}
             value={form.hdi}
-            onChange={(v: string) => setForm({ ...form, hdi: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, hdi: v }))}
           />
         </div>
         {/* TG Value */}
@@ -105,7 +105,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               { value: "TG170", label: "TG170" },
             ]}
             value={form.tg}
-            onChange={(v: string) => setForm({ ...form, tg: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, tg: v }))}
           />
         </div>
         {/* Shipment Type */}
@@ -121,7 +121,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               { value: "panel_agent", label: "Panel (Agent)" },
             ]}
             value={form.shipmentType}
-            onChange={(v: string) => setForm({ ...form, shipmentType: v })}
+            onChange={(v: string) => setForm((prev: any) => ({ ...prev, shipmentType: v }))}
           />
         </div>
         {/* Size (cm) 联动label/placeholder/校验 */}
@@ -136,7 +136,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               step={0.01}
               placeholder={sizePlaceholder[0]}
               value={form.singleLength ?? ''}
-              onChange={e => setForm({ ...form, singleLength: e.target.value })}
+              onChange={e => setForm((prev: any) => ({ ...prev, singleLength: e.target.value }))}
               aria-invalid={!!errors.singleLength}
               className="w-24"
             />
@@ -147,7 +147,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               step={0.01}
               placeholder={sizePlaceholder[1]}
               value={form.singleWidth ?? ''}
-              onChange={e => setForm({ ...form, singleWidth: e.target.value })}
+              onChange={e => setForm((prev: any) => ({ ...prev, singleWidth: e.target.value }))}
               aria-invalid={!!errors.singleWidth}
               className="w-24"
             />
@@ -162,7 +162,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
           </Tooltip>
           <CustomNumberSelect
             value={form.singleCount}
-            onChange={v => setForm({ ...form, singleCount: v })}
+            onChange={(v: number) => setForm((prev: any) => ({ ...prev, singleCount: v }))}
             options={[5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 125, 150, 200, 250, 300, 350, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 6500, 7000, 7500, 9000]}
             unit={countUnit}
             placeholder="请选择"
@@ -177,7 +177,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
           <select
             className="border rounded-md px-3 py-2 flex-1 text-sm"
             value={form.border ?? ''}
-            onChange={e => setForm({ ...form, border: e.target.value })}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm((prev: any) => ({ ...prev, border: e.target.value }))}
           >
             <option value="none">None</option>
             <option value="5">5</option>
