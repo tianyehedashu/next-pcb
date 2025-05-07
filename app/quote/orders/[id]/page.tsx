@@ -5,7 +5,8 @@ import type { Database } from "../../../../types/supabase";
 import OrderDetailClient from "./OrderDetailClient";
 
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createServerComponentClient<Database>({ cookies });
+  const cookieStore = cookies();
+  const supabase = createServerComponentClient<Database>({ cookies: () => cookieStore });
   // 获取 session 和用户
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {

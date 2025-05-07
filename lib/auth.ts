@@ -26,7 +26,7 @@ export function useEnsureLoginClient() {
   const router = useRouter();
   useEffect(() => {
     if (user === null) {
-      router.replace("/auth/page");
+      router.replace("/auth");
     }
   }, [user, router]);
 } 

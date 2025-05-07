@@ -13,13 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import OrderStepBar from "@/components/ui/OrderStepBar";
 import Pagination from "../../components/ui/pagination";
 import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
+import { toUSD } from "@/lib/utils";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 
 export default function OrdersPage() {
   const { rate, loading, error } = useCnyToUsdRate();
-  const toUSD = (cny: number) => rate ? cny * rate : 0;
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClientComponentClient<Database>();
   const user = useUserStore(state => state.user);
@@ -100,7 +101,7 @@ export default function OrdersPage() {
               <Card className="rounded-xl shadow border-blue-100 bg-white/90">
                 <CardHeader className="pb-2">
                   <span className="text-xs text-slate-400">Total Amount</span>
-                  <span className="text-2xl font-bold text-blue-900 mt-1">$ {toUSD(totalAmount).toFixed(2)}</span>
+                  <span className="text-2xl font-bold text-blue-900 mt-1">{toUSD(totalAmount)}</span>
                 </CardHeader>
               </Card>
             </div>
@@ -111,7 +112,7 @@ export default function OrdersPage() {
               
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {loadingOrders ? (
                 <div className="flex flex-col items-center justify-center py-16">
                   <svg className="animate-spin h-8 w-8 text-blue-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
                   <span className="text-muted-foreground text-lg">Loading your orders...</span>

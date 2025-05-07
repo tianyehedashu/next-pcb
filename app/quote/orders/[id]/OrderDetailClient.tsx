@@ -24,6 +24,7 @@ import DownloadButton from "../../../components/custom-ui/DownloadButton";
 import { useExchangeRateStore } from "@/lib/exchangeRateStore";
 import { useInitExchangeRate } from "@/lib/hooks/useInitExchangeRate";
 import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
+import { toUSD } from "@/lib/utils";
 
 // 字段分组与友好名映射
 const FIELD_GROUPS = [
@@ -115,7 +116,7 @@ function OrderBaseInfoCard({ order, onBack, onPay, onCancel, onAfterSale, cancel
         </div>
         <div>
           <span className="font-semibold text-xs text-muted-foreground">Total</span>
-          <div className="text-lg font-bold text-primary">$ {order.total ? toUSD(order.total).toFixed(2) : "-"}</div>
+          <div className="text-lg font-bold text-primary">{order.total ? toUSD(order.total) : "-"}</div>
         </div>
         <div>
           <span className="font-semibold text-xs text-muted-foreground">Created At</span>
@@ -274,7 +275,7 @@ function OrderCustomsCard({ customs }: { customs: Database["public"]["Tables"]["
         </div>
         <div>
           <span className="text-xs text-muted-foreground font-semibold uppercase">Declared Value</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{customs?.declared_value != null ? `$ ${toUSD(customs?.declared_value).toFixed(2)}` : "-"}</div>
+          <div className="text-base font-semibold text-gray-800 break-all">{customs?.declared_value != null ? toUSD(customs?.declared_value) : "-"}</div>
         </div>
         <div className="col-span-2">
           <span className="text-xs text-muted-foreground font-semibold uppercase">Customs Note</span>
@@ -422,7 +423,7 @@ function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">PCB Price</span>
-            <span className="text-lg font-bold text-blue-700">$ {order.pcb_price ? toUSD(order.pcb_price).toFixed(2) : '-'}</span>
+            <span className="text-lg font-bold text-blue-700">{order.pcb_price ? toUSD(order.pcb_price) : '-'}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Production Time</span>
@@ -434,16 +435,16 @@ function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status
           </div>
           <div className="flex justify-between items-center pt-3">
             <span className="text-sm text-muted-foreground">Shipping Cost</span>
-            <span className="text-lg font-bold text-blue-700">$ {order.shipping_cost ? toUSD(order.shipping_cost).toFixed(2) : '-'}</span>
+            <span className="text-lg font-bold text-blue-700">{order.shipping_cost ? toUSD(order.shipping_cost) : '-'}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Customs Fee</span>
-            <span className="text-base font-semibold text-blue-700">$ {order.customs_fee ? toUSD(order.customs_fee).toFixed(2) : '-'}</span>
+            <span className="text-base font-semibold text-blue-700">{order.customs_fee ? toUSD(order.customs_fee) : '-'}</span>
           </div>
           <div className="pt-3 border-t">
             <div className="flex justify-between items-center">
               <span className="text-xl font-bold text-blue-900">Total</span>
-              <span className="text-2xl font-extrabold text-blue-700">$ {order.total ? toUSD(order.total).toFixed(2) : '-'}</span>
+              <span className="text-2xl font-extrabold text-blue-700">{order.total ? toUSD(order.total) : '-'}</span>
             </div>
           </div>
           <div className="flex flex-col gap-2 pt-2">
@@ -466,7 +467,6 @@ function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status
 
 export default function OrderDetailClient({ user, order }: { user: any, order: Database["public"]["Tables"]["orders"]["Row"] }) {
   const { rate, loading, error } = useCnyToUsdRate();
-  const toUSD = (cny: number) => rate ? cny * rate : 0;
   useInitExchangeRate();
   const setUser = useUserStore(state => state.setUser);
   const router = useRouter();
