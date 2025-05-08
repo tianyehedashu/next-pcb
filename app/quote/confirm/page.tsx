@@ -474,6 +474,64 @@ export default function QuoteConfirmPage() {
   const { rate, loading: rateLoading, error: rateError } = useCnyToUsdRate();
   const toUSD = (cny: number) => rate ? cny * rate : 0;
 
+  // 添加获取上一次订单地址的函数
+  const fetchLastOrderAddress = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // 先获取用户最新的订单
+      const { data: orders, error: ordersError } = await supabase
+        .from("orders")
+        .select("address_id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (ordersError) {
+        console.error("Error fetching last order:", ordersError);
+        return;
+      }
+
+      if (!orders || orders.length === 0) {
+        console.log("No previous orders found");
+        return;
+      }
+
+      // 根据订单的 address_id 获取地址信息
+      const { data: address, error: addressError } = await supabase
+        .from("addresses")
+        .select("*")
+        .eq("id", orders[0].address_id)
+        .single();
+
+      if (addressError) {
+        console.error("Error fetching address:", addressError);
+        return;
+      }
+
+      if (address) {
+        // 填充表单
+        setCountry(address.country);
+        setState(address.state);
+        setCity(address.city);
+        setZip(address.zip);
+        setPhone(address.phone);
+        setEmail(address.email);
+        setAddress(address.address);
+        if (address.note) setUserNote(address.note);
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+    }
+  };
+
+  // 在组件加载时获取上一次订单地址
+  useEffect(() => {
+    if (user?.id) {
+      fetchLastOrderAddress();
+    }
+  }, [user?.id]);
+
   if (!quote) return null;
 
   // 右侧订单摘要区变量作用域修正
