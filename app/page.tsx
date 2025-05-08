@@ -1,8 +1,8 @@
-"use client";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -14,7 +14,9 @@ export default function Home() {
           <p className="text-lg text-slate-700 mb-4 max-w-xl">High-quality, fast-turn PCB fabrication and assembly for global innovators. From prototype to mass production, we deliver excellence every step of the way.</p>
           <div className="flex gap-4">
             <Button size="lg" asChild>
-              <a href="/quote">Get a Quote</a>
+              <Link href="/quote" prefetch>
+                Get a Quote
+              </Link>
             </Button>
             <Button variant="outline" size="lg">Learn More</Button>
           </div>
