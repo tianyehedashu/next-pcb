@@ -77,7 +77,7 @@ export default function Navbar() {
           <div className={`bg-white rounded-full shadow p-1 flex items-center justify-center transition-transform duration-500 ${navAnim ? "scale-110" : "scale-100"}`}>
             <Image src="/pcb-logo.svg" alt="PCB Logo" width={40} height={40} />
           </div>
-          <span className="font-bold text-xl tracking-tight text-blue-700 ml-2">NextPCB</span>
+          <span className="font-bold text-xl tracking-tight text-blue-700 ml-2">SpeedXPCB</span>
         </div>
         <div className="hidden md:flex gap-6 text-base font-medium">
           {[
