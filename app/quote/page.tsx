@@ -1,21 +1,8 @@
 'use client';
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+
 import { useState, useRef, useMemo, useEffect } from "react";
-import { Tooltip } from "@/components/ui/tooltip";
-import { MapPin } from "lucide-react";
-import { Tabs, Tab } from "@/components/ui/tabs";
 import QuoteForm from "./QuoteForm";
 import SectionNav from "./SectionNav";
-import { Badge } from "@/components/ui/badge";
-import ProductionCycle from "./ProductionCycle";
-import { calcProductionCycle, isHoliday, getRealDeliveryDate, calcPcbPrice } from "@/lib/pcb-calc";
 import { useQuoteStore } from "@/lib/quoteStore";
 import QuoteSummaryCard from "./QuoteSummaryCard";
 import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
@@ -105,7 +92,10 @@ export default function QuotePage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [activeSection, sectionRefs]);
 
-  const pcbPrice = useMemo(() => calcPcbPrice(form), [form]);
+  const pcbPrice = useMemo(() => {
+    // @ts-ignore
+    return (typeof form === 'object' && form) ? (form.pcbPrice ?? 0) : 0;
+  }, [form]);
 
   // 计算总价
   const totalPrice = useMemo(() => {
