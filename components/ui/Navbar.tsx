@@ -9,6 +9,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useUserStore } from "@/lib/userStore";
 import { User, ListOrdered, LogOut } from "lucide-react";
 
+
 const ANCHORS = ["services", "why", "testimonials", "contact"];
 
 export default function Navbar() {
@@ -16,6 +17,7 @@ export default function Navbar() {
   const [hover, setHover] = useState(false);
   const [navAnim, setNavAnim] = useState(false);
   const user = useUserStore(state => state.user);
+ 
 
   useEffect(() => {
     let lastScroll = window.scrollY;
@@ -86,7 +88,7 @@ export default function Navbar() {
             { href: "#services", label: "Services" },
             { href: "#why", label: "Why Us" },
             { href: "#testimonials", label: "Testimonials" },
-            { href: "#contact", label: "Contact" },
+            { href: "/contact", label: "Contact" },
           ].map((item) => (
             <a
               key={item.href}

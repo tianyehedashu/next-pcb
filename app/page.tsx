@@ -57,7 +57,7 @@ export default function Home() {
 
       {/* Why Choose Us */}
       <section id="why" className="px-8 py-16 bg-slate-100">
-        <h2 className="text-3xl font-bold text-center mb-10">Why Choose NextPCB?</h2>
+        <h2 className="text-3xl font-bold text-center mb-10">Why Choose SpeedXPCB?</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-6xl mx-auto">
           <div className="flex flex-col items-center text-center">
             <Image src="/fast.svg" alt="Fast" width={48} height={48} />
@@ -93,12 +93,12 @@ export default function Home() {
                 <AvatarFallback>JS</AvatarFallback>
               </Avatar>
               <div>
-                <CardTitle>John Smith</CardTitle>
+                <CardTitle>Teng Chong</CardTitle>
                 <span className="text-xs text-slate-500">USA, Hardware Engineer</span>
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-600">“NextPCB delivered our boards faster than expected and the quality was top-notch. Highly recommended!”</p>
+              <p className="text-slate-600">“SpeedXPCB delivered our boards faster than expected and the quality was top-notch. Highly recommended!”</p>
             </CardContent>
           </Card>
           <Card>
@@ -108,7 +108,7 @@ export default function Home() {
                 <AvatarFallback>EM</AvatarFallback>
               </Avatar>
               <div>
-                <CardTitle>Emily Martinez</CardTitle>
+                <CardTitle>Mariann</CardTitle>
                 <span className="text-xs text-slate-500">Germany, Product Designer</span>
               </div>
             </CardHeader>
@@ -123,7 +123,7 @@ export default function Home() {
                 <AvatarFallback>LK</AvatarFallback>
               </Avatar>
               <div>
-                <CardTitle>Liang Kai</CardTitle>
+                <CardTitle>Kenny Lee</CardTitle>
                 <span className="text-xs text-slate-500">Singapore, Startup CTO</span>
               </div>
             </CardHeader>

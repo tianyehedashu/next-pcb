@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "next pcb ",
+  title: "speedx pcb ",
   description: "pcb ",
 };
 
