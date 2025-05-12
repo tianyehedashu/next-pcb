@@ -3,10 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
+import { Carousel } from "@/app/components/custom-ui/carousel";
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 pt-20">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      {/* Carousel Section */}
+      <Carousel />
+
       {/* Hero Banner */}
       <section className="flex flex-col md:flex-row items-center justify-between px-8 py-16 bg-gradient-to-r from-blue-100 to-white">
         <div className="flex-1 flex flex-col gap-6">
