@@ -1,19 +1,21 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
+import { TestMethod } from "@/types/form";
 
 const defaultForm = {
   pcbType: "fr4",
   layers: 2,
-  thickness: "1.6",
+  thickness: 1.6,
   surfaceFinish: "hasl",
   copperWeight: "1",
   minTrace: "6/6",
   minHole: "0.2",
   solderMask: "green",
   silkscreen: "white",
-  goldFingers: "no",
-  castellated: "no",
-  impedance: "no",
+  goldFingers: false,
+  castellated: false,
+  impedance: false,
   flyingProbe: "no",
   quantity: 10,
   delivery: "standard",
@@ -22,23 +24,23 @@ const defaultForm = {
   tg: "TG130",
   panelCount: 1,
   shipmentType: "single",
-  singleLength: "10",
-  singleWidth: "10",
+  singleLength: 10,
+  singleWidth: 10,
   singleCount: 10,
   border: "5",
   maskCover: "cover",
-  edgePlating: "no",
+  edgePlating: false,
   halfHole: "none",
   edgeCover: "none",
-  testMethod: "free",
+  testMethod: TestMethod.FlyingProbe,
   prodCap: "auto",
   productReport: ["none"],
   rejectBoard: "accept",
-  yyPin: "none",
+  yyPin: false,
   customerCode: "none",
   payMethod: "auto",
   qualityAttach: "standard",
-  smt: "none",
+  smt: false,
   country: "",
   state: "",
   city: "",
@@ -58,11 +60,11 @@ const defaultForm = {
   customsNote: "",
   pcbNote: "",
   userNote: "",
-};
+} as PcbQuoteForm;
 
 interface QuoteState {
-  form: any;
-  setForm: (form: any) => void;
+  form: PcbQuoteForm;
+  setForm: (form: Partial<PcbQuoteForm>) => void;
   clearForm: () => void;
 }
 

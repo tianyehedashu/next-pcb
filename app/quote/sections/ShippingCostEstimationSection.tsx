@@ -3,9 +3,10 @@ import React, { useMemo } from "react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tooltip } from "@/components/ui/tooltip";
 import countries from "@/lib/data/countries.json";
+import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
 interface ShippingCostEstimationSectionProps {
-  form: any;
+  form: PcbQuoteForm;
   setShippingCost: (cost: number) => void;
   sectionRef: React.RefObject<HTMLDivElement>;
 }

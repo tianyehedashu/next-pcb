@@ -5,6 +5,7 @@ import SectionNav from "./SectionNav";
 import { useQuoteStore } from "@/lib/quoteStore";
 import QuoteSummaryCard from "./QuoteSummaryCard";
 import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
+import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
 
 export default function QuoteClientMain() {
   const { rate } = useCnyToUsdRate();
@@ -37,11 +38,9 @@ export default function QuoteClientMain() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [activeSection, sectionRefs]);
 
-  const pcbPrice = useMemo(() => {
-    // @ts-ignore
-    return (typeof form === 'object' && form) ? (form.pcbPrice ?? 0) : 0;
-  }, [form]);
-
+  // 实时计算PCB价格（含明细和备注）
+  const pcbPriceResult = useMemo(() => calcPcbPriceV2(form), [form]);
+  const pcbPrice = pcbPriceResult.total;
   const totalPrice = useMemo(() => {
     return pcbPrice + shippingCost;
   }, [pcbPrice, shippingCost]);
@@ -80,6 +79,8 @@ export default function QuoteClientMain() {
             pcbPrice={pcbPrice}
             shippingCost={shippingCost}
             totalPrice={totalPrice}
+            detail={pcbPriceResult.detail}
+            notes={pcbPriceResult.notes}
           />
         </div>
       </div>

@@ -16,7 +16,7 @@ import { checkQuoteConfirmRequired, countryRequiresTaxId, countryRequiresPersona
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 
-import { useEnsureLoginClient } from "@/lib/auth";
+import { useEnsureLogin } from "@/lib/auth";
 import { useUserStore, useSyncUser } from "@/lib/userStore";
 import { ORDER_STEPS } from "@/components/ui/order-steps";
 import FileUpload from "@/app/components/custom-ui/FileUpload";
@@ -468,7 +468,7 @@ export default function QuoteConfirmPage() {
     return opts;
   }, [cities, city]);
 
-  useEnsureLoginClient();
+  useEnsureLogin();
   useSyncUser();
 
   const { rate, loading: rateLoading, error: rateError } = useCnyToUsdRate();

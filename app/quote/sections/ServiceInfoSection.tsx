@@ -1,151 +1,158 @@
 import RadioGroup from "../RadioGroup";
 import CheckboxGroup from "../CheckboxGroup";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Tooltip } from "@/components/ui/tooltip";
+import { pcbFieldRules } from "@/lib/pcbFieldRules";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
-export default function ServiceInfoSection({ form, errors, setForm, sectionRef }: any) {
+export const serviceInfoKeys = [
+  "testMethod",
+  "prodCap",
+  "productReport",
+  "isRejectBoard",
+  "yyPin",
+  "customerCode",
+  "payMethod",
+  "qualityAttach",
+  "smt",
+  "holeCount",
+] as const;
+
+interface ServiceInfoSectionProps {
+  form: Omit<PcbQuoteForm, 'productReport'> & { productReport?: string[] };
+  errors: any;
+  setForm: (form: Partial<PcbQuoteForm> | ((prev: PcbQuoteForm) => Partial<PcbQuoteForm> | PcbQuoteForm)) => void;
+  sectionRef: React.RefObject<HTMLDivElement>;
+}
+
+export default function ServiceInfoSection({ form, errors, setForm, sectionRef }: ServiceInfoSectionProps) {
+  // 统一依赖联动重置方案
+  const prevDepsRef = useRef<any>({});
+  useEffect(() => {
+    let newForm = { ...form };
+    let changed = false;
+    Object.entries(pcbFieldRules).forEach(([key, rule]) => {
+      if (!rule.dependencies) return;
+      const currentDeps = rule.dependencies.map(dep => form[dep]);
+      const prevDeps = prevDepsRef.current[key];
+      if (!prevDeps || currentDeps.some((v, i) => v !== prevDeps[i])) {
+        const defaultValue = typeof rule.default === "function"
+          ? rule.default(form)
+          : rule.default;
+        let options = typeof rule.options === "function"
+          ? rule.options(form)
+          : rule.options;
+        if (!options?.includes(newForm[key]) || newForm[key] !== defaultValue) {
+          newForm[key] = defaultValue;
+          changed = true;
+        }
+      }
+      prevDepsRef.current[key] = currentDeps;
+    });
+    // Product Report 联动逻辑：选了Not Required，其它选项自动清空
+    if (Array.isArray(form.productReport)) {
+      if (form.productReport.includes('Not Required') && form.productReport.length > 1) {
+        newForm.productReport = ['Not Required'];
+        changed = true;
+      }
+    }
+    if (changed) {
+      setForm(newForm);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, setForm]);
+
+  // 字段类型映射（可扩展）
+  const fieldTypeMap: Record<string, "radio" | "checkbox" | "select" | "input"> = {
+    testMethod: "radio",
+    prodCap: "radio",
+    productReport: "checkbox",
+    isRejectBoard: "radio",
+    yyPin: "radio",
+    customerCode: "input",
+    payMethod: "radio",
+    qualityAttach: "radio",
+    smt: "radio",
+    holeCount: "input"
+  };
+
   return (
     <div ref={sectionRef} className="scroll-mt-32">
       <div className="flex flex-col gap-3 text-xs">
-        {/* Test Method */}
-        <div className="flex items-center gap-4">
-          <Tooltip content={<div className="max-w-xs text-left">Electrical test method for finished PCBs. Sample free: basic test; Paid: full test for all boards.</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">Test Method</label>
-          </Tooltip>
-          <RadioGroup
-            name="testMethod"
-            options={[
-              { value: "free", label: "Sample Free" },
-              { value: "paid", label: "Paid" },
-            ]}
-            value={form.testMethod || "free"}
-            onChange={(v: string) => setForm((prev: any) => ({ ...prev, testMethod: v }))}
-          />
-        </div>
-        {/* Production Cap Confirmation */}
-        <div className="flex items-center gap-4">
-          <Tooltip content={<div className="max-w-xs text-left">Confirm production capacity before order. Auto: system confirms; Manual: staff confirms.</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">Production Cap Confirmation</label>
-          </Tooltip>
-          <RadioGroup
-            name="prodCap"
-            options={[
-              { value: "none", label: "None" },
-              { value: "manual", label: "Manual (no auto confirm)" },
-              { value: "auto", label: "Auto (system auto confirm)" },
-            ]}
-            value={form.prodCap || "auto"}
-            onChange={(v: string) => setForm((prev: any) => ({ ...prev, prodCap: v }))}
-          />
-        </div>
-        {/* Product Report */}
-        <div className="flex items-center gap-4">
-          <Tooltip content={<div className="max-w-xs text-left">Select which reports you need with your shipment, e.g. cut sheet, sample coupon, etc.</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">Product Report</label>
-          </Tooltip>
-          <CheckboxGroup
-            name="productReport"
-            options={[
-              { value: "none", label: "None" },
-              { value: "shipment", label: "Shipment Report" },
-              { value: "cut", label: "Cut Sheet" },
-              { value: "sample", label: "Sample Coupon" },
-            ]}
-            value={form.productReport || ["none"]}
-            onChange={(v: string[]) => setForm((prev: any) => ({ ...prev, productReport: v }))}
-          />
-        </div>
-        {/* Reject Board */}
-        <div className="flex items-center gap-4">
-          <Tooltip content={<div className="max-w-xs text-left">Accept or reject boards that do not meet quality standards.</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">Reject Board</label>
-          </Tooltip>
-          <RadioGroup
-            name="rejectBoard"
-            options={[
-              { value: "accept", label: "Accept" },
-              { value: "reject", label: "Reject" },
-            ]}
-            value={form.rejectBoard || "accept"}
-            onChange={(v: string) => setForm((prev: any) => ({ ...prev, rejectBoard: v }))}
-          />
-        </div>
-        {/* Yin Yang Pin */}
-        <div className="flex items-center gap-4">
-          <Tooltip content={<div className="max-w-xs text-left">Special pin for assembly orientation. Required for some assembly processes.</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">Yin Yang Pin</label>
-          </Tooltip>
-          <RadioGroup
-            name="yyPin"
-            options={[
-              { value: "none", label: "None" },
-              { value: "need", label: "Required" },
-            ]}
-            value={form.yyPin || "none"}
-            onChange={(v: string) => setForm((prev: any) => ({ ...prev, yyPin: v }))}
-          />
-        </div>
-        {/* Customer Code */}
-        <div className="flex items-center gap-4">
-          <Tooltip content={<div className="max-w-xs text-left">Add customer-specific code or marking to the PCB.</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">Customer Code</label>
-          </Tooltip>
-          <RadioGroup
-            name="customerCode"
-            options={[
-              { value: "add", label: "Add Code" },
-              { value: "add_pos", label: "Add Code (specify position)" },
-              { value: "none", label: "None" },
-            ]}
-            value={form.customerCode || "none"}
-            onChange={(v: string) => setForm((prev: any) => ({ ...prev, customerCode: v }))}
-          />
-        </div>
-        {/* Payment Method */}
-        <div className="flex items-center gap-4">
-          <Tooltip content={<div className="max-w-xs text-left">Choose how to confirm and pay for your order.</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">Payment Method</label>
-          </Tooltip>
-          <RadioGroup
-            name="payMethod"
-            options={[
-              { value: "auto", label: "Auto Confirm & Pay" },
-              { value: "manual", label: "Manual Confirm & Pay" },
-            ]}
-            value={form.payMethod || "auto"}
-            onChange={(v: string) => setForm((prev: any) => ({ ...prev, payMethod: v }))}
-          />
-        </div>
-        {/* Quality Attachment */}
-        <div className="flex items-center gap-4">
-          <Tooltip content={<div className="max-w-xs text-left">Standard: basic quality documents. Full: all available quality documents (extra cost).</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">Quality Attachment</label>
-          </Tooltip>
-          <RadioGroup
-            name="qualityAttach"
-            options={[
-              { value: "standard", label: "Standard" },
-              { value: "full", label: "Full (extra cost)" },
-            ]}
-            value={form.qualityAttach || "standard"}
-            onChange={(v: string) => setForm((prev: any) => ({ ...prev, qualityAttach: v }))}
-          />
-        </div>
-        {/* SMT Assembly */}
-        <div className="flex items-center gap-4">
-          <Tooltip content={<div className="max-w-xs text-left">Surface Mount Technology assembly service for your PCBs.</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">SMT Assembly</label>
-          </Tooltip>
-          <RadioGroup
-            name="smt"
-            options={[
-              { value: "need", label: "Required" },
-              { value: "none", label: "Not Required" },
-            ]}
-            value={form.smt || "none"}
-            onChange={(v: string) => setForm((prev: any) => ({ ...prev, smt: v }))}
-          />
-        </div>
+        {/* 自动渲染服务字段 */}
+        {serviceInfoKeys.map((key) => {
+          const rule = pcbFieldRules[key];
+          if (!rule) return null;
+          if (rule.shouldShow && !rule.shouldShow(form)) return null;
+          const options = (typeof rule.options === 'function' ? rule.options(form) : rule.options) || [];
+          const type = fieldTypeMap[key] || (options.length > 0 ? "radio" : "input");
+          return (
+            <div className="flex items-center gap-4" key={key}>
+              <Tooltip content={<div className="max-w-xs text-left">{rule.label}</div>}>
+                <label className="w-32 text-xs font-normal text-right cursor-help">{rule.label}</label>
+              </Tooltip>
+              {type === "radio" && options.length > 0 && (
+                <RadioGroup
+                  name={key}
+                  options={options.map((v: any) => ({
+                    value: v,
+                    label: typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v),
+                    disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false
+                  }))}
+                  value={form[key]}
+                  onChange={(v: any) => setForm((prev: any) => ({ ...prev, [key]: v }))}
+                />
+              )}
+              {type === "checkbox" && options.length > 0 && (
+                <CheckboxGroup
+                  name={key}
+                  options={options.map((v: any) => ({
+                    value: v,
+                    label: typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v),
+                    disabled: false
+                  }))}
+                  value={Array.isArray(form[key] as any) ? (form[key] as any) : []}
+                  onChange={(v: string[]) => {
+                    // 如果勾选了 Not Required，只保留 Not Required
+                    if (v.includes('Not Required')) {
+                      setForm((prev: any) => ({ ...prev, productReport: ['Not Required'] }));
+                    } else {
+                      // 只要没选 Not Required，就移除 Not Required
+                      setForm((prev: any) => ({
+                        ...prev,
+                        productReport: v.filter(item => item !== 'Not Required')
+                      }));
+                    }
+                  }}
+                />
+              )}
+              {type === "select" && options.length > 0 && (
+                <Select value={form[key] ?? ''} onValueChange={(v) => setForm((prev: any) => ({ ...prev, [key]: v }))}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder={`Select ${rule.label}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {options.map((v: any) => (
+                      <SelectItem key={v} value={v} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false}>
+                        {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {type === "input" && (
+                <Input
+                  value={form[key] ?? ''}
+                  onChange={e => setForm((prev: any) => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={`Enter ${rule.label}`}
+                  className="w-48"
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

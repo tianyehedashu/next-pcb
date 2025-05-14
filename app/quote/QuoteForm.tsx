@@ -8,15 +8,25 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Layers, Settings, UserCheck, UploadCloud, Truck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Tooltip } from "@/components/ui/tooltip";
+import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
-export default function QuoteForm({ form, errors, setForm, setErrors, sectionRefs, setShippingCost }: any) {
+export interface QuoteFormProps {
+  form: PcbQuoteForm & { gerber?: File };
+  errors: any;
+  setForm: React.Dispatch<React.SetStateAction<PcbQuoteForm & { gerber?: File }>>;
+  setErrors: React.Dispatch<React.SetStateAction<any>>;
+  sectionRefs: React.RefObject<HTMLDivElement>[];
+  setShippingCost: (cost: number) => void;
+}
+
+export default function QuoteForm({ form, errors, setForm, setErrors, sectionRefs, setShippingCost }: QuoteFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   async function handleGerberUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setForm((prev: any) => ({ ...prev, gerber: file }));
+    setForm((prev) => ({ ...prev, gerber: file }));
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

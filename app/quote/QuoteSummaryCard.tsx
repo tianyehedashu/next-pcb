@@ -10,6 +10,8 @@ interface QuoteSummaryCardProps {
   totalPrice: number;
   deliveryDate?: string;
   form?: any;
+  detail?: Record<string, number>;
+  notes?: string[];
 }
 
 const compareOptions = [
@@ -25,6 +27,8 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
   totalPrice,
   deliveryDate,
   form = {},
+  detail,
+  notes,
 }) => {
   const [showDetail, setShowDetail] = useState(true);
   const rate = useExchangeRateStore((s) => s.cnyToUsd);
@@ -107,6 +111,13 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
             </tbody>
           </table>
         </div>
+        {/* PCB价格明细（可选） */}
+        {detail && Object.keys(detail).length > 0 && (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-blue-600">Show Price Details</summary>
+            <pre className="text-xs bg-slate-100 rounded p-2 mt-1">{JSON.stringify(detail, null, 2)}</pre>
+          </details>
+        )}
       </div>
       {/* 总价区 */}
       <div className="flex justify-between items-center py-3 px-2 rounded-xl bg-blue-50 mb-2">
@@ -125,6 +136,17 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
         <span className="text-blue-700 font-medium">For reference only,</span>
         <span className="text-gray-500"> final price is subject to review.</span>
       </div>
+      {/* 价格备注notes */}
+      {notes && notes.length > 0 && (
+        <div className="text-xs mt-2 text-gray-600">
+          <div className="font-semibold text-blue-700 mb-1">Price Notes</div>
+          <ul className="list-disc pl-5">
+            {notes.map((note, idx) => (
+              <li key={idx}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };
