@@ -165,7 +165,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   silkscreen: {
     label: 'Silkscreen',
-    options: ['white', 'black'],
+    options: ['white', 'black', 'green'],
     default: 'white',
     required: true,
   },

@@ -42,6 +42,7 @@ const solderMaskColorMap: Record<string, string> = {
 const silkscreenColorMap: Record<string, string> = {
   white: '#fff',
   black: '#222',
+  green: '#22c55e',
 };
 
 interface ProcessInfoSectionProps {
@@ -52,21 +53,22 @@ interface ProcessInfoSectionProps {
 }
 
 export default function ProcessInfoSection({ form, errors, setForm, sectionRef }: ProcessInfoSectionProps) {
+  const formData = form as Record<string, any>;
   // 统一依赖联动重置方案
   const prevDepsRef = useRef<any>({});
   useEffect(() => {
-    let newForm = { ...form };
+    let newForm = { ...formData };
     let changed = false;
     Object.entries(pcbFieldRules).forEach(([key, rule]) => {
       if (!rule.dependencies) return;
-      const currentDeps = rule.dependencies.map(dep => form[dep]);
+      const currentDeps = rule.dependencies.map(dep => formData[dep]);
       const prevDeps = prevDepsRef.current[key];
       if (!prevDeps || currentDeps.some((v, i) => v !== prevDeps[i])) {
         const defaultValue = typeof rule.default === "function"
-          ? rule.default(form)
+          ? rule.default(formData as any)
           : rule.default;
         let options = typeof rule.options === "function"
-          ? rule.options(form)
+          ? rule.options(formData as any)
           : rule.options;
         if (!options?.includes(newForm[key]) || newForm[key] !== defaultValue) {
           newForm[key] = defaultValue;
@@ -147,12 +149,12 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
                     ) : (typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)),
                     disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false
                   }))}
-                  value={form[key]}
-                  onChange={(v: any) => setForm((prev: any) => ({ ...prev, [key]: v }))}
+                  value={formData[key] as string}
+                  onChange={(v: string) => setForm((prev: any) => ({ ...prev, [key]: v }))}
                 />
               )}
               {type === "select" && sortedOptions.length > 0 && (
-                <Select value={form[key] ?? ''} onValueChange={(v) => setForm((prev: any) => ({ ...prev, [key]: v }))}>
+                <Select value={formData[key] ?? ''} onValueChange={(v) => setForm((prev: any) => ({ ...prev, [key]: v }))}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder={`Select ${rule.label}`} />
                   </SelectTrigger>
@@ -167,7 +169,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
               )}
               {type === "input" && (
                 <Input
-                  value={form[key] ?? ''}
+                  value={formData[key] ?? ''}
                   onChange={e => setForm((prev: any) => ({ ...prev, [key]: e.target.value }))}
                   placeholder={`Enter ${rule.label}`}
                   className="w-48"

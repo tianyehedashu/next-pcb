@@ -205,7 +205,7 @@ export function calcPcbPrice(form: any): number {
   // 板色/阻焊色加价
   const COLOR_EXTRA: Record<string, number> = { green: 0, blue: 5, red: 5, black: 5, white: 5, yellow: 5 };
   // 字符色加价
-  const SILK_EXTRA: Record<string, number> = { white: 0, black: 0 };
+  const SILK_EXTRA: Record<string, number> = { white: 0, black: 0, green: 0 };
   // 阻抗控制加价
   const IMPEDANCE_EXTRA = (v: string) => v === "yes" ? 20 : 0;
   // 半孔加价

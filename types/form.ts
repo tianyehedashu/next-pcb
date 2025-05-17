@@ -133,6 +133,7 @@ export enum SolderMask {
 export enum Silkscreen {
   White = 'white', // 易读，常规
   Black = 'black', // 适合深色阻焊
+  Green = 'green', // 特殊需求，适合浅色阻焊
 }
 
 /**

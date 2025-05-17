@@ -550,10 +550,10 @@ export const solderMaskHandler: PriceHandler = (form, area, totalCount) => {
 
 /**
  * 丝印颜色加价
- * 规则：目前白/黑都不加价。
+ * 规则：目前白/黑/绿都不加价。
  */
 export const silkscreenHandler: PriceHandler = (form, area, totalCount) => {
-  // 目前白/黑都不加价
+  // 目前白/黑/绿都不加价
   return {
     extra: 0,
     detail: {},
