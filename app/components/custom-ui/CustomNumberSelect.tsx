@@ -14,7 +14,6 @@ interface CustomNumberSelectProps {
 const CustomNumberSelect: React.FC<CustomNumberSelectProps> = ({ value, onChange, options, unit, placeholder }) => {
   const [customValue, setCustomValue] = useState("");
   const [open, setOpen] = useState(false);
-  const isCustom = !options.includes(value);
   const displayValue = options.includes(value) ? String(value) : (value ? String(value) : "");
 
   return (

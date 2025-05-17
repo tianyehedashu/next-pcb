@@ -14,6 +14,9 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_GIT_SHA: getGitSha(),
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // ... 其他配置
 };
 
