@@ -62,8 +62,8 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
           ? rule.options(form)
           : rule.options;
         // 只有当当前值不在 options 里，或者依赖变化时才重置
-        if (!options?.includes(newForm[key]) || newForm[key] !== defaultValue) {
-          newForm[key] = defaultValue;
+        if (!options?.includes(newForm[key as keyof PcbQuoteForm & string]) || newForm[key as keyof PcbQuoteForm & string] !== defaultValue) {
+          newForm[key as keyof PcbQuoteForm & string] = defaultValue;
           changed = true;
         }
       }
@@ -96,19 +96,17 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                 <div className="flex items-center gap-3 flex-1">
                   <Input
                     type="number"
-
                     placeholder="Length/x"
-                    value={form.singleLength ?? ''}
-                    onChange={e => setForm((prev: any) => ({ ...prev, singleLength: e.target.value }))}
+                    value={form.singleLength !== undefined && form.singleLength !== null ? String(form.singleLength) : ''}
+                    onChange={e => setForm((prev) => ({ ...prev, singleLength: e.target.value === '' ? undefined : Number(e.target.value) }))}
                     className="w-24"
                   />
                   <span className="mx-1">×</span>
                   <Input
                     type="number"
-
                     placeholder="Width/y"
-                    value={form.singleWidth ?? ''}
-                    onChange={e => setForm((prev: any) => ({ ...prev, singleWidth: e.target.value }))}
+                    value={form.singleWidth !== undefined && form.singleWidth !== null ? String(form.singleWidth) : ''}
+                    onChange={e => setForm((prev) => ({ ...prev, singleWidth: e.target.value === '' ? undefined : Number(e.target.value) }))}
                     className="w-24"
                   />
                   <span className="ml-2 text-xs text-muted-foreground">cm</span>
@@ -130,19 +128,17 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                   <div className="flex items-center gap-3 flex-1">
                     <Input
                       type="number"
-
                       placeholder="Panel Rows"
-                      value={form.panelRow ?? ''}
-                      onChange={e => setForm((prev: any) => ({ ...prev, panelRow: e.target.value }))}
+                      value={form.panelRow !== undefined && form.panelRow !== null ? String(form.panelRow) : ''}
+                      onChange={e => setForm((prev) => ({ ...prev, panelRow: e.target.value === '' ? undefined : Number(e.target.value) }))}
                       className="w-24"
                     />
                     <span className="mx-1">pcs ×</span>
                     <Input
                       type="number"
-
                       placeholder="Panel Columns"
-                      value={form.panelColumn ?? ''}
-                      onChange={e => setForm((prev: any) => ({ ...prev, panelColumn: e.target.value }))}
+                      value={form.panelColumn !== undefined && form.panelColumn !== null ? String(form.panelColumn) : ''}
+                      onChange={e => setForm((prev) => ({ ...prev, panelColumn: e.target.value === '' ? undefined : Number(e.target.value) }))}
                       className="w-24"
                     />
                     <span className="ml-2 text-xs text-muted-foreground">pcs</span>
@@ -155,8 +151,8 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
           }
           return (
             <div className="flex items-center gap-4" key={key}>
-              <Tooltip content={<div className="max-w-xs text-left">{rule.label}</div>}>
-                <label className="w-32 text-xs font-normal text-right cursor-help">{rule.label}</label>
+              <Tooltip content={<div className="max-w-xs text-left">{key === 'tg' ? 'TG Rating' : rule.label}</div>}>
+                <label className="w-32 text-xs font-normal text-right cursor-help">{key === 'tg' ? 'TG Rating' : rule.label}</label>
               </Tooltip>
               {type === "radio" && options.length > 0 && (
                 <RadioGroup
@@ -167,18 +163,18 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                     disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false,
                     radius: options.length === 1 ? "rounded-lg" : idx === 0 ? "rounded-r-none rounded-l-lg" : idx === options.length - 1 ? "rounded-r-lg !rounded-l-none -ml-px" : "rounded-none -ml-px"
                   }))}
-                  value={form[key as keyof typeof form]}
-                  onChange={(v: any) => setForm((prev: any) => ({ ...prev, [key]: v }))}
+                  value={form[key as keyof PcbQuoteForm & string]}
+                  onChange={(v: string | number) => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm & string]: v }))}
                 />
               )}
               {type === "select" && options.length > 0 && (
-                <Select value={form[key as keyof typeof form] ?? ''} onValueChange={(v) => setForm((prev: any) => ({ ...prev, [key]: v }))}>
+                <Select value={String(form[key as keyof PcbQuoteForm & string] ?? '')} onValueChange={(v) => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm & string]: v }))}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder={`Select ${rule.label}`} />
                   </SelectTrigger>
                   <SelectContent>
                     {options.map((v: any) => (
-                      <SelectItem key={v} value={v} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false}>
+                      <SelectItem key={v} value={String(v)} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false}>
                         {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
                       </SelectItem>
                     ))}
@@ -189,11 +185,11 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                 <Input
                   type={["differentDesignsCount", "panelRow", "panelColumn", "singleLength", "singleWidth"].includes(key) ? "number" : "text"}
                   value={
-                    typeof form[key as keyof typeof form] === 'string' || typeof form[key as keyof typeof form] === 'number'
-                      ? form[key as keyof typeof form]
+                    typeof form[key as keyof PcbQuoteForm & string] === 'string' || typeof form[key as keyof PcbQuoteForm & string] === 'number'
+                      ? String(form[key as keyof PcbQuoteForm & string])
                       : ''
                   }
-                  onChange={e => setForm((prev: any) => ({ ...prev, [key]: e.target.value }))}
+                  onChange={e => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm & string]: e.target.value }))}
                   placeholder={rule.label ? `Enter ${rule.label}` : ''}
                   className="w-48"
                 />

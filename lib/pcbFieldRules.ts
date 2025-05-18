@@ -2,8 +2,9 @@
 // 可扩展：依赖、校验、自动修正、加价等
 
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
+import { CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask, Silkscreen, MaskCover, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover } from '../types/form';
 
-export type PCBFieldRule<T = any> = {
+export type PCBFieldRule<T = unknown> = {
   label: string;
   options: T[] | ((form: PcbQuoteForm & { area?: number }) => T[]);
   default: T | ((form: PcbQuoteForm & { area?: number }) => T);
@@ -11,13 +12,24 @@ export type PCBFieldRule<T = any> = {
   shouldShow?: (form: PcbQuoteForm) => boolean;
   shouldDisable?: (form: PcbQuoteForm & { area?: number }) => boolean;
   dependencies?: (keyof PcbQuoteForm)[];
-  [key: string]: any;
+  [key: string]: unknown;
+};
+
+// 自动生成产品报告 options 和 optionLabels
+const productReportOptions = Object.values(ProductReport);
+const productReportOptionLabels: Record<string, string> = {
+  [ProductReport.None]: 'Not Required',
+  [ProductReport.ProductionReport]: 'Production Report',
+  [ProductReport.MicrosectionAnalysisReport]: 'Microsection Analysis Report',
+  [ProductReport.ProductionFilms]: 'Production Films',
+  [ProductReport.ImpedanceReport]: 'Impedance Report',
+  [ProductReport.TestReport]: 'Test Report',
 };
 
 export const pcbFieldRules: Record<string, PCBFieldRule> = {
   pcbType: {
     label: 'Board Type',
-    options: ['fr4'],
+    options: Object.values(PcbType),
     default: 'fr4',
     required: true,
     price: { fr4: 0 },
@@ -60,32 +72,32 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   hdi: {
     label: 'HDI',
-    options: ['none', '1step', '2step', '3step'],
+    options: Object.values(HdiType),
     default: 'none',
     required: true,
     shouldShow: (form: PcbQuoteForm) => (form.layers ?? 2) >= 4,
   },
   tg: {
     label: 'TG',
-    options: ['TG135', 'TG150', 'TG170'],
-    default: 'TG135',
+    options: Object.values(TgType),
+    default: TgType.TG135,
     required: true,
   },
   shipmentType: {
     label: 'Shipment Type',
-    options: ['single', 'panel', 'panel_agent'],
+    options: Object.values(ShipmentType),
     default: 'single',
     required: true,
   },
   border: {
     label: 'Break-away Rail',
-    options: ['none', 'left_right', 'top_bottom', 'all'],
+    options: Object.values(BorderType),
     default: 'none',
     required: false,
   },
   copperWeight: {
     label: 'Copper Weight',
-    options: ['1', '2', '3'],
+    options: Object.values(CopperWeight),
     default: '1',
     required: true,
     shouldDisable: () => false,
@@ -159,19 +171,19 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   solderMask: {
     label: 'Solder Mask',
-    options: ['green', 'blue', 'red', 'black', 'white', 'yellow'],
+    options: Object.values(SolderMask),
     default: 'green',
     required: true,
   },
   silkscreen: {
     label: 'Silkscreen',
-    options: ['white', 'black', 'green'],
+    options: Object.values(Silkscreen),
     default: 'white',
     required: true,
   },
   surfaceFinish: {
     label: 'Surface Finish',
-    options: ['hasl', 'leadfree', 'enig', 'osp', 'immersion_silver', 'immersion_tin'],
+    options: Object.values(SurfaceFinish),
     default: (form: PcbQuoteForm) => {
       if ((form.bga === true) || ( form.thickness < 0.5)) {
         return 'osp';
@@ -214,7 +226,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   maskCover: {
     label: 'Mask Cover',
-    options: ['cover', 'plug', 'plug_flat'],
+    options: Object.values(MaskCover),
     default: 'cover',
     required: false,
   },
@@ -297,26 +309,14 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   prodCap: {
     label: 'Production Capacity',
-    options: ['auto', 'manual'],
+    options: Object.values(ProdCap),
     default: 'auto',
     required: false,
   },
   productReport: {
     label: 'Product Report',
-    options: [
-      'Not Required',
-      'Production Report',
-      'Microsection Analysis Report',
-      'Production Films',
-      'impedanceReport',
-    ],
-    optionLabels: {
-      'Not Required': 'Not Required',
-      'Production Report': 'Production Report',
-      'Microsection Analysis Report': 'Microsection Analysis Report',
-      'Production Films': 'Production Films',
-      'impedanceReport': 'Impedance Report',
-    },
+    options: productReportOptions,
+    optionLabels: productReportOptionLabels,
     default: 'Not Required',
     required: false,
   },
@@ -334,13 +334,13 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   customerCode: {
     label: 'Customer Code',
-    options: [],
+    options: Object.values(CustomerCode),
     default: '',
     required: false,
   },
   qualityAttach: {
     label: 'Quality Attach',
-    options: ['standard', 'full'],
+    options: Object.values(QualityAttach),
     default: 'standard',
     required: false,
   },
@@ -401,5 +401,17 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     default: false,
     required: false,
     shouldShow: (form: PcbQuoteForm) => !!form.goldFingers,
+  },
+  payMethod: {
+    label: 'Pay Method',
+    options: Object.values(PayMethod),
+    default: 'auto',
+    required: false,
+  },
+  edgeCover: {
+    label: 'Edge Cover',
+    options: Object.values(EdgeCover),
+    default: 'none',
+    required: false,
   },
 }; 

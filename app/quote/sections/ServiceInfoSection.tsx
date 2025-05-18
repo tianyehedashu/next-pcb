@@ -6,6 +6,7 @@ import { pcbFieldRules } from "@/lib/pcbFieldRules";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
+import { ProductReport } from "@/types/form";
 
 export const serviceInfoKeys = [
   "testMethod",
@@ -21,7 +22,7 @@ export const serviceInfoKeys = [
 ] as const;
 
 interface ServiceInfoSectionProps {
-  form: Omit<PcbQuoteForm, 'productReport'> & { productReport?: string[] };
+  form: Omit<PcbQuoteForm, 'productReport'> & { productReport?: ProductReport[] };
   errors: any;
   setForm: (form: Partial<PcbQuoteForm> | ((prev: PcbQuoteForm) => Partial<PcbQuoteForm> | PcbQuoteForm)) => void;
   sectionRef: React.RefObject<HTMLDivElement>;
@@ -53,8 +54,8 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
     });
     // Product Report 联动逻辑：选了Not Required，其它选项自动清空
     if (Array.isArray(form.productReport)) {
-      if (form.productReport.includes('Not Required') && form.productReport.length > 1) {
-        newForm.productReport = ['Not Required'];
+      if (form.productReport.includes(ProductReport.None) && form.productReport.length > 1) {
+        newForm.productReport = [ProductReport.None];
         changed = true;
       }
     }
@@ -71,7 +72,7 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
     productReport: "checkbox",
     isRejectBoard: "radio",
     yyPin: "radio",
-    customerCode: "input",
+    customerCode: "radio",
     payMethod: "radio",
     qualityAttach: "radio",
     smt: "radio",
@@ -96,34 +97,43 @@ export default function ServiceInfoSection({ form, errors, setForm, sectionRef }
               {type === "radio" && options.length > 0 && (
                 <RadioGroup
                   name={key}
-                  options={options.map((v: any) => ({
+                  options={(options as Array<string | number | boolean>).map((v) => ({
                     value: v,
-                    label: typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v),
+                    label: ['isRejectBoard', 'yyPin', 'smt'].includes(key)
+                      ? (v === true ? 'Yes' : v === false ? 'No' : String(v))
+                      : typeof v === 'string'
+                      ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-')
+                      : String(v),
                     disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false
                   }))}
-                  value={form[key]}
-                  onChange={(v: any) => setForm((prev: any) => ({ ...prev, [key]: v }))}
+                  value={form[key] as string | number | boolean | undefined}
+                  onChange={(v: string | number | boolean) => setForm((prev) => ({ ...prev, [key]: v }))}
                 />
               )}
               {type === "checkbox" && options.length > 0 && (
                 <CheckboxGroup
                   name={key}
-                  options={options.map((v: any) => ({
+                  options={(options as ProductReport[]).map((v) => ({
                     value: v,
-                    label: typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v),
+                    label: v === ProductReport.None
+                      ? 'Not Required'
+                      : typeof v === 'string'
+                        ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-')
+                        : String(v),
                     disabled: false
                   }))}
-                  value={Array.isArray(form[key] as any) ? (form[key] as any) : []}
-                  onChange={(v: string[]) => {
-                    // 如果勾选了 Not Required，只保留 Not Required
-                    if (v.includes('Not Required')) {
-                      setForm((prev: any) => ({ ...prev, productReport: ['Not Required'] }));
-                    } else {
-                      // 只要没选 Not Required，就移除 Not Required
+                  value={Array.isArray(form[key] as any) ? (form[key] as ProductReport[]) : []}
+                  onChange={(v: ProductReport[]) => {
+                    // 互斥逻辑最终版：
+                    if (v.includes(ProductReport.None) && v.length > 1) {
                       setForm((prev: any) => ({
                         ...prev,
-                        productReport: v.filter(item => item !== 'Not Required')
+                        productReport: v.filter(item => item !== ProductReport.None)
                       }));
+                    } else if (v.length === 1 && v[0] === ProductReport.None) {
+                      setForm((prev: any) => ({ ...prev, productReport: [ProductReport.None] }));
+                    } else {
+                      setForm((prev: any) => ({ ...prev, productReport: v }));
                     }
                   }}
                 />

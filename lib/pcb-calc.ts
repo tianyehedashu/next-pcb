@@ -193,7 +193,7 @@ export function calcPcbPrice(form: Record<string, unknown>): number {
   // HDI工艺加价
   const HDI_EXTRA: Record<string, number> = { none: 0, "1step": 30, "2step": 50, "3step": 80 };
   // TG值加价
-  const TG_EXTRA: Record<string, number> = { TG170: 0, TG150: 10, TG130: 20 };
+  const TG_EXTRA: Record<string, number> = { TG170: 0, TG150: 10, TG135: 20 };
   // 出货方式加价
   const SHIPMENT_EXTRA: Record<string, number> = { single: 0, panel: 10, panel_agent: 20 };
   // 工艺边加价

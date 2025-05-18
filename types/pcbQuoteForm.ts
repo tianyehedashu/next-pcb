@@ -21,6 +21,8 @@ import {
   SMT,
   useShengyiMaterial,
   SurfaceFinishEnigType,
+  ProductReport,
+  EdgeCover,
 } from './form';
 
 /**
@@ -61,10 +63,10 @@ export interface PcbQuoteForm {
   goldFingers: boolean; // 金手指
   edgePlating: boolean; // 边镀金
   halfHole?: string; // 半孔数量（如需更细致可后续enum）
-  edgeCover?: string; // 边覆盖（如需更细致可后续enum）
+  edgeCover?: EdgeCover; // 边覆盖（如需更细致可后续enum）
   maskCover?: MaskCover; // 阻焊覆盖
   testMethod?: TestMethod; // 测试方式
-  productReport?: string[]; // 产品报告
+  productReport?: ProductReport[]; // 支持多选
   isRejectBoard?: boolean; // 不良板（是否不接受打叉板）
   yyPin?: YYPin; // 阴阳针
   customerCode?: CustomerCode; // 客户加码

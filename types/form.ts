@@ -35,12 +35,12 @@ export enum HdiType {
  * 作用：决定PCB耐高温性能，影响可靠性和适用环境。
  * - TG170：高TG，耐热性好，适合高温环境。
  * - TG150：中等TG，适合一般工业环境。
- * - TG130：常规TG，适合普通消费电子。
+ * - TG135：常规TG，适合普通消费电子。
  */
 export enum TgType {
-  TG170 = 'TG170', // 高温环境首选
+  TG135 = 'TG135', // 普通应用
   TG150 = 'TG150', // 工业级应用
-  TG130 = 'TG135', // 普通应用
+  TG170 = 'TG170', // 高温环境首选
 }
 
 /**
@@ -147,8 +147,8 @@ export enum Silkscreen {
  * - immersion_tin：沉锡，适合高密度、细间距产品，焊接性能好，但长期储存易变色。
  */
 export enum SurfaceFinish {
-  Hasl = 'hasl', // 性价比高，适合通用
-  LeadFree = 'leadfree', // 环保，适合出口
+  Hasl = 'HASL', // 性价比高，适合通用
+  LeadFree = 'leadfree HASL', // 环保，适合出口
   Enig = 'enig', // 平整耐腐蚀，适合高端
   Osp = 'osp', // 环保，适合SMT
   ImmersionSilver = 'immersion_silver', // 高频信号，易氧化
@@ -266,6 +266,8 @@ export type SurfaceFinishEnigType = 'enig_1u' | 'enig_2u' | 'enig_3u'; // 1u/2u/
  * Break-away Rail（工艺边）
  * 作用：用于PCB板边缘的辅助边框，便于自动化贴片、组装和分板工艺。
  * 影响：加工艺边可提升生产效率、保护PCB主体、便于分板，适用于小尺寸或异形PCB及有贴片需求的订单。
+ * 注意：BreakAwayRail 是生产辅助用的"工艺边"，通常在分板后被去除，不属于成品PCB的一部分。
+ * 与 EdgeCover 区别：BreakAwayRail 仅用于生产过程，EdgeCover 作用于成品PCB实际边缘。
  * true：需要Break-away Rail，适合自动化生产和特殊工艺需求。
  * false：不需要Break-away Rail，常规订单。
  */
@@ -274,4 +276,63 @@ export enum BreakAwayRail {
   LeftRight = 'left_right', // 左右工艺边
   TopBottom = 'top_bottom', // 上下工艺边
   All = 'all', // 四边都有工艺边
+}
+
+/**
+ * HalfHole
+ * 作用：决定PCB边缘是否有半孔，影响后续贴片、分板等工艺。
+ * - none：无半孔，适合无特殊工艺需求。
+ * - left：左侧有半孔，适合左侧有特殊工艺需求。
+ * - right：右侧有半孔，适合右侧有特殊工艺需求。
+ * - both：两侧都有半孔，适合两侧都有特殊工艺需求。
+ */
+export enum HalfHole {
+  None = 'none',
+  Left = 'left',
+  Right = 'right',
+  Both = 'both'
+}
+
+/**
+ * EdgeCover
+ * 作用：决定PCB边缘是否有特殊覆盖工艺（如盖油、塞孔等），影响后续贴片、分板等工艺。
+ * EdgeCover 处理的是成品PCB的实际边缘，不会被去除，是产品的一部分。
+ * 常用于对PCB实际边缘进行额外保护或功能性处理，满足特殊焊接、装配、绝缘等需求。
+ * 与 BreakAwayRail 区别：BreakAwayRail 是生产辅助用的工艺边，EdgeCover 是成品PCB实际边缘的特殊覆盖工艺。
+ * 
+ * | 字段           | 主要作用                  | 位置           | 是否成品保留 | 典型选项         |
+ * |----------------|--------------------------|----------------|--------------|------------------|
+ * | BreakAwayRail  | 生产辅助、分板、贴片      | PCB四周边框    | 否（分板后去除） | None, LeftRight, TopBottom, All |
+ * | EdgeCover      | 边缘保护/特殊工艺         | PCB实际边缘    | 是           | None, Left, Right, Both         |
+ *
+ * - none：无边覆盖，适合无特殊工艺需求。
+ * - left：左侧有边覆盖，适合左侧有特殊工艺需求。
+ * - right：右侧有边覆盖，适合右侧有特殊工艺需求。
+ * - both：两侧都有边覆盖，适合两侧都有特殊工艺需求。
+ */
+export enum EdgeCover {
+  None = 'none',
+  Left = 'left',
+  Right = 'right',
+  Both = 'both'
+}
+
+// 产品报告类型
+/**
+ * 产品报告类型
+ * 作用：客户可选的随货质检/生产报告类型，满足不同认证、追溯、品质需求。
+ * - none：不需要任何报告，常规订单。
+ * - ProductionReport：生产报告，记录生产过程、工艺参数等。
+ * - MicrosectionAnalysisReport：微切片分析报告，展示PCB截面结构、层压质量等，适用于高可靠性或有认证需求的订单。
+ * - ProductionFilms：生产菲林，提供生产用的底片资料，便于客户存档或复查。
+ * - ImpedanceReport：阻抗测试报告，适用于有阻抗控制要求的高频/高速PCB。
+ * - TestReport：测试报告，适用于有测试要求的订单。
+ */
+export enum ProductReport {
+  None = 'none', // 不需要任何报告，常规订单
+  ProductionReport = 'Production Report', // 生产报告，记录生产过程、工艺参数等
+  MicrosectionAnalysisReport = 'Microsection Analysis Report', // 微切片分析报告，展示PCB截面结构、层压质量等
+  ProductionFilms = 'Production Films', // 生产菲林，提供生产用底片资料
+  ImpedanceReport = 'impedanceReport', // 阻抗测试报告，适用于有阻抗控制要求的订单
+  TestReport = 'testReport', // 测试报告，适用于有测试要求的订单
 } 

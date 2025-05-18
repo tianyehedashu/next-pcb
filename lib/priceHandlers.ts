@@ -220,7 +220,7 @@ export const smtHandler: PriceHandler = (form, area, totalCount) => {
  * 生益板材加价（与TG值联动）
  * 规则：
  * - 仅在 useShengyiMaterial 为 true 时生效。
- * - TG130：样品（area<1）+80元/款，批量（area>=1）+80元/㎡。
+ * - TG135：样品（area<1）+80元/款，批量（area>=1）+80元/㎡。
  * - TG150：样品+120元/款，批量+120元/㎡。
  * - TG170：样品+150元/款，批量+150元/㎡。
  * - 明细和备注中体现TG类型和加价方式。
@@ -1005,7 +1005,7 @@ export const bgaHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：
  * - TG150：样品单双面+80元/款，多层+100元/款，大于1㎡+60元/㎡，多层+80元/㎡。
  * - TG170：样品单双面+100元/款，多层+150元/款，大于1㎡+80元/㎡，多层+100元/㎡。
- * - 只处理TG150、TG170，TG130不加价。
+ * - 只处理TG150、TG170，TG135不加价。
  */
 export const tgMaterialHandler: PriceHandler = (form, area, totalCount) => {
   let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
