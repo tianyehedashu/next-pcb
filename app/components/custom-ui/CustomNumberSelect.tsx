@@ -27,12 +27,12 @@ const CustomNumberSelect: React.FC<CustomNumberSelectProps> = ({ value, onChange
       }}
     >
       <SelectTrigger className="w-40 text-xs">
-        {displayValue ? `${displayValue}${unit ? ` ${unit}` : ""}` : (placeholder || "Select")}
+        {displayValue ? `${displayValue}` : (placeholder || "Select")}
       </SelectTrigger>
       <SelectContent>
         <div className="grid grid-cols-5 gap-2 p-2 max-h-56 overflow-y-auto">
           {options.map(count => (
-            <SelectItem key={count} value={String(count)}>{count}{unit ? ` ${unit}` : ""}</SelectItem>
+            <SelectItem key={count} value={String(count)}>{count}</SelectItem>
           ))}
         </div>
         <div className="flex items-center gap-2 mt-2 p-2 border-t">

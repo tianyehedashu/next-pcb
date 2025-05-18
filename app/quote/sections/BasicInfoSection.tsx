@@ -6,11 +6,12 @@ import React, { useEffect, useRef } from "react";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import CustomNumberSelect from "@/app/components/custom-ui/CustomNumberSelect";
 import { pcbFieldRules } from "@/lib/pcbFieldRules";
+import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
 interface BasicInfoSectionProps {
-  form: any;
-  errors: any;
-  setForm: (form: any) => void;
+  form: PcbQuoteForm & { gerber?: File };
+  errors: Record<string, string>;
+  setForm: React.Dispatch<React.SetStateAction<PcbQuoteForm & { gerber?: File }>>;
   sectionRef: React.RefObject<HTMLDivElement>;
 }
 
@@ -42,9 +43,9 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
   console.log("当前 PCB Quote Form：", form);
 
   // 统一依赖联动重置方案
-  const prevDepsRef = useRef<any>({});
+  const prevDepsRef = useRef<Record<string, unknown[]>>({});
   useEffect(() => {
-    let newForm = { ...form };
+    const newForm = { ...form };
     let changed = false;
 
     Object.entries(pcbFieldRules).forEach(([key, rule]) => {
@@ -59,7 +60,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
           ? rule.default(form)
           : rule.default;
         // 计算 options
-        let options = typeof rule.options === "function"
+        const options = typeof rule.options === "function"
           ? rule.options(form)
           : rule.options;
         // 只有当当前值不在 options 里，或者依赖变化时才重置
@@ -97,8 +98,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                 <div className="flex items-center gap-3 flex-1">
                   <Input
                     type="number"
-                    min={0.1}
-                    step={0.01}
+
                     placeholder="Length/x"
                     value={form.singleLength ?? ''}
                     onChange={e => setForm((prev: any) => ({ ...prev, singleLength: e.target.value }))}
@@ -107,8 +107,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                   <span className="mx-1">×</span>
                   <Input
                     type="number"
-                    min={0.1}
-                    step={0.01}
+
                     placeholder="Width/y"
                     value={form.singleWidth ?? ''}
                     onChange={e => setForm((prev: any) => ({ ...prev, singleWidth: e.target.value }))}
@@ -133,8 +132,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                   <div className="flex items-center gap-3 flex-1">
                     <Input
                       type="number"
-                      min={1}
-                      step={1}
+
                       placeholder="Panel Rows"
                       value={form.panelRow ?? ''}
                       onChange={e => setForm((prev: any) => ({ ...prev, panelRow: e.target.value }))}
@@ -143,8 +141,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                     <span className="mx-1">pcs ×</span>
                     <Input
                       type="number"
-                      min={1}
-                      step={1}
+
                       placeholder="Panel Columns"
                       value={form.panelColumn ?? ''}
                       onChange={e => setForm((prev: any) => ({ ...prev, panelColumn: e.target.value }))}
@@ -166,10 +163,11 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               {type === "radio" && options.length > 0 && (
                 <RadioGroup
                   name={key}
-                  options={options.map((v: any) => ({
+                  options={options.map((v: any, idx: number) => ({
                     value: v,
                     label: typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v),
-                    disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false
+                    disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false,
+                    radius: options.length === 1 ? "rounded-lg" : idx === 0 ? "rounded-r-none rounded-l-lg" : idx === options.length - 1 ? "rounded-r-lg !rounded-l-none -ml-px" : "rounded-none -ml-px"
                   }))}
                   value={form[key]}
                   onChange={(v: any) => setForm((prev: any) => ({ ...prev, [key]: v }))}
@@ -192,8 +190,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               {type === "input" && (
                 <Input
                   type={["differentDesignsCount", "panelRow", "panelColumn", "singleLength", "singleWidth"].includes(key) ? "number" : "text"}
-                  min={["panelRow", "panelColumn", "differentDesignsCount"].includes(key) ? 1 : undefined}
-                  step={["panelRow", "panelColumn", "differentDesignsCount"].includes(key) ? 1 : undefined}
+
                   value={form[key] ?? ''}
                   onChange={e => setForm((prev: any) => ({ ...prev, [key]: e.target.value }))}
                   placeholder={`Enter ${rule.label}`}

@@ -8,7 +8,7 @@ export default function RadioGroup({ name, options, value, onChange }: any) {
       {options.map((opt: any, idx: number) => {
         let radius = "";
         if (idx === 0) radius = "rounded-r-none rounded-l-lg";
-        else if (idx === options.length - 1) radius = "!rounded-l-none -ml-px";
+        else if (idx === options.length - 1) radius = "rounded-r-lg !rounded-l-none -ml-px";
         else radius = "rounded-none -ml-px";
         const isDisabled = !!opt.disabled;
         return (
