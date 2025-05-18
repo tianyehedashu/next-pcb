@@ -23,8 +23,6 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
   const countLabel = isSingle ? "Single Count" : "Panel Count";
   const countUnit = isSingle ? "Pcs" : "Set";
 
-  const borderTip = isPanel ? "If panelization, set ≥5mm. No border may increase cost." : "If you need panelization, suggest set border ≥5mm.";
-
   // 新的字段配置数组，顺序可控
   const basicFields = [
     { key: "pcbType", type: "radio" },
@@ -169,12 +167,12 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                     disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false,
                     radius: options.length === 1 ? "rounded-lg" : idx === 0 ? "rounded-r-none rounded-l-lg" : idx === options.length - 1 ? "rounded-r-lg !rounded-l-none -ml-px" : "rounded-none -ml-px"
                   }))}
-                  value={form[key]}
+                  value={form[key as keyof typeof form]}
                   onChange={(v: any) => setForm((prev: any) => ({ ...prev, [key]: v }))}
                 />
               )}
               {type === "select" && options.length > 0 && (
-                <Select value={form[key] ?? ''} onValueChange={(v) => setForm((prev: any) => ({ ...prev, [key]: v }))}>
+                <Select value={form[key as keyof typeof form] ?? ''} onValueChange={(v) => setForm((prev: any) => ({ ...prev, [key]: v }))}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder={`Select ${rule.label}`} />
                   </SelectTrigger>
@@ -190,15 +188,15 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               {type === "input" && (
                 <Input
                   type={["differentDesignsCount", "panelRow", "panelColumn", "singleLength", "singleWidth"].includes(key) ? "number" : "text"}
-
-                  value={form[key] ?? ''}
+                  value={
+                    typeof form[key as keyof typeof form] === 'string' || typeof form[key as keyof typeof form] === 'number'
+                      ? form[key as keyof typeof form]
+                      : ''
+                  }
                   onChange={e => setForm((prev: any) => ({ ...prev, [key]: e.target.value }))}
-                  placeholder={`Enter ${rule.label}`}
+                  placeholder={rule.label ? `Enter ${rule.label}` : ''}
                   className="w-48"
                 />
-              )}
-              {key === 'border' && (
-                <span className="text-xs text-muted-foreground">{borderTip}</span>
               )}
             </div>
           );

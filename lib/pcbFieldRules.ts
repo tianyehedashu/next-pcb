@@ -350,16 +350,16 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     required: true,
   },
   panelRow: {
-    label: 'Panel Rows',
+    label: '',
     options: [],
-    default: '',
+    default: 1,
     required: true,
     shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel' || form.shipmentType === 'panel_agent',
   },
   panelColumn: {
-    label: 'Panel Columns',
+    label: '',
     options: [],
-    default: '',
+    default: 1,
     required: true,
     shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel' || form.shipmentType === 'panel_agent',
   },
@@ -371,9 +371,15 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'single',
   },
   differentDesignsCount: {
-    label: 'Different Designs Count',
+    label: 'Different Designs',
+    options: [],
+    default: 1,
+    required: false,
+  },
+  singleSize: {
+    label: 'Single Size (cm)',
     options: [],
     default: '',
-    required: false,
+    required: true,
   },
 }; 
