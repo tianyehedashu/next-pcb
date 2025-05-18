@@ -41,7 +41,15 @@ export interface PcbQuoteForm {
   singleLength: number; // 单片长(cm)
   singleWidth: number; // 单片宽(cm)
   singleCount: number; // 单片出货情况下单总数量
-  panelCount?: number; // 多少单块组成一个联块
+    /**
+   * 拼板行数
+   */
+    panelRow?: number;
+    /**
+     * 拼板列数
+     */
+    panelColumn?: number;
+
   panelSet?: number; // 连板/大板下单数量
   differentDesignsCount?: number; // Number of different designs per panel (多款拼板数量)
   border?: BorderType; // 工艺边
@@ -103,12 +111,5 @@ export interface PcbQuoteForm {
    * Gerber 文件（用于前端上传展示，不参与后端存储）
    */
   gerber?: File;
-  /**
-   * 拼板行数
-   */
-  panelRow?: number;
-  /**
-   * 拼板列数
-   */
-  panelColumn?: number;
+
 } 

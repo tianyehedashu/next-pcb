@@ -35,7 +35,8 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
     { key: "singleSize", type: "group" },
     { key: "shipmentType", type: "radio" },
     { key: "panelRow", type: "input" },
-    { key: "panelColumn", type: "input" }
+    { key: "panelColumn", type: "input" },
+    { key: "panelSet", type: "input" }
   ];
 
   console.log("当前 PCB Quote Form：", form);

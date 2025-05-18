@@ -20,7 +20,7 @@ import {
   tgMaterialHandler, // TG板材
   holeCountHandler, // 钻孔数
   holeCount015Handler, // 0.15mm孔加价
-  solderMaskHandler, // 阻焊色
+  // solderMaskHandler, // 阻焊色
   silkscreenHandler, // 字符色
   surfaceFinishHandler, // 表面处理
   impedanceHandler, // 阻抗
@@ -33,12 +33,18 @@ import {
 } from './priceHandlers';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
 
-// 1. 修改initContext
+// 计算总数和面积（平方米）
+function getTotalCountAndArea(form: PcbQuoteForm): { totalCount: number; area: number } {
+  let totalCount = form.singleCount;
+  if (form.shipmentType === 'panel' || form.shipmentType === 'panel_agent') {
+    totalCount = (form.panelRow || 1) * (form.panelColumn || 1) * (form.panelSet || 0);
+  }
+  const area = (form.singleLength * form.singleWidth * totalCount) / 10000;
+  return { totalCount, area };
+}
+
 export function initContext(form: PcbQuoteForm): { form: PcbQuoteForm; area: number; totalCount: number } {
-  const totalCount = form.shipmentType === 'panel' && form.panelCount && form.panelSet
-    ? form.panelCount * form.panelSet
-    : form.singleCount;
-  const area = (form.singleLength * form.singleWidth) / 10000 * totalCount;
+  const { totalCount, area } = getTotalCountAndArea(form);
   return { form, area, totalCount };
 }
 

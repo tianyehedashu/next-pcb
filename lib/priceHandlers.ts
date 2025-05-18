@@ -81,7 +81,9 @@ export const edgePlatingHandler = Object.assign(
  * 规则：如需半孔（castellated=true 或 halfHole!=none），整单加100元。
  */
 export const castellatedHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.castellated === true || (form.halfHole && form.halfHole !== 'none')) {
     extra = 100;
     detail['castellated'] = 100;
@@ -99,7 +101,9 @@ export const castellatedHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如需盖板（edgeCover!=none），整单加20元。
  */
 export const edgeCoverHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.edgeCover && form.edgeCover !== 'none') { extra = 20; detail['edgeCover'] = 20; notes.push('Edge cover: +20 CNY'); }
   return {
     extra: extra,
@@ -113,7 +117,9 @@ export const edgeCoverHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如需盖孔（maskCover=plug/plug_flat），整单加10元。
  */
 export const maskCoverHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.maskCover && ['plug', 'plug_flat'].includes(form.maskCover)) { extra = 10; detail['maskCover'] = 10; notes.push('Mask cover: +10 CNY'); }
   return {
     extra: extra,
@@ -127,7 +133,9 @@ export const maskCoverHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如需手动产能（prodCap=ProdCap.Manual），整单加10元。
  */
 export const prodCapHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.prodCap && form.prodCap === ProdCap.Manual) {
     extra = 10;
     detail['prodCap'] = 10;
@@ -145,7 +153,9 @@ export const prodCapHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如需阴阳钉（yyPin=true），整单加10元。
  */
 export const yyPinHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.yyPin === true) { extra = 10; detail['yyPin'] = 10; notes.push('Yin-yang pin: +10 CNY'); }
   return {
     extra: extra,
@@ -159,7 +169,9 @@ export const yyPinHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：客户码（customerCode=add）加10元，customerCode=add_pos加15元。
  */
 export const customerCodeHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.customerCode === 'add') { extra = 10; detail['customerCode'] = 10; notes.push('Customer code add: +10 CNY'); }
   if (form.customerCode === 'add_pos') { extra = 15; detail['customerCode'] = 15; notes.push('Customer code add_pos: +15 CNY'); }
   return {
@@ -174,7 +186,9 @@ export const customerCodeHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如需手动支付（payMethod=manual），整单加5元。
  */
 export const payMethodHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.payMethod === 'manual') { extra = 5; detail['payMethod'] = 5; notes.push('Manual payment: +5 CNY'); }
   return {
     extra: extra,
@@ -188,7 +202,9 @@ export const payMethodHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如需全检附加（qualityAttach=full），整单加20元。
  */
 export const qualityAttachHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.qualityAttach === 'full') { extra = 20; detail['qualityAttach'] = 20; notes.push('Full quality attach: +20 CNY'); }
   return {
     extra: extra,
@@ -203,7 +219,9 @@ export const qualityAttachHandler: PriceHandler = (form, area, totalCount) => {
  * 说明：如需按面积计价可调整为50×max(1, area)
  */
 export const smtHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.smt === true) {
     extra = 50;
     detail['smt'] = 50;
@@ -229,7 +247,9 @@ export const smtHandler: PriceHandler = (form, area, totalCount) => {
  * - 便于报价明细展示和后续维护。
  */
 export const syMaterialHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.useShengyiMaterial) {
     const isSample = area < 1;
     let price = 80;
@@ -255,7 +275,9 @@ export const syMaterialHandler: PriceHandler = (form, area, totalCount) => {
  * 公式：extra = ceil((holeCount-100000)/10000) × 10 × max(1, area)
  */
 export const holeCountHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.holeCount && form.holeCount > 100000) {
     const fee = Math.ceil((form.holeCount - 100000) / 10000) * 10 * Math.max(1, area);
     extra += fee;
@@ -275,7 +297,9 @@ export const holeCountHandler: PriceHandler = (form, area, totalCount) => {
  * 公式：extra = ceil((holeCount-10000)/10000) × 30 × max(1, area)
  */
 export const holeCount015Handler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.minHole === '0.15' && form.holeCount && form.holeCount > 10000) {
     const fee = Math.ceil((form.holeCount - 10000) / 10000) * 30 * Math.max(1, area);
     extra += fee;
@@ -310,8 +334,8 @@ export const holeCount015Handler: PriceHandler = (form, area, totalCount) => {
  */
 export const traceHandler: PriceHandler = (form, area, totalCount) => {
   let extra = 0;
-  let detail: Record<string, number> = {};
-  let notes: string[] = [];
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   const layers = form.layers;
   const minTrace = form.minTrace;
   const isSample = area < 1;
@@ -380,8 +404,8 @@ export const traceHandler: PriceHandler = (form, area, totalCount) => {
  */
 export const drillAndThicknessHandler: PriceHandler = (form, area, totalCount) => {
   let extra = 0;
-  let detail: Record<string, number> = {};
-  let notes: string[] = [];
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   const layers = form.layers;
   const minHole = form.minHole;
   const thicknessNum = form.thickness;
@@ -485,11 +509,10 @@ export const basePriceHandler = Object.assign(
     };
     const table = baseTable[form.layers as keyof typeof baseTable];
     let calculatedBasePrice = 0;
-    let minOrderQty = table?.minOrderQty ?? 0;
-    let leadTime = '';
-    let notes: string[] = [];
+
+    const notes: string[] = [];
     let found = false;
-    let detail: Record<string, number> = {};
+    const detail: Record<string, number> = {};
     if (!table) {
       notes.push('This layer count is not supported, please contact sales for manual evaluation');
       return {
@@ -508,7 +531,7 @@ export const basePriceHandler = Object.assign(
           calculatedBasePrice = price;
           detail['basePrice'] = calculatedBasePrice;
         }
-        leadTime = table.leadTime[i] || '';
+
         found = true;
         break;
       }
@@ -522,7 +545,7 @@ export const basePriceHandler = Object.assign(
     }
     // 只在 detail/basePrice 里体现，extra 不累计
     return {
-      extra: 0,
+      extra: calculatedBasePrice,
       detail: { ...detail },
       notes: [...notes],
     };
@@ -535,7 +558,9 @@ export const basePriceHandler = Object.assign(
  * 规则：非绿色阻焊（solderMask!=green）整单加5元。
  */
 export const solderMaskHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.solderMask && form.solderMask !== 'green') {
     extra = 5;
     detail['solderMask'] = 5;
@@ -697,7 +722,9 @@ export const impedanceHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如需金手指（goldFingers=true），整单加20元。
  */
 export const goldFingersHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.goldFingers === true) {
     extra = 20;
     detail['goldFingers'] = 20;
@@ -726,9 +753,11 @@ export const goldFingersHandler: PriceHandler = (form, area, totalCount) => {
  * 备注：系统会在报价明细中注明实际测试方式。
  */
 export const testMethodHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   const layers = Number(form.layers);
-  let testMethod = form.testMethod;
+  const testMethod = form.testMethod;
   const realArea = Math.max(1, area);
   let actualType: TestMethod | undefined = testMethod;
   let fee = 0;
@@ -796,7 +825,9 @@ export const testMethodHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：每选1项报告加5元。
  */
 export const productReportHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.productReport && Array.isArray(form.productReport)) {
     const count = form.productReport.filter((i: string) => i !== 'none').length;
     if (count > 0) {
@@ -817,7 +848,9 @@ export const productReportHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如需不良板（isRejectBoard=true），整单加10元。
  */
 export const rejectBoardHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.isRejectBoard) {
     extra = 10;
     detail['rejectBoard'] = 10;
@@ -873,7 +906,9 @@ export const blueMaskHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如需孔铜25um（holeCu25um=true），整单加20元。
  */
 export const holeCu25umHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.holeCu25um === true) {
     extra = 20;
     detail['holeCu25um'] = 20;
@@ -921,7 +956,9 @@ export const filmFeeHandler: PriceHandler = (form, area, totalCount) => {
 
   // 总光绘面积
   const totalFilmArea = singleArea * filmCount * boardCount;
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (totalFilmArea > 0.06) {
     const fee = Math.ceil(totalFilmArea / 0.06) * 200;
     extra = fee;
@@ -958,7 +995,7 @@ export const engFeeHandler: PriceHandler = (form, area, totalCount) => {
   };
   const table = engFeeTable[form.layers as keyof typeof engFeeTable];
   let engFee: number | undefined = undefined;
-  let notes: string[] = [];
+  const notes: string[] = [];
   if (!table) {
     notes.push('This layer count is not supported for engineering fee, please contact sales for manual evaluation');
     return { extra: 0, detail: {}, notes };
@@ -975,7 +1012,7 @@ export const engFeeHandler: PriceHandler = (form, area, totalCount) => {
   }
   const detail: Record<string, number> = engFee ? { engFee } : {};
   return {
-    extra: 0,
+    extra: engFee,
     detail,
     notes,
   };
@@ -987,7 +1024,9 @@ export const engFeeHandler: PriceHandler = (form, area, totalCount) => {
  * 适用场景：高密度BGA封装对PCB工艺要求高，需额外加价。
  */
 export const bgaHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   if (form.bga === true) {
     extra = 50;
     detail['bga'] = 50;
@@ -1008,7 +1047,9 @@ export const bgaHandler: PriceHandler = (form, area, totalCount) => {
  * - 只处理TG150、TG170，TG135不加价。
  */
 export const tgMaterialHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
   const isSample = area < 1;
   const isMultilayer = form.layers > 2;
   if (form.tg === 'TG150') {
