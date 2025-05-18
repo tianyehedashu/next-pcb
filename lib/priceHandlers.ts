@@ -563,41 +563,132 @@ export const silkscreenHandler: PriceHandler = (form, area, totalCount) => {
 
 /**
  * 表面处理加价
- * 规则：不同表面处理类型加价不同，详见分支。
+ * 规则：
+ * 1. 沉金（ENIG）分为1U/2U/3U三档：
+ *    - 1U：10寸加价140元/㎡，样板加140元/款（面积<1㎡视为样板）。
+ *    - 2U：10寸加价190元/㎡，样板加190元/款。
+ *    - 3U：10寸加价240元/㎡，样板加230元/款，且备注"全面超过3U需人工改价"。
+ * 2. 沉银/沉锡：
+ *    - 每平米加价100元，样板加120元/款。
+ *    - 备注"交期加2天"。
+ *
+ * Surface Finish Price Handler
+ *  - ENIG (Electroless Nickel Immersion Gold) is divided into 1U/2U/3U:
+ *    - 1U: +140 CNY/㎡, sample +140 CNY/lot (sample: area < 1㎡)
+ *    - 2U: +190 CNY/㎡, sample +190 CNY/lot
+ *    - 3U: +240 CNY/㎡, sample +230 CNY/lot, and note: "Manual pricing required if over 3U"
+ *  - Immersion Silver/Tin:
+ *    - +100 CNY/㎡, sample +120 CNY/lot
+ *    - Note: "Lead time +2 days"
  */
 export const surfaceFinishHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
-  if (form.surfaceFinish) {
-    if (form.surfaceFinish === 'leadfree') { extra = 10; }
-    else if (form.surfaceFinish === 'enig') { extra = 15; }
-    else if (form.surfaceFinish === 'osp') { extra = 5; }
-    else if (form.surfaceFinish === 'immersion_silver') { extra = 10; }
-    else if (form.surfaceFinish === 'immersion_tin') { extra = 10; }
-    detail['surfaceFinish'] = extra;
-    notes.push(`Surface finish: +${extra} CNY`);
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
+  // 样板定义：面积<1㎡视为样板，否则为批量
+  const isSample = area < 1;
+  const finish = form.surfaceFinish;
+  const enigType = form.surfaceFinishEnigType;
+
+  if (finish === 'enig') {
+    // ENIG（沉金）分档加价
+    let pricePerSqm = 0, pricePerSample = 0, label = '';
+    if (enigType === 'enig_1u') {
+      // 1U 沉金
+      pricePerSqm = 140;
+      pricePerSample = 140;
+      label = 'ENIG 1U';
+    } else if (enigType === 'enig_2u') {
+      // 2U 沉金
+      pricePerSqm = 190;
+      pricePerSample = 190;
+      label = 'ENIG 2U';
+    } else if (enigType === 'enig_3u') {
+      // 3U 沉金
+      pricePerSqm = 240;
+      pricePerSample = 230;
+      label = 'ENIG 3U';
+    }
+    // 超过3U需人工改价
+    if (enigType === 'enig_3u') {
+      notes.push('ENIG 3U: 超过3U需人工改价');
+    }
+    if (isSample) {
+      // 样板加价
+      extra += pricePerSample;
+      detail['surfaceFinish'] = pricePerSample;
+      notes.push(`${label}: sample +${pricePerSample} CNY/款`);
+    } else {
+      // 批量按面积加价
+      const fee = pricePerSqm * area;
+      extra += fee;
+      detail['surfaceFinish'] = fee;
+      notes.push(`${label}: +${pricePerSqm} CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+    }
+  } else if (finish === 'immersion_silver' || finish === 'immersion_tin') {
+    // 沉银/沉锡加价
+    const pricePerSqm = 100;
+    const pricePerSample = 120;
+    if (isSample) {
+      // 样板加价
+      extra += pricePerSample;
+      detail['surfaceFinish'] = pricePerSample;
+      notes.push(`${finish === 'immersion_silver' ? 'Immersion Silver' : 'Immersion Tin'}: sample +120 CNY/款`);
+    } else {
+      // 批量按面积加价
+      const fee = pricePerSqm * area;
+      extra += fee;
+      detail['surfaceFinish'] = fee;
+      notes.push(`${finish === 'immersion_silver' ? 'Immersion Silver' : 'Immersion Tin'}: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+    }
+    // 交期备注
+    notes.push('交期加2天');
   }
   return {
-    extra: extra,
-    detail: detail,
-    notes: notes,
+    extra,
+    detail,
+    notes,
   };
 };
 
 /**
  * 阻抗控制加价
- * 规则：如需阻抗控制（impedance=true），整单加20元。
+ * 规则：
+ * 1. 阻抗控制（impedance=true）：
+ *    - 样品（面积<1㎡）：加50元/款
+ *    - 批量（面积≥1㎡）：不收费
+ * 2. 阻抗报告（productReport 包含 'impedanceReport'）：每款加30元
+ *
+ * Impedance Price Handler
+ *  - Impedance control (impedance=true):
+ *    - Sample (area < 1㎡): +50 CNY/lot
+ *    - Batch (area ≥ 1㎡): free
+ *  - Impedance report (productReport includes 'impedanceReport'): +30 CNY/lot
  */
 export const impedanceHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
+  // 阻抗控制加价
   if (form.impedance === true) {
-    extra = 20;
-    detail['impedance'] = 20;
-    notes.push('Impedance control: +20 CNY');
+    if (area < 1) {
+      extra += 50;
+      detail['impedance'] = 50;
+      notes.push('Impedance control: sample +50 CNY/lot');
+    } else {
+      notes.push('Impedance control: batch, free');
+    }
+  }
+  // 阻抗报告加价
+  if (form.productReport && Array.isArray(form.productReport) && form.productReport.includes('impedanceReport')) {
+    extra += 30;
+    detail['impedanceReport'] = 30;
+    notes.push('Impedance report: +30 CNY/lot');
   }
   return {
-    extra: extra,
-    detail: detail,
-    notes: notes,
+    extra,
+    detail,
+    notes,
   };
 };
 
@@ -741,20 +832,39 @@ export const rejectBoardHandler: PriceHandler = (form, area, totalCount) => {
 
 /**
  * 蓝胶加价
- * 规则：如需蓝胶（blueMask=true），整单加10元。
- * 说明：如需按面积计价可调整为100元/㎡。
+ * 规则：如需蓝胶（solderMask=blue），
+ *   - 样品（面积<1㎡）：加120元/款，交期加2天；
+ *   - 批量（面积≥1㎡）：加100元/㎡，交期加3天以上。
+ *
+ * Blue Mask Price Handler
+ *   - Sample (area < 1㎡): +120 CNY/lot, lead time +2 days
+ *   - Batch (area ≥ 1㎡): +100 CNY/㎡, lead time +3 days or more
+ *   - If solderMask is 'blue', treat as blue mask.
  */
 export const blueMaskHandler: PriceHandler = (form, area, totalCount) => {
-  let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
-  if (form.blueMask === true) {
-    extra = 10;
-    detail['blueMask'] = 10;
-    notes.push('Blue mask: +10 CNY');
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
+  // 只要阻焊色为 blue 即视为蓝胶
+  if (form.solderMask === 'blue') {
+    const isSample = area < 1;
+    if (isSample) {
+      extra = 120;
+      detail['blueMask'] = 120;
+      notes.push('Blue mask: sample +120 CNY/lot');
+      notes.push('Lead time +2 days');
+    } else {
+      const fee = 100 * area;
+      extra = fee;
+      detail['blueMask'] = fee;
+      notes.push(`Blue mask: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+      notes.push('Lead time +3 days or more');
+    }
   }
   return {
-    extra: extra,
-    detail: detail,
-    notes: notes,
+    extra,
+    detail,
+    notes,
   };
 };
 

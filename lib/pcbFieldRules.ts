@@ -303,7 +303,20 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   productReport: {
     label: 'Product Report',
-    options: ['Not Required', 'Production Report', 'Microsection Analysis Report', 'Production Films'],
+    options: [
+      'Not Required',
+      'Production Report',
+      'Microsection Analysis Report',
+      'Production Films',
+      'impedanceReport',
+    ],
+    optionLabels: {
+      'Not Required': 'Not Required',
+      'Production Report': 'Production Report',
+      'Microsection Analysis Report': 'Microsection Analysis Report',
+      'Production Films': 'Production Films',
+      'impedanceReport': 'Impedance Report',
+    },
     default: 'Not Required',
     required: false,
   },
@@ -381,5 +394,12 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: [],
     default: '',
     required: true,
+  },
+  goldFingersBevel: {
+    label: 'Bevel Gold Fingers',
+    options: [true, false],
+    default: false,
+    required: false,
+    shouldShow: (form: PcbQuoteForm) => !!form.goldFingers,
   },
 }; 

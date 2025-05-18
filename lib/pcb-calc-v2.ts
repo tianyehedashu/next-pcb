@@ -86,7 +86,7 @@ export function calcPcbPriceV2(form: PcbQuoteForm): {
     holeCountHandler, // 钻孔数
     holeCount015Handler, // 0.15mm孔加价
 
-    solderMaskHandler, // 阻焊色
+    // solderMaskHandler, // 阻焊色
     silkscreenHandler, // 字符色
     surfaceFinishHandler, // 表面处理
     impedanceHandler, // 阻抗

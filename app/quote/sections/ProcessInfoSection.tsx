@@ -105,7 +105,7 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
     <div ref={sectionRef} className="scroll-mt-32">
       <div className="flex flex-col gap-3 text-xs">
         {/* 自动渲染工艺字段（仅渲染fieldTypeMap中配置的） */}
-        {processInfoKeys.map((key) => {
+        {processInfoKeys.map((key, idx) => {
           const type = fieldTypeMap[key];
           if (!type) return null;
           const rule = pcbFieldRules[key];
@@ -120,62 +120,98 @@ export default function ProcessInfoSection({ form, errors, setForm, sectionRef }
                 return getNum(a) - getNum(b);
               })
             : options;
+          // Copper Weight 字段加单位
+          const label = key === 'copperWeight'
+            ? `${rule.label} (oz)`
+            : key === 'minTrace'
+            ? `${rule.label} (mil)`
+            : key === 'minHole'
+            ? `${rule.label} (mm)`
+            : rule.label;
           return (
-            <div className="flex items-center gap-4" key={key}>
-              <Tooltip content={<div className="max-w-xs text-left">{rule.label}</div>}>
-                <label className="w-32 text-xs font-normal text-right cursor-help">{rule.label}</label>
-              </Tooltip>
-              {type === "radio" && sortedOptions.length > 0 && (
-                <RadioGroup
-                  name={key}
-                  options={sortedOptions.map((v: any) => ({
-                    value: v,
-                    label: key === 'solderMask' ? (
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="inline-block w-4 h-4 rounded-full border border-gray-300"
-                          style={{ backgroundColor: solderMaskColorMap[v] || v, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
-                        ></span>
-                        {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
-                      </span>
-                    ) : key === 'silkscreen' ? (
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="inline-block w-4 h-4 rounded-full border border-gray-300"
-                          style={{ backgroundColor: silkscreenColorMap[v] || v, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
-                        ></span>
-                        {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
-                      </span>
-                    ) : (typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)),
-                    disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false
-                  }))}
-                  value={formData[key] as string}
-                  onChange={(v: string) => setForm((prev: any) => ({ ...prev, [key]: v }))}
-                />
+            <React.Fragment key={key}>
+              <div className="flex items-center gap-4">
+                <Tooltip content={<div className="max-w-xs text-left">{label}</div>}>
+                  <label className="w-32 text-xs font-normal text-right cursor-help">{label}</label>
+                </Tooltip>
+                {type === "radio" && sortedOptions.length > 0 && (
+                  <RadioGroup
+                    name={key}
+                    options={sortedOptions.map((v: any) => ({
+                      value: v,
+                      label: [
+                        'impedance',
+                        'castellated',
+                        'goldFingers',
+                        'edgePlating',
+                        'goldFingersBevel',
+                      ].includes(key)
+                        ? (v ? 'Yes' : 'No')
+                        : key === 'solderMask' ? (
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="inline-block w-4 h-4 rounded-full border border-gray-300"
+                              style={{ backgroundColor: solderMaskColorMap[v] || v, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
+                            ></span>
+                            {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
+                          </span>
+                        ) : key === 'silkscreen' ? (
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="inline-block w-4 h-4 rounded-full border border-gray-300"
+                              style={{ backgroundColor: silkscreenColorMap[v] || v, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
+                            ></span>
+                            {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
+                          </span>
+                        ) : (typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)),
+                      disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false
+                    }))}
+                    value={formData[key] as string}
+                    onChange={(v: string) => setForm((prev: any) => ({ ...prev, [key]: v }))}
+                  />
+                )}
+                {type === "select" && sortedOptions.length > 0 && (
+                  <Select value={formData[key] ?? ''} onValueChange={(v) => setForm((prev: any) => ({ ...prev, [key]: v }))}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder={`Select ${rule.label}`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortedOptions.map((v: any) => (
+                        <SelectItem key={v} value={v} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false}>
+                          {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {type === "input" && (
+                  <Input
+                    value={formData[key] ?? ''}
+                    onChange={e => setForm((prev: any) => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={`Enter ${rule.label}`}
+                    className="w-48"
+                  />
+                )}
+              </div>
+              {/* 在 Gold Fingers 字段后插入 Bevel Gold Fingers 选项 */}
+              {key === 'goldFingers' && pcbFieldRules.goldFingersBevel.shouldShow?.(form) && (
+                <div className="flex items-center gap-4 ml-8">
+                  <Tooltip content={<div className="max-w-xs text-left">{pcbFieldRules.goldFingersBevel.label}</div>}>
+                    <label className="w-32 text-xs font-normal text-right cursor-help">{pcbFieldRules.goldFingersBevel.label}</label>
+                  </Tooltip>
+                  <RadioGroup
+                    name="goldFingersBevel"
+                    options={pcbFieldRules.goldFingersBevel.options.map((v: any) => ({
+                      value: v,
+                      label: v ? 'Yes' : 'No',
+                      disabled: pcbFieldRules.goldFingersBevel.shouldDisable ? pcbFieldRules.goldFingersBevel.shouldDisable({ ...form, goldFingersBevel: v }) : false
+                    }))}
+                    value={formData.goldFingersBevel as string}
+                    onChange={(v: string) => setForm((prev: any) => ({ ...prev, goldFingersBevel: v === 'true' }))}
+                  />
+                </div>
               )}
-              {type === "select" && sortedOptions.length > 0 && (
-                <Select value={formData[key] ?? ''} onValueChange={(v) => setForm((prev: any) => ({ ...prev, [key]: v }))}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder={`Select ${rule.label}`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sortedOptions.map((v: any) => (
-                      <SelectItem key={v} value={v} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false}>
-                        {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {type === "input" && (
-                <Input
-                  value={formData[key] ?? ''}
-                  onChange={e => setForm((prev: any) => ({ ...prev, [key]: e.target.value }))}
-                  placeholder={`Enter ${rule.label}`}
-                  className="w-48"
-                />
-              )}
-            </div>
+            </React.Fragment>
           );
         })}
       </div>
