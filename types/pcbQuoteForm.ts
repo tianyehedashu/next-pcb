@@ -93,13 +93,7 @@ export interface PcbQuoteForm {
    */
   bga?: boolean;
   prodCap?: ProdCap; // 产能确认
-  /**
-   * 蓝胶
-   * 是否需要特殊蓝色阻焊或保护胶，属于特殊工艺需求。
-   * true：需要蓝胶。
-   * false/未填写：不需要蓝胶。
-   */
-  blueMask?: boolean;
+ 
   /**
    * 孔铜25um
    * 是否需要通孔内铜厚≥25微米，适用于高可靠性或特殊行业标准。

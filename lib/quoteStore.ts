@@ -18,6 +18,7 @@ const defaultForm = {
   solderMask: SolderMask.Green,
   silkscreen: Silkscreen.White,
   goldFingers: false,
+  differentDesignsCount: 1,
   castellated: false,
   impedance: false,
   quantity: 10,

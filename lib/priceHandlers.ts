@@ -490,30 +490,29 @@ export const drillAndThicknessHandler: PriceHandler = (form, area, totalCount) =
 /**
  * 基础报价分档
  * 规则：按层数、面积分档报价，详见baseTable。
- * 只在ctx.detail/basePrice体现，不累计到extra。
  */
 export const basePriceHandler = Object.assign(
   (form: PcbQuoteForm, area: number, totalCount: number) => {
-    const baseTable = {
-      1: { engFee_0_05: 210, engFee_05_3: 142, engFee_3up: 0, samplePack: 300, priceSteps: [[0.2, 300], [0.5, 550], [1, 500], [3, 400], [5, 420], [10, 330], [30, 330], [Infinity, 330]], minOrderQty: 1, leadTime: ["5", "5", "7", "8", "10", "12", ">=15"] },
-      2: { engFee_0_05: 210, engFee_05_3: 142, engFee_3up: 0, samplePack: 300, priceSteps: [[0.2, 300], [0.5, 560], [1, 450], [3, 460], [5, 435], [10, 380], [30, 340], [Infinity, 320]], minOrderQty: 1, leadTime: ["5", "5", "7", "9", "11", "13", ">=15"] },
-      4: { engFee_0_05: 500, engFee_05_3: 425, engFee_3up: 0, samplePack: 610, priceSteps: [[0.2, 610], [0.5, 850], [1, 800], [3, 700], [5, 700], [10, 630], [30, 600], [Infinity, 570]], minOrderQty: 1, leadTime: ["7", "7", "9", "11", "13", "15", ">=17"] },
-      6: { engFee_0_05: 850, engFee_05_3: 850, engFee_3up: 0, samplePack: 1150, priceSteps: [[0.2, 1150], [0.5, 1100], [1, 1000], [3, 920], [5, 1200], [10, 1000], [30, 900], [Infinity, 870]], minOrderQty: 1, leadTime: ["8", "8", "11", "13", "15", "17", ">=19"] },
-      8: { engFee_0_05: 1050, engFee_05_3: 710, engFee_3up: 0, samplePack: 1400, priceSteps: [[0.2, 1400], [0.5, 1600], [1, 1600], [3, 1500], [5, 1600], [10, 1300], [30, 1300], [Infinity, 1300]], minOrderQty: 5, leadTime: ["10", "10", "12", "14", "16", "18", ">=20"] },
-      10: { engFee_0_05: 1500, engFee_05_3: 1500, engFee_3up: 0, samplePack: 2200, priceSteps: [[0.2, 2200], [0.5, 2500], [1, 2500], [3, 2000], [5, 2150], [10, 1900], [30, 1900], [Infinity, 1800]], minOrderQty: 5, leadTime: ["11", "11", "13", "15", "17", "18", ">=20天"] },
-      12: { engFee_0_05: 1600, engFee_05_3: 1600, engFee_3up: 0, samplePack: 2600, priceSteps: [[0.2, 2600], [0.5, 2600], [1, 2600], [3, 2500], [5, 2500], [10, 2400], [30, 2200], [Infinity, 2100]], minOrderQty: 5, leadTime: ["12", "12", "14", "16", "18", "19", "评估"] },
-      14: { engFee_0_05: 2000, engFee_05_3: 2000, engFee_3up: 0, samplePack: 3150, priceSteps: [[0.2, 3150], [0.5, 4000], [1, 4000], [3, 3800], [5, 3600], [10, 3600], [30, 3400], [Infinity, 3400]], minOrderQty: 5, leadTime: ["13", "13", "15", "17", "19", "20", "评估"] },
-      16: { engFee_0_05: 2500, engFee_05_3: 2500, engFee_3up: 0, samplePack: 3750, priceSteps: [[0.2, 3750], [0.5, 4500], [1, 4500], [3, 4300], [5, 4300], [10, 4300], [30, 4200], [Infinity, 4100]], minOrderQty: 5, leadTime: ["15", "15", "17", "19", "21", "22", "评估"] },
-      18: { engFee_0_05: 3000, engFee_05_3: 3000, engFee_3up: 0, samplePack: 4200, priceSteps: [[0.2, 4200], [0.5, 5500], [1, 5500], [3, 5300], [5, 5000], [10, 5000], [30, 4800], [Infinity, 4600]], minOrderQty: 5, leadTime: ["17", "17", "19", "21", "23", "24", "评估"] },
-      20: { engFee_0_05: 3500, engFee_05_3: 3500, engFee_3up: 0, samplePack: 4800, priceSteps: [[0.2, 4800], [0.5, 6500], [1, 6500], [3, 6200], [5, 6000], [10, 6000], [30, 5800], [Infinity, 5700]], minOrderQty: 5, leadTime: ["18", "18", "20", "22", "24", "25", "评估"] },
+    // 只计算基础PCB价格，不含工程费，分档单价 × 面积
+    const basePriceTable = {
+      1: { packPrice: 300, priceSteps: [[0.5, 550], [1, 500], [3, 400], [5, 420], [10, 330], [30, 330], [Infinity, 330]], minOrderQty: 1, leadTime: ["5", "5", "7", "8", "10", "12", ">=15"] },
+      2: { packPrice: 300, priceSteps: [[0.5, 560], [1, 450], [3, 460], [5, 435], [10, 380], [30, 340], [Infinity, 320]], minOrderQty: 1, leadTime: ["5", "5", "7", "9", "11", "13", ">=15"] },
+      4: { packPrice: 610, priceSteps: [[0.5, 850], [1, 800], [3, 700], [5, 700], [10, 630], [30, 600], [Infinity, 570]], minOrderQty: 1, leadTime: ["7", "7", "9", "11", "13", "15", ">=17"] },
+      6: { packPrice: 1150, priceSteps: [[0.5, 1100], [1, 1000], [3, 920], [5, 1200], [10, 1000], [30, 900], [Infinity, 870]], minOrderQty: 1, leadTime: ["8", "8", "11", "13", "15", "17", ">=19"] },
+      8: { packPrice: 1400, priceSteps: [[0.5, 1600], [1, 1600], [3, 1500], [5, 1600], [10, 1300], [30, 1300], [Infinity, 1300]], minOrderQty: 5, leadTime: ["10", "10", "12", "14", "16", "18", ">=20"] },
+      10: { packPrice: 2200, priceSteps: [[0.5, 2500], [1, 2500], [3, 2000], [5, 2150], [10, 1900], [30, 1900], [Infinity, 1800]], minOrderQty: 5, leadTime: ["11", "11", "13", "15", "17", "18", ">=20天"] },
+      12: { packPrice: 2600, priceSteps: [[0.5, 2600], [1, 2600], [3, 2500], [5, 2500], [10, 2400], [30, 2200], [Infinity, 2100]], minOrderQty: 5, leadTime: ["12", "12", "14", "16", "18", "19", "评估"] },
+      14: { packPrice: 3150, priceSteps: [[0.5, 4000], [1, 4000], [3, 3800], [5, 3600], [10, 3600], [30, 3400], [Infinity, 3400]], minOrderQty: 5, leadTime: ["13", "13", "15", "17", "19", "20", "评估"] },
+      16: { packPrice: 3750, priceSteps: [[0.5, 4500], [1, 4500], [3, 4300], [5, 4300], [10, 4300], [30, 4200], [Infinity, 4100]], minOrderQty: 5, leadTime: ["15", "15", "17", "19", "21", "22", "评估"] },
+      18: { packPrice: 4200, priceSteps: [[0.5, 5500], [1, 5500], [3, 5300], [5, 5000], [10, 5000], [30, 4800], [Infinity, 4600]], minOrderQty: 5, leadTime: ["17", "17", "19", "21", "23", "24", "评估"] },
+      20: { packPrice: 4800, priceSteps: [[0.5, 6500], [1, 6500], [3, 6200], [5, 6000], [10, 6000], [30, 5800], [Infinity, 5700]], minOrderQty: 5, leadTime: ["18", "18", "20", "22", "24", "25", "评估"] },
     };
-    const table = baseTable[form.layers as keyof typeof baseTable];
+    const baseTable = basePriceTable[form.layers as keyof typeof basePriceTable];
     let calculatedBasePrice = 0;
-
     const notes: string[] = [];
     let found = false;
     const detail: Record<string, number> = {};
-    if (!table) {
+    if (!baseTable) {
       notes.push('This layer count is not supported, please contact sales for manual evaluation');
       return {
         extra: 0,
@@ -521,29 +520,31 @@ export const basePriceHandler = Object.assign(
         notes: [...notes],
       };
     }
-    for (let i = 0; i < table.priceSteps.length; i++) {
-      const [maxArea, price] = table.priceSteps[i];
-      if (area <= maxArea) {
-        if (typeof price === 'string') {
-          notes.push(String(price));
-          calculatedBasePrice = 0;
-        } else {
-          calculatedBasePrice = price;
+    // 新逻辑：面积≤0.2㎡时，直接用 packPrice
+    if (area <= 0.2) {
+      calculatedBasePrice = baseTable.packPrice;
+      detail['basePrice'] = baseTable.packPrice;
+      notes.push(`Base price (package): ${baseTable.packPrice} CNY for area ≤ 0.2㎡`);
+      notes.push(`PCB Basic Price: ¥${baseTable.packPrice}`);
+      found = true;
+    } else {
+      for (let i = 0; i < baseTable.priceSteps.length; i++) {
+        const [maxArea, unitPrice] = baseTable.priceSteps[i];
+        if (area <= maxArea) {
+          calculatedBasePrice = unitPrice * area;
           detail['basePrice'] = calculatedBasePrice;
+          notes.push(`Base price: ${unitPrice} CNY/㎡ × ${area.toFixed(2)} = ${calculatedBasePrice.toFixed(2)} CNY`);
+          found = true;
+          break;
         }
-
-        found = true;
-        break;
+      }
+      if (calculatedBasePrice > 0) {
+        notes.push(`PCB Basic Price: ¥${calculatedBasePrice}`);
       }
     }
     if (!found) {
       notes.push('Area exceeds quotation range, please contact sales for evaluation');
     }
-    // 新增：基础价格说明
-    if (calculatedBasePrice > 0) {
-      notes.push(`PCB Basic Price: ¥${calculatedBasePrice}`);
-    }
-    // 只在 detail/basePrice 里体现，extra 不累计
     return {
       extra: calculatedBasePrice,
       detail: { ...detail },
@@ -562,9 +563,9 @@ export const solderMaskHandler: PriceHandler = (form, area, totalCount) => {
   const detail: Record<string, number> = {};
   const notes: string[] = [];
   if (form.solderMask && form.solderMask !== 'green') {
-    extra = 5;
-    detail['solderMask'] = 5;
-    notes.push(`Solder mask: +5 CNY`);
+    extra = 0;
+    // detail['solderMask'] = 5;
+    // notes.push(`Solder mask: +5 CNY`);
   }
   return {
     extra: extra,

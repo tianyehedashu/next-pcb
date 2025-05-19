@@ -1,9 +1,10 @@
 import { Truck, Package, Plane, Clock } from "lucide-react";
 import React, { useMemo } from "react";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Tooltip } from "@/components/ui/tooltip";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "components/ui/select";
+import { Tooltip } from "components/ui/tooltip";
 import countries from "@/lib/data/countries.json";
 import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
+import { calculateShippingCost } from "@/lib/shipping-calculator";
 
 interface ShippingCostEstimationSectionProps {
   form: PcbQuoteForm;
@@ -22,9 +23,39 @@ const SERVICES = [
   { value: "economy", label: "Economy", desc: "5-7 days" },
 ];
 
-function getCountryOptions() {
+interface Country {
+  id: number;
+  name: string;
+  iso3: string;
+  iso2: string;
+  emoji: string;
+}
+
+function getCountryOptions(): Country[] {
   const codes = ["us","ca","uk","de","fr","jp","kr","sg","au"];
-  return (countries as any[]).filter(c => codes.includes(c.iso2.toLowerCase()));
+  return (countries as Country[]).filter((c: Country) => codes.includes(c.iso2.toLowerCase()));
+}
+
+function toPCBSpecs(form: PcbQuoteForm): {
+  pcbType: string;
+  layers: number;
+  copperWeight: string;
+  singleLength: string;
+  singleWidth: string;
+  thickness: string;
+  quantity: number;
+  panelCount: number;
+} {
+  return {
+    pcbType: String(form.pcbType),
+    layers: form.layers,
+    copperWeight: String(form.copperWeight),
+    singleLength: String(form.singleLength),
+    singleWidth: String(form.singleWidth),
+    thickness: String(form.thickness),
+    quantity: (form.panelCount && form.panelSet) ? form.panelCount * form.panelSet : (form.singleCount || 1),
+    panelCount: form.panelCount || 1,
+  };
 }
 
 export default function ShippingCostEstimationSection({ form, setShippingCost, sectionRef }: ShippingCostEstimationSectionProps) {
@@ -51,8 +82,8 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
     setShippingInfo(newInfo);
     if (newInfo.country && newInfo.courier) {
       try {
-        const cost = require("@/lib/shipping-calculator").calculateShippingCost(
-          form,
+        const cost = calculateShippingCost(
+          toPCBSpecs(form),
           newInfo.country,
           newInfo.courier,
           newInfo.service
@@ -72,15 +103,14 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
         singleLength: form.singleLength,
         singleWidth: form.singleWidth,
         thickness: form.thickness,
-        quantity: form.quantity,
         panelCount: form.panelCount,
         copperWeight: form.copperWeight,
         layers: form.layers,
         pcbType: form.pcbType
       });
       try {
-        const cost = require("@/lib/shipping-calculator").calculateShippingCost(
-          form,
+        const cost = calculateShippingCost(
+          toPCBSpecs(form),
           shippingInfo.country,
           shippingInfo.courier,
           shippingInfo.service
@@ -92,7 +122,7 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
         setShippingCost(0);
       }
     }
-  }, [form]);
+  }, [form, setShippingCost, shippingInfo.country, shippingInfo.courier, shippingInfo.service]);
 
   const countryOptions = useMemo(() => getCountryOptions(), []);
 
@@ -110,9 +140,9 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
               <SelectValue placeholder="Select Country" />
             </SelectTrigger>
             <SelectContent className="max-h-60">
-              {countryOptions.map(c => (
-                <SelectItem key={c.iso2} value={c.iso2.toLowerCase()} className="flex items-center gap-2">
-                  <span className="mr-2">{c.emoji}</span>{c.name}
+              {countryOptions.map((country: Country) => (
+                <SelectItem key={country.iso2} value={country.iso2.toLowerCase()} className="flex items-center gap-2">
+                  <span className="mr-2">{country.emoji}</span>{country.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -123,7 +153,7 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
           <Tooltip content={<div className="max-w-xs text-left">Choose your preferred shipping company. Cost and speed may vary.</div>}>
             <label className="text-xs font-medium mb-1 block cursor-help">Courier</label>
           </Tooltip>
-          <Select value={shippingInfo.courier} onValueChange={v => handleShippingInfoChange("courier", v as any)}>
+          <Select value={shippingInfo.courier} onValueChange={v => handleShippingInfoChange("courier", v as string)}>
             <SelectTrigger className="w-full text-xs h-10">
               <SelectValue placeholder="Select Courier" />
             </SelectTrigger>
@@ -141,7 +171,7 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
           <Tooltip content={<div className="max-w-xs text-left">Select shipping speed. Express is fastest, economy is most affordable.</div>}>
             <label className="text-xs font-medium mb-1 block cursor-help">Service Type</label>
           </Tooltip>
-          <Select value={shippingInfo.service} onValueChange={v => handleShippingInfoChange("service", v as any)}>
+          <Select value={shippingInfo.service} onValueChange={v => handleShippingInfoChange("service", v as string)}>
             <SelectTrigger className="w-full text-xs h-10">
               <SelectValue placeholder="Select Service Type" />
             </SelectTrigger>

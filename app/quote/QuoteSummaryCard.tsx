@@ -32,7 +32,9 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
 }) => {
   const [showDetail, setShowDetail] = useState(true);
   const rate = useExchangeRateStore((s) => s.cnyToUsd);
-  const toUSD = (cny: number) => rate ? cny * rate : 0;
+//@TODO: 汇率计算 先使用1 调试
+  // const toUSD = (cny: number) => rate ? cny * rate : 0;
+  const toUSD = (cny: number) => rate ? cny * 1 : 0;
   const now = new Date();
 
   // 生产周期信息

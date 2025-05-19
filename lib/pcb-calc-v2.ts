@@ -99,9 +99,10 @@ export function calcPcbPriceV2(form: PcbQuoteForm): {
     goldFingersHandler, // 金手指
     testMethodHandler, // 测试方式
     productReportHandler, // 产品报告
-    rejectBoardHandler, // 不良板
+// 不良板
     blueMaskHandler, // 蓝胶
     holeCu25umHandler, // 孔铜25um
+    rejectBoardHandler, 
     // ...如有其它handler继续补充...
   ];
   for (const handler of handlers) {
@@ -111,7 +112,7 @@ export function calcPcbPriceV2(form: PcbQuoteForm): {
     notes = [...notes, ...(result.notes || [])];
   }
   // 计算总价、合并明细与备注
-  const total = (detail.basePrice || 0) + (detail.engFee || 0) + extra;
+  const total = + extra;
   return {
     total,
     detail,
