@@ -1,7 +1,7 @@
 import { Truck, Package, Plane, Clock } from "lucide-react";
 import React, { useMemo } from "react";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "components/ui/select";
-import { Tooltip } from "components/ui/tooltip";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Tooltip } from "@/components/ui/tooltip";
 import countries from "@/lib/data/countries.json";
 import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 import { calculateShippingCost } from "@/lib/shipping-calculator";
