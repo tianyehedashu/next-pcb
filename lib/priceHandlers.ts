@@ -1333,12 +1333,7 @@ export const multilayerCopperWeightHandler: PriceHandler = (form, area) => {
     notes.push('请填写外层和内层铜厚（单位oz）');
     return { extra, detail, notes };
   }
-  // 只允许 CopperWeight 枚举值
-  const validCopper = ['1', '2', '3'];
-  if (!validCopper.includes(outer) || !validCopper.includes(inner)) {
-    notes.push('铜厚仅支持1oz、2oz、3oz');
-    return { extra, detail, notes };
-  }
+
   const key = `${outer}-${inner}`;
   const table = multilayerCopperPriceTable[String(layers)];
   if (!table || !table[key]) {

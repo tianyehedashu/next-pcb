@@ -78,6 +78,7 @@ export enum CopperWeight {
   One = '1', // 常规载流能力
   Two = '2', // 增强载流能力
   Three = '3', // 大电流或特殊需求
+  Four = '4', // 超大电流或极特殊需求
 }
 
 /**
