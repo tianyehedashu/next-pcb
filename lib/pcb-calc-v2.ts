@@ -4,8 +4,6 @@ import {
   PriceHandler,
   basePriceHandler,
   pcbTypeHandler,
-  filmFeeHandler,
-  engFeeHandler, // 工程费
   edgePlatingHandler, // 边镀金
   castellatedHandler, // 半孔/金属包边
   edgeCoverHandler, // 边覆盖
@@ -29,7 +27,9 @@ import {
   productReportHandler, // 产品报告
   rejectBoardHandler, // 不良板
   blueMaskHandler, // 蓝胶
-  holeCu25umHandler
+  holeCu25umHandler,
+  filmFeeHandler,
+  engFeeHandler
 } from './priceHandlers';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
 
@@ -73,10 +73,9 @@ export function calcPcbPriceV2(form: PcbQuoteForm): {
   let detail: Record<string, number> = {};
   let notes: string[] = [];
   const handlers: PriceHandler[] = [
-    engFeeHandler, // 工程费
     basePriceHandler, // 基础价格
     pcbTypeHandler, // 板材类型
-    filmFeeHandler, // 菲林费
+
     edgePlatingHandler, // 边镀金
     castellatedHandler, // 半孔/金属包边
     edgeCoverHandler, // 边覆盖
@@ -112,7 +111,32 @@ export function calcPcbPriceV2(form: PcbQuoteForm): {
     notes = [...notes, ...(result.notes || [])];
   }
   // 计算总价、合并明细与备注
-  const total = + extra;
+  // engFeeHandler, // 工程费
+  // filmFeeHandler, // 菲林费
+  // 1. 只遍历普通 handlers
+let subtotal = extra;
+
+
+// 2. 单独计算工程费和菲林费
+const engFeeResult = engFeeHandler(ctxForm, area, totalCount);
+const filmFeeResult = filmFeeHandler(ctxForm, area, totalCount);
+let addPercent = 0;
+if (!ctxForm.isRejectBoard) {
+  const df = ctxForm.differentDesignsCount || 1;
+  if (df < 10) addPercent = 0.1;
+  else if (df < 20) addPercent = 0.2;
+  else if (df < 30) addPercent = 0.3;
+}
+
+// 3. 处理“打叉板”加成（只对 subtotal 部分）
+
+subtotal = subtotal * (1 + addPercent);
+
+// 4. 计算总价
+const total = subtotal + (engFeeResult.extra || 0) + (filmFeeResult.extra || 0);
+
+detail = { ...detail, ...(engFeeResult.detail || {}), ...(filmFeeResult.detail || {}) };
+notes = [...notes, ...(engFeeResult.notes || []), ...(filmFeeResult.notes || [])];
   return {
     total,
     detail,

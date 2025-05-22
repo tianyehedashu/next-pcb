@@ -17,8 +17,7 @@ export const serviceInfoKeys = [
   "customerCode",
   "payMethod",
   "qualityAttach",
-  "smt",
-  "holeCount",
+  "smt"
 ] as const;
 
 interface ServiceInfoSectionProps {

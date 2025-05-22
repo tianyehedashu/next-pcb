@@ -6,8 +6,14 @@ import Sidebar from "../components/custom-ui/Sidebar"
 import { useUserStore } from "@/lib/userStore"
 import { Button } from "@/components/ui/button"
 
+type User = {
+  username?: string;
+  email?: string;
+  // ...其他字段
+};
+
 export default function ProfilePage() {
-  const user = useUserStore(state => state.user)
+  const user = useUserStore((state) => state.user as User)
 
   if (!user) {
     return (

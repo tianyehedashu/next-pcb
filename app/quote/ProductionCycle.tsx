@@ -9,11 +9,14 @@ export interface ProductionCycleProps {
 }
 
 export default function ProductionCycle({ form, className = "", calcProductionCycle, getRealDeliveryDate }: ProductionCycleProps) {
-  const compareOptions = [
-    { label: "Standard", delivery: "standard" },
-    { label: "Urgent", delivery: "urgent" }
-  ];
-  const now = new Date();
+  const compareOptions = React.useMemo(
+    () => [
+      { label: "Standard", delivery: "standard" },
+      { label: "Urgent", delivery: "urgent" }
+    ],
+    []
+  );
+  const now = React.useMemo(() => new Date(), []);
   // 动画状态
   const [cycleDaysArr, setCycleDaysArr] = useState([0, 0]);
   const [animateArr, setAnimateArr] = useState([false, false]);
@@ -35,7 +38,7 @@ export default function ProductionCycle({ form, className = "", calcProductionCy
     });
     prevDays.current = newArr;
     setCycleDaysArr(newArr);
-  }, [form]);
+  }, [form, calcProductionCycle, compareOptions, now]);
 
   return (
     <Card className={`${className} rounded-2xl shadow-lg border-blue-100`}>

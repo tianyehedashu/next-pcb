@@ -105,5 +105,5 @@ export interface PcbQuoteForm {
    * Gerber 文件（用于前端上传展示，不参与后端存储）
    */
   gerber?: File;
-
+  goldFingersBevel?: boolean; // Bevel Gold Fingers（金手指斜边）
 } 

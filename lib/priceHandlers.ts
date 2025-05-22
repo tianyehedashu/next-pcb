@@ -40,8 +40,8 @@ export const pcbTypeHandler = Object.assign(
     type PriceKey = keyof typeof priceRule;
     const unitPrice = priceRule[form.pcbType as PriceKey] || 0;
     const extra = unitPrice * Math.max(1, area);
-    let detail: Record<string, number> = {};
-    let notes: string[] = [];
+    const detail: Record<string, number> = {};
+    const notes: string[] = [];
     if (unitPrice > 0) {
       detail['pcbType'] = extra;
       notes.push(`${form.pcbType} board: +${unitPrice} × ${Math.max(1, area)}㎡ = ${extra} CNY`);
@@ -57,15 +57,24 @@ export const pcbTypeHandler = Object.assign(
 
 /**
  * 沉金边加价
- * 规则：如需沉金边（edgePlating=true），整单加20元。
+ * 规则：如需沉金边（edgePlating=true），整单加50元。
  */
 export const edgePlatingHandler = Object.assign(
   (form: PcbQuoteForm, area: number, totalCount: number) => {
-    let extra = 0, detail: Record<string, number> = {}, notes: string[] = [];
+    let extra = 0;
+    const detail: Record<string, number> = {};
+    const notes: string[] = [];
     if (form.edgePlating === true) {
-      extra = 20;
-      detail['edgePlating'] = 20;
-      notes.push('Edge plating: +20 CNY');
+      if (area < 1) {
+        extra = 50;
+        detail['edgePlating'] = 20;
+        notes.push('Edge plating: sample +50 CNY/lot');
+      } else {
+        const fee = 50 * area;
+        extra = fee;
+        detail['edgePlating'] = fee;
+        notes.push(`Edge plating: +50 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+      }
     }
     return {
       extra: extra,
@@ -80,14 +89,21 @@ export const edgePlatingHandler = Object.assign(
  * 半孔/铣槽加价
  * 规则：如需半孔（castellated=true 或 halfHole!=none），整单加100元。
  */
-export const castellatedHandler: PriceHandler = (form, area, totalCount) => {
+export const castellatedHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
   if (form.castellated === true || (form.halfHole && form.halfHole !== 'none')) {
-    extra = 100;
-    detail['castellated'] = 100;
-    notes.push('Castellated/half-hole: +100 CNY');
+    if (area < 1) {
+      extra = 100;
+      detail['castellated'] = 100;
+      notes.push('Castellated Holes: sample +100 CNY/lot');
+    } else {
+      const fee = 100 * area;
+      extra = fee;
+      detail['castellated'] = fee;
+      notes.push(`Castellated Holes: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+    }
   }
   return {
     extra: extra,
@@ -100,7 +116,7 @@ export const castellatedHandler: PriceHandler = (form, area, totalCount) => {
  * 沉金盖板加价
  * 规则：如需盖板（edgeCover!=none），整单加20元。
  */
-export const edgeCoverHandler: PriceHandler = (form, area, totalCount) => {
+export const edgeCoverHandler: PriceHandler = (form) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -116,7 +132,7 @@ export const edgeCoverHandler: PriceHandler = (form, area, totalCount) => {
  * 阻焊盖孔加价
  * 规则：如需盖孔（maskCover=plug/plug_flat），整单加10元。
  */
-export const maskCoverHandler: PriceHandler = (form, area, totalCount) => {
+export const maskCoverHandler: PriceHandler = (form) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -132,7 +148,7 @@ export const maskCoverHandler: PriceHandler = (form, area, totalCount) => {
  * 产能手动加价
  * 规则：如需手动产能（prodCap=ProdCap.Manual），整单加10元。
  */
-export const prodCapHandler: PriceHandler = (form, area, totalCount) => {
+export const prodCapHandler: PriceHandler = (form) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -152,7 +168,7 @@ export const prodCapHandler: PriceHandler = (form, area, totalCount) => {
  * 阴阳钉加价
  * 规则：如需阴阳钉（yyPin=true），整单加10元。
  */
-export const yyPinHandler: PriceHandler = (form, area, totalCount) => {
+export const yyPinHandler: PriceHandler = (form) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -168,7 +184,7 @@ export const yyPinHandler: PriceHandler = (form, area, totalCount) => {
  * 客户码加价
  * 规则：客户码（customerCode=add）加10元，customerCode=add_pos加15元。
  */
-export const customerCodeHandler: PriceHandler = (form, area, totalCount) => {
+export const customerCodeHandler: PriceHandler = (form) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -185,7 +201,7 @@ export const customerCodeHandler: PriceHandler = (form, area, totalCount) => {
  * 手动支付加价
  * 规则：如需手动支付（payMethod=manual），整单加5元。
  */
-export const payMethodHandler: PriceHandler = (form, area, totalCount) => {
+export const payMethodHandler: PriceHandler = (form) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -201,7 +217,7 @@ export const payMethodHandler: PriceHandler = (form, area, totalCount) => {
  * 全检附加加价
  * 规则：如需全检附加（qualityAttach=full），整单加20元。
  */
-export const qualityAttachHandler: PriceHandler = (form, area, totalCount) => {
+export const qualityAttachHandler: PriceHandler = (form) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -218,7 +234,7 @@ export const qualityAttachHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如需SMT贴片（smt=true），整单加50元。
  * 说明：如需按面积计价可调整为50×max(1, area)
  */
-export const smtHandler: PriceHandler = (form, area, totalCount) => {
+export const smtHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -246,7 +262,7 @@ export const smtHandler: PriceHandler = (form, area, totalCount) => {
  * - 用户指定使用生益品牌板材时，且TG值不同，自动按规则加价。
  * - 便于报价明细展示和后续维护。
  */
-export const syMaterialHandler: PriceHandler = (form, area, totalCount) => {
+export const syMaterialHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -274,7 +290,7 @@ export const syMaterialHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：钻孔数>100000时，每超1万孔加10元/㎡。
  * 公式：extra = ceil((holeCount-100000)/10000) × 10 × max(1, area)
  */
-export const holeCountHandler: PriceHandler = (form, area, totalCount) => {
+export const holeCountHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -296,7 +312,7 @@ export const holeCountHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：最小孔径0.15mm且钻孔数>10000时，每超1万孔加30元/㎡。
  * 公式：extra = ceil((holeCount-10000)/10000) × 30 × max(1, area)
  */
-export const holeCount015Handler: PriceHandler = (form, area, totalCount) => {
+export const holeCount015Handler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -332,7 +348,7 @@ export const holeCount015Handler: PriceHandler = (form, area, totalCount) => {
  *   - 用户选择了特殊线宽线距规格时，自动判断是否加价或支持。
  *   - 便于报价明细展示和后续维护。
  */
-export const traceHandler: PriceHandler = (form, area, totalCount) => {
+export const traceHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -402,7 +418,7 @@ export const traceHandler: PriceHandler = (form, area, totalCount) => {
  *   - 用户选择了特殊钻孔/板厚组合时，自动判断是否加价或支持。
  *   - 便于报价明细展示和后续维护。
  */
-export const drillAndThicknessHandler: PriceHandler = (form, area, totalCount) => {
+export const drillAndThicknessHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -492,7 +508,7 @@ export const drillAndThicknessHandler: PriceHandler = (form, area, totalCount) =
  * 规则：按层数、面积分档报价，详见baseTable。
  */
 export const basePriceHandler = Object.assign(
-  (form: PcbQuoteForm, area: number, totalCount: number) => {
+  (form: PcbQuoteForm, area: number) => {
     // 只计算基础PCB价格，不含工程费，分档单价 × 面积
     const basePriceTable = {
       1: { packPrice: 300, priceSteps: [[0.5, 550], [1, 500], [3, 400], [5, 420], [10, 330], [30, 330], [Infinity, 330]], minOrderQty: 1, leadTime: ["5", "5", "7", "8", "10", "12", ">=15"] },
@@ -525,7 +541,6 @@ export const basePriceHandler = Object.assign(
       calculatedBasePrice = baseTable.packPrice;
       detail['basePrice'] = baseTable.packPrice;
       notes.push(`Base price (package): ${baseTable.packPrice} CNY for area ≤ 0.2㎡`);
-      notes.push(`PCB Basic Price: ¥${baseTable.packPrice}`);
       found = true;
     } else {
       for (let i = 0; i < baseTable.priceSteps.length; i++) {
@@ -541,6 +556,76 @@ export const basePriceHandler = Object.assign(
       if (calculatedBasePrice > 0) {
         notes.push(`PCB Basic Price: ¥${calculatedBasePrice}`);
       }
+    }
+
+    // 板厚加价逻辑
+    const thickness = form.thickness;
+    const layers = form.layers;
+    let thicknessFee = 0;
+    let thicknessNote = '';
+    // 只对单双面板（1/2层）和4层及以上分别处理
+    if ((layers === 1 || layers === 2) && typeof thickness === 'number') {
+      if (thickness >= 0.2 && thickness <= 0.4) {
+        if (area < 1) {
+          // 样板：只加300元/款
+          thicknessFee = 300;
+          thicknessNote = `Thickness 0.2-0.4mm (1-2L) sample: +300 CNY/lot`;
+          detail['thickness_sample'] = 300;
+          notes.push(thicknessNote);
+        } else {
+          // 批量：单价加50%/平米
+          const fee = detail['basePrice'] ? detail['basePrice'] * 0.5 : 0;
+          thicknessFee = fee;
+          thicknessNote = `Thickness ${thickness}mm (1-2L): +50% base price = +${fee.toFixed(2)} CNY`;
+          detail['thickness'] = fee;
+          notes.push(thicknessNote);
+        }
+      } else if (thickness >= 0.6 && thickness <= 1.0) {
+        // 单价减15元/平米
+        const fee = -15 * Math.max(1, area);
+        thicknessFee = fee;
+        thicknessNote = `Thickness ${thickness}mm (1-2L): -15 CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
+        detail['thickness'] = fee;
+        notes.push(thicknessNote);
+      } else if (thickness === 1.2) {
+        // 单价减10元/平米
+        const fee = -10 * Math.max(1, area);
+        thicknessFee = fee;
+        thicknessNote = `Thickness 1.2mm (1-2L): -10 CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
+        detail['thickness'] = fee;
+        notes.push(thicknessNote);
+      } else if (thickness >= 1.6 && thickness <= 3.2) {
+        // 每加0.4mm，双面单价加100元/平米
+        const base = 1.6;
+        if (thickness > base) {
+          const step = Math.floor((thickness - base) / 0.4);
+          if (step > 0) {
+            const fee = step * 100 * Math.max(1, area);
+            thicknessFee = fee;
+            thicknessNote = `Thickness ${thickness}mm (1-2L): +${step * 100} CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
+            detail['thickness'] = fee;
+            notes.push(thicknessNote);
+          }
+        }
+      }
+    } else if (layers === 4 && typeof thickness === 'number' && thickness >= 1.6 && thickness <= 3.2) {
+      // 4层板厚每加0.4mm，加80元/平米
+      const base = 1.6;
+      if (thickness > base) {
+        const step = Math.floor((thickness - base) / 0.4);
+        if (step > 0) {
+          const fee = step * 80 * Math.max(1, area);
+          thicknessFee = fee;
+          thicknessNote = `Thickness ${thickness}mm (4L): +${step * 80} CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
+          detail['thickness'] = fee;
+          notes.push(thicknessNote);
+        }
+      }
+    }
+    // 板厚加价累计到基础价
+    if (thicknessFee !== 0) {
+      calculatedBasePrice += thicknessFee;
+      detail['basePrice'] = calculatedBasePrice;
     }
     if (!found) {
       notes.push('Area exceeds quotation range, please contact sales for evaluation');
@@ -558,7 +643,7 @@ export const basePriceHandler = Object.assign(
  * 阻焊颜色加价
  * 规则：非绿色阻焊（solderMask!=green）整单加5元。
  */
-export const solderMaskHandler: PriceHandler = (form, area, totalCount) => {
+export const solderMaskHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -578,7 +663,7 @@ export const solderMaskHandler: PriceHandler = (form, area, totalCount) => {
  * 丝印颜色加价
  * 规则：目前白/黑/绿都不加价。
  */
-export const silkscreenHandler: PriceHandler = (form, area, totalCount) => {
+export const silkscreenHandler: PriceHandler = (form, area) => {
   // 目前白/黑/绿都不加价
   return {
     extra: 0,
@@ -607,7 +692,7 @@ export const silkscreenHandler: PriceHandler = (form, area, totalCount) => {
  *    - +100 CNY/㎡, sample +120 CNY/lot
  *    - Note: "Lead time +2 days"
  */
-export const surfaceFinishHandler: PriceHandler = (form, area, totalCount) => {
+export const surfaceFinishHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -691,7 +776,7 @@ export const surfaceFinishHandler: PriceHandler = (form, area, totalCount) => {
  *    - Batch (area ≥ 1㎡): free
  *  - Impedance report (productReport includes 'impedanceReport'): +30 CNY/lot
  */
-export const impedanceHandler: PriceHandler = (form, area, totalCount) => {
+export const impedanceHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -705,12 +790,16 @@ export const impedanceHandler: PriceHandler = (form, area, totalCount) => {
       notes.push('Impedance control: batch, free');
     }
   }
-  // 阻抗报告加价
-  if (form.productReport && Array.isArray(form.productReport) && form.productReport.includes('impedanceReport')) {
-    extra += 30;
-    detail['impedanceReport'] = 30;
-    notes.push('Impedance report: +30 CNY/lot');
-  }
+  // // 阻抗报告加价
+  // if (
+  //   form.productReport &&
+  //   Array.isArray(form.productReport) &&
+  //   form.productReport.includes(ProductReport.ImpedanceReport)
+  // ) {
+  //   extra += 30;
+  //   detail['impedanceReport'] = 30;
+  //   notes.push('Impedance report: +30 CNY/lot');
+  // }
   return {
     extra,
     detail,
@@ -722,7 +811,7 @@ export const impedanceHandler: PriceHandler = (form, area, totalCount) => {
  * 金手指加价
  * 规则：如需金手指（goldFingers=true），整单加20元。
  */
-export const goldFingersHandler: PriceHandler = (form, area, totalCount) => {
+export const goldFingersHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -753,7 +842,7 @@ export const goldFingersHandler: PriceHandler = (form, area, totalCount) => {
  * 5. 其它情况：自动修正并备注实际测试方式。
  * 备注：系统会在报价明细中注明实际测试方式。
  */
-export const testMethodHandler: PriceHandler = (form, area, totalCount) => {
+export const testMethodHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -825,14 +914,14 @@ export const testMethodHandler: PriceHandler = (form, area, totalCount) => {
  * 产品报告加价
  * 规则：每选1项报告加5元。
  */
-export const productReportHandler: PriceHandler = (form, area, totalCount) => {
+export const productReportHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
   if (form.productReport && Array.isArray(form.productReport)) {
     const count = form.productReport.filter((i: string) => i !== 'none').length;
     if (count > 0) {
-      extra = count * 5;
+      extra = count * 20;
       detail['productReport'] = extra;
       notes.push(`Product report: +${extra} CNY`);
     }
@@ -848,7 +937,7 @@ export const productReportHandler: PriceHandler = (form, area, totalCount) => {
  * 不良板加价
  * 规则：如需不良板（isRejectBoard=true），整单加10元。
  */
-export const rejectBoardHandler: PriceHandler = (form, area, totalCount) => {
+export const rejectBoardHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -875,7 +964,7 @@ export const rejectBoardHandler: PriceHandler = (form, area, totalCount) => {
  *   - Batch (area ≥ 1㎡): +100 CNY/㎡, lead time +3 days or more
  *   - If solderMask is 'blue', treat as blue mask.
  */
-export const blueMaskHandler: PriceHandler = (form, area, totalCount) => {
+export const blueMaskHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -906,7 +995,7 @@ export const blueMaskHandler: PriceHandler = (form, area, totalCount) => {
  * 孔铜25um加价
  * 规则：如需孔铜25um（holeCu25um=true），整单加20元。
  */
-export const holeCu25umHandler: PriceHandler = (form, area, totalCount) => {
+export const holeCu25umHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -926,7 +1015,7 @@ export const holeCu25umHandler: PriceHandler = (form, area, totalCount) => {
  * 菲林费加价
  * 规则：光绘面积超出0.06平方米, 按200元/平方米计费（1-2L按6张，4L按8张，6层按11张，8层按13张,10层按15张计费）
  */
-export const filmFeeHandler: PriceHandler = (form, area, totalCount) => {
+export const filmFeeHandler: PriceHandler = (form, area, _totalCount) => {
   // 单片面积
   const singleArea = (form.singleLength * form.singleWidth) / 10000;
   // 菲林张数
@@ -943,14 +1032,14 @@ export const filmFeeHandler: PriceHandler = (form, area, totalCount) => {
   let boardCountSource = '';
   if (form.shipmentType === 'single') {
     // 单片出货时，boardCount=totalCount，totalCount即为用户选择的单片出货总数量
-    boardCount = totalCount;
+    boardCount = _totalCount;
     boardCountSource = 'single (totalCount)';
   } else {
     if (form.panelSet != null) {
       boardCount = form.panelSet;
       boardCountSource = 'panelSet';
     } else {
-      boardCount = totalCount / (form.singleCount || 1);
+      boardCount = _totalCount / (form.singleCount || 1);
       boardCountSource = 'totalCount/singleCount';
     }
   }
@@ -979,7 +1068,7 @@ export const filmFeeHandler: PriceHandler = (form, area, totalCount) => {
  * 3. S>3㎡，工程费为0元
  * 只在detail/engFee体现，不累计到extra
  */
-export const engFeeHandler: PriceHandler = (form, area, totalCount) => {
+export const engFeeHandler: PriceHandler = (form, area) => {
   // 工程费分档表
   const engFeeTable: Record<number, { engFee_0_05: number; engFee_05_3: number; engFee_3up: number }> = {
     1: { engFee_0_05: 210, engFee_05_3: 142, engFee_3up: 0 },
@@ -1024,7 +1113,7 @@ export const engFeeHandler: PriceHandler = (form, area, totalCount) => {
  * 规则：如有BGA且间距≤0.25mm（form.bga为true），整单加价50元。
  * 适用场景：高密度BGA封装对PCB工艺要求高，需额外加价。
  */
-export const bgaHandler: PriceHandler = (form, area, totalCount) => {
+export const bgaHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -1047,44 +1136,61 @@ export const bgaHandler: PriceHandler = (form, area, totalCount) => {
  * - TG170：样品单双面+100元/款，多层+150元/款，大于1㎡+80元/㎡，多层+100元/㎡。
  * - 只处理TG150、TG170，TG135不加价。
  */
-export const tgMaterialHandler: PriceHandler = (form, area, totalCount) => {
+export const tgMaterialHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
-  const isSample = area < 1;
   const isMultilayer = form.layers > 2;
-  if (form.tg === 'TG150') {
-    if (!isMultilayer) {
-      extra = 80;
-      detail['tgMaterial'] = 80;
-      notes.push('TG150, sample single/double layer: +80 CNY');
-    } else {
-      extra = 100;
-      detail['tgMaterial'] = 100;
-      notes.push('TG150, multilayer: +100 CNY');
-    }
-    if (area > 1) {
-      const fee = isMultilayer ? 80 * area : 60 * area;
-      extra += fee;
-      detail['tgMaterial_area'] = fee;
-      notes.push(`TG150, area>1㎡: +${isMultilayer ? 80 : 60} CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
-    }
-  } else if (form.tg === 'TG170') {
-    if (!isMultilayer) {
-      extra = 100;
-      detail['tgMaterial'] = 100;
-      notes.push('TG170, sample single/double layer: +100 CNY');
-    } else {
-      extra = 150;
-      detail['tgMaterial'] = 150;
-      notes.push('TG170, multilayer: +150 CNY');
-    }
-    if (area > 1) {
-      const fee = isMultilayer ? 100 * area : 80 * area;
-      extra += fee;
-      detail['tgMaterial_area'] = fee;
-      notes.push(`TG170, area>1㎡: +${isMultilayer ? 100 : 80} CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
-    }
+  const isSample = area < 1;
+
+  // 只处理TG150、TG170
+  if (form.tg !== 'TG150' && form.tg !== 'TG170') {
+    return { extra, detail, notes };
   }
+
+  // 配置表，减少重复
+  const config = {
+    TG150: {
+      single: { sample: 80, batch: 60 },
+      multi: { sample: 100, batch: 80 },
+    },
+    TG170: {
+      single: { sample: 100, batch: 80 },
+      multi: { sample: 150, batch: 100 },
+    },
+  } as const;
+
+  const tg = form.tg as 'TG150' | 'TG170';
+  const type = isMultilayer ? 'multi' : 'single';
+  const priceSample = config[tg][type].sample;
+  const priceBatch = config[tg][type].batch;
+
+  // 样品加价
+  if (isSample) {
+    extra += priceSample;
+    detail['tgMaterial'] = priceSample;
+    notes.push(`${tg}, ${isMultilayer ? 'multilayer' : 'single/double layer'} sample: +${priceSample} CNY`);
+  }
+
+  // 批量加价（面积>1㎡时）
+  if (area > 1) {
+    const fee = priceBatch * area;
+    extra += fee;
+    detail['tgMaterial_area'] = fee;
+    notes.push(`${tg}, area>1㎡: +${priceBatch} CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+  }
+
+  // 多层板样品加价（area<1 且多层）
+  if (!isSample && isMultilayer) {
+    extra += priceSample;
+    detail['tgMaterial'] = (detail['tgMaterial'] || 0) + priceSample;
+    notes.push(`${tg}, multilayer batch: +${priceSample} CNY`);
+  } else if (!isSample && !isMultilayer) {
+    // 单双面批量加价（area<1 且单/双面）
+    extra += priceSample;
+    detail['tgMaterial'] = (detail['tgMaterial'] || 0) + priceSample;
+    notes.push(`${tg}, single/double layer batch: +${priceSample} CNY`);
+  }
+
   return { extra, detail, notes };
 };

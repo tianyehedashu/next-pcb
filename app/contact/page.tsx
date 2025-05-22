@@ -46,8 +46,14 @@ export default function ContactPage() {
         phone: "",
         message: "",
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      let errorMsg = 'Unknown error';
+      if (err instanceof Error) {
+        errorMsg = err.message;
+      } else if (typeof err === 'string') {
+        errorMsg = err;
+      }
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

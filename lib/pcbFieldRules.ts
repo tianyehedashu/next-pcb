@@ -207,7 +207,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     required: false,
   },
   castellated: {
-    label: 'Castellated',
+    label: 'Castellated Holes',
     options: [true, false],
     default: false,
     required: false,
@@ -377,7 +377,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel' || form.shipmentType === 'panel_agent',
   },
   singleCount: {
-    label: 'Single Count',
+    label: 'Single Qty',
     options: [],
     default: '',
     required: true,
@@ -400,7 +400,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: [true, false],
     default: false,
     required: false,
-    shouldShow: (form: PcbQuoteForm) => !!form.goldFingers,
+    shouldShow: (form) => !!form.goldFingers,
   },
   payMethod: {
     label: 'Pay Method',
@@ -412,6 +412,12 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     label: 'Edge Cover',
     options: Object.values(EdgeCover),
     default: 'none',
+    required: false,
+  },
+  panelSet: {
+    label: 'Panel Qty',
+    options: [],
+    default: '',
     required: false,
   },
 }; 
