@@ -8,7 +8,8 @@ interface Dimensions {
 interface PCBSpecs {
   pcbType: string;
   layers: number;
-  copperWeight: string;
+  outerCopperWeight: string; // 外层铜厚
+  innerCopperWeight?: string; // 内层铜厚（4层及以上必填）
   singleLength: string;
   singleWidth: string;
   thickness: string;
@@ -137,41 +138,38 @@ function calculateSinglePCBWeight(specs: PCBSpecs): number {
   const area = length * width; // 面积(cm²)
   
   // 1. 计算基材重量
-  const density = materialDensity[specs.pcbType as keyof typeof materialDensity] ?? 1.85; // 默认FR4密度兜底
-  const baseVolume = area * (thickness / 10); // 体积(cm³)
+  const density = materialDensity[specs.pcbType as keyof typeof materialDensity] ?? 1.85;
+  const baseVolume = area * (thickness / 10);
   const baseWeight = baseVolume * density;
   
-  // 2. 计算铜层重量
-  const copperOz = parseFloat(specs.copperWeight); // 单位：oz
-  const copperThicknessMm = copperOz * OZ_TO_MM; // 转换为mm
-  const copperThicknessCm = copperThicknessMm / 10; // 转换为cm
-  
-  // 考虑铜层覆盖率（一般在70-80%之间）
+  // 2. 计算铜层重量（区分内外层）
+  const outerCopperOz = parseFloat(specs.outerCopperWeight) || 1;
+  const innerCopperOz = specs.layers >= 4 ? (parseFloat(specs.innerCopperWeight || '1')) : 0;
+  const outerCopperThicknessCm = (outerCopperOz * OZ_TO_MM) / 10;
+  const innerCopperThicknessCm = (innerCopperOz * OZ_TO_MM) / 10;
   const COPPER_COVERAGE = 0.75;
   
   // 外层铜箔重量（2层）
-  const outerCopperWeight = 2 * area * copperThicknessCm * materialDensity.copper * COPPER_COVERAGE;
-  
-  // 内层铜箔重量（如果有）
+  const outerCopperWeight = 2 * area * outerCopperThicknessCm * materialDensity.copper * COPPER_COVERAGE;
+  // 内层铜箔重量（多层板才有）
   const innerLayerCount = Math.max(0, specs.layers - 2);
-  const innerCopperWeight = innerLayerCount * area * copperThicknessCm * materialDensity.copper * COPPER_COVERAGE;
+  const innerCopperWeight = innerLayerCount * area * innerCopperThicknessCm * materialDensity.copper * COPPER_COVERAGE;
   
-  // 3. 计算焊盘和过孔的额外铜重量（估算值，一般占总重量的2-5%）
+  // 3. 计算焊盘和过孔的额外铜重量
   const PLATING_WEIGHT_FACTOR = 0.03;
   const platingWeight = (outerCopperWeight + innerCopperWeight) * PLATING_WEIGHT_FACTOR;
   
-  // 4. 计算阻焊层重量（一般每平方米0.025kg，即0.0025g/cm²）
+  // 4. 计算阻焊层重量
   const SOLDER_MASK_WEIGHT = 0.0025;
-  const solderMaskWeight = area * SOLDER_MASK_WEIGHT * 2; // 双面
+  const solderMaskWeight = area * SOLDER_MASK_WEIGHT * 2;
   
-  // 5. 计算丝印重量（一般每平方米0.015kg，即0.0015g/cm²）
+  // 5. 计算丝印重量
   const SILKSCREEN_WEIGHT = 0.0015;
-  const silkscreenWeight = area * SILKSCREEN_WEIGHT * 2; // 双面
+  const silkscreenWeight = area * SILKSCREEN_WEIGHT * 2;
   
   // 总重量
   const totalWeight = baseWeight + outerCopperWeight + innerCopperWeight + platingWeight + solderMaskWeight + silkscreenWeight;
-  
-  return Math.round(totalWeight * 100) / 100; // 保留两位小数
+  return Math.round(totalWeight * 100) / 100;
 }
 
 // 计算体积重量

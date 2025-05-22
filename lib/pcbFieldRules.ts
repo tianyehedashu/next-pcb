@@ -42,12 +42,31 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     required: true,
     shouldDisable: () => false,
   },
+  outerCopperWeight: {
+    label: 'Outer Copper Weight',
+    options: Object.values(CopperWeight),
+    default: '1',
+    required: true,
+    shouldDisable: () => false,
+  },
+  innerCopperWeight: {
+    label: 'Inner Copper Weight',
+    options: Object.values(CopperWeight),
+    default: '1',
+    required: true,
+    shouldShow: (form: PcbQuoteForm) => (form.layers ?? 2) >= 4,
+    shouldDisable: (form: PcbQuoteForm) => (form.layers ?? 2) < 4,
+  },
   thickness: {
     label: 'Thickness',
     options: (form: PcbQuoteForm) => {
       const all = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.6, 2.0, 2.5, 3.0, 3.2];
       let filtered = all;
       const layers = form.layers ?? 2;
+      const outer = form.outerCopperWeight;
+      const inner = (layers >= 4) ? form.innerCopperWeight : undefined;
+
+      // 层数限制
       if (layers >= 12) {
         filtered = filtered.filter(v => v >= 1.6);
       } else if (layers >= 10) {
@@ -55,9 +74,18 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
       } else if (layers >= 8) {
         filtered = filtered.filter(v => v > 0.8);
       }
-      if (form.copperWeight === '3') {
-        filtered = filtered.filter(v => v >= 1.6);
+
+      // 铜厚限制
+      if (outer === '3' || inner === '3') {
+        if (layers >= 8) {
+          filtered = filtered.filter(v => v >= 2.0);
+        } else {
+          filtered = filtered.filter(v => v >= 1.6);
+        }
+      } else if (outer === '2' || inner === '2') {
+        filtered = filtered.filter(v => v >= 1.2);
       }
+
       return filtered;
     },
     default: (form: PcbQuoteForm) => {
@@ -67,7 +95,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
       return opts[0] ?? 1.6;
     },
     required: true,
-    dependencies: ['layers', 'copperWeight'],
+    dependencies: ['layers', 'outerCopperWeight', 'innerCopperWeight'],
     shouldDisable: () => false,
   },
   hdi: {
@@ -94,13 +122,6 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: Object.values(BorderType),
     default: 'none',
     required: false,
-  },
-  copperWeight: {
-    label: 'Copper Weight',
-    options: Object.values(CopperWeight),
-    default: '1',
-    required: true,
-    shouldDisable: () => false,
   },
   minTrace: {
     label: 'Min Trace/Space',
@@ -270,6 +291,8 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     default: false,
     required: false,
     shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel',
+    trueLabel: 'Yes',
+    falseLabel: 'No',
   },
   useShengyiMaterial: {
     label: 'Shengyi Material',
@@ -325,12 +348,16 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: [true, false],
     default: false,
     required: false,
+    trueLabel: 'Yes',
+    falseLabel: 'No',
   },
   yyPin: {
     label: 'YY Pin',
     options: [true, false],
     default: false,
     required: false,
+    trueLabel: 'Yes',
+    falseLabel: 'No',
   },
   customerCode: {
     label: 'Customer Code',
@@ -367,14 +394,14 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: [],
     default: 1,
     required: true,
-    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel' || form.shipmentType === 'panel_agent',
+    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel',
   },
   panelColumn: {
     label: '',
     options: [],
     default: 1,
     required: true,
-    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel' || form.shipmentType === 'panel_agent',
+    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel',
   },
   singleCount: {
     label: 'Single Qty',

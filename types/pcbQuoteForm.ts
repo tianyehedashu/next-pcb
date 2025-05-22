@@ -53,7 +53,7 @@ export interface PcbQuoteForm {
   panelSet?: number; // 连板/大板下单数量
   differentDesignsCount?: number; // Number of different designs per panel (多款拼板数量)
   border?: BorderType; // 工艺边
-  copperWeight: CopperWeight; // 铜厚
+
   minTrace: MinTrace; // 最小线宽线距
   minHole: MinHole; // 最小孔径
   solderMask: SolderMask; // 阻焊色
@@ -76,12 +76,12 @@ export interface PcbQuoteForm {
   testMethod?: TestMethod; // 测试方式
   productReport?: ProductReport[]; // 支持多选
   isRejectBoard?: boolean; // 不良板（是否不接受打叉板）
-  yyPin?: YYPin; // 阴阳针
+  yyPin?: boolean; // 阴阳针
   customerCode?: CustomerCode; // 客户加码
   payMethod?: PayMethod; // 付款方式
   qualityAttach?: QualityAttach; // 质检附件
   smt?: SMT; // SMT贴片
-  useShengyiMaterial?: useShengyiMaterial; // 生益板材
+  useShengyiMaterial?: boolean; // 生益板材
   holeCount?: number; // 钻孔数
   /**
    * BGA≤0.25mm
@@ -106,4 +106,24 @@ export interface PcbQuoteForm {
    */
   gerber?: File;
   goldFingersBevel?: boolean; // Bevel Gold Fingers（金手指斜边）
+  /**
+   * Outer copper weight (oz), for multilayer boards
+   */
+  outerCopperWeight?: CopperWeight;
+  /**
+   * Inner copper weight (oz), for multilayer boards
+   */
+  innerCopperWeight?: CopperWeight;
+  /**
+   * Customs note (for customs declaration, optional)
+   */
+  customsNote?: string;
+  /**
+   * PCB note (for internal or production notes, optional)
+   */
+  pcbNote?: string;
+  /**
+   * User note (for user remarks, optional)
+   */
+  userNote?: string;
 } 

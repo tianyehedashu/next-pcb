@@ -10,17 +10,16 @@ import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
 interface BasicInfoSectionProps {
   form: PcbQuoteForm & { gerber?: File };
-  errors: Record<string, string>;
   setForm: React.Dispatch<React.SetStateAction<PcbQuoteForm & { gerber?: File }>>;
   sectionRef: React.RefObject<HTMLDivElement>;
 }
 
-export default function BasicInfoSection({ form, errors, setForm, sectionRef }: BasicInfoSectionProps) {
+export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInfoSectionProps) {
   // 联动配置
   const isSingle = form.shipmentType === "single";
-  const isPanel = form.shipmentType === "panel" || form.shipmentType === "panel_agent";
+  const isPanel = form.shipmentType === "panel" 
 
-  const countLabel = isSingle ? "Single Count" : "Panel Count";
+  const countLabel = isSingle ? "Single qty" : "Panel qty";
   const countUnit = isSingle ? "Pcs" : "Set";
 
   // 新的字段配置数组，顺序可控
@@ -36,7 +35,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
     { key: "shipmentType", type: "radio" },
     { key: "panelRow", type: "input" },
     { key: "panelColumn", type: "input" },
-    { key: "panelSet", type: "input" }
+ 
   ];
 
   console.log("当前 PCB Quote Form：", form);
@@ -64,7 +63,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
           : rule.options;
         // 只有当当前值不在 options 里，或者依赖变化时才重置
         if (!options?.includes(newForm[key as keyof PcbQuoteForm & string]) || newForm[key as keyof PcbQuoteForm & string] !== defaultValue) {
-          newForm[key as keyof PcbQuoteForm & string] = defaultValue;
+          (newForm as Record<string, unknown>)[key] = defaultValue;
           changed = true;
         }
       }
@@ -99,7 +98,10 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                     type="number"
                     placeholder="Length/x"
                     value={form.singleLength !== undefined && form.singleLength !== null ? String(form.singleLength) : ''}
-                    onChange={e => setForm((prev) => ({ ...prev, singleLength: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                    onChange={e => {
+                      const value = e.target.value === '' ? 0 : Number(e.target.value);
+                      setForm((prev: PcbQuoteForm & { gerber?: File }) => ({ ...prev, singleLength: value }));
+                    }}
                     className="w-24"
                   />
                   <span className="mx-1">×</span>
@@ -107,7 +109,10 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                     type="number"
                     placeholder="Width/y"
                     value={form.singleWidth !== undefined && form.singleWidth !== null ? String(form.singleWidth) : ''}
-                    onChange={e => setForm((prev) => ({ ...prev, singleWidth: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                    onChange={e => {
+                      const value = e.target.value === '' ? 0 : Number(e.target.value);
+                      setForm((prev: PcbQuoteForm & { gerber?: File }) => ({ ...prev, singleWidth: value }));
+                    }}
                     className="w-24"
                   />
                   <span className="ml-2 text-xs text-muted-foreground">cm</span>
@@ -158,10 +163,10 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
               {type === "radio" && options.length > 0 && (
                 <RadioGroup
                   name={key}
-                  options={options.map((v: any, idx: number) => ({
-                    value: v,
-                    label: typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v),
-                    disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false,
+                  options={(options as Array<string | number>).map((value, idx) => ({
+                    value,
+                    label: typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, '-') : String(value),
+                    disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: value }) : false,
                     radius: options.length === 1 ? "rounded-lg" : idx === 0 ? "rounded-r-none rounded-l-lg" : idx === options.length - 1 ? "rounded-r-lg !rounded-l-none -ml-px" : "rounded-none -ml-px"
                   }))}
                   value={form[key as keyof PcbQuoteForm & string]}
@@ -169,14 +174,14 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                 />
               )}
               {type === "select" && options.length > 0 && (
-                <Select value={String(form[key as keyof PcbQuoteForm & string] ?? '')} onValueChange={(v) => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm & string]: v }))}>
+                <Select value={String(form[key as keyof PcbQuoteForm & string] ?? '')} onValueChange={(v) => setForm((prev: PcbQuoteForm & { gerber?: File }) => ({ ...prev, [key as keyof PcbQuoteForm & string]: v }))}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder={`Select ${rule.label}`} />
                   </SelectTrigger>
                   <SelectContent>
-                    {options.map((v: any) => (
-                      <SelectItem key={v} value={String(v)} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false}>
-                        {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
+                    {(options as Array<string | number>).map((value) => (
+                      <SelectItem key={value} value={String(value)} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: value }) : false}>
+                        {typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, '-') : String(value)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -190,7 +195,7 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
                       ? String(form[key as keyof PcbQuoteForm & string])
                       : ''
                   }
-                  onChange={e => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm & string]: e.target.value }))}
+                  onChange={e => setForm((prev: PcbQuoteForm & { gerber?: File }) => ({ ...prev, [key as keyof PcbQuoteForm & string]: e.target.value }))}
                   placeholder={rule.label ? `Enter ${rule.label}` : ''}
                   className="w-48"
                 />
@@ -204,12 +209,12 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
             <label className="w-32 text-xs font-normal text-right cursor-help">{countLabel}</label>
           </Tooltip>
           <CustomNumberSelect
-            value={isSingle ? form.singleCount : form.panelSet}
+            value={isSingle ? form.singleCount ?? 0 : form.panelSet ?? 0}
             onChange={(v: number) => {
               if (isSingle) {
-                setForm((prev: any) => ({ ...prev, singleCount: v }));
+                setForm((prev: PcbQuoteForm & { gerber?: File }) => ({ ...prev, singleCount: v }));
               } else {
-                setForm((prev: any) => ({ ...prev, panelSet: v }));
+                setForm((prev: PcbQuoteForm & { gerber?: File }) => ({ ...prev, panelSet: v }));
               }
             }}
             options={[5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 125, 150, 200, 250, 300, 350, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 6500, 7000, 7500, 9000]}
@@ -217,6 +222,17 @@ export default function BasicInfoSection({ form, errors, setForm, sectionRef }: 
             placeholder="Select"
           />
           <span className="ml-2 text-xs text-muted-foreground">{countUnit}</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <Tooltip content={<div className="max-w-xs text-left">Add any special notes for production use..</div>}>
+            <label className="w-32 text-xs font-normal text-right cursor-help">PCB Note</label>
+          </Tooltip>
+          <textarea
+            className="w-96 min-h-[40px] max-h-32 rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+            placeholder="PCB Note (for production  use)"
+            value={form.pcbNote || ''}
+            onChange={e => setForm(prev => ({ ...prev, pcbNote: e.target.value }))}
+          />
         </div>
       </div>
     </div>

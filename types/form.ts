@@ -53,7 +53,7 @@ export enum TgType {
 export enum ShipmentType {
   Single = 'single', // 灵活，适合小批量
   Panel = 'panel', // 降低成本，适合量产
-  PanelAgent = 'panel_agent', // 第三方拼板，特殊需求
+ 
 }
 
 /**

@@ -6,26 +6,29 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
-export const processInfoKeys = [
-  "copperWeight",
-  "minTrace",
-  "minHole",
-  "solderMask",
-  "silkscreen",
-  "surfaceFinish",
-  "surfaceFinishEnigType",
-  "impedance",
-  "castellated",
-  "goldFingers",
-  "goldFingersBevel",
-  "edgePlating",
-  "edgeCover",
-  "maskCover",
-  "useShengyiMaterial",
-  "bga",
-  "blueMask",
-  "holeCu25um",
-] as const;
+// 字段定义与类型统一
+export const processInfoFields = {
+  outerCopperWeight: { type: "radio" },
+  innerCopperWeight: { type: "radio" },
+  minTrace: { type: "radio" },
+  minHole: { type: "radio" },
+  solderMask: { type: "radio" },
+  silkscreen: { type: "radio" },
+  surfaceFinish: { type: "radio" },
+  surfaceFinishEnigType: { type: "radio" },
+  impedance: { type: "radio" },
+  castellated: { type: "radio" },
+  goldFingers: { type: "radio" },
+  goldFingersBevel: { type: "radio" },
+  edgePlating: { type: "radio" },
+  edgeCover: { type: "radio" },
+  maskCover: { type: "radio" },
+  useShengyiMaterial: { type: "radio" },
+  bga: { type: "radio" },
+  holeCu25um: { type: "radio" },
+} as const;
+
+export type ProcessInfoFieldKey = keyof typeof processInfoFields;
 
 // 阻焊色与真实颜色映射
 const solderMaskColorMap: Record<string, string> = {
@@ -51,7 +54,7 @@ interface ProcessInfoSectionProps {
 }
 
 export default function ProcessInfoSection({ form, setForm, sectionRef }: ProcessInfoSectionProps) {
-  const formData = form as Record<string, unknown>;
+  const formData = form as unknown as Record<string, unknown>;
   const prevDepsRef = useRef<Record<string, unknown[]>>({});
   useEffect(() => {
     const newForm: Record<string, unknown> = { ...formData };
@@ -64,10 +67,8 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
         const defaultValue = typeof rule.default === "function"
           ? rule.default(form as PcbQuoteForm)
           : rule.default;
-        const options = typeof rule.options === "function"
-          ? rule.options(form as PcbQuoteForm)
-          : rule.options;
-        if (!options?.includes(newForm[key]) || newForm[key] !== defaultValue) {
+        const options = ('options' in pcbFieldRules[key] && pcbFieldRules[key].options ? pcbFieldRules[key].options : (typeof rule.options === 'function' ? rule.options(form as PcbQuoteForm) : rule.options)) as (string | number | boolean)[] || [];
+        if (!Array.isArray(options) || !options.includes(newForm[key] as string | number | boolean) || newForm[key] !== defaultValue) {
           newForm[key] = defaultValue;
           changed = true;
         }
@@ -80,52 +81,24 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, setForm]);
 
-  // 字段类型映射（可扩展）
-  const fieldTypeMap: Record<string, "radio" | "select" | "input"> = {
-    copperWeight: "radio",
-    minTrace: "radio",
-    minHole: "radio",
-    solderMask: "radio",
-    silkscreen: "radio",
-    surfaceFinish: "radio",
-    surfaceFinishEnigType: "radio",
-    impedance: "radio",
-    castellated: "radio",
-    goldFingers: "radio",
-    edgePlating: "radio",
-    goldFingersBevel: "radio",
-    edgeCover: "radio",
-    maskCover: "radio",
-    useShengyiMaterial: "radio",
-    bga: "radio",
-    blueMask: "radio",
-    holeCu25um: "radio",
-  };
-
   return (
     <div ref={sectionRef} className="scroll-mt-32">
       <div className="flex flex-col gap-3 text-xs">
-        {/* 自动渲染工艺字段（仅渲染fieldTypeMap中配置的） */}
-        {processInfoKeys.map((key) => {
-          const type = fieldTypeMap[key];
-          if (!type) return null;
+        {/* 自动渲染工艺字段（仅渲染processInfoFields中配置的） */}
+        {Object.entries(processInfoFields).map(([key, field]) => {
+          const type = field.type;
           const rule = pcbFieldRules[key];
           if (!rule) return null;
           if (rule.shouldShow && !rule.shouldShow(form as PcbQuoteForm)) return null;
-          const options = (typeof rule.options === 'function' ? rule.options(form as PcbQuoteForm) : rule.options) as (string | number | boolean)[] || [];
+          // 优先用 processInfoFields 的 options，否则用 rule.options
+          const options = ('options' in field && field.options ? field.options : (typeof rule.options === 'function' ? rule.options(form as PcbQuoteForm) : rule.options)) as (string | number | boolean)[] || [];
           const sortedOptions = key === 'minTrace'
-            ? options.slice().sort((a, b) => {
-                const getNum = (v: string) => parseFloat((v as string).split('/')[0]);
-                return getNum(a as string) - getNum(b as string);
+            ? (options as (string | number | boolean)[]).slice().sort((a, b) => {
+                const getNum = (v: string | number | boolean) => parseFloat(String(v).split('/')[0]);
+                return getNum(a) - getNum(b);
               })
             : options;
-          const label = key === 'copperWeight'
-            ? `${rule.label} (oz)`
-            : key === 'minTrace'
-            ? `${rule.label} (mil)`
-            : key === 'minHole'
-            ? `${rule.label} (mm)`
-            : rule.label;
+          const label = rule.label;
           return (
             <React.Fragment key={key}>
               <div className="flex items-center gap-4">
@@ -137,39 +110,33 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
                     name={key}
                     options={sortedOptions.map((v) => ({
                       value: v.toString(),
-                      label: [
-                        'impedance',
-                        'castellated',
-                        'goldFingers',
-                        'edgePlating',
-                        'goldFingersBevel',
-                      ].includes(key)
-                        ? (v ? 'Yes' : 'No')
+                      label: typeof v === "boolean"
+                        ? (v ? rule.trueLabel || "Yes" : rule.falseLabel || "No")
                         : key === 'solderMask' ? (
                           <span className="flex items-center gap-2">
                             <span
                               className="inline-block w-4 h-4 rounded-full border border-gray-300"
-                              style={{ backgroundColor: solderMaskColorMap[v as string] || v, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
+                              style={{ backgroundColor: typeof v === 'string' ? (solderMaskColorMap[String(v)] || String(v)) : undefined, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
                             ></span>
-                            {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
+                            {typeof v === 'string' ? String(v).charAt(0).toUpperCase() + String(v).slice(1).replace(/_/g, '-') : String(v)}
                           </span>
                         ) : key === 'silkscreen' ? (
                           <span className="flex items-center gap-2">
                             <span
                               className="inline-block w-4 h-4 rounded-full border border-gray-300"
-                              style={{ backgroundColor: silkscreenColorMap[v as string] || v, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
+                              style={{ backgroundColor: typeof v === 'string' ? (silkscreenColorMap[String(v)] || String(v)) : undefined, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
                             ></span>
-                            {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
+                            {typeof v === 'string' ? String(v).charAt(0).toUpperCase() + String(v).slice(1).replace(/_/g, '-') : String(v)}
                           </span>
-                        ) : (typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)),
+                        ) : (typeof v === 'string' ? String(v).charAt(0).toUpperCase() + String(v).slice(1).replace(/_/g, '-') : String(v)),
                       disabled: rule.shouldDisable ? rule.shouldDisable({ ...(form as PcbQuoteForm), [key]: v }) : false
                     }))}
-                    value={formData[key] !== undefined ? formData[key]?.toString() : ''}
+                    value={typeof formData[key] === 'string' || typeof formData[key] === 'number' || typeof formData[key] === 'boolean' ? formData[key].toString() : ('default' in field && field.default !== undefined ? field.default.toString() : '')}
                     onChange={(v: string) => setForm((prev) => ({ ...prev, [key]: typeof sortedOptions[0] === 'boolean' ? v === 'true' : v }))}
                   />
                 )}
-                {type === "select" && sortedOptions.length > 0 && (
-                  <Select value={formData[key]?.toString() ?? ''} onValueChange={(v) => setForm((prev) => ({ ...prev, [key]: v }))}>
+                {(type as string) === "select" && sortedOptions.length > 0 && (
+                  <Select value={typeof formData[key] === 'string' || typeof formData[key] === 'number' || typeof formData[key] === 'boolean' ? formData[key].toString() : ''} onValueChange={(v) => setForm((prev) => ({ ...prev, [key]: v }))}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder={`Select ${rule.label}`} />
                     </SelectTrigger>
@@ -182,9 +149,9 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
                     </SelectContent>
                   </Select>
                 )}
-                {type === "input" && (
+                {(type as string) === "input" && (
                   <Input
-                    value={formData[key]?.toString() ?? ''}
+                    value={typeof formData[key] === 'string' || typeof formData[key] === 'number' || typeof formData[key] === 'boolean' ? formData[key].toString() : ''}
                     onChange={e => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
                     placeholder={`Enter ${rule.label}`}
                     className="w-48"
@@ -199,11 +166,20 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
                   </Tooltip>
                   <RadioGroup
                     name="goldFingersBevel"
-                    options={pcbFieldRules.goldFingersBevel.options.map((v: boolean) => ({
-                      value: v.toString(),
-                      label: v ? 'Yes' : 'No',
-                      disabled: pcbFieldRules.goldFingersBevel.shouldDisable ? pcbFieldRules.goldFingersBevel.shouldDisable({ ...(form as PcbQuoteForm), goldFingersBevel: v }) : false
-                    }))}
+                    options={(() => {
+                      const opts = typeof pcbFieldRules.goldFingersBevel.options === 'function'
+                        ? pcbFieldRules.goldFingersBevel.options(form as PcbQuoteForm)
+                        : pcbFieldRules.goldFingersBevel.options;
+                      return (opts as boolean[]).map((v: boolean) => ({
+                        value: v.toString(),
+                        label: typeof v === "boolean"
+                          ? (v ? pcbFieldRules.goldFingersBevel.trueLabel || "Yes" : pcbFieldRules.goldFingersBevel.falseLabel || "No")
+                          : typeof v === 'string'
+                          ? String(v).charAt(0).toUpperCase() + String(v).slice(1).replace(/_/g, '-')
+                          : String(v),
+                        disabled: pcbFieldRules.goldFingersBevel.shouldDisable ? pcbFieldRules.goldFingersBevel.shouldDisable({ ...(form as PcbQuoteForm), goldFingersBevel: v }) : false
+                      }));
+                    })()}
                     value={form.goldFingersBevel?.toString() ?? 'false'}
                     onChange={(v: string) => setForm((prev) => ({ ...prev, goldFingersBevel: v === 'true' }))}
                   />

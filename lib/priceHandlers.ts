@@ -35,8 +35,8 @@ export type PriceHandler = (
  * 说明：FR4不加价，面积不足1㎡按1㎡计。
  */
 export const pcbTypeHandler = Object.assign(
-  (form: PcbQuoteForm, area: number, totalCount: number) => {
-    const priceRule = pcbFieldRules.pcbType.price;
+  (form: PcbQuoteForm, area: number) => {
+    const priceRule = pcbFieldRules.pcbType.price as Record<string, number>;
     type PriceKey = keyof typeof priceRule;
     const unitPrice = priceRule[form.pcbType as PriceKey] || 0;
     const extra = unitPrice * Math.max(1, area);
@@ -60,7 +60,7 @@ export const pcbTypeHandler = Object.assign(
  * 规则：如需沉金边（edgePlating=true），整单加50元。
  */
 export const edgePlatingHandler = Object.assign(
-  (form: PcbQuoteForm, area: number, totalCount: number) => {
+  (form: PcbQuoteForm, area: number) => {
     let extra = 0;
     const detail: Record<string, number> = {};
     const notes: string[] = [];
@@ -166,17 +166,19 @@ export const prodCapHandler: PriceHandler = (form) => {
 
 /**
  * 阴阳钉加价
- * 规则：如需阴阳钉（yyPin=true），整单加10元。
+ * 规则：如需阴阳钉（yyPin=true），不自动加价，备注提示"阴阳钉需人工核算"。
  */
 export const yyPinHandler: PriceHandler = (form) => {
-  let extra = 0;
+  const extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
-  if (form.yyPin === true) { extra = 10; detail['yyPin'] = 10; notes.push('Yin-yang pin: +10 CNY'); }
+  if (form.yyPin === true) {
+    notes.push('Yin-yang pin: manual quotation required（阴阳钉需人工核算）');
+  }
   return {
-    extra: extra,
-    detail: detail,
-    notes: notes,
+    extra,
+    detail,
+    notes,
   };
 };
 
@@ -503,27 +505,45 @@ export const drillAndThicknessHandler: PriceHandler = (form, area) => {
   };
 };
 
+// 1oz 基础报价表
+export const basePriceTable_1oz = {
+  1: { packPrice: 300, priceSteps: [[0.5, 550], [1, 500], [3, 400], [5, 420], [10, 330], [30, 330], [Infinity, 330]], minOrderQty: 1, leadTime: ["5", "5", "7", "8", "10", "12", ">=15"] },
+  2: { packPrice: 300, priceSteps: [[0.5, 560], [1, 450], [3, 460], [5, 435], [10, 380], [30, 340], [Infinity, 320]], minOrderQty: 1, leadTime: ["5", "5", "7", "9", "11", "13", ">=15"] },
+  4: { packPrice: 610, priceSteps: [[0.5, 850], [1, 800], [3, 700], [5, 700], [10, 630], [30, 600], [Infinity, 570]], minOrderQty: 1, leadTime: ["7", "7", "9", "11", "13", "15", ">=17"] },
+  6: { packPrice: 1150, priceSteps: [[0.5, 1100], [1, 1000], [3, 920], [5, 1200], [10, 1000], [30, 900], [Infinity, 870]], minOrderQty: 1, leadTime: ["8", "8", "11", "13", "15", "17", ">=19"] },
+  8: { packPrice: 1400, priceSteps: [[0.5, 1600], [1, 1600], [3, 1500], [5, 1600], [10, 1300], [30, 1300], [Infinity, 1300]], minOrderQty: 5, leadTime: ["10", "10", "12", "14", "16", "18", ">=20"] },
+  10: { packPrice: 2200, priceSteps: [[0.5, 2500], [1, 2500], [3, 2000], [5, 2150], [10, 1900], [30, 1900], [Infinity, 1800]], minOrderQty: 5, leadTime: ["11", "11", "13", "15", "17", "18", ">=20天"] },
+  12: { packPrice: 2600, priceSteps: [[0.5, 2600], [1, 2600], [3, 2500], [5, 2500], [10, 2400], [30, 2200], [Infinity, 2100]], minOrderQty: 5, leadTime: ["12", "12", "14", "16", "18", "19", "评估"] },
+  14: { packPrice: 3150, priceSteps: [[0.5, 4000], [1, 4000], [3, 3800], [5, 3600], [10, 3600], [30, 3400], [Infinity, 3400]], minOrderQty: 5, leadTime: ["13", "13", "15", "17", "19", "20", "评估"] },
+  16: { packPrice: 3750, priceSteps: [[0.5, 4500], [1, 4500], [3, 4300], [5, 4300], [10, 4300], [30, 4200], [Infinity, 4100]], minOrderQty: 5, leadTime: ["15", "15", "17", "19", "21", "22", "评估"] },
+  18: { packPrice: 4200, priceSteps: [[0.5, 5500], [1, 5500], [3, 5300], [5, 5000], [10, 5000], [30, 4800], [Infinity, 4600]], minOrderQty: 5, leadTime: ["17", "17", "19", "21", "23", "24", "评估"] },
+  20: { packPrice: 4800, priceSteps: [[0.5, 6500], [1, 6500], [3, 6200], [5, 6000], [10, 6000], [30, 5800], [Infinity, 5700]], minOrderQty: 5, leadTime: ["18", "18", "20", "22", "24", "25", "评估"] },
+};
+
+// 铜厚2oz及以上专用基础报价表
+export const basePriceTable_2oz = {
+  1: { packPrice: 300, priceSteps: [[0.5, 510], [1, 450], [3, 400], [5, 340], [10, 280], [30, 290], [Infinity, 280]], minOrderQty: 1, leadTime: ["5", "5", "7", "8", "10", "12", ">=15"] },
+  2: { packPrice: 330, priceSteps: [[0.5, 550], [1, 500], [3, 470], [5, 440], [10, 400], [30, 370], [Infinity, 320]], minOrderQty: 1, leadTime: ["5", "5", "7", "9", "11", "13", ">=15"] },
+  4: { packPrice: 610, priceSteps: [[0.5, 850], [1, 810], [3, 770], [5, 730], [10, 630], [30, 560], [Infinity, 540]], minOrderQty: 1, leadTime: ["7", "7", "9", "11", "13", "15", ">=17"] },
+  6: { packPrice: 1300, priceSteps: [[0.5, 1300], [1, 1200], [3, 1150], [5, 1100], [10, 1000], [30, 950], [Infinity, 930]], minOrderQty: 1, leadTime: ["8", "8", "11", "13", "15", "17", ">=19"] },
+  8: { packPrice: 1800, priceSteps: [[0.5, 2000], [1, 1900], [3, 1900], [5, 1700], [10, 1700], [30, 1700], [Infinity, 1600]], minOrderQty: 5, leadTime: ["10", "10", "12", "14", "16", "18", ">=20"] },
+  10: { packPrice: 2400, priceSteps: [[0.5, 2500], [1, 2500], [3, 2400], [5, 2400], [10, 2300], [30, 2000], [Infinity, 1850]], minOrderQty: 5, leadTime: ["11", "11", "13", "15", "17", "18", ">=20天"] },
+  12: { packPrice: 3000, priceSteps: [[0.5, 2600], [1, 2600], [3, 2500], [5, 2500], [10, 2400], [30, 2200], [Infinity, 2100]], minOrderQty: 5, leadTime: ["12", "12", "14", "16", "18", "19", "评估"] },
+  14: { packPrice: 3900, priceSteps: [[0.5, 4000], [1, 4000], [3, 3800], [5, 3600], [10, 3600], [30, 3400], [Infinity, 3400]], minOrderQty: 5, leadTime: ["13", "13", "15", "17", "19", "20", "评估"] },
+  16: { packPrice: 4100, priceSteps: [[0.5, 4500], [1, 4500], [3, 4300], [5, 4300], [10, 4300], [30, 4200], [Infinity, 4100]], minOrderQty: 5, leadTime: ["15", "15", "17", "19", "21", "22", "评估"] },
+  18: { packPrice: 4900, priceSteps: [[0.5, 5500], [1, 5500], [3, 5300], [5, 5000], [10, 5000], [30, 4800], [Infinity, 4600]], minOrderQty: 5, leadTime: ["17", "17", "19", "21", "23", "24", "评估"] },
+  20: { packPrice: 5500, priceSteps: [[0.5, 6500], [1, 6500], [3, 6200], [5, 6000], [10, 6000], [30, 5800], [Infinity, 5700]], minOrderQty: 5, leadTime: ["18", "18", "20", "22", "24", "25", "评估"] },
+};
+
 /**
  * 基础报价分档
  * 规则：按层数、面积分档报价，详见baseTable。
  */
 export const basePriceHandler = Object.assign(
   (form: PcbQuoteForm, area: number) => {
-    // 只计算基础PCB价格，不含工程费，分档单价 × 面积
-    const basePriceTable = {
-      1: { packPrice: 300, priceSteps: [[0.5, 550], [1, 500], [3, 400], [5, 420], [10, 330], [30, 330], [Infinity, 330]], minOrderQty: 1, leadTime: ["5", "5", "7", "8", "10", "12", ">=15"] },
-      2: { packPrice: 300, priceSteps: [[0.5, 560], [1, 450], [3, 460], [5, 435], [10, 380], [30, 340], [Infinity, 320]], minOrderQty: 1, leadTime: ["5", "5", "7", "9", "11", "13", ">=15"] },
-      4: { packPrice: 610, priceSteps: [[0.5, 850], [1, 800], [3, 700], [5, 700], [10, 630], [30, 600], [Infinity, 570]], minOrderQty: 1, leadTime: ["7", "7", "9", "11", "13", "15", ">=17"] },
-      6: { packPrice: 1150, priceSteps: [[0.5, 1100], [1, 1000], [3, 920], [5, 1200], [10, 1000], [30, 900], [Infinity, 870]], minOrderQty: 1, leadTime: ["8", "8", "11", "13", "15", "17", ">=19"] },
-      8: { packPrice: 1400, priceSteps: [[0.5, 1600], [1, 1600], [3, 1500], [5, 1600], [10, 1300], [30, 1300], [Infinity, 1300]], minOrderQty: 5, leadTime: ["10", "10", "12", "14", "16", "18", ">=20"] },
-      10: { packPrice: 2200, priceSteps: [[0.5, 2500], [1, 2500], [3, 2000], [5, 2150], [10, 1900], [30, 1900], [Infinity, 1800]], minOrderQty: 5, leadTime: ["11", "11", "13", "15", "17", "18", ">=20天"] },
-      12: { packPrice: 2600, priceSteps: [[0.5, 2600], [1, 2600], [3, 2500], [5, 2500], [10, 2400], [30, 2200], [Infinity, 2100]], minOrderQty: 5, leadTime: ["12", "12", "14", "16", "18", "19", "评估"] },
-      14: { packPrice: 3150, priceSteps: [[0.5, 4000], [1, 4000], [3, 3800], [5, 3600], [10, 3600], [30, 3400], [Infinity, 3400]], minOrderQty: 5, leadTime: ["13", "13", "15", "17", "19", "20", "评估"] },
-      16: { packPrice: 3750, priceSteps: [[0.5, 4500], [1, 4500], [3, 4300], [5, 4300], [10, 4300], [30, 4200], [Infinity, 4100]], minOrderQty: 5, leadTime: ["15", "15", "17", "19", "21", "22", "评估"] },
-      18: { packPrice: 4200, priceSteps: [[0.5, 5500], [1, 5500], [3, 5300], [5, 5000], [10, 5000], [30, 4800], [Infinity, 4600]], minOrderQty: 5, leadTime: ["17", "17", "19", "21", "23", "24", "评估"] },
-      20: { packPrice: 4800, priceSteps: [[0.5, 6500], [1, 6500], [3, 6200], [5, 6000], [10, 6000], [30, 5800], [Infinity, 5700]], minOrderQty: 5, leadTime: ["18", "18", "20", "22", "24", "25", "评估"] },
-    };
-    const baseTable = basePriceTable[form.layers as keyof typeof basePriceTable];
+    // 根据铜厚选择报价表
+    const selectedTable = (form.outerCopperWeight === '2' || form.outerCopperWeight === '3' || form.innerCopperWeight === '2' || form.innerCopperWeight === '3') ? basePriceTable_2oz : basePriceTable_1oz;
+    const baseTable = selectedTable[form.layers as keyof typeof selectedTable];
     let calculatedBasePrice = 0;
     const notes: string[] = [];
     let found = false;
@@ -636,28 +656,9 @@ export const basePriceHandler = Object.assign(
       notes: [...notes],
     };
   },
-  { dependencies: ['layers', 'singleLength', 'singleWidth', 'panelCount', 'panelSet', 'singleCount'] }
+  { dependencies: ['layers', 'singleLength', 'singleWidth', 'panelCount', 'panelSet', 'singleCount', 'outerCopperWeight', 'innerCopperWeight'] }
 );
 
-/**
- * 阻焊颜色加价
- * 规则：非绿色阻焊（solderMask!=green）整单加5元。
- */
-export const solderMaskHandler: PriceHandler = (form, area) => {
-  let extra = 0;
-  const detail: Record<string, number> = {};
-  const notes: string[] = [];
-  if (form.solderMask && form.solderMask !== 'green') {
-    extra = 0;
-    // detail['solderMask'] = 5;
-    // notes.push(`Solder mask: +5 CNY`);
-  }
-  return {
-    extra: extra,
-    detail: detail,
-    notes: notes,
-  };
-};
 
 /**
  * 丝印颜色加价
@@ -812,18 +813,16 @@ export const impedanceHandler: PriceHandler = (form, area) => {
  * 规则：如需金手指（goldFingers=true），整单加20元。
  */
 export const goldFingersHandler: PriceHandler = (form, area) => {
-  let extra = 0;
+  const extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
   if (form.goldFingers === true) {
-    extra = 20;
-    detail['goldFingers'] = 20;
-    notes.push('Gold fingers: +20 CNY');
+    notes.push('Gold fingers: manual quotation required（金手指需人工核算）');
   }
   return {
-    extra: extra,
-    detail: detail,
-    notes: notes,
+    extra,
+    detail,
+    notes,
   };
 };
 
@@ -904,9 +903,9 @@ export const testMethodHandler: PriceHandler = (form, area) => {
   detail['testMethod'] = fee;
   notes.push(`Actual test method: ${actualType}, test fee: ${fee} CNY`);
   return {
-    extra: extra,
-    detail: detail,
-    notes: notes,
+    extra,
+    detail,
+    notes,
   };
 };
 
@@ -925,26 +924,6 @@ export const productReportHandler: PriceHandler = (form, area) => {
       detail['productReport'] = extra;
       notes.push(`Product report: +${extra} CNY`);
     }
-  }
-  return {
-    extra: extra,
-    detail: detail,
-    notes: notes,
-  };
-};
-
-/**
- * 不良板加价
- * 规则：如需不良板（isRejectBoard=true），整单加10元。
- */
-export const rejectBoardHandler: PriceHandler = (form, area) => {
-  let extra = 0;
-  const detail: Record<string, number> = {};
-  const notes: string[] = [];
-  if (form.isRejectBoard) {
-    extra = 10;
-    detail['rejectBoard'] = 10;
-    notes.push('Reject board: +10 CNY');
   }
   return {
     extra: extra,
@@ -1000,9 +979,17 @@ export const holeCu25umHandler: PriceHandler = (form, area) => {
   const detail: Record<string, number> = {};
   const notes: string[] = [];
   if (form.holeCu25um === true) {
-    extra = 20;
-    detail['holeCu25um'] = 20;
-    notes.push('Hole Cu 25um: +20 CNY');
+    const isSample = area < 1;
+    if (isSample) {
+      extra = 20;
+      detail['holeCu25um'] = 20;
+      notes.push('Hole Cu 25um: sample +20 CNY/lot');
+    } else {
+      const fee = 20 * area;
+      extra = fee;
+      detail['holeCu25um'] = fee;
+      notes.push(`Hole Cu 25um: +20 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+    }
   }
   return {
     extra: extra,
@@ -1192,5 +1179,175 @@ export const tgMaterialHandler: PriceHandler = (form, area) => {
     notes.push(`${tg}, single/double layer batch: +${priceSample} CNY`);
   }
 
+  return { extra, detail, notes };
+};
+
+/**
+ * 铜厚加价
+ * 规则：
+ * - 1oz：不加价
+ * - 2oz：单双面板+100元/款，批量+100元/㎡；多层板（如4层）+100元/款/㎡
+ * - 3oz：单双面板+320元/款，批量+310元/㎡；多层板（如4层）+400元/款/㎡
+ * - 4oz：单双面板+550元/款，批量+510元/㎡；多层板（如4层）+550元/款/㎡
+ * 具体金额可根据实际业务调整
+ */
+export const copperWeightHandler: PriceHandler = (form, area) => {
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
+  const layers = form.layers;
+  const isSample = area < 1;
+  // 只处理1层/2层
+  if (layers !== 1 && layers !== 2) {
+    notes.push('仅单/双面板（1层/2层）适用');
+    return { extra, detail, notes };
+  }
+  const copper = form.outerCopperWeight;
+  if (!copper) {
+    notes.push('请填写铜厚（单位oz）');
+    return { extra, detail, notes };
+  }
+  // 只允许 CopperWeight 枚举值
+  const validCopper = ['1', '2', '3', '4'];
+  if (!validCopper.includes(copper)) {
+    notes.push('铜厚仅支持1oz、2oz、3oz、4oz');
+    return { extra, detail, notes };
+  }
+  // 单价查表
+  const priceTable = {
+    '2': { sample: 100, batch: 100 },
+    '3': { sample: 320, batch: 310 },
+    '4': { sample: 550, batch: 510 },
+  };
+  if (copper === '1') {
+    notes.push('铜厚1oz不加价');
+    return { extra, detail, notes };
+  }
+  const priceInfo = priceTable[copper];
+  if (!priceInfo) {
+    notes.push('该铜厚暂不支持自动报价，请联系销售人工评估');
+    return { extra, detail, notes };
+  }
+  const unitPrice = isSample ? priceInfo.sample : priceInfo.batch;
+  extra = unitPrice * Math.max(1, area);
+  detail['copperWeight'] = extra;
+  notes.push(`单双面板铜厚加价：${layers}层，${copper}oz，${isSample ? '样品' : '批量'}单价${unitPrice}元/㎡，面积${area.toFixed(2)}㎡，总加价${extra}元`);
+  return { extra, detail, notes };
+};
+
+// 多层板铜厚加价查表（4层、6层，可扩展）
+export const multilayerCopperPriceTable: Record<string, Record<string, { sample: number; batch: number }>> = {
+  '4': {
+    '2-1': { sample: 100, batch: 100 },
+    '2-2': { sample: 230, batch: 220 },
+    '3-2': { sample: 400, batch: 400 },
+    '3-3': { sample: 610, batch: 550 },
+    '4-3': { sample: 800, batch: 900 },
+    '4-4': { sample: 1200, batch: 1200 },
+  },
+  '6': {
+    '2-1': { sample: 100, batch: 100 },
+    '2-2': { sample: 400, batch: 380 },
+    '2-3': { sample: 750, batch: 700 },
+    '3-3': { sample: 1100, batch: 900 },
+    '3-4': { sample: 1500, batch: 1300 },
+    '4-4': { sample: 1900, batch: 1700 },
+  },
+  '8': {
+    '2-1': { sample: 100, batch: 100 },
+    '2-2': { sample: 580, batch: 560 },
+    '2-3': { sample: 1450, batch: 1400 },
+    '3-3': { sample: 2090, batch: 1600 },
+    '3-4': { sample: 2300, batch: 2100 },
+    '4-4': { sample: 3300, batch: 2700 },
+  },
+  '10': {
+    '2-1': { sample: 100, batch: 100 },
+    '2-2': { sample: 760, batch: 740 },
+    '2-3': { sample: 1800, batch: 1750 },
+    '3-3': { sample: 2580, batch: 1950 },
+    '3-4': { sample: 2700, batch: 2500 },
+    '4-4': { sample: 4000, batch: 3200 },
+  },
+  '12': {
+    '2-1': { sample: 100, batch: 100 },
+    '2-2': { sample: 940, batch: 920 },
+    '2-3': { sample: 2150, batch: 2100 },
+    '3-3': { sample: 3070, batch: 2300 },
+    '3-4': { sample: 3100, batch: 2900 },
+    '4-4': { sample: 4700, batch: 3700 },
+  },
+  '14': {
+    '2-1': { sample: 100, batch: 100 },
+    '2-2': { sample: 1120, batch: 1100 },
+    '2-3': { sample: 2500, batch: 2450 },
+    '3-3': { sample: 3560, batch: 2650 },
+    '3-4': { sample: 3500, batch: 3300 },
+    '4-4': { sample: 5400, batch: 4200 },
+  },
+  '16': {
+    '2-1': { sample: 100, batch: 100 },
+    '2-2': { sample: 1300, batch: 1280 },
+    '2-3': { sample: 2850, batch: 2800 },
+    '3-3': { sample: 4050, batch: 3000 },
+    '3-4': { sample: 3900, batch: 3700 },
+    '4-4': { sample: 6100, batch: 4700 },
+  },
+  '18': {
+    '2-1': { sample: 100, batch: 100 },
+    '2-2': { sample: 1480, batch: 1460 },
+    '2-3': { sample: 3200, batch: 3150 },
+    '3-3': { sample: 4540, batch: 3350 },
+    '3-4': { sample: 4300, batch: 4100 },
+    '4-4': { sample: 6800, batch: 5200 },
+  },
+  '20': {
+    '2-1': { sample: 100, batch: 100 },
+    '2-2': { sample: 1660, batch: 1640 },
+    '2-3': { sample: 3550, batch: 3500 },
+    '3-3': { sample: 5030, batch: 3700 },
+    '3-4': { sample: 4700, batch: 4500 },
+    '4-4': { sample: 7500, batch: 5700 },
+  },
+};
+
+/**
+ * 多层板铜厚加价（查表法）
+ * 仅支持对称结构（外/内/内/外），如查不到则提示需人工评估。
+ * 需在 form 里提供 outerCopperWeight, innerCopperWeight 字段（string，单位oz）
+ */
+export const multilayerCopperWeightHandler: PriceHandler = (form, area) => {
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
+  const layers = form.layers;
+  const isSample = area < 1;
+  // 只处理4层及以上
+  if (typeof layers !== 'number' || layers < 4) {
+    notes.push('仅多层板（4层及以上）适用');
+    return { extra, detail, notes };
+  }
+  const outer = form.outerCopperWeight;
+  const inner = form.innerCopperWeight;
+  if (!outer || !inner) {
+    notes.push('请填写外层和内层铜厚（单位oz）');
+    return { extra, detail, notes };
+  }
+  // 只允许 CopperWeight 枚举值
+  const validCopper = ['1', '2', '3'];
+  if (!validCopper.includes(outer) || !validCopper.includes(inner)) {
+    notes.push('铜厚仅支持1oz、2oz、3oz');
+    return { extra, detail, notes };
+  }
+  const key = `${outer}-${inner}`;
+  const table = multilayerCopperPriceTable[String(layers)];
+  if (!table || !table[key]) {
+    notes.push(`该铜厚组合（${layers}层，外层${outer}oz，内层${inner}oz）暂不支持自动报价，请联系销售人工评估`);
+    return { extra, detail, notes };
+  }
+  const unitPrice = isSample ? table[key].sample : table[key].batch;
+  extra = unitPrice * Math.max(1, area);
+  detail['multilayerCopperWeight'] = extra;
+  notes.push(`多层板铜厚加价：${layers}层，外层${outer}oz，内层${inner}oz，${isSample ? '样品' : '批量'}单价${unitPrice}元/㎡，面积${area.toFixed(2)}㎡，总加价${extra}元`);
   return { extra, detail, notes };
 };

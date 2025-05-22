@@ -25,11 +25,13 @@ import {
   goldFingersHandler, // 金手指
   testMethodHandler, // 测试方式
   productReportHandler, // 产品报告
-  rejectBoardHandler, // 不良板
+
   blueMaskHandler, // 蓝胶
   holeCu25umHandler,
   filmFeeHandler,
-  engFeeHandler
+  engFeeHandler,
+  copperWeightHandler, // 外层铜厚
+  multilayerCopperWeightHandler, // 内层铜厚 
 } from './priceHandlers';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
 
@@ -49,6 +51,15 @@ export function initContext(form: PcbQuoteForm): { form: PcbQuoteForm; area: num
 }
 
 // =================== 主流程 ===================
+// 拼板加成逻辑封装
+function getPanelAddPercent(differentDesignsCount: number | undefined): { percent: number, note: string | null } {
+  const df = differentDesignsCount || 1;
+  if (df < 10) return { percent: 0.1, note: '拼板数量<10，基础工艺价加10%（不含工程费和菲林费）' };
+  if (df < 20) return { percent: 0.2, note: '拼板数量10-19，基础工艺价加20%（不含工程费和菲林费）' };
+  if (df < 30) return { percent: 0.3, note: '拼板数量20-29，基础工艺价加30%（不含工程费和菲林费）' };
+  return { percent: 0, note: null };
+}
+
 export function calcPcbPriceV2(form: PcbQuoteForm): {
   total: number;
   detail: Record<string, number>;
@@ -101,7 +112,9 @@ export function calcPcbPriceV2(form: PcbQuoteForm): {
 // 不良板
     blueMaskHandler, // 蓝胶
     holeCu25umHandler, // 孔铜25um
-    rejectBoardHandler, 
+    copperWeightHandler, // 外层铜厚
+    multilayerCopperWeightHandler, // 内层铜厚
+
     // ...如有其它handler继续补充...
   ];
   for (const handler of handlers) {
@@ -122,13 +135,12 @@ const engFeeResult = engFeeHandler(ctxForm, area, totalCount);
 const filmFeeResult = filmFeeHandler(ctxForm, area, totalCount);
 let addPercent = 0;
 if (!ctxForm.isRejectBoard) {
-  const df = ctxForm.differentDesignsCount || 1;
-  if (df < 10) addPercent = 0.1;
-  else if (df < 20) addPercent = 0.2;
-  else if (df < 30) addPercent = 0.3;
+  const { percent, note } = getPanelAddPercent(ctxForm.differentDesignsCount);
+  addPercent = percent;
+  if (note) notes.push(note);
 }
 
-// 3. 处理“打叉板”加成（只对 subtotal 部分）
+// 3. 处理"打叉板"加成（只对 subtotal 部分）
 
 subtotal = subtotal * (1 + addPercent);
 

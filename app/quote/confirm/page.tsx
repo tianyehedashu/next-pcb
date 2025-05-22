@@ -11,7 +11,7 @@ import { calcPcbPrice, calcProductionCycle, getRealDeliveryDate } from "@/lib/pc
 import { calculateShippingCost, shippingZones } from "@/lib/shipping-calculator";
 import OrderStepBar from "@/components/ui/OrderStepBar";
 import { calculateCustomsFee } from "@/lib/customs-fee";
-import { checkQuoteConfirmRequired, countryRequiresTaxId, countryRequiresPersonalId, QuoteConfirmForm } from "./validate";
+import { checkQuoteConfirmRequired, countryRequiresTaxId, countryRequiresPersonalId } from "./validate";
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
