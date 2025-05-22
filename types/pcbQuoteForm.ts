@@ -14,16 +14,17 @@ import {
   MaskCover,
   TestMethod,
   ProdCap,
-  YYPin,
+  
   CustomerCode,
   PayMethod,
   QualityAttach,
   SMT,
-  useShengyiMaterial,
+
   SurfaceFinishEnigType,
   ProductReport,
   EdgeCover,
 } from './form';
+import { Address } from './address';
 
 /**
  * PCB报价表单类型（字段完全对齐实际表单）
@@ -126,4 +127,8 @@ export interface PcbQuoteForm {
    * User note (for user remarks, optional)
    */
   userNote?: string;
+  /**
+   * 收货地址
+   */
+  shippingAddress: Address;
 } 
