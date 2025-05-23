@@ -10,6 +10,7 @@ import { ProductReport } from "@/types/form";
 
 // 统一字段配置
 export const serviceInfoFields: { key: keyof PcbQuoteForm | 'productReport'; type: 'radio' | 'checkbox' | 'select' | 'input' }[] = [
+  { key: "workingGerber", type: "radio" },
   { key: "testMethod", type: "radio" },
   { key: "prodCap", type: "radio" },
   { key: "productReport", type: "checkbox" },

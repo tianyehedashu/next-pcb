@@ -478,4 +478,12 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     default: '',
     required: false,
   },
+  workingGerber: {
+    label: 'Working Gerber',
+    options: [true, false],
+    default: true,
+    required: false,
+    trueLabel: 'Yes',
+    falseLabel: 'No',
+  },
 }; 

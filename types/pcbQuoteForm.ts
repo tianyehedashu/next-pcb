@@ -136,6 +136,12 @@ export interface PcbQuoteForm {
    */
   gerber?: File;
   gerberUrl?: string;
+  /**
+   * 是否需要工作Gerber文件
+   * true: 需要（默认）
+   * false: 不需要
+   */
+  workingGerber?: boolean;
 
 }
 

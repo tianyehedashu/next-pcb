@@ -12,7 +12,7 @@ const defaultForm = {
   pcbType: PcbType.FR4,
   layers: 2,
   thickness: 1.6,
-  surfaceFinish: SurfaceFinish.Hasl,
+  surfaceFinish: SurfaceFinish.HASL,
   outerCopperWeight: CopperWeight.One,
   innerCopperWeight: InnerCopperWeight.Half,
   minTrace: MinTrace.SixSix,
@@ -37,7 +37,7 @@ const defaultForm = {
   panelColumn: 1,
   panelSet: 0,
   border: BorderType.Five,
-  maskCover: MaskCover.Cover,
+  maskCover: MaskCover.TentedVias,
   edgePlating: false,
   halfHole: HalfHole.None,
   edgeCover: EdgeCover.None,
@@ -82,6 +82,7 @@ const defaultForm = {
     address: "",
     zipCode: "",
   },
+  workingGerber: true,
 } as PcbQuoteForm;
 
 interface QuoteState {
