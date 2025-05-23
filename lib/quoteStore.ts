@@ -8,7 +8,11 @@ import { TestMethod, SurfaceFinish, PcbType, HdiType, TgType, BorderType, Copper
   ProductReport,
   InnerCopperWeight,
   SurfaceFinishEnigType,
-  WorkingGerber} from "../types/form";
+  WorkingGerber,
+  ULMark,
+  CrossOuts,
+  IPCClass,
+  IfDataConflicts} from "../types/form";
 
 const defaultForm = {
   pcbType: PcbType.FR4,
@@ -86,6 +90,10 @@ const defaultForm = {
     zipCode: "",
   },
   workingGerber: WorkingGerber.NotRequired,
+  ulMark: ULMark.No,
+  crossOuts: CrossOuts.NotAccept,
+  ipcClass: IPCClass.Level2,
+  ifDataConflicts: IfDataConflicts.FollowOrder,
 } as PcbQuoteForm;
 
 interface QuoteState {

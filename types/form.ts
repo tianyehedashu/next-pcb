@@ -376,4 +376,26 @@ export enum ProductReport {
 export enum WorkingGerber {
   NotRequired = 'Not Required', // 不需要工作Gerber文件
   RequireApproval = 'Require Approval', // 需要审批
+}
+
+export enum ULMark {
+  No = 'No',
+  ULWeekYear = 'UL+Week/Year',
+  ULYearWeek = 'UL+Year/Week',
+}
+
+export enum CrossOuts {
+  NotAccept = 'Not Accept',
+  Accept = 'Accept',
+}
+
+export enum IPCClass {
+  Level2 = 'IPC Level 2 Standard',
+  Level3 = 'IPC Level 3 Standard',
+}
+
+export enum IfDataConflicts {
+  FollowOrder = 'Follow Order Parameters',
+  FollowFiles = 'Follow Files',
+  Ask = 'Ask for Confirmation',
 } 

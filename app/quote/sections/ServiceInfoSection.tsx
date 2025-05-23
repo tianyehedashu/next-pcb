@@ -19,7 +19,13 @@ export const serviceInfoFields: { key: keyof PcbQuoteForm | 'productReport'; typ
   { key: "customerCode", type: "radio" },
   { key: "payMethod", type: "radio" },
   { key: "qualityAttach", type: "radio" },
+
   { key: "smt", type: "radio" },
+  { key: "ulMark", type: "radio" },
+  { key: "crossOuts", type: "radio" },
+  { key: "ipcClass", type: "radio" },
+  { key: "ifDataConflicts", type: "radio" },
+  
   // 如有 input 类型字段可继续添加
   // { key: "holeCount", type: "input" },
 ] as const;

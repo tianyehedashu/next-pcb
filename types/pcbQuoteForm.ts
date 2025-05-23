@@ -24,6 +24,11 @@ import {
   ProductReport,
   EdgeCover,
   InnerCopperWeight,
+  WorkingGerber,
+  ULMark,
+  CrossOuts,
+  IPCClass,
+  IfDataConflicts,
 } from './form';
 import { Address } from './address';
 
@@ -143,6 +148,32 @@ export interface PcbQuoteForm {
    */
   workingGerber?: WorkingGerber;
 
+  /**
+   * UL Mark 标识
+   * - No: 不加印
+   * - UL+Week/Year: UL+周/年
+   * - UL+Year/Week: UL+年/周
+   */
+  ulMark?: ULMark;
+  /**
+   * Cross Outs
+   * - Not Accept: 不接受
+   * - Accept: 接受
+   */
+  crossOuts?: CrossOuts;
+  /**
+   * IPC Class
+   * - IPC Level 2 Standard
+   * - IPC Level 3 Standard
+   */
+  ipcClass?: IPCClass;
+  /**
+   * If Data Conflicts
+   * - Follow Order Parameters
+   * - Follow Files
+   * - Ask for Confirmation
+   */
+  ifDataConflicts?: IfDataConflicts;
 }
 
 // 报关信息类型

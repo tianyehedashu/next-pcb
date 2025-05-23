@@ -2,7 +2,7 @@
 // 可扩展：依赖、校验、自动修正、加价等
 
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask,MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber } from '../types/form';
+import { CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask,MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber, ULMark, CrossOuts, IPCClass, IfDataConflicts } from '../types/form';
 
 export type PCBFieldRule<T = unknown> = {
   label: string;
@@ -485,6 +485,30 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     label: 'Working Gerber',
     options: Object.values(WorkingGerber),
     default: WorkingGerber.NotRequired,
+    required: false,
+  },
+  ulMark: {
+    label: 'UL Mark',
+    options: Object.values(ULMark),
+    default: ULMark.No,
+    required: false,
+  },
+  crossOuts: {
+    label: 'Cross Outs',
+    options: Object.values(CrossOuts),
+    default: CrossOuts.NotAccept,
+    required: false,
+  },
+  ipcClass: {
+    label: 'IPC Class',
+    options: Object.values(IPCClass),
+    default: IPCClass.Level2,
+    required: false,
+  },
+  ifDataConflicts: {
+    label: 'If Data Conflicts',
+    options: Object.values(IfDataConflicts),
+    default: IfDataConflicts.FollowOrder,
     required: false,
   },
 }; 
