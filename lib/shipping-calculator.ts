@@ -1,3 +1,5 @@
+import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
+
 interface Dimensions {
   length: number;
   width: number;
@@ -131,45 +133,46 @@ const materialDensity = {
 const OZ_TO_MM = 0.035;
 
 // 计算单片PCB重量（克）
-function calculateSinglePCBWeight(specs: PCBSpecs): number {
-  const length = parseFloat(specs.singleLength) || 0;
-  const width = parseFloat(specs.singleWidth) || 0;
-  const thickness = parseFloat(specs.thickness) || 0; // 单位：mm
-  const area = length * width; // 面积(cm²)
-  
+function calculateSinglePCBWeight(specs: PCBSpecs | PcbQuoteForm): number {
+  // 兼容 PcbQuoteForm
+  const s = specs as PcbQuoteForm;
+  const singleLength = typeof s.singleLength === 'number' ? s.singleLength : parseFloat(String(s.singleLength)) || 0;
+  const singleWidth = typeof s.singleWidth === 'number' ? s.singleWidth : parseFloat(String(s.singleWidth)) || 0;
+  const thickness = typeof s.thickness === 'number' ? s.thickness : parseFloat(String(s.thickness)) || 0;
+  const area = singleLength * singleWidth; // 面积(cm²)
+
   // 1. 计算基材重量
-  const density = materialDensity[specs.pcbType as keyof typeof materialDensity] ?? 1.85;
+  const density = materialDensity[s.pcbType as keyof typeof materialDensity] ?? 1.85;
   const baseVolume = area * (thickness / 10);
   const baseWeight = baseVolume * density;
-  
+
   // 2. 计算铜层重量（区分内外层）
-  const outerCopperOz = parseFloat(specs.outerCopperWeight) || 1;
-  const innerCopperOz = specs.layers >= 4 ? (parseFloat(specs.innerCopperWeight || '1')) : 0;
+  const outerCopperOz = parseFloat(String(s.outerCopperWeight || '1')) || 1;
+  const innerCopperOz = s.layers >= 4 ? (parseFloat(String(s.innerCopperWeight || '1'))) : 0;
   const outerCopperThicknessCm = (outerCopperOz * OZ_TO_MM) / 10;
   const innerCopperThicknessCm = (innerCopperOz * OZ_TO_MM) / 10;
   const COPPER_COVERAGE = 0.75;
-  
+
   // 外层铜箔重量（2层）
   const outerCopperWeight = 2 * area * outerCopperThicknessCm * materialDensity.copper * COPPER_COVERAGE;
   // 内层铜箔重量（多层板才有）
-  const innerLayerCount = Math.max(0, specs.layers - 2);
+  const innerLayerCount = Math.max(0, s.layers - 2);
   const innerCopperWeight = innerLayerCount * area * innerCopperThicknessCm * materialDensity.copper * COPPER_COVERAGE;
-  
+
   // 3. 计算焊盘和过孔的额外铜重量
   const PLATING_WEIGHT_FACTOR = 0.03;
   const platingWeight = (outerCopperWeight + innerCopperWeight) * PLATING_WEIGHT_FACTOR;
-  
+
   // 4. 计算阻焊层重量
   const SOLDER_MASK_WEIGHT = 0.0025;
   const solderMaskWeight = area * SOLDER_MASK_WEIGHT * 2;
-  
+
   // 5. 计算丝印重量
   const SILKSCREEN_WEIGHT = 0.0015;
   const silkscreenWeight = area * SILKSCREEN_WEIGHT * 2;
-  
+
   // 总重量
-  const totalWeight = baseWeight + outerCopperWeight + innerCopperWeight + platingWeight + solderMaskWeight + silkscreenWeight;
-  return Math.round(totalWeight * 100) / 100;
+  return baseWeight + outerCopperWeight + innerCopperWeight + platingWeight + solderMaskWeight + silkscreenWeight;
 }
 
 // 计算体积重量
@@ -194,30 +197,9 @@ function isPeakSeason(date: Date = new Date()): boolean {
   return month >= 11 || month === 1;
 }
 
-// 判断是否为偏远地区
-function isRemoteArea(countryCode: string, postalCode: string): boolean {
-  // 这里可以添加具体的偏远地区邮编判断逻辑
-  const remoteAreaPostalCodes: Record<string, string[]> = {
-    'us': ['99', '969', '995', '996', '997', '998', '999'],
-    'ca': ['X0', 'Y0', 'Y1'],
-    // 其他国家的偏远地区邮编规则
-  };
-
-  if (!remoteAreaPostalCodes[countryCode]) return false;
-  
-  return remoteAreaPostalCodes[countryCode].some(prefix => 
-    postalCode.toString().startsWith(prefix)
-  );
-}
-
 // 计算实际运费
 export function calculateShippingCost(
-  specs: PCBSpecs,
-  countryCode: string,
-  courier: 'dhl' | 'fedex' | 'ups',
-  service: keyof typeof serviceTypeMultipliers = 'standard',
-  postalCode: string = '',
-  orderDate: Date = new Date()
+  specs: PcbQuoteForm,
 ): {
   actualWeight: number;
   volumetricWeight: number;
@@ -229,18 +211,31 @@ export function calculateShippingCost(
 } {
   // 计算实际重量（千克）
   const singleWeight = calculateSinglePCBWeight(specs);
-  const totalWeight = (singleWeight * specs.quantity * specs.panelCount) / 1000;
+  const totalWeight = (singleWeight * (specs.panelRow && specs.panelColumn && specs.panelSet ? specs.panelRow * specs.panelColumn * specs.panelSet : specs.singleCount || 1) * (specs.panelRow && specs.panelColumn ? specs.panelRow * specs.panelColumn : 1)) / 1000;
 
   const dimensions = {
-    length: parseFloat(specs.singleLength),
-    width: parseFloat(specs.singleWidth),
-    height: parseFloat(specs.thickness),
-    quantity: specs.quantity * specs.panelCount
+    length: Number(specs.singleLength),
+    width: Number(specs.singleWidth),
+    height: Number(specs.thickness),
+    quantity: (specs.panelRow && specs.panelColumn && specs.panelSet ? specs.panelRow * specs.panelColumn * specs.panelSet : specs.singleCount || 1) * (specs.panelRow && specs.panelColumn ? specs.panelRow * specs.panelColumn : 1)
   };
 
   const volumetricWeight = calculateVolumetricWeight(dimensions);
   const chargeableWeight = calculateChargeableWeight(dimensions, totalWeight);
   
+  // 读取国家、快递公司、服务类型、下单时间
+  const countryCode = specs.shippingAddress?.country || "";
+  const courier = specs.shippingAddress?.courier as 'dhl' | 'fedex' | 'ups' || 'dhl';
+  let service: keyof typeof serviceTypeMultipliers = 'standard';
+  if ('shippingService' in specs && typeof (specs as Record<string, unknown>).shippingService === 'string') {
+    const s = (specs as Record<string, unknown>).shippingService;
+    if (s === 'express' || s === 'standard' || s === 'economy') service = s;
+  }
+  let orderDate: Date = new Date();
+  if ('orderDate' in specs && (specs as Record<string, unknown>).orderDate instanceof Date) {
+    orderDate = (specs as Record<string, unknown>).orderDate as Date;
+  }
+
   // 查找对应的运输区域
   const zone = shippingZones.find(zone => zone.countries.includes(countryCode.toLowerCase()));
   if (!zone) {
@@ -248,8 +243,10 @@ export function calculateShippingCost(
   }
 
   // 只检查最小重量限制
-  const MIN_WEIGHT = 0.1;
-  if (chargeableWeight < MIN_WEIGHT) {
+  const MIN_WEIGHT = 0.5; // 国际快递普遍最低计费重量为0.5kg
+  // 计费重量按0.5kg向上取整
+  const chargeableWeightRounded = Math.ceil(chargeableWeight * 2) / 2;
+  if (chargeableWeightRounded < MIN_WEIGHT) {
     throw new Error(`Minimum weight requirement is ${MIN_WEIGHT}kg`);
   }
 
@@ -257,7 +254,7 @@ export function calculateShippingCost(
   const courierRates = zone[courier];
   
   // 基础运费计算
-  const baseCost = courierRates.baseRate + (chargeableWeight * courierRates.pricePerKg);
+  const baseCost = courierRates.baseRate + (chargeableWeightRounded * courierRates.pricePerKg);
   
   // 燃油附加费
   const fuelSurcharge = baseCost * courierRates.fuelSurcharge;
@@ -274,7 +271,7 @@ export function calculateShippingCost(
   return {
     actualWeight: Math.round(totalWeight * 1000) / 1000,
     volumetricWeight: Math.round(volumetricWeight * 1000) / 1000,
-    chargeableWeight: Math.round(chargeableWeight * 1000) / 1000,
+    chargeableWeight: chargeableWeightRounded,
     baseCost: Math.round(baseCost * 100) / 100,
     fuelSurcharge: Math.round(fuelSurcharge * 100) / 100,
     peakCharge: Math.round(peakCharge * 100) / 100,

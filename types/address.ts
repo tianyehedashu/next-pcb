@@ -7,4 +7,5 @@ export interface Address {
   district?: string;    // 区/县（可选）
   address: string;      // 详细地址
   zipCode?: string;     // 邮编（可选）
+  courier?: "dhl" | "fedex" | "ups" | "";
 } 

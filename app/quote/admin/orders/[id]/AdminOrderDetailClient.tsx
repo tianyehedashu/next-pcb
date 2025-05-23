@@ -3,9 +3,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import OrderStepBar from "@/components/ui/OrderStepBar";
-import { motion } from "framer-motion";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { calcPcbPrice, calcProductionCycle, getRealDeliveryDate } from "@/lib/pcb-calc";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +10,9 @@ import { Select, SelectItem, SelectContent, SelectTrigger } from "@/components/u
 import { getPublicFileUrl } from "@/lib/supabase-file-url";
 import DownloadButton from "../../../../components/custom-ui/DownloadButton";
 import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
+import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
+import { calcProductionCycle } from "@/lib/pcb-calc";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 // 字段分组与友好名映射
 const FIELD_GROUPS = [
@@ -71,18 +71,7 @@ const FIELD_GROUPS = [
   },
 ];
 
-function getStatusColor(status: string) {
-  switch (status) {
-    case "completed": return "text-green-600 bg-green-50 border-green-200";
-    case "cancelled": return "text-red-500 bg-red-50 border-red-200";
-    case "pending": return "text-yellow-600 bg-yellow-50 border-yellow-200";
-    case "paid": return "text-blue-700 bg-blue-50 border-blue-200";
-    case "shipped": return "text-blue-700 bg-blue-50 border-blue-200";
-    default: return "text-gray-500 bg-gray-50 border-gray-200";
-  }
-}
-
-function renderValue(val: any) {
+function renderValue(val: unknown) {
   if (Array.isArray(val)) return val.length ? val.join("，") : "-";
   if (typeof val === "boolean") return val ? "是" : "否";
   if (val === null || val === undefined || val === "") return "-";
@@ -102,7 +91,7 @@ function getCountUnit(shipmentType: string) {
   return shipmentType === "single" ? "Pcs" : "Set";
 }
 
-function OrderAddressCard({ address }: { address: any }) {
+function OrderAddressCard({ address }: { address: Record<string, unknown> }) {
   return (
     <Card className="mb-4">
       <CardHeader className="pb-2">
@@ -122,7 +111,7 @@ function OrderAddressCard({ address }: { address: any }) {
   );
 }
 
-function OrderShippingCard({ order }: { order: any }) {
+function OrderShippingCard({ order }: { order: Record<string, unknown> }) {
   return (
     <Card className="mb-4">
       <CardHeader className="pb-2">
@@ -138,8 +127,8 @@ function OrderShippingCard({ order }: { order: any }) {
   );
 }
 
-function OrderCustomsCard({ customs }: { customs: any }) {
-  const { rate, loading, error } = useCnyToUsdRate();
+function OrderCustomsCard({ customs }: { customs: Record<string, unknown> }) {
+  const { rate } = useCnyToUsdRate();
   const toUSD = (cny: number) => rate ? cny * rate : 0;
   return (
     <Card className="mb-4">
@@ -160,12 +149,12 @@ function OrderCustomsCard({ customs }: { customs: any }) {
   );
 }
 
-function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: { pcb_spec: any, gerber_file_url?: string | null, order: any }) {
+function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: { pcb_spec: Record<string, unknown>, gerber_file_url?: string | null, order: Record<string, unknown> }) {
   if (!pcb_spec) return null;
   const allKeys = FIELD_GROUPS.flatMap(g => g.fields.map(f => f.key));
   const others = Object.entries(pcb_spec).filter(([k]) => !allKeys.includes(k));
   let gerberName = "";
-  let realGerberUrl = gerber_file_url ? getPublicFileUrl(gerber_file_url) : null;
+  const realGerberUrl = gerber_file_url ? getPublicFileUrl(gerber_file_url) : null;
   if (pcb_spec.gerber && typeof pcb_spec.gerber === "object" && pcb_spec.gerber.name) {
     gerberName = pcb_spec.gerber.name;
   } else if (gerber_file_url) {
@@ -317,7 +306,7 @@ const ORDER_STATUS_FLOW_CONFIG: Record<string, { value: string, label: string }[
   cancelled: []
 };
 
-function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
+function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: { order: Record<string, unknown>, onBack: () => void, onOrderUpdate: () => void, address: Record<string, unknown> }) {
   const [edit, setEdit] = useState(false);
   const [form, setForm] = useState({
     pcb_price: order.pcb_price ?? 0,
@@ -331,7 +320,7 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
   });
   const [saving, setSaving] = useState(false);
   const [recalcLoading, setRecalcLoading] = useState(false);
-  const { rate, loading, error } = useCnyToUsdRate();
+  const { rate } = useCnyToUsdRate();
   const toUSD = (cny: number) => rate ? cny * rate : 0;
   // 重新计算
   function handleRecalc() {
@@ -342,7 +331,7 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
     }
     setRecalcLoading(true);
     setTimeout(() => {
-      const pcbPrice = calcPcbPrice(order.pcb_spec);
+      const pcbPrice = calcPcbPriceV2(order.pcb_spec).total;
       const productionCycle = calcProductionCycle(order.pcb_spec).cycleDays;
       setForm(f => ({
         ...f,
@@ -365,7 +354,7 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
       }
     }
     setSaving(true);
-    const supabase = createClientComponentClient<any>();
+    const supabase = createClientComponentClient();
     // 先获取当前 reason 数组
     const { data: orderData } = await supabase
       .from("orders")
@@ -577,17 +566,16 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: any) {
   );
 }
 
-function AdminOrderDetailClient({ order }: { order: any }) {
+function AdminOrderDetailClient({ order }: { order: Record<string, unknown> }) {
   const router = useRouter();
-  const { toast } = useToast();
-  const [address, setAddress] = useState<any>(null);
-  const [customs, setCustoms] = useState<any>(null);
+  const [address, setAddress] = useState<Record<string, unknown> | null>(null);
+  const [customs, setCustoms] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchDetails() {
       setLoading(true);
-      const supabase = createClientComponentClient<any>();
+      const supabase = createClientComponentClient();
       let addressData = null;
       let customsData = null;
       if (order.address_id) {

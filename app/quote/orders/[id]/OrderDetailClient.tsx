@@ -4,27 +4,17 @@ import { useUserStore } from "@/lib/userStore";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import OrderStepBar from "@/components/ui/OrderStepBar";
 import { ORDER_STEPS } from "@/components/ui/order-steps";
 import type { Database } from "@/types/supabase";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { motion } from "framer-motion";
-import { calcPcbPrice, calcProductionCycle, getRealDeliveryDate } from "@/lib/pcb-calc";
+import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
 import { getPublicFileUrl } from "@/lib/supabase-file-url";
 import DownloadButton from "../../../components/custom-ui/DownloadButton";
-import { useExchangeRateStore } from "@/lib/exchangeRateStore";
 import { useInitExchangeRate } from "@/lib/hooks/useInitExchangeRate";
-import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
 import { toUSD } from "@/lib/utils";
+import type { UserInfo } from "@/lib/userStore";
 
 // 字段分组与友好名映射
 const FIELD_GROUPS = [
@@ -84,18 +74,7 @@ const FIELD_GROUPS = [
   },
 ];
 
-function getStatusColor(status: string) {
-  switch (status) {
-    case "completed": return "text-green-600 bg-green-50 border-green-200";
-    case "cancelled": return "text-red-500 bg-red-50 border-red-200";
-    case "pending": return "text-yellow-600 bg-yellow-50 border-yellow-200";
-    case "paid": return "text-blue-700 bg-blue-50 border-blue-200";
-    case "shipped": return "text-blue-700 bg-blue-50 border-blue-200";
-    default: return "text-gray-500 bg-gray-50 border-gray-200";
-  }
-}
-
-function renderValue(val: any) {
+function renderValue(val: unknown): string {
   if (Array.isArray(val)) return val.length ? val.join(", ") : "-";
   if (typeof val === "boolean") return val ? "Yes" : "No";
   if (val === null || val === undefined || val === "") return "-";
@@ -103,68 +82,10 @@ function renderValue(val: any) {
   return String(val);
 }
 
-function OrderBaseInfoCard({ order, onBack, onPay, onCancel, onAfterSale, cancelOpen, setCancelOpen, afterSaleOpen, setAfterSaleOpen, actionLoading, afterSaleReason, setAfterSaleReason, handleCancelOrder, handleAfterSale, toast }: any) {
-  return (
-    <Card className="mb-4">
-      <CardHeader>
-        <CardTitle className="text-xl font-bold tracking-wide">Order Info</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <span className="font-semibold text-xs text-muted-foreground">Status</span>
-          <div className={`text-base font-bold ${getStatusColor(order.status)}`}>{order.status ?? "-"}</div>
-        </div>
-        <div>
-          <span className="font-semibold text-xs text-muted-foreground">Total</span>
-          <div className="text-lg font-bold text-primary">{order.total ? toUSD(order.total) : "-"}</div>
-        </div>
-        <div>
-          <span className="font-semibold text-xs text-muted-foreground">Created At</span>
-          <div>{order.created_at ? new Date(order.created_at as string).toLocaleString() : "-"}</div>
-        </div>
-        <div className="flex flex-col gap-2 pt-2">
-          <Button variant="outline" onClick={onBack}>Back</Button>
-          {order.status === "pending" && (
-            <Button variant="default" onClick={onPay}>Pay Now</Button>
-          )}
-          {order.status === "pending" && (
-            <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
-              <Button variant="destructive" onClick={() => setCancelOpen(true)} disabled={actionLoading}>Cancel Order</Button>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Cancel Order</DialogTitle>
-                  <DialogDescription>Are you sure you want to cancel this order?</DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={actionLoading}>Close</Button>
-                  <Button variant="destructive" onClick={handleCancelOrder} disabled={actionLoading}>{actionLoading ? "Cancelling..." : "Confirm Cancel"}</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-          {order.status === "completed" && (
-            <Dialog open={afterSaleOpen} onOpenChange={setAfterSaleOpen}>
-              <Button variant="secondary" onClick={() => setAfterSaleOpen(true)} disabled={actionLoading}>After-sale</Button>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>After-sale Request</DialogTitle>
-                  <DialogDescription>Please describe your after-sale issue.</DialogDescription>
-                </DialogHeader>
-                <textarea className="w-full border rounded p-2 mt-2 text-sm min-h-[80px]" value={afterSaleReason} onChange={e => setAfterSaleReason(e.target.value)} placeholder="Describe your issue..." disabled={actionLoading} />
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setAfterSaleOpen(false)} disabled={actionLoading}>Close</Button>
-                  <Button variant="default" onClick={handleAfterSale} disabled={actionLoading || !afterSaleReason.trim()}>{actionLoading ? "Submitting..." : "Submit"}</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+interface OrderAddressCardProps {
+  address: Database["public"]["Tables"]["addresses"]["Row"] | null;
 }
-
-function OrderAddressCard({ address }: { address: Database["public"]["Tables"]["addresses"]["Row"] | null }) {
+function OrderAddressCard({ address }: OrderAddressCardProps) {
   return (
     <Card className="mb-4">
       <CardHeader className="pb-2">
@@ -213,7 +134,10 @@ function OrderAddressCard({ address }: { address: Database["public"]["Tables"]["
   );
 }
 
-function OrderShippingCard({ order }: { order: Database["public"]["Tables"]["orders"]["Row"] }) {
+interface OrderShippingCardProps {
+  order: Database["public"]["Tables"]["orders"]["Row"];
+}
+function OrderShippingCard({ order }: OrderShippingCardProps) {
   return (
     <Card className="mb-4">
       <CardHeader className="pb-2">
@@ -242,7 +166,10 @@ function OrderShippingCard({ order }: { order: Database["public"]["Tables"]["ord
   );
 }
 
-function OrderCustomsCard({ customs }: { customs: Database["public"]["Tables"]["customs_declarations"]["Row"] | null }) {
+interface OrderCustomsCardProps {
+  customs: Database["public"]["Tables"]["customs_declarations"]["Row"] | null;
+}
+function OrderCustomsCard({ customs }: OrderCustomsCardProps) {
   return (
     <Card className="mb-4">
       <CardHeader className="pb-2">
@@ -290,19 +217,29 @@ const getSizeLabel = (shipmentType: string) => shipmentType === "single" ? "Sing
 const getCountLabel = (shipmentType: string) => shipmentType === "single" ? "Single Count" : "Panel Count";
 const getCountUnit = (shipmentType: string) => shipmentType === "single" ? "Pcs" : "Set";
 
-function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: { pcb_spec: any, gerber_file_url?: string | null, order: any }) {
+interface OrderPcbSpecCardProps {
+  pcb_spec: Record<string, unknown>;
+  gerber_file_url?: string | null;
+  order: Database["public"]["Tables"]["orders"]["Row"];
+}
+function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: OrderPcbSpecCardProps) {
   if (!pcb_spec) return null;
   const allKeys = FIELD_GROUPS.flatMap(g => g.fields.map(f => f.key));
   const others = Object.entries(pcb_spec).filter(([k]) => !allKeys.includes(k));
   let gerberName = "";
-  let realGerberUrl = gerber_file_url ? getPublicFileUrl(gerber_file_url) : null;
-  if (pcb_spec.gerber && typeof pcb_spec.gerber === "object" && pcb_spec.gerber.name) {
-    gerberName = pcb_spec.gerber.name;
+  const realGerberUrl = gerber_file_url ? getPublicFileUrl(gerber_file_url) : "";
+  if (
+    pcb_spec.gerber &&
+    typeof pcb_spec.gerber === "object" &&
+    "name" in pcb_spec.gerber &&
+    typeof (pcb_spec.gerber as { name?: unknown }).name === "string"
+  ) {
+    gerberName = (pcb_spec.gerber as { name: string }).name;
   } else if (gerber_file_url) {
     const parts = gerber_file_url.split("/");
     gerberName = parts[parts.length - 1];
   }
-  const shipmentType = pcb_spec.shipmentType;
+  const shipmentType = pcb_spec.shipmentType as string;
   return (
     <Card className="bg-white/95 border-blue-100 shadow-sm">
       <CardHeader className="pb-2 border-b">
@@ -316,7 +253,9 @@ function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: { pcb_spec: any,
               return (
                 <div key={f.key}>
                   <span className="text-xs text-muted-foreground font-semibold uppercase">{getSizeLabel(shipmentType)}</span>
-                  <div className="text-base font-semibold text-gray-800 break-all">{pcb_spec.singleLength} × {pcb_spec.singleWidth} <span className="text-xs text-muted-foreground">cm</span></div>
+                  <div className="text-base font-semibold text-gray-800 break-all">
+                    {String(pcb_spec.singleLength)} × {String(pcb_spec.singleWidth)} <span className="text-xs text-muted-foreground">cm</span>
+                  </div>
                 </div>
               );
             }
@@ -324,7 +263,9 @@ function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: { pcb_spec: any,
               return (
                 <div key={f.key}>
                   <span className="text-xs text-muted-foreground font-semibold uppercase">{getCountLabel(shipmentType)}</span>
-                  <div className="text-base font-semibold text-gray-800 break-all">{pcb_spec.singleCount} <span className="text-xs text-muted-foreground">{getCountUnit(shipmentType)}</span></div>
+                  <div className="text-base font-semibold text-gray-800 break-all">
+                    {String(pcb_spec.singleCount)} <span className="text-xs text-muted-foreground">{getCountUnit(shipmentType)}</span>
+                  </div>
                 </div>
               );
             }
@@ -359,9 +300,9 @@ function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: { pcb_spec: any,
           <hr className="my-4 border-blue-100" />
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {others.map(([k, v]) => (
-              <div key={k}>
-                <span className="text-xs text-muted-foreground font-semibold uppercase">{k}</span>
-                <div className="text-base font-semibold text-gray-800 break-all">{renderValue(v)}</div>
+              <div key={String(k)}>
+                <span className="text-xs text-muted-foreground font-semibold uppercase">{String(k)}</span>
+                <div className="text-base font-semibold text-gray-800 break-all">{String(v)}</div>
               </div>
             ))}
           </div>
@@ -379,7 +320,7 @@ function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: { pcb_spec: any,
           )}
           {realGerberUrl && (
             <>
-              <DownloadButton filePath={gerber_file_url ?? ""} bucket="next-pcb" className="ml-2">Download</DownloadButton>
+              <DownloadButton filePath={realGerberUrl || ""} bucket="next-pcb" className="ml-2">Download</DownloadButton>
             </>
           )}
         </div>
@@ -388,7 +329,7 @@ function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: { pcb_spec: any,
         {order.pcb_note && (
           <div className="mt-4">
             <span className="text-sm font-semibold text-blue-700">PCB Note</span>
-            <div className="mt-1 text-base font-medium text-gray-800 bg-blue-50 border border-blue-100 rounded px-3 py-2">{order.pcb_note}</div>
+            <div className="mt-1 text-base font-medium text-gray-800 bg-blue-50 border border-blue-100 rounded px-3 py-2">{String(order.pcb_note)}</div>
           </div>
         )}
         {!order.pcb_note && (
@@ -402,18 +343,19 @@ function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: { pcb_spec: any,
   );
 }
 
-function OrderNoteCard({ order }: { order: Database["public"]["Tables"]["orders"]["Row"] }) {
-  return (
-    <div className="mb-2">
-      <span className="font-semibold text-xs text-muted-foreground">User Note</span>
-      <div>{order.user_note ?? "-"}</div>
-      <span className="font-semibold text-xs text-muted-foreground mt-2 block">Admin Note</span>
-      <div>{order.admin_note ?? "-"}</div>
-    </div>
-  );
+interface OrderSummaryCardProps {
+  order: Database["public"]["Tables"]["orders"]["Row"];
+  onPay: () => void;
+  onCancel: () => void;
+  onAfterSale: () => void;
+  loading: boolean;
+  status: string;
+  onBack: () => void;
 }
-
-function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status, onBack }: any) {
+function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status, onBack }: OrderSummaryCardProps) {
+  // 动态计算PCB价格
+  const pcbSpec = order.pcb_spec || {};
+  const pcbPriceResult = calcPcbPriceV2(pcbSpec);
   return (
     <Card className="sticky top-24 shadow-xl border-blue-200 bg-gradient-to-br from-blue-100/80 via-white to-blue-50/80">
       <CardHeader className="border-b pb-4">
@@ -423,7 +365,7 @@ function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">PCB Price</span>
-            <span className="text-lg font-bold text-blue-700">{order.pcb_price ? toUSD(order.pcb_price) : '-'}</span>
+            <span className="text-lg font-bold text-blue-700">{pcbPriceResult.total ? toUSD(pcbPriceResult.total) : '-'}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Production Time</span>
@@ -465,22 +407,24 @@ function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status
   );
 }
 
-export default function OrderDetailClient({ user, order }: { user: any, order: Database["public"]["Tables"]["orders"]["Row"] }) {
-  const { rate, loading, error } = useCnyToUsdRate();
+interface OrderDetailClientProps {
+  user: unknown;
+  order: Database["public"]["Tables"]["orders"]["Row"];
+}
+export default function OrderDetailClient({ user, order }: OrderDetailClientProps) {
   useInitExchangeRate();
   const setUser = useUserStore(state => state.setUser);
   const router = useRouter();
   const { toast } = useToast();
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [afterSaleOpen, setAfterSaleOpen] = useState(false);
-  const [afterSaleReason, setAfterSaleReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [address, setAddress] = useState<Database["public"]["Tables"]["addresses"]["Row"] | null>(null);
   const [customs, setCustoms] = useState<Database["public"]["Tables"]["customs_declarations"]["Row"] | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(true);
 
   useEffect(() => {
-    if (user) setUser(user);
+    if (user && typeof user === "object" && user !== null && "id" in user) {
+      setUser(user as UserInfo);
+    }
   }, [user, setUser]);
 
   useEffect(() => {
@@ -513,7 +457,6 @@ export default function OrderDetailClient({ user, order }: { user: any, order: D
     const supabase = createClientComponentClient<Database>();
     await supabase.from("orders").update({ status: "cancelled" }).eq("id", order.id);
     setActionLoading(false);
-    setCancelOpen(false);
     toast({ title: "Order cancelled" });
     router.push("/quote/orders"); // 取消后跳转订单列表
   }
@@ -522,16 +465,9 @@ export default function OrderDetailClient({ user, order }: { user: any, order: D
     setActionLoading(true);
     setTimeout(() => {
       setActionLoading(false);
-      setAfterSaleOpen(false);
       toast({ title: "After-sale request submitted" });
-      setAfterSaleReason("");
     }, 1000);
   }
-
-  // 费用明细
-  const pcbSpec = order.pcb_spec || {};
-  const shippingCost = order.shipping_cost || 0;
-  const customsFee = order.customs_fee || 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-100 font-sans">
@@ -544,7 +480,7 @@ export default function OrderDetailClient({ user, order }: { user: any, order: D
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* 左侧主内容区 */}
           <div className="col-span-12 lg:col-span-8 space-y-8">
-            <OrderPcbSpecCard pcb_spec={pcbSpec} gerber_file_url={order.gerber_file_url} order={order} />
+            <OrderPcbSpecCard pcb_spec={order.pcb_spec} gerber_file_url={order.gerber_file_url} order={order} />
             <OrderAddressCard address={address} />
             <OrderCustomsCard customs={customs} />
             <OrderShippingCard order={order} />
@@ -554,11 +490,11 @@ export default function OrderDetailClient({ user, order }: { user: any, order: D
           <div className="col-span-12 lg:col-span-4">
             <OrderSummaryCard
               order={order}
-              onPay={() => toast({ title: "TODO: Payment integration" })}
+              onPay={handleAfterSale}
               onCancel={handleCancelOrder}
               onAfterSale={handleAfterSale}
               loading={actionLoading}
-              status={order.status}
+              status={order.status ?? ""}
               onBack={() => router.back()}
             />
           </div>

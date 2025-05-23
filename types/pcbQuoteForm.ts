@@ -102,10 +102,8 @@ export interface PcbQuoteForm {
    * false/未填写：不需要。
    */
   holeCu25um?: boolean;
-  /**
-   * Gerber 文件（用于前端上传展示，不参与后端存储）
-   */
-  gerber?: File;
+
+
   goldFingersBevel?: boolean; // Bevel Gold Fingers（金手指斜边）
   /**
    * Outer copper weight (oz), for multilayer boards
@@ -131,4 +129,22 @@ export interface PcbQuoteForm {
    * 收货地址
    */
   shippingAddress: Address;
+  customs?: CustomsDeclaration;
+    /**
+   * Gerber 文件（用于前端上传展示，不参与后端存储）
+   */
+  gerber?: File;
+  gerberUrl?: string;
+
+}
+
+// 报关信息类型
+export interface CustomsDeclaration {
+  declarationMethod?: string;
+  taxId?: string;
+  personalId?: string;
+  purpose?: string;
+  declaredValue?: string;
+  companyName?: string;
+  customsNote?: string;
 } 
