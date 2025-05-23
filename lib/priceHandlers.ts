@@ -1026,7 +1026,7 @@ export const filmFeeHandler: PriceHandler = (form, area, _totalCount) => {
     let boardCount: number;
     let boardCountSource = '';
     if (form.shipmentType === 'single') {
-      boardCount = _totalCount;
+      boardCount = form.singleCount;
       boardCountSource = 'single (totalCount)';
     } else {
       if (form.panelSet != null) {
