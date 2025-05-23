@@ -1,5 +1,8 @@
 // PCB生产周期相关通用函数
 
+import { ShipmentType } from '@/types/form';
+import type { PcbQuoteForm } from '../types/pcbQuoteForm';
+
 // 节假日/周末判断与顺延用到的假期列表
 const holidays = [
   // 示例：2024年五一假期
@@ -12,7 +15,7 @@ export function isHoliday(date: Date) {
 }
 
 export function getRealDeliveryDate(start: Date, days: number) {
-  let d = new Date(start);
+  const d = new Date(start);
   let left = days;
   while (left > 0) {
     d.setDate(d.getDate() + 1);
@@ -22,286 +25,422 @@ export function getRealDeliveryDate(start: Date, days: number) {
 }
 
 /**
- * 自动计算PCB生产周期（Production Cycle）
- * - 更细致考虑表面处理、铜厚、线宽、拼板、特殊色等
- * - 对加急、HDI等做更灵活处理
+ * PCB生产周期全字段参与的计算公式（V2风格）
+ * @param form PCB报价表单对象（PcbQuoteForm）
+ * @param orderTime 下单时间
+ * @param delivery 交期类型（standard/urgent），如需加急请传'urgent'
+ * @returns { cycleDays: number, reason: string[] }
  */
-export function calcProductionCycle(form: Record<string, unknown>, orderTime: Date = new Date()): { cycleDays: number, reason: string[] } {
-  let baseDays = 1; // 2层FR-4常规板基准1天
+export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Date(), delivery: 'standard' | 'urgent' = 'standard'): { cycleDays: number, reason: string[] } {
+  // 1. 定义各类特殊工艺、服务等加天规则（以对象表形式，便于维护和扩展）
+  // 这些规则的加天数会根据面积倍数进行叠加
+  const PCB_TYPE_EXTRA: Record<string, number> = { fr4: 0, aluminum: 1, rogers: 1, flex: 1, "rigid-flex": 1 };
+  const SURFACE_EXTRA: Record<string, number> = { hasl: 0, leadfree: 0, enig: 1, osp: 0, immersion_silver: 2, immersion_tin: 2 };
+  const MINTRACE_EXTRA: Record<string, number> = { "6/6": 0, "5/5": 0, "4/4": 1, "3.5/3.5": 1 };
+  const MINHOLE_EXTRA: Record<string, number> = { "0.3": 0, "0.25": 0, "0.2": 1, "0.15": 1 };
+  const HDI_EXTRA: Record<string, number> = { none: 0, "1step": 1, "2step": 2, "3step": 2 };
+
   const reason: string[] = [];
 
-  // 1. 层数
-  const f = form as Record<string, unknown>;
-  const layers = Number(f.layers);
-  if (!isNaN(layers) && layers > 2) {
-    const extra = Math.ceil((layers - 2) / 2);
-    baseDays += extra;
-    reason.push(`Layers: +${extra} day(s) for ${layers} layers`);
+  // 2. 计算总面积（单位mm²），并转为平方米（m²），用于后续面积倍数计算
+  //    面积不足1㎡按1㎡计，向上取整
+  const totalCount = Number(form.singleCount) || 1;
+  let area = Number(form.singleLength) * Number(form.singleWidth) * totalCount;
+  // 连片/拼板出货时，需乘以panelSet（大板组数）
+  if (form.shipmentType === ShipmentType.Panel ) {
+    const panelSet = Number(form.panelSet) || 1;
+    area = Number(form.singleLength) * Number(form.singleWidth) * totalCount * panelSet;
+  }
+  const areaM2 = area / 1000000;
+  const areaFactor = Math.max(1, Math.ceil(areaM2));
+
+  // 3. 获取层数和铜厚，用于查表
+  const layers = Number(form.layers);
+  // 铜厚判断：4层及以上时，outer或inner任一大于1oz即用大于1oz表，2层只看outer
+  let copperWeightForTable = 1;
+  const outerOz = Number(form.outerCopperWeight || '1');
+  const innerOz = Number(form.innerCopperWeight || '1');
+  if (layers >= 4) {
+    copperWeightForTable = (outerOz > 1 || innerOz > 1) ? 2 : 1;
+  } else {
+    copperWeightForTable = outerOz;
   }
 
-  // 2. 板材
-  if (f.pcbType && f.pcbType !== "fr4") {
-    baseDays += 1;
-    reason.push(`Material: +1 day for ${String(f.pcbType)}`);
+  // 4. 查表获取基础交期天数（已考虑层数、面积、铜厚）
+  //    若查表结果为≥20天或评估，则reason中提示需评估确认
+  const { days: baseDays, needReview } = getBaseDeliveryDays(layers, areaM2, copperWeightForTable);
+  if (needReview) {
+    reason.push("需要评估确认，交期≥20天");
   }
+  reason.push(`Base delivery days: ${baseDays}`);
+  reason.push(`Area factor: ${areaFactor}x`);
 
-  // 3. 铜厚
-  if (Number(f.copperWeight) > 2) {
-    baseDays += 1;
-    reason.push("Copper weight >2oz: +1 day");
-  }
+  let extraDays = 0;
 
-  // 4. 表面处理
-  if (["enig", "immersion_silver", "immersion_tin"].includes(String(f.surfaceFinish))) {
-    baseDays += 1;
-    reason.push(`Surface finish (${String(f.surfaceFinish)}): +1 day`);
-  }
-
-  // 5. 最小线宽/孔径
-  if (["4/4", "3.5/3.5"].includes(String(f.minTrace))) {
-    baseDays += 1;
-    reason.push("Min trace/spacing ≤4mil: +1 day");
-  }
-  if (["0.2", "0.15"].includes(String(f.minHole))) {
-    baseDays += 1;
-    reason.push("Min hole ≤0.2mm: +1 day");
-  }
-
-  // 6. 板色/阻焊色
-
-  // 7. 拼板/Panel
-  if (Number(f.panelCount) > 1) {
-    baseDays += 1;
-    reason.push("Multiple panels: +1 day");
-  }
-
-  // 8. 面积/数量
-  const area = Number(f.singleLength) * Number(f.singleWidth) * Number(f.quantity);
-  if (area > 100000) {
-    baseDays += 1;
-    reason.push("Large area/quantity: +1 day");
-  }
-  if (Number(f.quantity) > 1000) {
-    baseDays += 1;
-    reason.push("Large batch (>1000): +1 day");
-  }
-
-  // 9. 特殊工艺
-  if (f.hdi && f.hdi !== "none") {
-    if (f.hdi === "1step") {
-      baseDays += 1;
-      reason.push("HDI 1step: +1 day");
+  // 厚铜特殊交期规则
+  const maxOz = Math.max(outerOz, innerOz);
+  if (maxOz >= 3) {
+    if (areaM2 <= 1) {
+      // 样品
+      if (maxOz === 3) {
+        extraDays += 2;
+        reason.push('Sample 3oz copper: +2 days');
+      } else if (maxOz >= 4) {
+        extraDays += 3;
+        reason.push('Sample 4oz copper: +3 days');
+      }
     } else {
-      baseDays += 2;
-      reason.push("HDI 2step/3step: +2 days");
+      // 批量厚铜需评估
+      reason.push('Batch thick copper (≥3oz) requires delivery evaluation, set to max 20 days');
+      return { cycleDays: 20, reason };
     }
   }
-  if (f.goldFingers === "yes") {
-    baseDays += 1;
-    reason.push("Gold fingers: +1 day");
+
+  // 5. 叠加所有特殊工艺、服务等加天项（每项都按面积倍数叠加）
+  //    并将每项加天明细写入reason，便于前端展示
+  if (form.pcbType && PCB_TYPE_EXTRA[String(form.pcbType)]) {
+    const add = PCB_TYPE_EXTRA[String(form.pcbType)] * areaFactor;
+    extraDays += add;
+    if (PCB_TYPE_EXTRA[String(form.pcbType)] > 0) {
+      reason.push(`Material: +${PCB_TYPE_EXTRA[String(form.pcbType)]} day × ${areaFactor} = +${add} days for ${String(form.pcbType)}`);
+    }
   }
-  if (f.impedance === "yes") {
-    baseDays += 1;
-    reason.push("Impedance control: +1 day");
+  if (form.surfaceFinish && SURFACE_EXTRA[String(form.surfaceFinish)]) {
+    const add = SURFACE_EXTRA[String(form.surfaceFinish)] * areaFactor;
+    extraDays += add;
+    if (SURFACE_EXTRA[String(form.surfaceFinish)] > 0) {
+      reason.push(`Surface finish (${String(form.surfaceFinish)}): +1 day × ${areaFactor} = +${add} days`);
+    }
   }
-  if (f.edgePlating === "yes") {
-    baseDays += 1;
-    reason.push("Edge plating: +1 day");
+  if (form.minTrace && MINTRACE_EXTRA[String(form.minTrace)]) {
+    const add = MINTRACE_EXTRA[String(form.minTrace)] * areaFactor;
+    extraDays += add;
+    if (MINTRACE_EXTRA[String(form.minTrace)] > 0) {
+      reason.push(`Min trace/spacing ≤4mil: +1 day × ${areaFactor} = +${add} days`);
+    }
   }
-  if (f.castellated === "yes") {
-    baseDays += 1;
-    reason.push("Castellated holes: +1 day");
-  }
-  if (f.smt === "need") {
-    baseDays += 2;
-    reason.push("SMT assembly: +2 days");
-  }
-  if (f.flyingProbe === "yes") {
-    baseDays += 1;
-    reason.push("Flying probe test: +1 day");
+  if (form.minHole && MINHOLE_EXTRA[String(form.minHole)]) {
+    const add = MINHOLE_EXTRA[String(form.minHole)] * areaFactor;
+    extraDays += add;
+    if (MINHOLE_EXTRA[String(form.minHole)] > 0) {
+      reason.push(`Min hole ≤0.2mm: +1 day × ${areaFactor} = +${add} days`);
+    }
   }
 
-  // 10. 服务类特殊项
-  if (f.qualityAttach === "full") {
-    baseDays += 1;
-    reason.push("Full quality inspection: +1 day");
+  if (form.hdi && HDI_EXTRA[String(form.hdi)]) {
+    const add = HDI_EXTRA[String(form.hdi)] * areaFactor;
+    extraDays += add;
+    if (HDI_EXTRA[String(form.hdi)] === 1) {
+      reason.push(`HDI 1step: +1 day × ${areaFactor} = +${add} days`);
+    } else if (HDI_EXTRA[String(form.hdi)] > 1) {
+      reason.push(`HDI 2step/3step: +2 days × ${areaFactor} = +${add} days`);
+    }
   }
-  if (f.productReport && Array.isArray(f.productReport) && (f.productReport as unknown[]).some((v) => v !== "none")) {
-    baseDays += 1;
-    reason.push("Product report: +1 day");
+  if (form.goldFingers) {
+    const add = 1 * areaFactor;
+    extraDays += add;
+    reason.push(`Gold fingers: +1 day × ${areaFactor} = +${add} days`);
+  }
+  if (form.impedance) {
+    const add = 1 * areaFactor;
+    extraDays += add;
+    reason.push(`Impedance control: +1 day × ${areaFactor} = +${add} days`);
+  }
+  if (form.edgePlating) {
+    const add = 1 * areaFactor;
+    extraDays += add;
+    reason.push(`Edge plating: +1 day × ${areaFactor} = +${add} days`);
+  }
+  if (form.castellated) {
+    const add = 1 * areaFactor;
+    extraDays += add;
+    reason.push(`Castellated holes: +1 day × ${areaFactor} = +${add} days`);
+  }
+  if (form.smt) {
+    const add = 2 * areaFactor;
+    extraDays += add;
+    reason.push(`SMT assembly: +2 days × ${areaFactor} = +${add} days`);
+  }
+  // if (form.testMethod === 'flyingProbe') {
+  //   const add = 1 * areaFactor;
+  //   extraDays += add;
+  //   reason.push(`Flying probe test: +1 day × ${areaFactor} = +${add} days`);
+  // }
+  if (form.qualityAttach === 'full') {
+    const add = 1 * areaFactor;
+    extraDays += add;
+    reason.push(`Full quality inspection: +1 day × ${areaFactor} = +${add} days`);
+  }
+  if (form.productReport && form.productReport.length > 0 && form.productReport.some((v) => v !== 'none')) {
+    const add = 1 * areaFactor;
+    extraDays += add;
+    reason.push(`Product report: +1 day × ${areaFactor} = +${add} days`);
   }
 
-  // 11. 加急服务
-  if (f.delivery === "urgent") {
-    // 允许最多-2天，但最快1天
-    baseDays = Math.max(1, baseDays - 2);
-    reason.push("Urgent: -2 days");
+  // 6. 加急服务：最多减2天，最少1天，reason中注明
+  let totalDays = baseDays + extraDays;
+  if (delivery === 'urgent') {
+    const before = totalDays;
+    totalDays = Math.max(1, totalDays - 2);
+    if (before !== totalDays) {
+      reason.push("Urgent: -2 days");
+    }
   }
 
-  // 12. 下单时间
-  const cutoffHour = 20; // 行业部分工厂20:00前可排产
+  // 7. 下单时间晚于20:00，顺延一天
+  const cutoffHour = 20;
   if (orderTime.getHours() >= cutoffHour) {
-    baseDays += 1;
+    totalDays += 1;
     reason.push("Order after 20:00: +1 day");
   }
 
-  // 13. 节假日/周末（可选扩展，暂不实现）
-
-  return { cycleDays: baseDays, reason };
+  // 8. 返回最终生产周期天数和明细原因
+  return { cycleDays: totalDays, reason };
 }
 
+// PCB交期表（普通）
+const DELIVERY_DAYS_TABLE: Record<number, { area: number, days: number }[]> = {
+  1: [
+    { area: 0.5, days: 5 },
+    { area: 1, days: 7 },
+    { area: 3, days: 8 },
+    { area: 5, days: 10 },
+    { area: 10, days: 12 },
+    { area: 20, days: 15 },
+    { area: 30, days: 15 },
+    { area: Infinity, days: 20 },
+  ],
+  2: [
+    { area: 0.5, days: 5 },
+    { area: 1, days: 7 },
+    { area: 3, days: 9 },
+    { area: 5, days: 11 },
+    { area: 10, days: 13 },
+    { area: 20, days: 15 },
+    { area: 30, days: 15 },
+    { area: Infinity, days: 20 },
+  ],
+  4: [
+    { area: 0.5, days: 7 },
+    { area: 1, days: 9 },
+    { area: 3, days: 11 },
+    { area: 5, days: 13 },
+    { area: 10, days: 15 },
+    { area: 20, days: 17 },
+    { area: 30, days: 17 },
+    { area: Infinity, days: 20 },
+  ],
+  6: [
+    { area: 0.5, days: 8 },
+    { area: 1, days: 11 },
+    { area: 3, days: 13 },
+    { area: 5, days: 15 },
+    { area: 10, days: 17 },
+    { area: 20, days: 19 },
+    { area: 30, days: 19 },
+    { area: Infinity, days: 20 },
+  ],
+  8: [
+    { area: 0.5, days: 10 },
+    { area: 1, days: 12 },
+    { area: 3, days: 14 },
+    { area: 5, days: 16 },
+    { area: 10, days: 18 },
+    { area: 20, days: 20 },
+    { area: 30, days: 20 },
+    { area: Infinity, days: 20 },
+  ],
+  10: [
+    { area: 0.5, days: 11 },
+    { area: 1, days: 13 },
+    { area: 3, days: 15 },
+    { area: 5, days: 17 },
+    { area: 10, days: 18 },
+    { area: 20, days: 20 },
+    { area: 30, days: 20 },
+    { area: Infinity, days: 20 },
+  ],
+  12: [
+    { area: 0.5, days: 12 },
+    { area: 1, days: 14 },
+    { area: 3, days: 16 },
+    { area: 5, days: 18 },
+    { area: 10, days: 19 },
+    { area: 20, days: 20 },
+    { area: 30, days: 20 },
+    { area: Infinity, days: 20 },
+  ],
+  14: [
+    { area: 0.5, days: 13 },
+    { area: 1, days: 15 },
+    { area: 3, days: 17 },
+    { area: 5, days: 19 },
+    { area: 10, days: 20 },
+    { area: 20, days: 20 },
+    { area: 30, days: 20 },
+    { area: Infinity, days: 20 },
+  ],
+  16: [
+    { area: 0.5, days: 15 },
+    { area: 1, days: 17 },
+    { area: 3, days: 19 },
+    { area: 5, days: 21 },
+    { area: 10, days: 22 },
+    { area: 20, days: 22 },
+    { area: 30, days: 22 },
+    { area: Infinity, days: 20 },
+  ],
+  18: [
+    { area: 0.5, days: 17 },
+    { area: 1, days: 19 },
+    { area: 3, days: 21 },
+    { area: 5, days: 23 },
+    { area: 10, days: 24 },
+    { area: 20, days: 24 },
+    { area: 30, days: 24 },
+    { area: Infinity, days: 20 },
+  ],
+  20: [
+    { area: 0.5, days: 18 },
+    { area: 1, days: 20 },
+    { area: 3, days: 22 },
+    { area: 5, days: 24 },
+    { area: 10, days: 25 },
+    { area: 20, days: 25 },
+    { area: 30, days: 25 },
+    { area: Infinity, days: 20 },
+  ],
+};
 
-/**
-   * PCB全字段报价公式说明：
-   * 
-   * 1. 设计思路：
-   *    - 参考PCBWay/JLCPCB等主流PCB打样网站的计价规则，结合实际工厂报价经验。
-   *    - 将所有表单字段（基础信息、工艺信息、服务信息）全部纳入计价，做到"全字段参与"。
-   *    - 每个字段的加价项均以对象表的形式维护，便于后续灵活调整和扩展。
-   *    - 公式结构清晰，便于维护和理解。
-   * 
-   * 2. 为什么这样做：
-   *    - 行业主流报价系统均为"参数化计价"，即每个参数（如层数、板材、表面处理、特殊工艺等）都有独立加价项。
-   *    - 这样做可以让前端预估价格与工厂实际价格高度接近，提升用户体验。
-   *    - 便于后续根据业务需求灵活调整每一项加价，无需大幅重构。
-   *    - 代码可读性强，方便团队协作和后期维护。
-   * 
-   * 3. 是否有更好的方式：
-   *    - 对于大型/复杂项目，建议将所有加价规则抽离为独立的"计价配置文件"或"计价服务"，实现前后端统一。
-   *    - 也可以将所有加价项、折扣等维护在数据库，由运营/产品动态配置，前端只负责展示。
-   *    - 若需支持多币种/多地区/多工厂，可将公式参数化，按需切换。
-   *    - 进一步可将每项加价明细展示给用户，提升透明度。
-   * 
-   * 4. 当前实现优点：
-   *    - 适合中小型PCB打样/小批量平台，前端即可实现较为准确的价格预估。
-   *    - 维护成本低，扩展性强。
-   *    - 便于A/B测试不同计价策略。
-   * 
-   * 5. 后续建议：
-   *    - 若业务量大、需求复杂，建议将计价逻辑后端化，前端仅展示。
-   *    - 可增加"明细弹窗"展示每项加价来源，提升用户信任。
-   */
-  // 全字段参与的PCB报价公式
-/**
- * PCB全字段参与的报价公式
- * @param form 报价表单对象
- * @returns 价格（number）
- */
-export function calcPcbPrice(form: Record<string, unknown>): number {
-  // 板材类型加价（FR-4为0，特殊板材加价）
-  const PCB_TYPE_EXTRA: Record<string, number> = { fr4: 0, aluminum: 30, rogers: 50, flex: 40, "rigid-flex": 60 };
-  // HDI工艺加价
-  const HDI_EXTRA: Record<string, number> = { none: 0, "1step": 30, "2step": 50, "3step": 80 };
-  // TG值加价
-  const TG_EXTRA: Record<string, number> = { TG170: 0, TG150: 10, TG135: 20 };
-  // 出货方式加价
-  const SHIPMENT_EXTRA: Record<string, number> = { single: 0, panel: 10, panel_agent: 20 };
-  // 工艺边加价
-  const BORDER_EXTRA: Record<string, number> = { none: 10, "5": 0, "10": 0 };
-  // 最小线宽线距加价
-  const MINTRACE_EXTRA: Record<string, number> = { "6/6": 0, "5/5": 10, "4/4": 20, "3.5/3.5": 30, "8/8": 0, "10/10": 0 };
-  // 最小孔径加价
-  const MINHOLE_EXTRA: Record<string, number> = { "0.3": 0, "0.25": 10, "0.2": 15, "0.15": 20 };
-  // 表面处理加价
-  const SURFACE_EXTRA: Record<string, number> = { hasl: 0, leadfree: 10, enig: 15, osp: 5, immersion_silver: 10, immersion_tin: 10 };
-  // 板色/阻焊色加价
-  const COLOR_EXTRA: Record<string, number> = { green: 0, blue: 5, red: 5, black: 5, white: 5, yellow: 5 };
-  // 字符色加价
-  const SILK_EXTRA: Record<string, number> = { white: 0, black: 0, green: 0 };
-  // 阻抗控制加价
-  const IMPEDANCE_EXTRA = (v: string) => v === "yes" ? 20 : 0;
-  // 半孔加价
-  const CASTELLATED_EXTRA = (v: string) => v === "yes" ? 10 : 0;
-  // 金手指加价
-  const GOLDFINGER_EXTRA = (v: string) => v === "yes" ? 20 : 0;
-  // 边镀金加价
-  const EDGEPLATING_EXTRA = (v: string) => v === "yes" ? 20 : 0;
-  // 半孔数量加价（每侧5元）
-  const HALFHOLLE_EXTRA = (v: string) => v && v !== "none" ? 5 * (parseInt(v) || 1) : 0;
-  // 边覆盖数量加价（每侧5元）
-  const EDGECOVER_EXTRA = (v: string) => v && v !== "none" ? 5 * (parseInt(v) || 1) : 0;
-  // 阻焊覆盖特殊工艺加价
-  const MASKCOVER_EXTRA = (v: string) => ["plug", "plug_flat"].includes(v) ? 10 : 0;
-  // 飞针测试加价
-  const FLYINGPROBE_EXTRA = (v: string) => v === "yes" ? 10 : 0;
-  // 测试方式加价
-  const TESTMETHOD_EXTRA = (v: string) => v === "paid" ? 10 : 0;
-  // 产能确认加价
-  const PRODCAP_EXTRA = (v: string) => v === "manual" ? 10 : 0;
-  // 产品报告加价（每项5元）
-  const PRODUCTREPORT_EXTRA = (arr: unknown) => Array.isArray(arr) ? arr.filter(i => i !== "none").length * 5 : 0;
-  // 不良板处理加价
-  const REJECTBOARD_EXTRA = (v: string) => v === "reject" ? 10 : 0;
-  // 阴阳针加价
-  const YYPIN_EXTRA = (v: string) => v === "need" ? 10 : 0;
-  // 客户加码加价
-  const CUSTOMERCODE_EXTRA = (v: string) => v === "add" ? 10 : v === "add_pos" ? 15 : 0;
-  // 付款方式加价
-  const PAYMETHOD_EXTRA = (v: string) => v === "manual" ? 5 : 0;
-  // 质检附件加价
-  const QUALITYATTACH_EXTRA = (v: string) => v === "full" ? 20 : 0;
-  // SMT贴片加价
-  const SMT_EXTRA = (v: string) => v === "need" ? 50 : 0;
+// 铜厚大于1oz交期表
+const DELIVERY_DAYS_TABLE_COPPER: Record<number, { area: number, days: number }[]> = {
+  1: [
+    { area: 0.5, days: 5 },
+    { area: 1, days: 7 },
+    { area: 3, days: 8 },
+    { area: 5, days: 10 },
+    { area: 10, days: 12 },
+    { area: 20, days: 15 },
+    { area: 30, days: 15 },
+    { area: Infinity, days: 20 },
+  ],
+  2: [
+    { area: 0.5, days: 5 },
+    { area: 1, days: 7 },
+    { area: 3, days: 9 },
+    { area: 5, days: 11 },
+    { area: 10, days: 13 },
+    { area: 20, days: 15 },
+    { area: 30, days: 15 },
+    { area: Infinity, days: 20 },
+  ],
+  4: [
+    { area: 0.5, days: 7 },
+    { area: 1, days: 9 },
+    { area: 3, days: 11 },
+    { area: 5, days: 13 },
+    { area: 10, days: 15 },
+    { area: 20, days: 17 },
+    { area: 30, days: 17 },
+    { area: Infinity, days: 20 },
+  ],
+  6: [
+    { area: 0.5, days: 8 },
+    { area: 1, days: 11 },
+    { area: 3, days: 13 },
+    { area: 5, days: 15 },
+    { area: 10, days: 17 },
+    { area: 20, days: 19 },
+    { area: 30, days: 19 },
+    { area: Infinity, days: 20 },
+  ],
+  8: [
+    { area: 0.5, days: 10 },
+    { area: 1, days: 12 },
+    { area: 3, days: 14 },
+    { area: 5, days: 16 },
+    { area: 10, days: 18 },
+    { area: 20, days: 20 },
+    { area: 30, days: 20 },
+    { area: Infinity, days: 20 },
+  ],
+  10: [
+    { area: 0.5, days: 11 },
+    { area: 1, days: 13 },
+    { area: 3, days: 15 },
+    { area: 5, days: 17 },
+    { area: 10, days: 18 },
+    { area: 20, days: 18 },
+    { area: 30, days: 18 },
+    { area: Infinity, days: 20 },
+  ],
+  12: [
+    { area: 0.5, days: 12 },
+    { area: 1, days: 14 },
+    { area: 3, days: 16 },
+    { area: 5, days: 18 },
+    { area: 10, days: 19 },
+    { area: 20, days: 19 },
+    { area: 30, days: 19 },
+    { area: Infinity, days: 20 },
+  ],
+  14: [
+    { area: 0.5, days: 13 },
+    { area: 1, days: 15 },
+    { area: 3, days: 17 },
+    { area: 5, days: 19 },
+    { area: 10, days: 20 },
+    { area: 20, days: 20 },
+    { area: 30, days: 20 },
+    { area: Infinity, days: 20 },
+  ],
+  16: [
+    { area: 0.5, days: 15 },
+    { area: 1, days: 17 },
+    { area: 3, days: 19 },
+    { area: 5, days: 21 },
+    { area: 10, days: 22 },
+    { area: 20, days: 22 },
+    { area: 30, days: 22 },
+    { area: Infinity, days: 20 },
+  ],
+  18: [
+    { area: 0.5, days: 17 },
+    { area: 1, days: 19 },
+    { area: 3, days: 21 },
+    { area: 5, days: 23 },
+    { area: 10, days: 24 },
+    { area: 20, days: 24 },
+    { area: 30, days: 24 },
+    { area: Infinity, days: 20 },
+  ],
+  20: [
+    { area: 0.5, days: 18 },
+    { area: 1, days: 20 },
+    { area: 3, days: 22 },
+    { area: 5, days: 24 },
+    { area: 10, days: 25 },
+    { area: 20, days: 25 },
+    { area: 30, days: 25 },
+    { area: Infinity, days: 20 },
+  ],
+};
 
-  // 优化：根据出货形式动态计算数量和面积
-  let qty = 1;
-  let area = 0;
-  const f = form as Record<string, unknown>;
-  if (f.shipmentType === 'single') {
-    qty = Number(f.singleCount) || 1;
-    area = Number(f.singleLength) * Number(f.singleWidth) || 0;
-  } else if (f.shipmentType === 'panel' || f.shipmentType === 'panel_agent') {
-    qty = Number(f.singleCount) || 1;
-    area = Number(f.singleLength) * Number(f.singleWidth) || 0;
-    if (f.panelSetCount) {
-      qty = qty * Number(f.panelSetCount);
+// 查表函数：根据层数和面积查交期天数
+function getBaseDeliveryDays(layers: number, area: number, copperWeight: number): { days: number, needReview: boolean } {
+  // 铜厚大于1oz用铜厚表，否则用普通表
+  const table = copperWeight > 1 ? DELIVERY_DAYS_TABLE_COPPER : DELIVERY_DAYS_TABLE;
+  // 层数向下取最近支持的
+  let layerKey = layers;
+  while (!table[layerKey] && layerKey > 1) layerKey--;
+  const arr = table[layerKey] || table[2];
+  for (const item of arr) {
+    if (area <= item.area) {
+      // 20天及以上或特殊标记视为评估
+      if (item.days >= 20) return { days: 20, needReview: true };
+      return { days: item.days, needReview: false };
     }
   }
+  return { days: 20, needReview: true };
+}
 
-  // 价格主公式：基础价+面积+层数+所有参数加价
-  let price =
-    20 + // 基础费用
-    area * 0.05 + // 面积单价
-    (Number(f.layers) - 2) * 8 + // 层数加价（2层起步）
-    PCB_TYPE_EXTRA[String(f.pcbType)] + // 板材类型
-    HDI_EXTRA[String(f.hdi)] + // HDI工艺
-    TG_EXTRA[String(f.tg)] + // TG值
-    (Number(f.panelCount) - 1) * 5 + // 拼板数加价
-    SHIPMENT_EXTRA[String(f.shipmentType)] + // 出货方式
-    BORDER_EXTRA[String(f.border)] + // 工艺边
-    (Number(f.copperWeight) - 1) * 10 + // 铜厚加价
-    MINTRACE_EXTRA[String(f.minTrace)] + // 最小线宽线距
-    MINHOLE_EXTRA[String(f.minHole)] + // 最小孔径
-    COLOR_EXTRA[String(f.solderMask)] + // 阻焊色
-    SILK_EXTRA[String(f.silkscreen)] + // 字符色
-    SURFACE_EXTRA[String(f.surfaceFinish)] + // 表面处理
-    IMPEDANCE_EXTRA(String(f.impedance)) + // 阻抗控制
-    CASTELLATED_EXTRA(String(f.castellated)) + // 半孔
-    GOLDFINGER_EXTRA(String(f.goldFingers)) + // 金手指
-    EDGEPLATING_EXTRA(String(f.edgePlating)) + // 边镀金
-    HALFHOLLE_EXTRA(String(f.halfHole)) + // 半孔数量
-    EDGECOVER_EXTRA(String(f.edgeCover)) + // 边覆盖
-    MASKCOVER_EXTRA(String(f.maskCover)) + // 阻焊覆盖
-    FLYINGPROBE_EXTRA(String(f.flyingProbe)) + // 飞针测试
-    TESTMETHOD_EXTRA(String(f.testMethod)) + // 测试方式
-    PRODCAP_EXTRA(String(f.prodCap)) + // 产能确认
-    PRODUCTREPORT_EXTRA(f.productReport) + // 产品报告
-    REJECTBOARD_EXTRA(String(f.rejectBoard)) + // 不良板
-    YYPIN_EXTRA(String(f.yyPin)) + // 阴阳针
-    CUSTOMERCODE_EXTRA(String(f.customerCode)) + // 客户加码
-    PAYMETHOD_EXTRA(String(f.payMethod)) + // 付款方式
-    QUALITYATTACH_EXTRA(String(f.qualityAttach)) + // 质检附件
-    SMT_EXTRA(String(f.smt)); // SMT贴片
-
-  // 数量折扣（批量越大单价越低）
-  let discount = 1;
-  if (qty >= 1000) discount = 0.8;
-  else if (qty >= 500) discount = 0.85;
-  else if (qty >= 100) discount = 0.9;
-  else if (qty >= 50) discount = 0.95;
-
-  // 总价=单价*数量*折扣，最低价保护
-  price = price * qty * discount;
-  if (price < 30) price = 30;
-  return price;
-} 

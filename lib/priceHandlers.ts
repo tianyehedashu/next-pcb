@@ -236,7 +236,7 @@ export const qualityAttachHandler: PriceHandler = (form) => {
  * 规则：如需SMT贴片（smt=true），整单加50元。
  * 说明：如需按面积计价可调整为50×max(1, area)
  */
-export const smtHandler: PriceHandler = (form, area) => {
+export const smtHandler: PriceHandler = (form, _area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -664,7 +664,7 @@ export const basePriceHandler = Object.assign(
  * 丝印颜色加价
  * 规则：目前白/黑/绿都不加价。
  */
-export const silkscreenHandler: PriceHandler = (form, area) => {
+export const silkscreenHandler: PriceHandler = (_form, _area) => {
   // 目前白/黑/绿都不加价
   return {
     extra: 0,
@@ -812,7 +812,7 @@ export const impedanceHandler: PriceHandler = (form, area) => {
  * 金手指加价
  * 规则：如需金手指（goldFingers=true），整单加20元。
  */
-export const goldFingersHandler: PriceHandler = (form, area) => {
+export const goldFingersHandler: PriceHandler = (form, _area) => {
   const extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -913,7 +913,7 @@ export const testMethodHandler: PriceHandler = (form, area) => {
  * 产品报告加价
  * 规则：每选1项报告加5元。
  */
-export const productReportHandler: PriceHandler = (form, area) => {
+export const productReportHandler: PriceHandler = (form, _area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
@@ -1086,7 +1086,7 @@ export const engFeeHandler: PriceHandler = (form, area) => {
  * 规则：如有BGA且间距≤0.25mm（form.bga为true），整单加价50元。
  * 适用场景：高密度BGA封装对PCB工艺要求高，需额外加价。
  */
-export const bgaHandler: PriceHandler = (form, area) => {
+export const bgaHandler: PriceHandler = (form, _area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];

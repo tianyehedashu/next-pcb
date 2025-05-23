@@ -133,9 +133,9 @@ let subtotal = extra;
 
 // 2. 单独计算工程费和菲林费
 const engFeeResult = engFeeHandler(ctxForm, area, totalCount);
-const filmFeeResult = filmFeeHandler(ctxForm, area, totalCount);
+const filmFeeResult = filmFeeHandler(ctxForm);
 let addPercent = 0;
-if (ctxForm.isRejectBoard) {
+if (ctxForm.rejectBoard) {
   const { percent, note } = getPanelAddPercent(ctxForm.differentDesignsCount);
   addPercent = percent;
   if (note) notes.push(note);
