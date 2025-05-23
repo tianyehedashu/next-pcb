@@ -74,9 +74,9 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
       if (layers >= 16) {
         filtered = filtered.filter(v => v >= 2);
       } else if (layers === 4) {
-        filtered = filtered.filter(v => [0.6, 0.8, 1.0, 1.2, 1.6, 2.0].includes(v));
+        filtered = filtered.filter(v => [0.6, 0.8, 1.0, 1.2, 1.6, 2.0,2.4].includes(v));
       } else if (layers === 6) {
-        filtered = filtered.filter(v => [0.8, 1.0, 1.2, 1.6, 2.0].includes(v));
+        filtered = filtered.filter(v => [0.8, 1.0, 1.2, 1.6, 2.0,2.4].includes(v));
       } else if (layers >= 12) {
         filtered = filtered.filter(v => v >= 1.6);
       } else if (layers >= 10) {
