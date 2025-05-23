@@ -63,9 +63,9 @@ export interface PcbQuoteForm {
   surfaceFinish: SurfaceFinish; // 表面处理
   /**
    * 沉金厚度，仅在 surfaceFinish = 'enig' 时有效
-   * - enig_1u：1微英寸
-   * - enig_2u：2微英寸
-   * - enig_3u：3微英寸
+   * - ENIG 1U：1微英寸
+   * - ENIG 2U：2微英寸
+   * - ENIG 3U：3微英寸
    */
   surfaceFinishEnigType?: SurfaceFinishEnigType;
   impedance: boolean; // 阻抗控制
@@ -138,10 +138,10 @@ export interface PcbQuoteForm {
   gerberUrl?: string;
   /**
    * 是否需要工作Gerber文件
-   * true: 需要（默认）
-   * false: 不需要
+   * Not Required: 不需要
+   * Require Approval: 需要审批
    */
-  workingGerber?: boolean;
+  workingGerber?: WorkingGerber;
 
 }
 

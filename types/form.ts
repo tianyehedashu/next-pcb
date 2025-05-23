@@ -10,7 +10,7 @@
  * - rigid-flex：刚挠结合板，兼具刚性和柔性，适合高集成度、复杂结构产品。
  */
 export enum PcbType {
-  FR4 = 'fr4' // 适用范围广，性价比高
+  FR4 = 'FR-4' // 适用范围广，性价比高
   // Aluminum = 'aluminum', // 散热好，适合高功率
   // Rogers = 'rogers', // 高频性能优异，价格高
   // Flex = 'flex', // 可弯折，适合动态应用
@@ -292,7 +292,11 @@ export type useShengyiMaterial = boolean;
  * - enig_2u：2微英寸，增强耐腐蚀性，适合高可靠性需求。
  * - enig_3u：3微英寸，最高耐腐蚀性，成本最高，适合特殊高端应用。
  */
-export type SurfaceFinishEnigType = 'enig_1u' | 'enig_2u' | 'enig_3u'; // 1u/2u/3u分别对应不同厚度和可靠性
+export enum SurfaceFinishEnigType {
+  Enig1u = 'ENIG 1U', // 1微英寸，常规厚度，成本低
+  Enig2u = 'ENIG 2U', // 2微英寸，增强耐腐蚀性，适合高可靠性需求
+  Enig3u = 'ENIG 3U', // 3微英寸，最高耐腐蚀性，成本最高，适合特殊高端应用
+}
 
 /**
  * Break-away Rail（工艺边）
@@ -367,4 +371,9 @@ export enum ProductReport {
   ProductionFilms = 'Production Films', // 生产菲林，提供生产用底片资料
   ImpedanceReport = 'impedanceReport', // 阻抗测试报告，适用于有阻抗控制要求的订单
   TestReport = 'testReport', // 测试报告，适用于有测试要求的订单
+}
+
+export enum WorkingGerber {
+  NotRequired = 'Not Required', // 不需要工作Gerber文件
+  RequireApproval = 'Require Approval', // 需要审批
 } 

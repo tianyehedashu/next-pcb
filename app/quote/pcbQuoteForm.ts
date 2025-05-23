@@ -1,5 +1,6 @@
 // PCB报价表单类型定义（含详细注释）
 import { z } from "zod";
+import { SurfaceFinishEnigType, WorkingGerber } from "@/types/form";
 
 /**
  * PCB报价表单类型（字段完全对齐实际表单）
@@ -31,7 +32,7 @@ export const pcbQuoteFormSchema = z.object({
   solderMask: z.enum(["green", "blue", "red", "black", "white", "yellow"]).default("green").describe("Solder Mask"),
   silkscreen: z.enum(["white", "black", "green"]).default("white").describe("Silkscreen"),
   surfaceFinish: z.enum(["hasl", "leadfree", "enig", "osp", "immersion_silver", "immersion_tin"]).default("hasl").describe("Surface Finish"),
-  surfaceFinishEnigType: z.enum(["enig_1u", "enig_2u", "enig_3u"]).optional().describe("ENIG Thickness"),
+  surfaceFinishEnigType: z.nativeEnum(SurfaceFinishEnigType).optional().describe("ENIG Thickness"),
   impedance: z.boolean().default(false).describe("Impedance"),
   castellated: z.boolean().default(false).describe("Castellated"),
   goldFingers: z.boolean().default(false).describe("Gold Fingers"),
@@ -56,6 +57,7 @@ export const pcbQuoteFormSchema = z.object({
   blueMask: z.boolean().optional().describe("Blue Mask"),
   holeCu25um: z.boolean().optional().describe("Hole Cu 25um"),
   gerber: z.any().optional().describe("Gerber"),
+  workingGerber: z.nativeEnum(WorkingGerber).optional().describe("Working Gerber"),
 
   // Shipping Information
 

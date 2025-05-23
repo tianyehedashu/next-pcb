@@ -6,13 +6,16 @@ import { TestMethod, SurfaceFinish, PcbType, HdiType, TgType, BorderType, Copper
   HalfHole,
   EdgeCover,
   ProductReport,
-  InnerCopperWeight} from "../types/form";
+  InnerCopperWeight,
+  SurfaceFinishEnigType,
+  WorkingGerber} from "../types/form";
 
 const defaultForm = {
   pcbType: PcbType.FR4,
   layers: 2,
   thickness: 1.6,
   surfaceFinish: SurfaceFinish.HASL,
+  surfaceFinishEnigType: SurfaceFinishEnigType.Enig1u,
   outerCopperWeight: CopperWeight.One,
   innerCopperWeight: InnerCopperWeight.Half,
   minTrace: MinTrace.SixSix,
@@ -36,7 +39,7 @@ const defaultForm = {
   panelRow: 1,
   panelColumn: 1,
   panelSet: 0,
-  border: BorderType.Five,
+  border: BorderType.None,
   maskCover: MaskCover.TentedVias,
   edgePlating: false,
   halfHole: HalfHole.None,
@@ -82,7 +85,7 @@ const defaultForm = {
     address: "",
     zipCode: "",
   },
-  workingGerber: true,
+  workingGerber: WorkingGerber.NotRequired,
 } as PcbQuoteForm;
 
 interface QuoteState {

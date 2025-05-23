@@ -2,7 +2,7 @@
 // 可扩展：依赖、校验、自动修正、加价等
 
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask,MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight } from '../types/form';
+import { CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask,MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber } from '../types/form';
 
 export type PCBFieldRule<T = unknown> = {
   label: string;
@@ -13,6 +13,7 @@ export type PCBFieldRule<T = unknown> = {
   shouldDisable?: (form: PcbQuoteForm & { area?: number }) => boolean;
   dependencies?: (keyof PcbQuoteForm)[];
   unit?: string;
+  optionUnit?: (v: T) => string | undefined;
   [key: string]: unknown;
 };
 
@@ -29,9 +30,9 @@ const productReportOptionLabels: Record<string, string> = {
 
 export const pcbFieldRules: Record<string, PCBFieldRule> = {
   pcbType: {
-    label: 'Board Type',
+    label: 'Material Type',
     options: Object.values(PcbType),
-    default: 'fr4',
+    default: PcbType.FR4,
     required: true,
     price: { fr4: 0 },
     shouldDisable: () => false,
@@ -138,8 +139,10 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   border: {
     label: 'Break-away Rail',
     options: Object.values(BorderType),
-    default: 'none',
+    default: BorderType.None,
     required: false,
+    unit: 'mm',
+    optionUnit: (v: unknown) => v === BorderType.None ? undefined : 'mm',
   },
   minTrace: {
     label: 'Min Trace/Space',
@@ -245,8 +248,8 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   surfaceFinishEnigType: {
     label: 'ENIG Thickness',
-    options: ['enig_1u', 'enig_2u', 'enig_3u'],
-    default: 'enig_1u',
+    options: Object.values(SurfaceFinishEnigType),
+    default: SurfaceFinishEnigType.Enig1u,
     required: false,
     shouldShow: (form: PcbQuoteForm) => form.surfaceFinish === SurfaceFinish.Enig,
   },
@@ -328,7 +331,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: [true, false],
     default: false,
     required: false,
-    shouldShow: (form: PcbQuoteForm) => form.pcbType === 'fr4',
+    shouldShow: (form: PcbQuoteForm) => form.pcbType === PcbType.FR4,
   },
   /**
    * BGA（Ball Grid Array）封装规则
@@ -480,10 +483,8 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   workingGerber: {
     label: 'Working Gerber',
-    options: [true, false],
-    default: true,
+    options: Object.values(WorkingGerber),
+    default: WorkingGerber.NotRequired,
     required: false,
-    trueLabel: 'Yes',
-    falseLabel: 'No',
   },
 }; 

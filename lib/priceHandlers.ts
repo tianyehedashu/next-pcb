@@ -1,6 +1,6 @@
 import { pcbFieldRules } from './pcbFieldRules';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { ProdCap, TestMethod, SurfaceFinish } from '../types/form';
+import { ProdCap, TestMethod, SurfaceFinish, SurfaceFinishEnigType } from '../types/form';
 
 // 类型定义
 /**
@@ -705,24 +705,24 @@ export const surfaceFinishHandler: PriceHandler = (form, area) => {
   if (finish === SurfaceFinish.Enig) {
     // ENIG（沉金）分档加价
     let pricePerSqm = 0, pricePerSample = 0, label = '';
-    if (enigType === 'enig_1u') {
+    if (enigType === SurfaceFinishEnigType.Enig1u) {
       // 1U 沉金
       pricePerSqm = 140;
       pricePerSample = 140;
       label = 'ENIG 1U';
-    } else if (enigType === 'enig_2u') {
+    } else if (enigType === SurfaceFinishEnigType.Enig2u) {
       // 2U 沉金
       pricePerSqm = 190;
       pricePerSample = 190;
       label = 'ENIG 2U';
-    } else if (enigType === 'enig_3u') {
+    } else if (enigType === SurfaceFinishEnigType.Enig3u) {
       // 3U 沉金
       pricePerSqm = 240;
       pricePerSample = 230;
       label = 'ENIG 3U';
     }
     // 超过3U需人工改价
-    if (enigType === 'enig_3u') {
+    if (enigType === SurfaceFinishEnigType.Enig3u) {
       notes.push('ENIG 3U: 超过3U需人工改价');
     }
     if (isSample) {
