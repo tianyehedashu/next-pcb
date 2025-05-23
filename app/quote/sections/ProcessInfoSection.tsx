@@ -21,7 +21,7 @@ export const processInfoFields = {
   goldFingers: { type: "radio" },
   goldFingersBevel: { type: "radio" },
   edgePlating: { type: "radio" },
-  edgeCover: { type: "radio" },
+  // edgeCover: { type: "radio" },
   maskCover: { type: "radio" },
   bga: { type: "radio" },
   holeCu25um: { type: "radio" },
