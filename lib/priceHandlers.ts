@@ -1002,7 +1002,7 @@ export const holeCu25umHandler: PriceHandler = (form, area) => {
  * 菲林费加价
  * 规则：只有单个成品面积超过0.06平方米才收费，按200元/平方米计费（1-2L按6张，4L按8张，6层按11张，8层按13张,10层按15张计费）
  */
-export const filmFeeHandler: PriceHandler = (form, area, _totalCount) => {
+export const filmFeeHandler = (form: PcbQuoteForm) => {
   // 菲林面积
   let singleArea = form.singleLength * form.singleWidth / 10000;
   if (form.shipmentType === 'panel' && form.panelRow && form.panelColumn) {
@@ -1017,33 +1017,15 @@ export const filmFeeHandler: PriceHandler = (form, area, _totalCount) => {
   else if (form.layers === 10) filmCount = 15;
   else filmCount = form.layers + 5; // 其它层数估算
 
-  // 只有单个成品面积超过0.06㎡时才收费
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
   if (singleArea > 0.06) {
-    // 区分出货方式
-    let boardCount: number;
-    let boardCountSource = '';
-    if (form.shipmentType === 'single') {
-      boardCount = form.singleCount;
-      boardCountSource = 'single (totalCount)';
-    } else {
-      if (form.panelSet != null) {
-        boardCount = form.panelSet;
-        boardCountSource = 'panelSet';
-      } else {
-        boardCount = _totalCount / (form.singleCount || 1);
-        boardCountSource = 'totalCount/singleCount';
-      }
-    }
-    // 总光绘面积
-    const totalFilmArea = singleArea * filmCount * boardCount;
-    const fee = +(totalFilmArea * 200).toFixed(2);
+    const fee = +(singleArea * filmCount * 200).toFixed(2);
     extra = fee;
     detail['filmFee'] = fee;
     notes.push(
-      `Film fee: single area ${singleArea.toFixed(3)}㎡ > 0.06㎡, total film area ${totalFilmArea.toFixed(3)}㎡, ${totalFilmArea.toFixed(3)}×200 = ${fee} CNY (boardCount=${boardCount}, source=${boardCountSource}, shipmentType=${form.shipmentType})`
+      `Film fee: single area ${singleArea.toFixed(3)}㎡ > 0.06㎡, film count ${filmCount}, total fee = ${singleArea.toFixed(3)} × ${filmCount} × 200 = ${fee} CNY (shipmentType=${form.shipmentType})`
     );
   } else {
     notes.push(`Film fee: single area ${singleArea.toFixed(3)}㎡ ≤ 0.06㎡, no charge`);
