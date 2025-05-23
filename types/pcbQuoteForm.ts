@@ -23,6 +23,7 @@ import {
   SurfaceFinishEnigType,
   ProductReport,
   EdgeCover,
+  InnerCopperWeight,
 } from './form';
 import { Address } from './address';
 
@@ -112,7 +113,7 @@ export interface PcbQuoteForm {
   /**
    * Inner copper weight (oz), for multilayer boards
    */
-  innerCopperWeight?: CopperWeight;
+  innerCopperWeight?: InnerCopperWeight;
   /**
    * Customs note (for customs declaration, optional)
    */

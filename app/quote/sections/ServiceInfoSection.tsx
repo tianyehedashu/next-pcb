@@ -85,15 +85,23 @@ export default function ServiceInfoSection({ form, setForm, sectionRef }: Servic
               {type === "radio" && options.length > 0 && (
                 <RadioGroup
                   name={key}
-                  options={(options as Array<string | number | boolean>).map((v) => ({
-                    value: v,
-                    label: typeof v === "boolean"
-                      ? (v ? rule.trueLabel || "Yes" : rule.falseLabel || "No")
-                      : typeof v === "string"
-                      ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-')
-                      : String(v),
-                    disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false
-                  }))}
+                  options={(() => {
+                    let opts = options;
+                    if (typeof options[0] === 'boolean') {
+                      opts = [false, true];
+                    }
+                    return (opts as Array<string | number | boolean>).map((v) => ({
+                      value: v,
+                      label: typeof v === "boolean"
+                        ? (v ? rule.trueLabel || "Yes" : rule.falseLabel || "No")
+                        : (typeof v === 'string' || typeof v === 'number') && rule.unit
+                          ? `${v} ${rule.unit}`
+                          : (typeof v === 'string'
+                            ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-')
+                            : String(v)),
+                      disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false
+                    }));
+                  })()}
                   value={form[key as keyof typeof form] as string | number | boolean | undefined}
                   onChange={(v: string | number | boolean) => setForm((prev) => ({ ...prev, [key]: v }))}
                 />
@@ -136,7 +144,7 @@ export default function ServiceInfoSection({ form, setForm, sectionRef }: Servic
                   <SelectContent>
                     {(options as (string | number)[]).map((v) => (
                       <SelectItem key={v} value={String(v)} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: v }) : false}>
-                        {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
+                        {(typeof v === 'string' || typeof v === 'number') && rule.unit ? `${v} ${rule.unit}` : (typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v))}
                       </SelectItem>
                     ))}
                   </SelectContent>

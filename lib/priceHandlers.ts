@@ -1,6 +1,6 @@
 import { pcbFieldRules } from './pcbFieldRules';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { ProdCap, TestMethod } from '../types/form';
+import { ProdCap, TestMethod, InnerCopperWeight } from '../types/form';
 
 // 类型定义
 /**
@@ -1193,20 +1193,21 @@ export const copperWeightHandler: PriceHandler = (form, area) => {
     notes.push('请填写铜厚（单位oz）');
     return { extra, detail, notes };
   }
-  // 只允许 CopperWeight 枚举值
-  const validCopper = ['1', '2', '3', '4'];
+  // 只允许 InnerCopperWeight 枚举值
+  const validCopper = ['0.5', '1', '2', '3', '4'];
   if (!validCopper.includes(copper)) {
-    notes.push('铜厚仅支持1oz、2oz、3oz、4oz');
+    notes.push('铜厚仅支持0.5oz、1oz、2oz、3oz、4oz');
     return { extra, detail, notes };
   }
   // 单价查表
   const priceTable = {
+    '0.5': undefined, // 0.5oz 不加价
     '2': { sample: 100, batch: 100 },
     '3': { sample: 320, batch: 310 },
     '4': { sample: 550, batch: 510 },
   };
-  if (copper === '1') {
-    notes.push('铜厚1oz不加价');
+  if (copper === '1' || copper === '0.5') {
+    notes.push(`铜厚${copper}oz不加价`);
     return { extra, detail, notes };
   }
   const priceInfo = priceTable[copper];

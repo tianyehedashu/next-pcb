@@ -71,10 +71,20 @@ export enum BorderType {
 /**
  * 铜厚（oz）
  * 作用：影响PCB的载流能力和机械强度，铜厚越大，载流能力越强，成本越高。
+ * - 0.5：薄铜，适合高密度、轻载流设计。
  * - 1：常规厚度，适合大多数应用。
  * - 2/3：大电流或特殊需求，增强机械强度。
  */
 export enum CopperWeight {
+  One = '1', // 常规载流能力
+  Two = '2', // 增强载流能力
+  Three = '3', // 大电流或特殊需求
+  Four = '4', // 超大电流或极特殊需求
+}
+
+
+export enum InnerCopperWeight {
+  Half = '0.5', // 薄铜，适合高密度、轻载流设计
   One = '1', // 常规载流能力
   Two = '2', // 增强载流能力
   Three = '3', // 大电流或特殊需求
@@ -104,10 +114,12 @@ export enum MinTrace {
  * - 0.25/0.2/0.15：高密度设计，难度递增，价格更高。
  */
 export enum MinHole {
-  ZeroThree = '0.3', // 常规孔径
-  ZeroTwoFive = '0.25', // 中等密度
-  ZeroTwo = '0.2', // 高密度
   ZeroOneFive = '0.15', // 极高密度，工艺最难
+  ZeroTwo = '0.2', // 高密度
+  ZeroTwoFive = '0.25', // 中等密度
+  ZeroThree = '0.3', // 常规孔径
+   
+ 
 }
 
 /**

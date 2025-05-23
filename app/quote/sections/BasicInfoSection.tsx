@@ -26,6 +26,7 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
   const basicFields: { key: keyof PcbQuoteForm | 'singleSize'; type: 'radio' | 'input' | 'group' }[] = [
     { key: "pcbType", type: "radio" },
     { key: "layers", type: "radio" },
+    { key: "useShengyiMaterial", type: "radio" },
     { key: "thickness", type: "radio" },
     { key: "hdi", type: "radio" },
     { key: "tg", type: "radio" },    
@@ -162,12 +163,20 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
               {type === "radio" && options.length > 0 && (
                 <RadioGroup
                   name={key}
-                  options={(options as Array<string | number>).map((value, idx) => ({
-                    value,
-                    label: typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, '-') : String(value),
-                    disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: value }) : false,
-                    radius: options.length === 1 ? "rounded-lg" : idx === 0 ? "rounded-r-none rounded-l-lg" : idx === options.length - 1 ? "rounded-r-lg !rounded-l-none -ml-px" : "rounded-none -ml-px"
-                  }))}
+                  options={(() => {
+                    let opts = options;
+                    if (typeof options[0] === 'boolean') {
+                      opts = [false, true];
+                    }
+                    return (opts as Array<string | number | boolean>).map((value, idx) => ({
+                      value,
+                      label: typeof value === 'boolean'
+                        ? (value ? rule.trueLabel || 'Yes' : rule.falseLabel || 'No')
+                        : (typeof value === 'string' || typeof value === 'number') && rule.unit ? `${value} ${rule.unit}` : (typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, '-') : String(value)),
+                      disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: value }) : false,
+                      radius: opts.length === 1 ? "rounded-lg" : idx === 0 ? "rounded-r-none rounded-l-lg" : idx === opts.length - 1 ? "rounded-r-lg !rounded-l-none -ml-px" : "rounded-none -ml-px"
+                    }));
+                  })()}
                   value={form[key as keyof PcbQuoteForm & string]}
                   onChange={(v: string | number) => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm & string]: v }))}
                 />
@@ -180,7 +189,7 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
                   <SelectContent>
                     {(options as Array<string | number>).map((value) => (
                       <SelectItem key={value} value={String(value)} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: value }) : false}>
-                        {typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, '-') : String(value)}
+                        {(typeof value === 'string' || typeof value === 'number') && rule.unit ? `${value} ${rule.unit}` : (typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, '-') : String(value))}
                       </SelectItem>
                     ))}
                   </SelectContent>

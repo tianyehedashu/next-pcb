@@ -2,7 +2,7 @@
 // 可扩展：依赖、校验、自动修正、加价等
 
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask, Silkscreen, MaskCover, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover } from '../types/form';
+import { CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask, Silkscreen, MaskCover, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight } from '../types/form';
 
 export type PCBFieldRule<T = unknown> = {
   label: string;
@@ -12,6 +12,7 @@ export type PCBFieldRule<T = unknown> = {
   shouldShow?: (form: PcbQuoteForm) => boolean;
   shouldDisable?: (form: PcbQuoteForm & { area?: number }) => boolean;
   dependencies?: (keyof PcbQuoteForm)[];
+  unit?: string;
   [key: string]: unknown;
 };
 
@@ -45,17 +46,19 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   outerCopperWeight: {
     label: 'Outer Copper Weight',
     options: Object.values(CopperWeight),
-    default: '1',
+    default: CopperWeight.One,
     required: true,
     shouldDisable: () => false,
+    unit: 'oz',
   },
   innerCopperWeight: {
     label: 'Inner Copper Weight',
-    options: Object.values(CopperWeight),
-    default: '1',
+    options: Object.values(InnerCopperWeight),
+    default: InnerCopperWeight.Half,
     required: true,
     shouldShow: (form: PcbQuoteForm) => (form.layers ?? 2) >= 4,
     shouldDisable: (form: PcbQuoteForm) => (form.layers ?? 2) < 4,
+    unit: 'oz',
   },
   thickness: {
     label: 'Thickness',
@@ -97,6 +100,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     required: true,
     dependencies: ['layers', 'outerCopperWeight', 'innerCopperWeight'],
     shouldDisable: () => false,
+    unit: 'mm',
   },
   hdi: {
     label: 'HDI',
@@ -144,6 +148,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     required: true,
     dependencies: ['layers'],
     shouldDisable: () => false,
+    unit: 'mil',
   },
   minHole: {
     label: 'Min Hole',
@@ -169,10 +174,10 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
       const layers = form.layers ?? 2;
       const thickness = form.thickness ?? 1.6;
       if (layers === 1) return '0.3';
-      if (layers === 2 && thickness < 1.6) return '0.15';
-      if (layers === 2 && thickness >= 1.6) return '0.2';
-      if (layers === 4) return '0.15';
-      if (layers >= 6) return '0.15';
+      if (layers === 2 && thickness < 1.6) return '0.3';
+      if (layers === 2 && thickness >= 1.6) return '0.3';
+      if (layers === 4) return '0.3';
+      if (layers >= 6) return '0.3';
       return '0.3';
     },
     required: true,
@@ -189,6 +194,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
       if ((layers === 6 || layers === 8 || layers >= 10) && parseFloat(minHole) < 0.15) return true;
       return false;
     },
+    unit: 'mm',
   },
   solderMask: {
     label: 'Solder Mask',

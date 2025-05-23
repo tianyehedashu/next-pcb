@@ -17,13 +17,12 @@ export const processInfoFields = {
   surfaceFinish: { type: "radio" },
   surfaceFinishEnigType: { type: "radio" },
   impedance: { type: "radio" },
-  castellated: { type: "radio" },
+  // castellated: { type: "radio" },
   goldFingers: { type: "radio" },
   goldFingersBevel: { type: "radio" },
   edgePlating: { type: "radio" },
   edgeCover: { type: "radio" },
   maskCover: { type: "radio" },
-  useShengyiMaterial: { type: "radio" },
   bga: { type: "radio" },
   holeCu25um: { type: "radio" },
 } as const;
@@ -103,34 +102,46 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
             <React.Fragment key={key}>
               <div className="flex items-center gap-4">
                 <Tooltip content={<div className="max-w-xs text-left">{label}</div>}>
-                  <label className="w-32 text-xs font-normal text-right cursor-help">{label}</label>
+                  <label className="w-32 text-xs font-normal text-right cursor-help">{label}
+                    {rule.unit && (
+                      <span className="text-gray-400 ml-1">({rule.unit})</span>
+                    )}
+                  </label>
                 </Tooltip>
                 {type === "radio" && sortedOptions.length > 0 && (
                   <RadioGroup
                     name={key}
-                    options={sortedOptions.map((v) => ({
-                      value: v.toString(),
-                      label: typeof v === "boolean"
-                        ? (v ? rule.trueLabel || "Yes" : rule.falseLabel || "No")
-                        : key === 'solderMask' ? (
-                          <span className="flex items-center gap-2">
-                            <span
-                              className="inline-block w-4 h-4 rounded-full border border-gray-300"
-                              style={{ backgroundColor: typeof v === 'string' ? (solderMaskColorMap[String(v)] || String(v)) : undefined, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
-                            ></span>
-                            {typeof v === 'string' ? String(v).charAt(0).toUpperCase() + String(v).slice(1).replace(/_/g, '-') : String(v)}
-                          </span>
-                        ) : key === 'silkscreen' ? (
-                          <span className="flex items-center gap-2">
-                            <span
-                              className="inline-block w-4 h-4 rounded-full border border-gray-300"
-                              style={{ backgroundColor: typeof v === 'string' ? (silkscreenColorMap[String(v)] || String(v)) : undefined, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
-                            ></span>
-                            {typeof v === 'string' ? String(v).charAt(0).toUpperCase() + String(v).slice(1).replace(/_/g, '-') : String(v)}
-                          </span>
-                        ) : (typeof v === 'string' ? String(v).charAt(0).toUpperCase() + String(v).slice(1).replace(/_/g, '-') : String(v)),
-                      disabled: rule.shouldDisable ? rule.shouldDisable({ ...(form as PcbQuoteForm), [key]: v }) : false
-                    }))}
+                    options={(() => {
+                      let opts = sortedOptions;
+                      if (typeof sortedOptions[0] === 'boolean') {
+                        opts = [false, true];
+                      }
+                      return opts.map((v) => ({
+                        value: v.toString(),
+                        label: typeof v === "boolean"
+                          ? (v ? rule.trueLabel || "Yes" : rule.falseLabel || "No")
+                          : key === 'solderMask' ? (
+                            <span className="flex items-center gap-2">
+                              <span
+                                className="inline-block w-4 h-4 rounded-full border border-gray-300"
+                                style={{ backgroundColor: typeof v === 'string' ? (solderMaskColorMap[String(v)] || String(v)) : undefined, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
+                              ></span>
+                              {typeof v === 'string' ? String(v).charAt(0).toUpperCase() + String(v).slice(1).replace(/_/g, '-') : String(v)}
+                            </span>
+                          ) : key === 'silkscreen' ? (
+                            <span className="flex items-center gap-2">
+                              <span
+                                className="inline-block w-4 h-4 rounded-full border border-gray-300"
+                                style={{ backgroundColor: typeof v === 'string' ? (silkscreenColorMap[String(v)] || String(v)) : undefined, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
+                              ></span>
+                              {typeof v === 'string' ? String(v).charAt(0).toUpperCase() + String(v).slice(1).replace(/_/g, '-') : String(v)}
+                            </span>
+                          ) : (typeof v === 'string' || typeof v === 'number'
+                            ? `${v}${rule.unit ? ` ${rule.unit}` : ''}`
+                            : String(v)),
+                        disabled: rule.shouldDisable ? rule.shouldDisable({ ...(form as PcbQuoteForm), [key]: v }) : false
+                      }));
+                    })()}
                     value={typeof formData[key] === 'string' || typeof formData[key] === 'number' || typeof formData[key] === 'boolean' ? formData[key].toString() : ('default' in field && field.default !== undefined ? field.default.toString() : '')}
                     onChange={(v: string) => setForm((prev) => ({ ...prev, [key]: typeof sortedOptions[0] === 'boolean' ? v === 'true' : v }))}
                   />
@@ -143,7 +154,9 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
                     <SelectContent>
                       {sortedOptions.map((v) => (
                         <SelectItem key={v.toString()} value={v.toString()} disabled={rule.shouldDisable ? rule.shouldDisable({ ...(form as PcbQuoteForm), [key]: v }) : false}>
-                          {typeof v === 'string' ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-') : String(v)}
+                          {typeof v === 'string' || typeof v === 'number'
+                            ? `${v}${rule.unit ? ` ${rule.unit}` : ''}`
+                            : String(v)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -162,7 +175,11 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
               {key === 'goldFingers' && pcbFieldRules.goldFingersBevel.shouldShow?.(form as PcbQuoteForm) && (
                 <div className="flex items-center gap-4 ml-8">
                   <Tooltip content={<div className="max-w-xs text-left">{pcbFieldRules.goldFingersBevel.label}</div>}>
-                    <label className="w-32 text-xs font-normal text-right cursor-help">{pcbFieldRules.goldFingersBevel.label}</label>
+                    <label className="w-32 text-xs font-normal text-right cursor-help">{pcbFieldRules.goldFingersBevel.label}
+                      {pcbFieldRules.goldFingersBevel.unit && (
+                        <span className="text-gray-400 ml-1">({pcbFieldRules.goldFingersBevel.unit})</span>
+                      )}
+                    </label>
                   </Tooltip>
                   <RadioGroup
                     name="goldFingersBevel"

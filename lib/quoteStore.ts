@@ -5,7 +5,8 @@ import { TestMethod, SurfaceFinish, PcbType, HdiType, TgType, BorderType, Copper
   ShipmentType, 
   HalfHole,
   EdgeCover,
-  ProductReport} from "../types/form";
+  ProductReport,
+  InnerCopperWeight} from "../types/form";
 
 const defaultForm = {
   pcbType: PcbType.FR4,
@@ -13,7 +14,7 @@ const defaultForm = {
   thickness: 1.6,
   surfaceFinish: SurfaceFinish.Hasl,
   outerCopperWeight: CopperWeight.One,
-  innerCopperWeight: CopperWeight.One,
+  innerCopperWeight: InnerCopperWeight.Half,
   minTrace: MinTrace.SixSix,
   minHole: MinHole.ZeroTwo,
   solderMask: SolderMask.Green,
