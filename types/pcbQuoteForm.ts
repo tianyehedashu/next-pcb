@@ -14,7 +14,7 @@ import {
   MaskCover,
   TestMethod,
   ProdCap,
-  
+
   CustomerCode,
   PayMethod,
   QualityAttach,
@@ -42,17 +42,17 @@ export interface PcbQuoteForm {
   singleLength: number; // 单片长(cm)
   singleWidth: number; // 单片宽(cm)
   singleCount: number; // 单片出货情况下单总数量
-    /**
-   * 拼板行数
+  /**
+ * 拼板行数
+ */
+  panelRow?: number;
+  /**
+   * 拼板列数
    */
-    panelRow?: number;
-    /**
-     * 拼板列数
-     */
-    panelColumn?: number;
+  panelColumn?: number;
 
   panelSet?: number; // 连板/大板下单数量
-  differentDesignsCount?: number; // Number of different designs per panel (多款拼板数量)
+  differentDesignsCount: number; // Number of different designs per panel (多款拼板数量)
   border?: BorderType; // 工艺边
 
   minTrace: MinTrace; // 最小线宽线距
@@ -76,7 +76,7 @@ export interface PcbQuoteForm {
   maskCover?: MaskCover; // 阻焊覆盖
   testMethod?: TestMethod; // 测试方式
   productReport?: ProductReport[]; // 支持多选
-  isRejectBoard?: boolean; // 不良板（是否不接受打叉板）
+  rejectBoard: boolean; // 不良板（是否不接受打叉板）
   yyPin?: boolean; // 阴阳针
   customerCode?: CustomerCode; // 客户加码
   payMethod?: PayMethod; // 付款方式
@@ -94,7 +94,7 @@ export interface PcbQuoteForm {
    */
   bga?: boolean;
   prodCap?: ProdCap; // 产能确认
- 
+
   /**
    * 孔铜25um
    * 是否需要通孔内铜厚≥25微米，适用于高可靠性或特殊行业标准。

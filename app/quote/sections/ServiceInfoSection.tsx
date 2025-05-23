@@ -13,7 +13,7 @@ export const serviceInfoFields: { key: keyof PcbQuoteForm | 'productReport'; typ
   { key: "testMethod", type: "radio" },
   { key: "prodCap", type: "radio" },
   { key: "productReport", type: "checkbox" },
-  { key: "isRejectBoard", type: "radio" },
+  { key: "rejectBoard", type: "radio" },
   { key: "yyPin", type: "radio" },
   { key: "customerCode", type: "radio" },
   { key: "payMethod", type: "radio" },
@@ -145,7 +145,10 @@ export default function ServiceInfoSection({ form, setForm, sectionRef }: Servic
               {type === "input" && (
                 <Input
                   value={String(form[key as keyof typeof form] ?? '')}
-                  onChange={e => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                  onChange={e => setForm((prev) => ({
+                    ...prev,
+                    [key]: e.target.value === '' ? undefined : Number(e.target.value)
+                  }))}
                   placeholder={`Enter ${rule.label}`}
                   className="w-48"
                 />

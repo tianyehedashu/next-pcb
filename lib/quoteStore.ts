@@ -71,11 +71,21 @@ const defaultForm = {
   customsNote: "",
   pcbNote: "",
   userNote: "",
+  shippingAddress: {
+    name: "",
+    phone: "",
+    country: "",
+    province: "",
+    city: "",
+    district: "",
+    address: "",
+    zipCode: "",
+  },
 } as PcbQuoteForm;
 
 interface QuoteState {
   form: PcbQuoteForm;
-  setForm: (form: Partial<PcbQuoteForm>) => void;
+  setForm: (form: Partial<PcbQuoteForm> | ((form: PcbQuoteForm) => Partial<PcbQuoteForm>)) => void;
   clearForm: () => void;
 }
 
@@ -83,7 +93,7 @@ export const useQuoteStore = create(
   persist<QuoteState>(
     (set) => ({
       form: defaultForm,
-      setForm: (updater: any) =>
+      setForm: (updater: Partial<PcbQuoteForm> | ((form: PcbQuoteForm) => Partial<PcbQuoteForm>)) =>
         set((state) => ({
           form: typeof updater === "function"
             ? { ...state.form, ...updater(state.form) }

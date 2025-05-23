@@ -23,7 +23,7 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
   const countUnit = isSingle ? "Pcs" : "Set";
 
   // 新的字段配置数组，顺序可控
-  const basicFields = [
+  const basicFields: { key: keyof PcbQuoteForm | 'singleSize'; type: 'radio' | 'input' | 'group' }[] = [
     { key: "pcbType", type: "radio" },
     { key: "layers", type: "radio" },
     { key: "thickness", type: "radio" },
@@ -35,10 +35,9 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
     { key: "shipmentType", type: "radio" },
     { key: "panelRow", type: "input" },
     { key: "panelColumn", type: "input" },
- 
   ];
 
-  console.log("当前 PCB Quote Form：", form);
+  console.log("当前 PCB Quote Form 1 ：", form);
 
   // 统一依赖联动重置方案
   const prevDepsRef = useRef<Record<string, unknown[]>>({});
@@ -195,7 +194,10 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
                       ? String(form[key as keyof PcbQuoteForm & string])
                       : ''
                   }
-                  onChange={e => setForm((prev: PcbQuoteForm & { gerber?: File }) => ({ ...prev, [key as keyof PcbQuoteForm & string]: e.target.value }))}
+                  onChange={e => setForm((prev) => ({
+                    ...prev,
+                    [key]: e.target.value === '' ? undefined : Number(e.target.value)
+                  }))}
                   placeholder={rule.label ? `Enter ${rule.label}` : ''}
                   className="w-48"
                 />

@@ -343,13 +343,15 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     default: 'Not Required',
     required: false,
   },
-  isRejectBoard: {
+  rejectBoard: {
     label: 'Reject Board',
     options: [true, false],
     default: false,
     required: false,
     trueLabel: 'Yes',
     falseLabel: 'No',
+    shouldShow: (form) => (form.differentDesignsCount ?? 0) > 1,
+    shouldDisable: (form) => (form.differentDesignsCount ?? 0) <= 1,
   },
   yyPin: {
     label: 'YY Pin',
@@ -414,7 +416,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     label: 'Different Designs',
     options: [],
     default: 1,
-    required: false,
+    required: true,
   },
   singleSize: {
     label: 'Single Size (cm)',

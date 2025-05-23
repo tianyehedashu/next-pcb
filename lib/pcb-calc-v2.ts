@@ -54,6 +54,7 @@ export function initContext(form: PcbQuoteForm): { form: PcbQuoteForm; area: num
 // 拼板加成逻辑封装
 function getPanelAddPercent(differentDesignsCount: number | undefined): { percent: number, note: string | null } {
   const df = differentDesignsCount || 1;
+  if(df < 1) return { percent: 0, note: '拼板数量<1，不加价' };
   if (df < 10) return { percent: 0.1, note: '拼板数量<10，基础工艺价加10%（不含工程费和菲林费）' };
   if (df < 20) return { percent: 0.2, note: '拼板数量10-19，基础工艺价加20%（不含工程费和菲林费）' };
   if (df < 30) return { percent: 0.3, note: '拼板数量20-29，基础工艺价加30%（不含工程费和菲林费）' };
@@ -134,7 +135,7 @@ let subtotal = extra;
 const engFeeResult = engFeeHandler(ctxForm, area, totalCount);
 const filmFeeResult = filmFeeHandler(ctxForm, area, totalCount);
 let addPercent = 0;
-if (!ctxForm.isRejectBoard) {
+if (ctxForm.isRejectBoard) {
   const { percent, note } = getPanelAddPercent(ctxForm.differentDesignsCount);
   addPercent = percent;
   if (note) notes.push(note);
