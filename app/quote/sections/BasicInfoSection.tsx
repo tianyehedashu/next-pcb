@@ -19,7 +19,7 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
   const isSingle = form.shipmentType === "single";
   const isPanel = form.shipmentType === "panel" 
 
-  const countLabel = isSingle ? "Single qty" : "Panel qty";
+  const countLabel = isSingle ? "Quantity(single)" : "Quantity(panel)";
   const countUnit = isSingle ? "Pcs" : "Set";
 
   // 新的字段配置数组，顺序可控
@@ -31,12 +31,12 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
     { key: "hdi", type: "radio" },
     { key: "tg", type: "radio" },    
     { key: "differentDesignsCount", type: "input" },
-   
+    { key: "border", type: "radio" },
     { key: "singleSize", type: "group" },
     { key: "shipmentType", type: "radio" },
     { key: "panelRow", type: "input" },
     { key: "panelColumn", type: "input" },
-    { key: "border", type: "radio" },
+ 
   ];
 
   console.log("当前 PCB Quote Form 1 ：", form);

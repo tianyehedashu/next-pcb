@@ -171,16 +171,35 @@ export enum SurfaceFinish {
 }
 
 /**
- * 阻焊覆盖工艺
- * 作用：决定阻焊覆盖方式，影响焊盘保护和后续工艺。
- * - cover：盖油，常规保护。
- * - plug：塞孔，保护孔内焊盘。
- * - plug_flat：塞平，表面更平整，适合特殊工艺。
+ * MaskCover - 阻焊覆盖工艺（过孔处理方式）
+ * 定义阻焊对过孔的覆盖类型，影响焊盘保护、可靠性及后续工艺。
+ *
+ * - Tented Vias：过孔盖油。过孔被阻焊覆盖，不暴露、不填充。常用于基础保护、防止吃锡，是最常见的过孔处理方式。
+ * - Opened Vias：过孔开窗。过孔不被阻焊覆盖，直接暴露。适用于需要测试、连线或散热的场景。
+ * - Solder Mask Plug (IV-B)：阻焊塞孔（IV-B）。过孔用阻焊油墨从一侧或两侧塞孔后再覆盖，防止吃锡、提升平整度，常用于BGA等特殊组装需求。
+ * - Non-Conductive Fill & Cap (VII)：非导电填充+盖油（VII）。过孔用非导电材料填充并阻焊覆盖，平整度和可靠性最高，适用于高密度、高可靠性或特殊工艺PCB（如BGA、CSP等埋盲孔、埋顶焊盘）。
  */
 export enum MaskCover {
-  Cover = 'cover', // 常规保护
-  Plug = 'plug', // 孔内保护
-  PlugFlat = 'plug_flat', // 表面平整，特殊需求
+  /**
+   * Tented Vias: Vias are covered with solder mask, not exposed or filled.
+   * Typical use: General PCB, prevents solder wicking, basic protection.
+   */
+  TentedVias = 'Tented Vias',
+  /**
+   * Opened Vias: Vias are left open (exposed), no solder mask coverage.
+   * Typical use: Test points, component connection, heat dissipation.
+   */
+  OpenedVias = 'Opened Vias',
+  /**
+   * Solder Mask Plug (IV-B): Vias are plugged (filled) with solder mask, then covered.
+   * Typical use: Prevents solder wicking, improves flatness, BGA, special assembly.
+   */
+  SolderMaskPlug = 'Solder Mask Plug (IV-B)',
+  /**
+   * Non-Conductive Fill & Cap (VII): Vias are filled with non-conductive material and capped with solder mask.
+   * Typical use: Via-in-pad, BGA, CSP, high-reliability/high-density PCB.
+   */
+  NonConductiveFillCap = ' Non-Conductive Fill & Cap (VII)',
 }
 
 /**

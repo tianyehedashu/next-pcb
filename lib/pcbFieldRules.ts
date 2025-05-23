@@ -2,7 +2,7 @@
 // 可扩展：依赖、校验、自动修正、加价等
 
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask, Silkscreen, MaskCover, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight } from '../types/form';
+import { CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask,MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight } from '../types/form';
 
 export type PCBFieldRule<T = unknown> = {
   label: string;
@@ -130,7 +130,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     required: true,
   },
   shipmentType: {
-    label: 'Shipment Type',
+    label: 'Board Type',
     options: Object.values(ShipmentType),
     default: 'single',
     required: true,
@@ -224,22 +224,31 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   surfaceFinish: {
     label: 'Surface Finish',
-    options: Object.values(SurfaceFinish),
+    options: (form: PcbQuoteForm) => {
+      const layers = form.layers ?? 2;
+      const thickness = form.thickness ?? 1.6;
+      if ((layers === 1 || layers === 2) && thickness < 0.6) {
+        return [SurfaceFinish.Enig];
+      }
+      return Object.values(SurfaceFinish);
+    },
     default: (form: PcbQuoteForm) => {
-      if ((form.bga === true) || ( form.thickness < 0.5)) {
-        return SurfaceFinish.OSP;
+      const layers = form.layers ?? 2;
+      const thickness = form.thickness ?? 1.6;
+      if ((layers === 1 || layers === 2) && thickness < 0.6) {
+        return SurfaceFinish.Enig;
       }
       return SurfaceFinish.HASL;
     },
     required: true,
-    dependencies: ['bga', 'thickness'],
+    dependencies: ['bga', 'thickness', 'layers'],
   },
   surfaceFinishEnigType: {
     label: 'ENIG Thickness',
     options: ['enig_1u', 'enig_2u', 'enig_3u'],
     default: 'enig_1u',
     required: false,
-    shouldShow: (form: PcbQuoteForm) => form.surfaceFinish === 'enig',
+    shouldShow: (form: PcbQuoteForm) => form.surfaceFinish === SurfaceFinish.Enig,
   },
   impedance: {
     label: 'Impedance',
@@ -266,9 +275,9 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     required: false,
   },
   maskCover: {
-    label: 'Mask Cover',
+    label: 'Via Processing',
     options: Object.values(MaskCover),
-    default: 'cover',
+    default: 'tented_vias',
     required: false,
   },
   /**
