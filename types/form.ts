@@ -160,12 +160,12 @@ export enum Silkscreen {
  * - immersion_tin：沉锡，适合高密度、细间距产品，焊接性能好，但长期储存易变色。
  */
 export enum SurfaceFinish {
-  Hasl = 'HASL', // 性价比高，适合通用
-  LeadFree = 'leadfree HASL', // 环保，适合出口
-  Enig = 'enig', // 平整耐腐蚀，适合高端
-  Osp = 'osp', // 环保，适合SMT
-  ImmersionSilver = 'immersion_silver', // 高频信号，易氧化
-  ImmersionTin = 'immersion_tin', // 高密度，长期易变色
+  HASL = 'HASL', // 性价比高，适合通用
+  LeadFree = 'Leadfree HASL', // 环保，适合出口
+  Enig = 'Enig', // 平整耐腐蚀，适合高端
+  OSP = 'OSP', // 环保，适合SMT
+  ImmersionSilver = 'Immersion Silver', // 高频信号，易氧化
+  ImmersionTin = 'Immersion Tin', // 高密度，长期易变色
   // blueMask: 蓝胶（特殊蓝色阻焊或保护胶，特殊工艺需求）
   // holeCu25um: 孔铜25um（通孔内铜厚≥25微米，高可靠性或特殊行业标准）
 }

@@ -1,6 +1,6 @@
 import { pcbFieldRules } from './pcbFieldRules';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { ProdCap, TestMethod, InnerCopperWeight } from '../types/form';
+import { ProdCap, TestMethod, SurfaceFinish } from '../types/form';
 
 // 类型定义
 /**
@@ -702,7 +702,7 @@ export const surfaceFinishHandler: PriceHandler = (form, area) => {
   const finish = form.surfaceFinish;
   const enigType = form.surfaceFinishEnigType;
 
-  if (finish === 'enig') {
+  if (finish === SurfaceFinish.Enig) {
     // ENIG（沉金）分档加价
     let pricePerSqm = 0, pricePerSample = 0, label = '';
     if (enigType === 'enig_1u') {
@@ -737,7 +737,7 @@ export const surfaceFinishHandler: PriceHandler = (form, area) => {
       detail['surfaceFinish'] = fee;
       notes.push(`${label}: +${pricePerSqm} CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
     }
-  } else if (finish === 'immersion_silver' || finish === 'immersion_tin') {
+  } else if (finish === SurfaceFinish.ImmersionSilver || finish === SurfaceFinish.ImmersionTin) {
     // 沉银/沉锡加价
     const pricePerSqm = 100;
     const pricePerSample = 120;
@@ -745,13 +745,13 @@ export const surfaceFinishHandler: PriceHandler = (form, area) => {
       // 样板加价
       extra += pricePerSample;
       detail['surfaceFinish'] = pricePerSample;
-      notes.push(`${finish === 'immersion_silver' ? 'Immersion Silver' : 'Immersion Tin'}: sample +120 CNY/款`);
+      notes.push(`${finish === SurfaceFinish.ImmersionSilver ? 'Immersion Silver' : 'Immersion Tin'}: sample +120 CNY/款`);
     } else {
       // 批量按面积加价
       const fee = pricePerSqm * area;
       extra += fee;
       detail['surfaceFinish'] = fee;
-      notes.push(`${finish === 'immersion_silver' ? 'Immersion Silver' : 'Immersion Tin'}: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+      notes.push(`${finish === SurfaceFinish.ImmersionSilver ? 'Immersion Silver' : 'Immersion Tin'}: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
     }
     // 交期备注
     notes.push('交期加2天');

@@ -173,16 +173,16 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
         return ['0.3'];
       } else if (layers === 2) {
         if (thickness >= 1.6) {
-          return ['0.3', '0.25', '0.2'];
+          return ['0.2', '0.25', '0.3'];
         } else {
-          return ['0.3', '0.25', '0.2', '0.15'];
+          return ['0.15', '0.2', '0.25', '0.3'];
         }
       } else if (layers === 4) {
-        return ['0.3', '0.25', '0.2', '0.15'];
+        return ['0.15', '0.2', '0.25', '0.3'];
       } else if (layers === 6 || layers === 8 || layers >= 10) {
-        return ['0.3', '0.25', '0.2', '0.15'];
+        return ['0.15', '0.2', '0.25', '0.3'];
       }
-      return ['0.3', '0.25', '0.2', '0.15'];
+      return ['0.15', '0.2', '0.25', '0.3'];
     },
     default: (form: PcbQuoteForm) => {
       const layers = form.layers ?? 2;
@@ -227,9 +227,9 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: Object.values(SurfaceFinish),
     default: (form: PcbQuoteForm) => {
       if ((form.bga === true) || ( form.thickness < 0.5)) {
-        return 'osp';
+        return SurfaceFinish.OSP;
       }
-      return 'hasl';
+      return SurfaceFinish.HASL;
     },
     required: true,
     dependencies: ['bga', 'thickness'],
