@@ -246,7 +246,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     required: false,
   },
   edgePlating: {
-    label: 'Edge Plating',
+    label: 'Plated Half-holes/Edge Plating',
     options: [true, false],
     default: false,
     required: false,
