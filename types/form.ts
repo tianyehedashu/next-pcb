@@ -211,8 +211,8 @@ export enum MaskCover {
  */
 export enum TestMethod {
   None = 'none', // 免测，风险高
-  FlyingProbe = 'flyingProbe', // 小批量，灵活
-  Fixture = 'fixture', // 大批量，效率高
+  FlyingProbe = '100% FPT for Batches', // 小批量，灵活
+  Fixture = 'Test Fixture', // 大批量，效率高
 }
 
 /**

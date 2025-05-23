@@ -174,6 +174,11 @@ export interface PcbQuoteForm {
    * - Ask for Confirmation
    */
   ifDataConflicts?: IfDataConflicts;
+  /**
+   * Special Requests
+   * 用户可填写PCB订单的特殊要求，5-1000字符
+   */
+  specialRequests?: string;
 }
 
 // 报关信息类型

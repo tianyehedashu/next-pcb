@@ -2,7 +2,7 @@
 // 可扩展：依赖、校验、自动修正、加价等
 
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask,MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber, ULMark, CrossOuts, IPCClass, IfDataConflicts } from '../types/form';
+import { TestMethod, CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask,MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber, ULMark, CrossOuts, IPCClass, IfDataConflicts } from '../types/form';
 
 export type PCBFieldRule<T = unknown> = {
   label: string;
@@ -290,30 +290,29 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
    * - 面积area需由表单逻辑传入（form.area）
    */
   testMethod: {
-    label: 'Test Method',
+    label: 'Electrical Test',
     options: (form: PcbQuoteForm & { area?: number }) => {
-      if ((form.layers ?? 2) === 1) {
-        return ['none', 'flyingProbe', 'fixture'];
+      const { layers = 2, area = 0 } = form;
+      if (layers === 1) {
+        return [TestMethod.None, TestMethod.FlyingProbe, TestMethod.Fixture];
       }
-      if ((form.area ?? 0) > 5) {
-        return ['fixture'];
+      if (area > 5) {
+        return [TestMethod.Fixture];
       }
-      return ['flyingProbe', 'fixture'];
+      return [TestMethod.FlyingProbe, TestMethod.Fixture];
     },
     default: (form: PcbQuoteForm & { area?: number }) => {
-      if ((form.layers ?? 2) === 1) {
-        return 'none';
-      }
-      if ((form.area ?? 0) > 5) {
-        return 'fixture';
-      }
-      return 'flyingProbe';
+      const { layers = 2, area = 0 } = form;
+      if (layers === 1) return TestMethod.None;
+      if (area > 5) return TestMethod.Fixture;
+      return TestMethod.FlyingProbe;
     },
     required: true,
-    dependencies: ['layers', 'singleLength', 'singleWidth', 'singleCount'],
+    dependencies: ['layers', 'singleLength', 'singleWidth',  'singleCount', 'shipmentType', 'panelRow', 'panelColumn','panelSet'],
     shouldDisable: (form: PcbQuoteForm & { area?: number }) => {
-      if ((form.layers ?? 2) > 1 && form.testMethod === 'none') return true;
-      if ((form.area ?? 0) > 5 && form.testMethod !== 'fixture') return true;
+      const { layers = 2, area = 0, testMethod } = form;
+      if (layers > 1 && testMethod === TestMethod.None) return true;
+      if (area > 5 && testMethod !== TestMethod.Fixture) return true;
       return false;
     },
   },
@@ -369,11 +368,12 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     required: false,
   },
   productReport: {
-    label: 'Product Report',
+    label: 'Product Report(Electronic)',
     options: productReportOptions,
     optionLabels: productReportOptionLabels,
     default: 'Not Required',
     required: false,
+    description: 'Only electronic reports are provided.',
   },
   rejectBoard: {
     label: 'Reject Board',
@@ -510,5 +510,14 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: Object.values(IfDataConflicts),
     default: IfDataConflicts.FollowOrder,
     required: false,
+  },
+  specialRequests: {
+    label: 'Special Requests',
+    options: [],
+    default: '',
+    required: false,
+    placeholder: 'Please fill in your special requirements for the PCB order(within 5-1000 characters).',
+    minLength: 5,
+    maxLength: 1000,
   },
 }; 

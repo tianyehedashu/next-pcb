@@ -62,6 +62,8 @@ export const pcbQuoteFormSchema = z.object({
   crossOuts: z.nativeEnum(CrossOuts).optional().describe("Cross Outs"),
   ipcClass: z.nativeEnum(IPCClass).optional().describe("IPC Class"),
   ifDataConflicts: z.nativeEnum(IfDataConflicts).optional().describe("If Data Conflicts"),
+
+  specialRequests: z.string().min(5).max(1000).optional().describe("Special Requests"),
 });
 
 export type PcbQuoteForm = z.infer<typeof pcbQuoteFormSchema>; 

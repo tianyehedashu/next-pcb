@@ -94,6 +94,7 @@ const defaultForm = {
   crossOuts: CrossOuts.NotAccept,
   ipcClass: IPCClass.Level2,
   ifDataConflicts: IfDataConflicts.FollowOrder,
+  specialRequests: '',
 } as PcbQuoteForm;
 
 interface QuoteState {

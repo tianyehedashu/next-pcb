@@ -12,15 +12,9 @@ import { ProductReport } from "@/types/form";
 export const serviceInfoFields: { key: keyof PcbQuoteForm | 'productReport'; type: 'radio' | 'checkbox' | 'select' | 'input' }[] = [
   { key: "workingGerber", type: "radio" },
   { key: "testMethod", type: "radio" },
-  { key: "prodCap", type: "radio" },
   { key: "productReport", type: "checkbox" },
   { key: "rejectBoard", type: "radio" },
-  { key: "yyPin", type: "radio" },
-  { key: "customerCode", type: "radio" },
-  { key: "payMethod", type: "radio" },
   { key: "qualityAttach", type: "radio" },
-
-  { key: "smt", type: "radio" },
   { key: "ulMark", type: "radio" },
   { key: "crossOuts", type: "radio" },
   { key: "ipcClass", type: "radio" },
