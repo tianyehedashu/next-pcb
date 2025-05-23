@@ -63,14 +63,20 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   thickness: {
     label: 'Thickness',
     options: (form: PcbQuoteForm) => {
-      const all = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.6, 2.0, 2.5, 3.0, 3.2];
+      const all = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.6, 2.0, 2.4, 3.0, 3.2];
       let filtered = all;
       const layers = form.layers ?? 2;
       const outer = form.outerCopperWeight;
       const inner = (layers >= 4) ? form.innerCopperWeight : undefined;
 
       // 层数限制
-      if (layers >= 12) {
+      if (layers >= 16) {
+        filtered = filtered.filter(v => v >= 2);
+      } else if (layers === 4) {
+        filtered = filtered.filter(v => [0.6, 0.8, 1.0, 1.2, 1.6, 2.0].includes(v));
+      } else if (layers === 6) {
+        filtered = filtered.filter(v => [0.8, 1.0, 1.2, 1.6, 2.0].includes(v));
+      } else if (layers >= 12) {
         filtered = filtered.filter(v => v >= 1.6);
       } else if (layers >= 10) {
         filtered = filtered.filter(v => v >= 1.2);

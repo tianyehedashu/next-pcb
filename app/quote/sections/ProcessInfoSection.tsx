@@ -43,7 +43,7 @@ const solderMaskColorMap: Record<string, string> = {
 const silkscreenColorMap: Record<string, string> = {
   white: '#fff',
   black: '#222',
-  green: '#22c55e',
+  yellow: '#fde047',
 };
 
 interface ProcessInfoSectionProps {
