@@ -101,7 +101,15 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
       const opts = typeof pcbFieldRules.thickness.options === 'function'
         ? pcbFieldRules.thickness.options(form)
         : pcbFieldRules.thickness.options;
-      return opts[0] ?? 1.6;
+      const layers = form.layers ?? 2;
+      if (layers === 18 || layers === 20) {
+        return opts.includes(2.4) ? 2.4 : opts[0];
+      } else if (layers === 16) {
+        return opts.includes(2.0) ? 2.0 : opts[0];
+      } else if (layers < 16) {
+        return opts.includes(1.6) ? 1.6 : opts[0];
+      }
+      return opts[0];
     },
     required: true,
     dependencies: ['layers', 'outerCopperWeight', 'innerCopperWeight'],

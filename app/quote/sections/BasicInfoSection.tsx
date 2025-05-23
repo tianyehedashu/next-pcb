@@ -31,11 +31,12 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
     { key: "hdi", type: "radio" },
     { key: "tg", type: "radio" },    
     { key: "differentDesignsCount", type: "input" },
-    { key: "border", type: "radio" },
+   
     { key: "singleSize", type: "group" },
     { key: "shipmentType", type: "radio" },
     { key: "panelRow", type: "input" },
     { key: "panelColumn", type: "input" },
+    { key: "border", type: "radio" },
   ];
 
   console.log("当前 PCB Quote Form 1 ：", form);
