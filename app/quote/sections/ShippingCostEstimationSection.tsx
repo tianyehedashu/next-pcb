@@ -36,27 +36,7 @@ function getCountryOptions(): Country[] {
   return (countries as Country[]).filter((c: Country) => codes.includes(c.iso2.toLowerCase()));
 }
 
-function toPCBSpecs(form: PcbQuoteForm): {
-  pcbType: string;
-  layers: number;
-  copperWeight: string;
-  singleLength: string;
-  singleWidth: string;
-  thickness: string;
-  quantity: number;
-  panelCount: number;
-} {
-  return {
-    pcbType: String(form.pcbType),
-    layers: form.layers,
-    copperWeight: String(form.copperWeight),
-    singleLength: String(form.singleLength),
-    singleWidth: String(form.singleWidth),
-    thickness: String(form.thickness),
-    quantity: (form.panelCount && form.panelSet) ? form.panelCount * form.panelSet : (form.singleCount || 1),
-    panelCount: form.panelCount || 1,
-  };
-}
+
 
 export default function ShippingCostEstimationSection({ form, setShippingCost, sectionRef }: ShippingCostEstimationSectionProps) {
   const [shippingInfo, setShippingInfo] = React.useState({
@@ -83,14 +63,11 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
     if (newInfo.country && newInfo.courier) {
       try {
         const cost = calculateShippingCost(
-          toPCBSpecs(form),
-          newInfo.country,
-          newInfo.courier,
-          newInfo.service
+         form
         );
         setShippingCostState(cost);
         setShippingCost(cost.finalCost);
-      } catch (error) {
+      } catch {
         setShippingCostState(null);
         setShippingCost(0);
       }
@@ -103,21 +80,18 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
         singleLength: form.singleLength,
         singleWidth: form.singleWidth,
         thickness: form.thickness,
-        panelCount: form.panelCount,
-        copperWeight: form.copperWeight,
+        panelRow: form.panelRow,
+        panelColumn: form.panelColumn,
+        outerCopperWeight: form.outerCopperWeight,
+        innerCopperWeight: form.innerCopperWeight,
         layers: form.layers,
         pcbType: form.pcbType
       });
       try {
-        const cost = calculateShippingCost(
-          toPCBSpecs(form),
-          shippingInfo.country,
-          shippingInfo.courier,
-          shippingInfo.service
-        );
+        const cost = calculateShippingCost(form);
         setShippingCostState(cost);
         setShippingCost(cost.finalCost);
-      } catch (error) {
+      } catch {
         setShippingCostState(null);
         setShippingCost(0);
       }

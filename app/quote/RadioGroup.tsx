@@ -13,11 +13,12 @@ export interface RadioGroupProps {
   options: RadioOption[];
   value: string | number;
   onChange: (value: string | number) => void;
+  className?: string;
 }
 
-export default function RadioGroup({ name, options, value, onChange }: RadioGroupProps) {
+export default function RadioGroup({ options, value, onChange, className }: RadioGroupProps) {
   return (
-    <div className="flex flex-wrap gap-2 w-full">
+    <div className={`flex flex-wrap gap-2 w-full${className ? ` ${className}` : ''}`}>
       {options.map((opt) => {
         const isDisabled = !!opt.disabled;
         return (
