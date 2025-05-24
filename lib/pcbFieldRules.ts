@@ -2,7 +2,7 @@
 // 可扩展：依赖、校验、自动修正、加价等
 
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { TestMethod, CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask,MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber, CrossOuts, IPCClass, IfDataConflicts } from '../types/form';
+import { TestMethod, CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber, CrossOuts, IPCClass, IfDataConflicts, PcbColor } from '../types/form';
 
 export type PCBFieldRule<T = unknown> = {
   label: string;
@@ -212,26 +212,42 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   solderMask: {
     label: 'Solder Mask',
-    options: Object.values(SolderMask),
-    default: 'green',
+    options: Object.values(PcbColor),
+    default: PcbColor.Green,
     required: true,
   },
   silkscreen: {
-    label: 'Silkscreen',
+    label: 'Silk Screen',
     options: (form: PcbQuoteForm) => {
-      const mask = (form.solderMask || '').toLowerCase();
-      // 获取所有可选字符颜色
+      const maskShouldDisableBlack: string[] = [
+        PcbColor.Black,
+        PcbColor.MattBlack,
+        PcbColor.Blue,
+        PcbColor.Red,
+      ];
+      const mask = String(form.solderMask);
       let opts = Object.values(Silkscreen);
-      // 1. 禁止同色
-      opts = opts.filter(silk => silk.toLowerCase() !== mask);
-      // 2. 阻焊为蓝/红时，禁止黑字
-      if (mask === 'blue' || mask === 'red') {
-        opts = opts.filter(silk => silk.toLowerCase() !== 'black');
+      // 禁止同色
+      opts = opts.filter(silk => String(silk) !== mask);
+      // 指定阻焊色时禁用black字符色
+      if (maskShouldDisableBlack.includes(mask)) {
+        opts = opts.filter(silk => silk !== Silkscreen.Black);
       }
       return opts;
     },
-    default: 'white',
+    default: (form: PcbQuoteForm) => {
+      // 跟随options联动，只有当前值冲突时才重置，否则保持原值
+      const opts = typeof pcbFieldRules.silkscreen.options === 'function'
+        ? pcbFieldRules.silkscreen.options(form)
+        : pcbFieldRules.silkscreen.options;
+      const current = form.silkscreen;
+      if (opts.includes(current)) {
+        return current;
+      }
+      return opts[0];
+    },
     required: true,
+    dependencies: ['solderMask'],
   },
   surfaceFinish: {
     label: 'Surface Finish',

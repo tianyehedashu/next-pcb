@@ -25,7 +25,6 @@ import {
   EdgeCover,
   InnerCopperWeight,
   WorkingGerber,
-  ULMark,
   CrossOuts,
   IPCClass,
   IfDataConflicts,

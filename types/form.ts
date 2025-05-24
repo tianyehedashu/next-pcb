@@ -122,33 +122,36 @@ export enum MinHole {
  
 }
 
-/**
- * 阻焊色
- * 作用：决定PCB外观和部分性能，不同颜色影响美观、识别和部分工艺。
- * - green：最常用，工艺成熟，成本低。
- * - blue/red/black/white/yellow：特殊需求或美观，部分颜色可能影响检测。
- */
-export enum SolderMask {
-  Green = 'green', // 工艺成熟，成本低
-  MattGreen = 'Matt Green', // 哑光绿，特殊工艺，美观防眩光
-  Blue = 'blue', // 美观，特殊需求
-  Red = 'red', // 美观，特殊需求
-  Black = 'black', // 美观，特殊需求
-  MattBlack = 'Matt Black', // 哑光黑，特殊工艺，美观防眩光
-  White = 'white', // 美观，特殊需求
-  Yellow = 'yellow', // 美观，特殊需求
+// 通用 PCB 颜色定义
+export enum PcbColor {
+  Green = 'green',
+  MattGreen = 'Matt Green',
+  Blue = 'blue',
+  Red = 'red',
+  Black = 'black',
+  MattBlack = 'Matt Black',
+  White = 'white',
+  Yellow = 'yellow',
 }
 
-/**
- * 字符色
- * 作用：丝印颜色，影响可读性和外观。
- * - white：常规，易读。
- * - black：特殊需求，适合深色阻焊。
- */
+// 阻焊色
+export enum SolderMask {
+  Green = PcbColor.Green,
+  MattGreen = PcbColor.MattGreen,
+  Blue = PcbColor.Blue,
+  Red = PcbColor.Red,
+  Black = PcbColor.Black,
+  MattBlack = PcbColor.MattBlack,
+  White = PcbColor.White,
+  Yellow = PcbColor.Yellow,
+
+}
+
+// 字符色（仅允许部分颜色）
 export enum Silkscreen {
-  White = 'white', // 易读，常规
-  Black = 'black', // 适合深色阻焊
-  Yellow = 'yellow', // 美观，特殊需求
+  White = PcbColor.White,
+  Black = PcbColor.Black,
+  Yellow = PcbColor.Yellow,
 }
 
 /**
