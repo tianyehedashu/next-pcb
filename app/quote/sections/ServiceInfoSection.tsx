@@ -14,7 +14,6 @@ export const serviceInfoFields: { key: keyof PcbQuoteForm | 'productReport'; typ
   { key: "testMethod", type: "radio" },
   { key: "productReport", type: "checkbox" },
   { key: "rejectBoard", type: "radio" },
-  { key: "qualityAttach", type: "radio" },
   { key: "ulMark", type: "radio" },
   { key: "crossOuts", type: "radio" },
   { key: "ipcClass", type: "radio" },
