@@ -303,8 +303,37 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   maskCover: {
     label: 'Via Processing',
-    options: Object.values(MaskCover),
-    default: 'tented_vias',
+    options: (form: PcbQuoteForm) => {
+      const { layers = 2 } = form;
+      if (layers === 1) {
+        return [
+          MaskCover.TentedVias,
+          MaskCover.OpenedVias,
+        ];
+      } else if (layers === 2) {
+        return [
+          MaskCover.TentedVias,
+          MaskCover.OpenedVias,
+          MaskCover.SolderMaskPlug,
+        ];
+      }
+      return [
+        MaskCover.TentedVias,
+        MaskCover.OpenedVias,
+        MaskCover.SolderMaskPlug,
+        MaskCover.NonConductiveFillCap,
+      ];
+    },
+    default: (form: PcbQuoteForm) => {
+      const opts = typeof pcbFieldRules.maskCover.options === 'function'
+        ? pcbFieldRules.maskCover.options(form)
+        : pcbFieldRules.maskCover.options;
+      const current = form.maskCover;
+      if (opts.includes(current)) {
+        return current;
+      }
+      return opts[0];
+    },
     required: false,
   },
   /**

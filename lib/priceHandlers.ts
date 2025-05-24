@@ -1,6 +1,6 @@
 import { pcbFieldRules } from './pcbFieldRules';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { ProdCap, TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask } from '../types/form';
+import { ProdCap, TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask, MaskCover } from '../types/form';
 
 // 类型定义
 /**
@@ -132,11 +132,27 @@ export const edgeCoverHandler: PriceHandler = (form) => {
  * 阻焊盖孔加价
  * 规则：如需盖孔（maskCover=plug/plug_flat），整单加10元。
  */
-export const maskCoverHandler: PriceHandler = (form) => {
+export const maskCoverHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
-  if (form.maskCover && ['plug', 'plug_flat'].includes(form.maskCover)) { extra = 10; detail['maskCover'] = 10; notes.push('Mask cover: +10 CNY'); }
+  const isSample = area < 1;
+  if (form.maskCover === MaskCover.NonConductiveFillCap) {
+    if (isSample) {
+      extra = 600;
+      detail['maskCover'] = 600;
+      notes.push('Mask cover: Non-Conductive Fill & Cap (VII) sample +600 CNY');
+    } else {
+      const fee = 500 * area;
+      extra = fee;
+      detail['maskCover'] = fee;
+      notes.push(`Mask cover: Non-Conductive Fill & Cap (VII) +500 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+    }
+  } else if (form.maskCover === MaskCover.SolderMaskPlug) {
+    extra = 10;
+    detail['maskCover'] = 10;
+    notes.push('Mask cover: Solder Mask Plug (IV-B) +10 CNY');
+  }
   return {
     extra: extra,
     detail: detail,
