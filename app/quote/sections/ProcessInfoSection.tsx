@@ -103,7 +103,7 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
             <React.Fragment key={key}>
               <div className="flex items-center gap-4">
                 <Tooltip content={<div className="max-w-xs text-left">{label}</div>}>
-                  <label className="w-32 text-xs font-normal text-right cursor-help">{label}</label>
+                  <label className="w-32 text-sm font-medium font-sans text-right cursor-help">{label}</label>
                 </Tooltip>
                 {type === "radio" && sortedOptions.length > 0 && (
                   <RadioGroup
@@ -174,7 +174,7 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
               {key === 'goldFingers' && pcbFieldRules.goldFingersBevel.shouldShow?.(form as PcbQuoteForm) && (
                 <div className="flex items-center gap-4 ml-8">
                   <Tooltip content={<div className="max-w-xs text-left">{pcbFieldRules.goldFingersBevel.label}</div>}>
-                    <label className="w-32 text-xs font-normal text-right cursor-help">{pcbFieldRules.goldFingersBevel.label}</label>
+                    <label className="w-32 text-sm font-medium font-sans text-right cursor-help">{pcbFieldRules.goldFingersBevel.label}</label>
                   </Tooltip>
                   <RadioGroup
                     name="goldFingersBevel"

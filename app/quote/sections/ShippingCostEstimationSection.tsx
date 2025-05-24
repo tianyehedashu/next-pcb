@@ -133,7 +133,7 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
         {/* 国家选择 */}
         <div>
           <Tooltip content={<div className="max-w-xs text-left">Select the country where your order will be shipped.</div>}>
-            <label className="text-xs font-medium mb-1 block cursor-help">Destination Country</label>
+            <label className="text-sm font-medium font-sans mb-1 block cursor-help">Destination Country</label>
           </Tooltip>
           <Select value={shippingInfo.country} onValueChange={v => handleShippingInfoChange("country", v)}>
             <SelectTrigger className="w-full text-xs h-10">
@@ -151,7 +151,7 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
         {/* 快递公司选择 */}
         <div>
           <Tooltip content={<div className="max-w-xs text-left">Choose your preferred shipping company. Cost and speed may vary.</div>}>
-            <label className="text-xs font-medium mb-1 block cursor-help">Courier</label>
+            <label className="text-sm font-medium font-sans mb-1 block cursor-help">Courier</label>
           </Tooltip>
           <Select value={shippingInfo.courier} onValueChange={v => handleShippingInfoChange("courier", v as string)}>
             <SelectTrigger className="w-full text-xs h-10">
@@ -169,7 +169,7 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
         {/* 服务类型选择 */}
         <div>
           <Tooltip content={<div className="max-w-xs text-left">Select shipping speed. Express is fastest, economy is most affordable.</div>}>
-            <label className="text-xs font-medium mb-1 block cursor-help">Service Type</label>
+            <label className="text-sm font-medium font-sans mb-1 block cursor-help">Service Type</label>
           </Tooltip>
           <Select value={shippingInfo.service} onValueChange={v => handleShippingInfoChange("service", v as string)}>
             <SelectTrigger className="w-full text-xs h-10">

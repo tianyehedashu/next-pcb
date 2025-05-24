@@ -80,7 +80,7 @@ export default function ServiceInfoSection({ form, setForm, sectionRef }: Servic
           return (
             <div className="flex items-center gap-4" key={key}>
               <Tooltip content={<div className="max-w-xs text-left">{rule.label}</div>}>
-                <label className="w-32 text-xs font-normal text-right cursor-help">{rule.label}</label>
+                <label className="w-32 text-sm font-medium font-sans text-right cursor-help">{rule.label}</label>
               </Tooltip>
               {type === "radio" && options.length > 0 && (
                 <RadioGroup

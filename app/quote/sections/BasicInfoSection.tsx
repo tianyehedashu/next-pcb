@@ -92,7 +92,7 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
             return (
               <div className="flex flex-wrap items-start gap-4" key="singleSize">
                 <Tooltip content={<div className="max-w-xs text-left">Enter the finished size of your PCB in centimeters (cm).</div>}>
-                  <label className="w-32 text-xs font-normal text-right cursor-help shrink-0">Single Size (cm)</label>
+                  <label className="w-32 text-sm font-medium font-sans text-right cursor-help shrink-0">Single Size (cm)</label>
                 </Tooltip>
                 <div className="flex-1 min-w-0 w-0 max-w-full flex items-center gap-3 flex-wrap">
                   <Input
@@ -130,7 +130,7 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
                 <div className="flex flex-wrap items-start gap-4" key="panelRowCol">
                   <Tooltip content={<div className="max-w-xs text-left">Set the panelization type (e.g. 1 pcs × 2 pcs per panel).
                   </div>}>
-                    <label className="w-32 text-xs font-normal text-right cursor-help shrink-0">Panel Type</label>
+                    <label className="w-32 text-sm font-medium font-sans text-right cursor-help shrink-0">Panel Type</label>
                   </Tooltip>
                   <div className="flex-1 min-w-0 w-0 max-w-full flex items-center gap-3 flex-wrap">
                     <Input
@@ -159,7 +159,7 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
           return (
             <div className="flex flex-wrap items-start gap-4" key={key}>
               <Tooltip content={<div className="max-w-xs text-left">{key === 'tg' ? 'TG Rating' : rule.label}</div>}>
-                <label className="w-32 text-xs font-normal text-right cursor-help shrink-0">{key === 'tg' ? 'TG Rating' : rule.label}</label>
+                <label className="w-32 text-sm font-medium font-sans text-right cursor-help shrink-0">{key === 'tg' ? 'TG Rating' : rule.label}</label>
               </Tooltip>
               <div className="flex-1 min-w-0 w-0 max-w-full">
                 {type === "radio" && options.length > 0 && (
@@ -221,7 +221,7 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
         {/* Single Count 区块（批量选项+自定义输入+确定） */}
         <div className="flex items-center gap-2 mb-2">
           <Tooltip content={<div className="max-w-xs text-left">Total quantity of boards or panels you need.</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">{countLabel}</label>
+            <label className="w-32 text-sm font-medium font-sans text-right cursor-help">{countLabel}</label>
           </Tooltip>
           <CustomNumberSelect
             value={isSingle ? form.singleCount ?? 0 : form.panelSet ?? 0}
@@ -240,7 +240,7 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
         </div>
         <div className="flex items-center gap-4">
           <Tooltip content={<div className="max-w-xs text-left">Add any special notes for production use..</div>}>
-            <label className="w-32 text-xs font-normal text-right cursor-help">PCB Note</label>
+            <label className="w-32 text-sm font-medium font-sans text-right cursor-help">PCB Note</label>
           </Tooltip>
           <textarea
             className="w-96 min-h-[40px] max-h-32 rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
