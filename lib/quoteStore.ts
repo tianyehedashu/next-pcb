@@ -9,7 +9,6 @@ import { TestMethod, SurfaceFinish, PcbType, HdiType, TgType, BorderType, Copper
   InnerCopperWeight,
   SurfaceFinishEnigType,
   WorkingGerber,
-  ULMark,
   CrossOuts,
   IPCClass,
   IfDataConflicts} from "../types/form";
@@ -90,7 +89,6 @@ const defaultForm = {
     zipCode: "",
   },
   workingGerber: WorkingGerber.NotRequired,
-  ulMark: ULMark.No,
   crossOuts: CrossOuts.NotAccept,
   ipcClass: IPCClass.Level2,
   ifDataConflicts: IfDataConflicts.FollowOrder,

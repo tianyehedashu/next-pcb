@@ -411,13 +411,13 @@ export const traceHandler: PriceHandler = (form, area) => {
  *       - 2层：0.2mm样品加50元，批量加50元/㎡；<0.2mm不支持。
  *   - 厚度<1.6mm：
  *       - 1层：最小孔径<0.3mm不支持。
- *       - 2层：0.15mm样品加150元，批量加130元/㎡；<0.15mm不支持。
+ *       - 2层：0.15mm样品加150元，批量加130元/㎡；0.2-0.25mm 样品加50元，批量加50元/㎡；<0.15mm不支持。
  *       - 4层：0.15mm样品加60元，批量加60元/㎡。
  *       - 6/8/10层及以上：0.15mm样品加50元，批量加50元/㎡。
  *   - 其它规格不加价。
  *
  * 适用场景：
- *   - 用户选择了特殊钻孔/板厚组合时，自动判断是否加价或支持。
+ *   - 用户选择了特殊钻孔/板厚组合时，自动判断是否加价或支持（如0.15mm、0.2-0.25mm等档位）。
  *   - 便于报价明细展示和后续维护。
  */
 export const drillAndThicknessHandler: PriceHandler = (form, area) => {
@@ -456,6 +456,7 @@ export const drillAndThicknessHandler: PriceHandler = (form, area) => {
         notes.push('Min hole <0.3mm not supported for 1L, thickness<1.6mm');
       }
     } else if (layers === 2) {
+      // 0.15mm
       if (minHole && parseFloat(minHole) === 0.15) {
         if (isSample) {
           extra += 150;
@@ -467,6 +468,23 @@ export const drillAndThicknessHandler: PriceHandler = (form, area) => {
           detail['minHole'] = fee;
           notes.push(`Min hole 0.15mm, batch +130 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
         }
+      // 0.2-0.25mm（含）
+      } else if (
+        minHole &&
+        parseFloat(minHole) >= 0.2 &&
+        parseFloat(minHole) <= 0.25
+      ) {
+        if (isSample) {
+          extra += 50;
+          detail['minHole'] = 50;
+          notes.push('Min hole 0.2-0.25mm, sample +50 CNY');
+        } else {
+          const fee = 50 * area;
+          extra += fee;
+          detail['minHole'] = fee;
+          notes.push(`Min hole 0.2-0.25mm, batch +50 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+        }
+      // <0.15mm
       } else if (minHole && parseFloat(minHole) < 0.15) {
         notes.push('Min hole <0.15mm not supported for 2L, thickness<1.6mm');
       }

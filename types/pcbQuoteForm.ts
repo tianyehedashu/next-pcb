@@ -149,12 +149,9 @@ export interface PcbQuoteForm {
   workingGerber?: WorkingGerber;
 
   /**
-   * UL Mark 标识
-   * - No: 不加印
-   * - UL+Week/Year: UL+周/年
-   * - UL+Year/Week: UL+年/周
+   * 是否需要UL标识
    */
-  ulMark?: ULMark;
+  ulMark?: boolean;
   /**
    * Cross Outs
    * - Not Accept: 不接受

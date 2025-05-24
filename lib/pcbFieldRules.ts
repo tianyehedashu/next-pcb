@@ -2,7 +2,7 @@
 // 可扩展：依赖、校验、自动修正、加价等
 
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { TestMethod, CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask,MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber, ULMark, CrossOuts, IPCClass, IfDataConflicts } from '../types/form';
+import { TestMethod, CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, SolderMask,MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber, CrossOuts, IPCClass, IfDataConflicts } from '../types/form';
 
 export type PCBFieldRule<T = unknown> = {
   label: string;
@@ -489,8 +489,8 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   ulMark: {
     label: 'UL Mark',
-    options: Object.values(ULMark),
-    default: ULMark.No,
+    options: [true, false],
+    default: false,
     required: false,
   },
   crossOuts: {

@@ -378,12 +378,6 @@ export enum WorkingGerber {
   RequireApproval = 'Require Approval', // 需要审批
 }
 
-export enum ULMark {
-  No = 'No',
-  ULWeekYear = 'UL+Week/Year',
-  ULYearWeek = 'UL+Year/Week',
-}
-
 export enum CrossOuts {
   NotAccept = 'Not Accept',
   Accept = 'Accept',

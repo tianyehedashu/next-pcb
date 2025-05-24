@@ -1,7 +1,7 @@
 // PCB报价表单类型定义（含详细注释）
 import { z } from "zod";
 import { SurfaceFinishEnigType, WorkingGerber } from "@/types/form";
-import { ULMark, CrossOuts, IPCClass, IfDataConflicts } from "@/types/form";
+import { CrossOuts, IPCClass, IfDataConflicts } from "@/types/form";
 
 /**
  * PCB报价表单类型（字段完全对齐实际表单）
@@ -58,7 +58,6 @@ export const pcbQuoteFormSchema = z.object({
   workingGerber: z.nativeEnum(WorkingGerber).optional().describe("Working Gerber"),
 
   // Shipping Information
-  ulMark: z.nativeEnum(ULMark).optional().describe("UL Mark"),
   crossOuts: z.nativeEnum(CrossOuts).optional().describe("Cross Outs"),
   ipcClass: z.nativeEnum(IPCClass).optional().describe("IPC Class"),
   ifDataConflicts: z.nativeEnum(IfDataConflicts).optional().describe("If Data Conflicts"),
