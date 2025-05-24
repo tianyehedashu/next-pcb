@@ -1,5 +1,4 @@
 import RadioGroup from "../RadioGroup";
-import CheckboxGroup from "../CheckboxGroup";
 import React, { useEffect, useRef } from "react";
 import { Tooltip } from "@/components/ui/tooltip";
 import { pcbFieldRules } from "@/lib/pcbFieldRules";
@@ -7,6 +6,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 import { ProductReport } from "@/types/form";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // 统一字段配置
 export const serviceInfoFields: { key: keyof PcbQuoteForm | 'productReport'; type: 'radio' | 'checkbox' | 'select' | 'input' }[] = [
@@ -106,35 +106,41 @@ export default function ServiceInfoSection({ form, setForm, sectionRef }: Servic
                   onChange={(v: string | number | boolean) => setForm((prev) => ({ ...prev, [key]: v }))}
                 />
               )}
-              {type === "checkbox" && options.length > 0 && (
-                <CheckboxGroup
-                  name={key}
-                  options={(options as ProductReport[]).map((v) => ({
-                    value: v,
-                    label: v === ProductReport.None
-                      ? 'Not Required'
-                      : typeof v === "boolean"
-                      ? (v ? rule.trueLabel || "Yes" : rule.falseLabel || "No")
-                      : typeof v === "string"
-                      ? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, '-')
-                      : String(v),
-                    disabled: false
-                  }))}
-                  value={Array.isArray(form[key as keyof typeof form]) ? (form[key as keyof typeof form] as ProductReport[]) : []}
-                  onChange={(v: ProductReport[]) => {
-                    // 互斥逻辑最终版：
-                    if (v.includes(ProductReport.None) && v.length > 1) {
-                      setForm((prev) => ({
-                        ...prev,
-                        productReport: v.filter(item => item !== ProductReport.None)
-                      }));
-                    } else if (v.length === 1 && v[0] === ProductReport.None) {
-                      setForm((prev) => ({ ...prev, productReport: [ProductReport.None] }));
-                    } else {
-                      setForm((prev) => ({ ...prev, productReport: v }));
-                    }
-                  }}
-                />
+              {type === "checkbox" && options.length > 0 && key === "productReport" && (
+                <div className="flex gap-6">
+                  {(options as ProductReport[]).map((v) => (
+                    <div key={v} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`productReport-${v}`}
+                        checked={Array.isArray(form.productReport) ? form.productReport.includes(v) : false}
+                        onCheckedChange={(checked) => {
+                          let newValue: ProductReport[] = Array.isArray(form.productReport) ? [...form.productReport] : [];
+                          if (checked) {
+                            if (v === ProductReport.None) {
+                              newValue = [ProductReport.None];
+                            } else {
+                              newValue = newValue.filter(item => item !== ProductReport.None);
+                              if (!newValue.includes(v)) newValue.push(v);
+                            }
+                          } else {
+                            newValue = newValue.filter(item => item !== v);
+                          }
+                          setForm((prev) => ({ ...prev, productReport: newValue }));
+                        }}
+                      />
+                      <span className="text-sm font-normal cursor-pointer flex items-center gap-1">
+                        {v === ProductReport.None ? (
+                          <>
+                            Not Required
+                            <span className="ml-1" title="Selecting this will uncheck other options.">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#888" strokeWidth="2" fill="none"/><text x="12" y="16" textAnchor="middle" fontSize="12" fill="#888">i</text></svg>
+                            </span>
+                          </>
+                        ) : v === ProductReport.ProductionReport ? "Production Report" : v === ProductReport.ImpedanceReport ? "Impedance Report" : String(v)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
               {type === "select" && options.length > 0 && (
                 <Select value={String(form[key as keyof typeof form] ?? '')} onValueChange={(v) => setForm((prev) => ({ ...prev, [key]: v }))}>
