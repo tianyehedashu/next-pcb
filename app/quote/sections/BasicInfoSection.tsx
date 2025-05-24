@@ -90,11 +90,11 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
 
           if (key === "singleSize") {
             return (
-              <div className="flex items-center gap-4" key="singleSize">
+              <div className="flex flex-wrap items-start gap-4" key="singleSize">
                 <Tooltip content={<div className="max-w-xs text-left">Enter the finished size of your PCB in centimeters (cm).</div>}>
-                  <label className="w-32 text-xs font-normal text-right cursor-help">Single Size (cm)</label>
+                  <label className="w-32 text-xs font-normal text-right cursor-help shrink-0">Single Size (cm)</label>
                 </Tooltip>
-                <div className="flex items-center gap-3 flex-1">
+                <div className="flex-1 min-w-0 w-0 max-w-full flex items-center gap-3 flex-wrap">
                   <Input
                     type="number"
                     placeholder="Length/x"
@@ -127,12 +127,12 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
             // 合并为一行
             if (key === "panelRow") {
               return (
-                <div className="flex items-center gap-4" key="panelRowCol">
+                <div className="flex flex-wrap items-start gap-4" key="panelRowCol">
                   <Tooltip content={<div className="max-w-xs text-left">Set the panelization type (e.g. 1 pcs × 2 pcs per panel).
                   </div>}>
-                    <label className="w-32 text-xs font-normal text-right cursor-help">Panel Type</label>
+                    <label className="w-32 text-xs font-normal text-right cursor-help shrink-0">Panel Type</label>
                   </Tooltip>
-                  <div className="flex items-center gap-3 flex-1">
+                  <div className="flex-1 min-w-0 w-0 max-w-full flex items-center gap-3 flex-wrap">
                     <Input
                       type="number"
                       placeholder="Panel Rows"
@@ -157,61 +157,64 @@ export default function BasicInfoSection({ form, setForm, sectionRef }: BasicInf
             return null;
           }
           return (
-            <div className="flex items-center gap-4" key={key}>
+            <div className="flex flex-wrap items-start gap-4" key={key}>
               <Tooltip content={<div className="max-w-xs text-left">{key === 'tg' ? 'TG Rating' : rule.label}</div>}>
-                <label className="w-32 text-xs font-normal text-right cursor-help">{key === 'tg' ? 'TG Rating' : rule.label}</label>
+                <label className="w-32 text-xs font-normal text-right cursor-help shrink-0">{key === 'tg' ? 'TG Rating' : rule.label}</label>
               </Tooltip>
-              {type === "radio" && options.length > 0 && (
-                <RadioGroup
-                  name={key}
-                  options={(() => {
-                    let opts = options;
-                    if (typeof options[0] === 'boolean') {
-                      opts = [false, true];
+              <div className="flex-1 min-w-0 w-0 max-w-full">
+                {type === "radio" && options.length > 0 && (
+                  <RadioGroup
+                    name={key}
+                    options={(() => {
+                      let opts = options;
+                      if (typeof options[0] === 'boolean') {
+                        opts = [false, true];
+                      }
+                      return (opts as Array<string | number | boolean>).map((value, idx) => ({
+                        value,
+                        label: typeof value === 'boolean'
+                          ? (value ? rule.trueLabel || 'Yes' : rule.falseLabel || 'No')
+                          : (typeof value === 'string' || typeof value === 'number') && rule.unit ? `${value} ${rule.unit}` : (typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, '-') : String(value)),
+                        disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: value }) : false,
+                        radius: opts.length === 1 ? "rounded-lg" : idx === 0 ? "rounded-r-none rounded-l-lg" : idx === opts.length - 1 ? "rounded-r-lg !rounded-l-none -ml-px" : "rounded-none -ml-px"
+                      }));
+                    })()}
+                    value={form[key as keyof PcbQuoteForm & string]}
+                    onChange={(v: string | number) => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm & string]: v }))}
+                    className="flex flex-wrap gap-2"
+                  />
+                )}
+                {type === "select" && options.length > 0 && (
+                  <Select value={String(form[key as keyof PcbQuoteForm & string] ?? '')} onValueChange={(v) => setForm((prev: PcbQuoteForm & { gerber?: File }) => ({ ...prev, [key as keyof PcbQuoteForm & string]: v }))}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder={`Select ${rule.label}`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(options as Array<string | number>).map((value) => (
+                        <SelectItem key={value} value={String(value)} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: value }) : false}>
+                          {(typeof value === 'string' || typeof value === 'number') && rule.unit ? `${value} ${rule.unit}` : (typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, '-') : String(value))}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {type === "input" && (
+                  <Input
+                    type={["differentDesignsCount", "panelRow", "panelColumn", "singleLength", "singleWidth"].includes(key) ? "number" : "text"}
+                    value={
+                      typeof form[key as keyof PcbQuoteForm & string] === 'string' || typeof form[key as keyof PcbQuoteForm & string] === 'number'
+                        ? String(form[key as keyof PcbQuoteForm & string])
+                        : ''
                     }
-                    return (opts as Array<string | number | boolean>).map((value, idx) => ({
-                      value,
-                      label: typeof value === 'boolean'
-                        ? (value ? rule.trueLabel || 'Yes' : rule.falseLabel || 'No')
-                        : (typeof value === 'string' || typeof value === 'number') && rule.unit ? `${value} ${rule.unit}` : (typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, '-') : String(value)),
-                      disabled: rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: value }) : false,
-                      radius: opts.length === 1 ? "rounded-lg" : idx === 0 ? "rounded-r-none rounded-l-lg" : idx === opts.length - 1 ? "rounded-r-lg !rounded-l-none -ml-px" : "rounded-none -ml-px"
-                    }));
-                  })()}
-                  value={form[key as keyof PcbQuoteForm & string]}
-                  onChange={(v: string | number) => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm & string]: v }))}
-                />
-              )}
-              {type === "select" && options.length > 0 && (
-                <Select value={String(form[key as keyof PcbQuoteForm & string] ?? '')} onValueChange={(v) => setForm((prev: PcbQuoteForm & { gerber?: File }) => ({ ...prev, [key as keyof PcbQuoteForm & string]: v }))}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder={`Select ${rule.label}`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(options as Array<string | number>).map((value) => (
-                      <SelectItem key={value} value={String(value)} disabled={rule.shouldDisable ? rule.shouldDisable({ ...form, [key]: value }) : false}>
-                        {(typeof value === 'string' || typeof value === 'number') && rule.unit ? `${value} ${rule.unit}` : (typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, '-') : String(value))}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {type === "input" && (
-                <Input
-                  type={["differentDesignsCount", "panelRow", "panelColumn", "singleLength", "singleWidth"].includes(key) ? "number" : "text"}
-                  value={
-                    typeof form[key as keyof PcbQuoteForm & string] === 'string' || typeof form[key as keyof PcbQuoteForm & string] === 'number'
-                      ? String(form[key as keyof PcbQuoteForm & string])
-                      : ''
-                  }
-                  onChange={e => setForm((prev) => ({
-                    ...prev,
-                    [key]: e.target.value === '' ? undefined : Number(e.target.value)
-                  }))}
-                  placeholder={rule.label ? `Enter ${rule.label}` : ''}
-                  className="w-48"
-                />
-              )}
+                    onChange={e => setForm((prev) => ({
+                      ...prev,
+                      [key]: e.target.value === '' ? undefined : Number(e.target.value)
+                    }))}
+                    placeholder={rule.label ? `Enter ${rule.label}` : ''}
+                    className="w-48"
+                  />
+                )}
+              </div>
             </div>
           );
         })}

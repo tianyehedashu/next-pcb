@@ -46,9 +46,9 @@ export default function QuoteClientMain() {
   }, [pcbPrice, shippingCost]);
 
   return (
-    <div className="flex flex-row max-w-[1400px] mx-auto pt-16">
+    <div className="flex flex-row w-full pt-16">
       {/* 左侧分区导航（fixed，独立） */}
-      <aside className="hidden md:flex flex-col w-32 flex-shrink-0 gap-2 fixed left-0 top-1/2 -translate-y-1/2 z-30">
+      <aside className="hidden md:flex flex-col w-12 flex-shrink-0 gap-2 sticky top-24 self-start z-30 ml-2 md:ml-6">
         <SectionNav
           activeSection={activeSection}
           onTabChange={setActiveSection}
@@ -56,7 +56,7 @@ export default function QuoteClientMain() {
         />
       </aside>
       {/* 主内容区，左侧留出导航宽度 */}
-      <main className="flex-1 min-w-0 ml-0 md:ml-32 pr-2">
+      <main className="flex-1 min-w-0 md:ml-6 pr-0 w-full">
         <QuoteForm
           form={form}
           errors={errors}
@@ -67,7 +67,7 @@ export default function QuoteClientMain() {
         />
       </main>
       {/* 右侧栏，Order Summary sticky 吸顶，其它内容流式排列 */}
-      <div className="hidden md:flex flex-col w-[400px] flex-shrink-0 max-w-[90vw] ml-6">
+      <div className="hidden md:flex flex-col w-[340px] flex-shrink-0 max-w-[90vw] ml-6">
         <div
           className="sticky top-16 z-50 rounded-2xl bg-white/95 transition-all shadow-lg"
           style={{

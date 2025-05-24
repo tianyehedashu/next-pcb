@@ -36,7 +36,7 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
   }
 
   return (
-    <form id="quote-form" className="flex flex-col gap-4 text-xs" onSubmit={handleSubmit}>
+    <form id="quote-form" className="flex flex-col gap-4 text-xs w-full" onSubmit={handleSubmit}>
       <div className="flex items-center gap-3 mb-2">
         <input
           type="file"
@@ -60,42 +60,42 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
         )}
       </div>
       {/* Basic Information */}
-      <Card className="mb-6 rounded-2xl shadow-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50 to-white/90">
-        <CardHeader className="pb-2 flex flex-row items-center gap-2 bg-gradient-to-r from-blue-100/80 via-white to-blue-50/80 rounded-t-2xl border-b border-blue-100">
+      <Card className="mb-4 w-full">
+        <CardHeader className="pb-1 flex flex-row items-center gap-2 border-b border-blue-100 bg-white">
           <Layers className="text-blue-600" size={20} />
           <CardTitle className="text-lg font-bold tracking-wide text-blue-800">Basic Information</CardTitle>
         </CardHeader>
-        <CardContent className="pt-4 pb-6 px-6">
+        <CardContent className="pt-2 pb-4 px-2 md:px-4">
           <BasicInfoSection form={form} errors={errors} setForm={setForm} sectionRef={sectionRefs[0]} />
         </CardContent>
       </Card>
       {/* Process Information */}
-      <Card className="mb-6 rounded-2xl shadow-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50 to-white/90">
-        <CardHeader className="pb-2 flex flex-row items-center gap-2 bg-gradient-to-r from-blue-100/80 via-white to-blue-50/80 rounded-t-2xl border-b border-blue-100">
+      <Card className="mb-4 w-full">
+        <CardHeader className="pb-1 flex flex-row items-center gap-2 border-b border-blue-100 bg-white">
           <Settings className="text-blue-600" size={20} />
           <CardTitle className="text-lg font-bold tracking-wide text-blue-800">Process Information</CardTitle>
         </CardHeader>
-        <CardContent className="pt-4 pb-6 px-6">
+        <CardContent className="pt-2 pb-4 px-2 md:px-4">
           <ProcessInfoSection form={form} errors={errors} setForm={setForm} sectionRef={sectionRefs[1]} />
         </CardContent>
       </Card>
       {/* Service Information */}
-      <Card className="mb-6 rounded-2xl shadow-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50 to-white/90">
-        <CardHeader className="pb-2 flex flex-row items-center gap-2 bg-gradient-to-r from-blue-100/80 via-white to-blue-50/80 rounded-t-2xl border-b border-blue-100">
+      <Card className="mb-4 w-full">
+        <CardHeader className="pb-1 flex flex-row items-center gap-2 border-b border-blue-100 bg-white">
           <UserCheck className="text-blue-600" size={20} />
           <CardTitle className="text-lg font-bold tracking-wide text-blue-800">Service Information</CardTitle>
         </CardHeader>
-        <CardContent className="pt-4 pb-6 px-6">
+        <CardContent className="pt-2 pb-4 px-2 md:px-4">
           <ServiceInfoSection form={form} errors={errors} setForm={setForm} sectionRef={sectionRefs[2]} />
         </CardContent>
       </Card>
       {/* Shipping Cost Estimation */}
-      <Card className="mb-6 rounded-2xl shadow-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50 to-white/90">
-        <CardHeader className="pb-2 flex flex-row items-center gap-2 bg-gradient-to-r from-blue-100/80 via-white to-blue-50/80 rounded-t-2xl border-b border-blue-100">
+      <Card className="mb-4 w-full">
+        <CardHeader className="pb-1 flex flex-row items-center gap-2 border-b border-blue-100 bg-white">
           <Truck className="text-blue-600" size={20} />
           <CardTitle className="text-lg font-bold tracking-wide text-blue-800">Shipping Cost Estimation</CardTitle>
         </CardHeader>
-        <CardContent className="pt-4 pb-6 px-6">
+        <CardContent className="pt-2 pb-4 px-2 md:px-4">
           <ShippingCostEstimationSection form={form} setShippingCost={setShippingCost} sectionRef={sectionRefs[3]} />
         </CardContent>
       </Card>
