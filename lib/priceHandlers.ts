@@ -57,7 +57,7 @@ export const pcbTypeHandler = Object.assign(
 
 /**
  * 沉金边加价
- * 规则：如需沉金边（edgePlating=true），整单加50元。
+ * 规则：如需沉金边（edgePlating=true），整单加100元。
  */
 export const edgePlatingHandler = Object.assign(
   (form: PcbQuoteForm, area: number) => {
@@ -66,14 +66,14 @@ export const edgePlatingHandler = Object.assign(
     const notes: string[] = [];
     if (form.edgePlating === true) {
       if (area < 1) {
-        extra = 50;
-        detail['edgePlating'] = 20;
-        notes.push('Edge plating: sample +50 CNY/lot');
+        extra = 100;
+        detail['edgePlating'] = 100;
+        notes.push('Edge plating: sample +100 CNY/lot');
       } else {
         const fee = 50 * area;
         extra = fee;
         detail['edgePlating'] = fee;
-        notes.push(`Edge plating: +50 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+        notes.push(`Edge plating: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
       }
     }
     return {
@@ -583,11 +583,25 @@ export const basePriceHandler = Object.assign(
     const layers = form.layers;
     let thicknessFee = 0;
     let thicknessNote = '';
-    // 只对单双面板（1/2层）和4层及以上分别处理
-    if ((layers === 1 || layers === 2) && typeof thickness === 'number') {
-      if (thickness >= 0.2 && thickness <= 0.4) {
-        if (area < 1) {
-          // 样板：只加300元/款
+    const isSample = area < 1;
+    // 正常制程范围定义
+    let normalMin = 0, normalMax = 0;
+    if (layers === 1 || layers === 2 || layers === 3 || layers === 4) {
+      normalMin = 0.6; normalMax = 1.6;
+    } else if (layers === 6) {
+      normalMin = 0.8; normalMax = 1.6;
+    } else if (layers === 8) {
+      normalMin = 1.0; normalMax = 1.6;
+    } else if (layers === 10) {
+      normalMin = 1.2; normalMax = 1.6;
+    } else if (layers >= 12) {
+      normalMin = 1.6; normalMax = 99;
+    }
+    // 只处理 thickness 为 number
+    if (typeof thickness === 'number') {
+      // 0.2-0.4mm，单双面板，制板单价加50%/平米(样板+300元/款）
+      if ((layers === 1 || layers === 2) && thickness >= 0.2 && thickness <= 0.4) {
+        if (isSample) {
           thicknessFee = 300;
           thicknessNote = `Thickness 0.2-0.4mm (1-2L) sample: +300 CNY/lot`;
           detail['thickness_sample'] = 300;
@@ -600,25 +614,11 @@ export const basePriceHandler = Object.assign(
           detail['thickness'] = fee;
           notes.push(thicknessNote);
         }
-      } else if (thickness >= 0.6 && thickness <= 1.0) {
-        // 单价减15元/平米
-        const fee = -15 * Math.max(1, area);
-        thicknessFee = fee;
-        thicknessNote = `Thickness ${thickness}mm (1-2L): -15 CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
-        detail['thickness'] = fee;
-        notes.push(thicknessNote);
-      } else if (thickness === 1.2) {
-        // 单价减10元/平米
-        const fee = -10 * Math.max(1, area);
-        thicknessFee = fee;
-        thicknessNote = `Thickness 1.2mm (1-2L): -10 CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
-        detail['thickness'] = fee;
-        notes.push(thicknessNote);
-      } else if (thickness >= 1.6 && thickness <= 3.2) {
-        // 每加0.4mm，双面单价加100元/平米
+      // 1.6-3.2mm，单双面板，板厚每加0.4MM单价加100元/平米，订单不足1平米按1平米收费
+      } else if ((layers === 1 || layers === 2) && thickness >= 1.6 && thickness <= 3.2) {
         const base = 1.6;
         if (thickness > base) {
-          const step = Math.floor((thickness - base) / 0.4);
+          const step = Math.round((thickness - base) / 0.4);
           if (step > 0) {
             const fee = step * 100 * Math.max(1, area);
             thicknessFee = fee;
@@ -627,19 +627,33 @@ export const basePriceHandler = Object.assign(
             notes.push(thicknessNote);
           }
         }
-      }
-    } else if (layers === 4 && typeof thickness === 'number' && thickness >= 1.6 && thickness <= 3.2) {
-      // 4层板厚每加0.4mm，加80元/平米
-      const base = 1.6;
-      if (thickness > base) {
-        const step = Math.floor((thickness - base) / 0.4);
-        if (step > 0) {
-          const fee = step * 80 * Math.max(1, area);
-          thicknessFee = fee;
-          thicknessNote = `Thickness ${thickness}mm (4L): +${step * 80} CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
-          detail['thickness'] = fee;
-          notes.push(thicknessNote);
+      // 1.6-3.2mm，4层及以上，板厚每加0.4MM单价加80元/平米，订单不足1平米按1平米收费
+      } else if (layers >= 4 && thickness >= 1.6 && thickness <= 3.2) {
+        const base = 1.6;
+        if (thickness > base) {
+          const step = Math.round((thickness - base) / 0.4);
+          if (step > 0) {
+            const fee = step * 80 * Math.max(1, area);
+            thicknessFee = fee;
+            thicknessNote = `Thickness ${thickness}mm (${layers}L): +${step * 80} CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
+            detail['thickness'] = fee;
+            notes.push(thicknessNote);
+          }
         }
+      // 正常范围内减价：0.6-1.0MM，单双面板，制板单价减15元/平米
+      } else if ((layers === 1 || layers === 2) && thickness >= 0.6 && thickness <= 1.0 && thickness >= normalMin && thickness <= normalMax) {
+        const fee = -15 * Math.max(1, area);
+        thicknessFee = fee;
+        thicknessNote = `Thickness ${thickness}mm (1-2L): -15 CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
+        detail['thickness'] = fee;
+        notes.push(thicknessNote);
+      // 正常范围内减价：1.2MM，单双面板，制板单价减10元/平米
+      } else if ((layers === 1 || layers === 2) && thickness === 1.2 && thickness >= normalMin && thickness <= normalMax) {
+        const fee = -10 * Math.max(1, area);
+        thicknessFee = fee;
+        thicknessNote = `Thickness 1.2mm (1-2L): -10 CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
+        detail['thickness'] = fee;
+        notes.push(thicknessNote);
       }
     }
     // 板厚加价累计到基础价
@@ -1138,31 +1152,17 @@ export const tgMaterialHandler: PriceHandler = (form, area) => {
   const priceSample = config[tg][type].sample;
   const priceBatch = config[tg][type].batch;
 
-  // 样品加价
   if (isSample) {
+    // 样品加价
     extra += priceSample;
     detail['tgMaterial'] = priceSample;
     notes.push(`${tg}, ${isMultilayer ? 'multilayer' : 'single/double layer'} sample: +${priceSample} CNY`);
-  }
-
-  // 批量加价（面积>1㎡时）
-  if (area > 1) {
+  } else {
+    // 批量加价（area >= 1）
     const fee = priceBatch * area;
     extra += fee;
     detail['tgMaterial_area'] = fee;
-    notes.push(`${tg}, area>1㎡: +${priceBatch} CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
-  }
-
-  // 多层板样品加价（area<1 且多层）
-  if (!isSample && isMultilayer) {
-    extra += priceSample;
-    detail['tgMaterial'] = (detail['tgMaterial'] || 0) + priceSample;
-    notes.push(`${tg}, multilayer batch: +${priceSample} CNY`);
-  } else if (!isSample && !isMultilayer) {
-    // 单双面批量加价（area<1 且单/双面）
-    extra += priceSample;
-    detail['tgMaterial'] = (detail['tgMaterial'] || 0) + priceSample;
-    notes.push(`${tg}, single/double layer batch: +${priceSample} CNY`);
+    notes.push(`${tg}, area≥1㎡: +${priceBatch} CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
   }
 
   return { extra, detail, notes };
