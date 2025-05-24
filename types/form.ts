@@ -372,7 +372,7 @@ export enum EdgeCover {
 export enum ProductReport {
   None = 'none', // 不需要任何报告，常规订单
   ProductionReport = 'Production Report', // 生产报告，记录生产过程、工艺参数等
-  ImpedanceReport = 'impedanceReport', // 阻抗测试报告，适用于有阻抗控制要求的订单
+  ImpedanceReport = 'Impedance Report', // 阻抗测试报告，适用于有阻抗控制要求的订单
 }
 
 export enum WorkingGerber {

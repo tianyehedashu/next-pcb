@@ -801,13 +801,13 @@ export const surfaceFinishHandler: PriceHandler = (form, area) => {
  * 1. 阻抗控制（impedance=true）：
  *    - 样品（面积<1㎡）：加50元/款
  *    - 批量（面积≥1㎡）：不收费
- * 2. 阻抗报告（productReport 包含 'impedanceReport'）：每款加30元
+ * 2. 阻抗报告（productReport 包含 'Impedance Report'）：每款加30元
  *
  * Impedance Price Handler
  *  - Impedance control (impedance=true):
  *    - Sample (area < 1㎡): +50 CNY/lot
  *    - Batch (area ≥ 1㎡): free
- *  - Impedance report (productReport includes 'impedanceReport'): +30 CNY/lot
+ *  - Impedance report (productReport includes 'Impedance Report'): +30 CNY/lot
  */
 export const impedanceHandler: PriceHandler = (form, area) => {
   let extra = 0;
