@@ -130,9 +130,11 @@ export enum MinHole {
  */
 export enum SolderMask {
   Green = 'green', // 工艺成熟，成本低
+  MattGreen = 'Matt Green', // 哑光绿，特殊工艺，美观防眩光
   Blue = 'blue', // 美观，特殊需求
   Red = 'red', // 美观，特殊需求
   Black = 'black', // 美观，特殊需求
+  MattBlack = 'Matt Black', // 哑光黑，特殊工艺，美观防眩光
   White = 'white', // 美观，特殊需求
   Yellow = 'yellow', // 美观，特殊需求
 }
@@ -367,10 +369,7 @@ export enum EdgeCover {
 export enum ProductReport {
   None = 'none', // 不需要任何报告，常规订单
   ProductionReport = 'Production Report', // 生产报告，记录生产过程、工艺参数等
-  MicrosectionAnalysisReport = 'Microsection Analysis Report', // 微切片分析报告，展示PCB截面结构、层压质量等
-  ProductionFilms = 'Production Films', // 生产菲林，提供生产用底片资料
   ImpedanceReport = 'impedanceReport', // 阻抗测试报告，适用于有阻抗控制要求的订单
-  TestReport = 'testReport', // 测试报告，适用于有测试要求的订单
 }
 
 export enum WorkingGerber {

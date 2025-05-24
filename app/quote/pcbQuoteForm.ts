@@ -27,7 +27,7 @@ export const pcbQuoteFormSchema = z.object({
   copperWeight: z.enum(["1", "2", "3"]).default("1").describe("Copper Weight"),
   minTrace: z.enum(["6/6", "5/5", "4/4", "3.5/3.5", "8/8", "10/10"]).default("6/6").describe("Min Trace/Space"),
   minHole: z.enum(["0.3", "0.25", "0.2", "0.15"]).default("0.3").describe("Min Hole"),
-  solderMask: z.enum(["green", "blue", "red", "black", "white", "yellow"]).default("green").describe("Solder Mask"),
+  solderMask: z.enum(["green", "Matt green", "blue", "red", "black", "Matt Black", "white", "yellow"]).default("green").describe("Solder Mask"),
   silkscreen: z.enum(["white", "black", "green"]).default("white").describe("Silkscreen"),
   surfaceFinish: z.enum(["hasl", "leadfree", "enig", "osp", "immersion_silver", "immersion_tin"]).default("hasl").describe("Surface Finish"),
   surfaceFinishEnigType: z.nativeEnum(SurfaceFinishEnigType).optional().describe("ENIG Thickness"),

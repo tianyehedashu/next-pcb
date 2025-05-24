@@ -1,6 +1,6 @@
 import { pcbFieldRules } from './pcbFieldRules';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { ProdCap, TestMethod, SurfaceFinish, SurfaceFinishEnigType } from '../types/form';
+import { ProdCap, TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask } from '../types/form';
 
 // 类型定义
 /**
@@ -980,7 +980,9 @@ export const blueMaskHandler: PriceHandler = (form, area) => {
   const detail: Record<string, number> = {};
   const notes: string[] = [];
   // 只要阻焊色为 blue 即视为蓝胶
-  if (form.solderMask === 'blue') {
+  
+  const isYellow = form.solderMask === SolderMask.Yellow;
+  if (isYellow) {
     const isSample = area < 1;
     if (isSample) {
       extra = 120;

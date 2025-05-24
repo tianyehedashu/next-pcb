@@ -31,9 +31,11 @@ export type ProcessInfoFieldKey = keyof typeof processInfoFields;
 // 阻焊色与真实颜色映射
 const solderMaskColorMap: Record<string, string> = {
   green: '#22c55e',
+  "Matt Green": '#4ade80', // 哑光绿，略浅
   blue: '#3b82f6',
   red: '#ef4444',
   black: '#222',
+  "Matt Black": '#555', // 哑光黑，灰黑
   white: '#fff',
   yellow: '#fde047',
 };
@@ -121,7 +123,9 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
                                 className="inline-block w-4 h-4 rounded-full border border-gray-300"
                                 style={{ backgroundColor: typeof v === 'string' ? (solderMaskColorMap[String(v)] || String(v)) : undefined, boxShadow: v === 'white' ? '0 0 0 1px #ccc' : undefined }}
                               ></span>
-                              {typeof v === 'string' ? String(v).charAt(0).toUpperCase() + String(v).slice(1).replace(/_/g, '-') : String(v)}
+                              {typeof v === 'string' ?
+                                (v === 'matt_green' ? 'Matt Green' : v === 'matt_black' ? 'Matt Black' : v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, ' '))
+                                : String(v)}
                             </span>
                           ) : key === 'silkscreen' ? (
                             <span className="flex items-center gap-2">
@@ -137,7 +141,7 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
                         disabled: rule.shouldDisable ? rule.shouldDisable({ ...(form as PcbQuoteForm), [key]: v }) : false
                       }));
                     })()}
-                    value={typeof formData[key] === 'string' || typeof formData[key] === 'number' || typeof formData[key] === 'boolean' ? formData[key].toString() : ('default' in field && field.default !== undefined ? field.default.toString() : '')}
+                    value={typeof formData[key] === 'string' || typeof formData[key] === 'number' || typeof formData[key] === 'boolean' ? formData[key].toString() : ('default' in field && field.default !== undefined && field.default !== null ? field.default.toString() : '')}
                     onChange={(v: string) => setForm((prev) => ({ ...prev, [key]: typeof sortedOptions[0] === 'boolean' ? v === 'true' : v }))}
                   />
                 )}

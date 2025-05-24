@@ -18,14 +18,11 @@ export type PCBFieldRule<T = unknown> = {
 };
 
 // 自动生成产品报告 options 和 optionLabels
-const productReportOptions = Object.values(ProductReport);
+const productReportOptions = [ProductReport.None, ProductReport.ProductionReport, ProductReport.ImpedanceReport];
 const productReportOptionLabels: Record<string, string> = {
   [ProductReport.None]: 'Not Required',
   [ProductReport.ProductionReport]: 'Production Report',
-  [ProductReport.MicrosectionAnalysisReport]: 'Microsection Analysis Report',
-  [ProductReport.ProductionFilms]: 'Production Films',
   [ProductReport.ImpedanceReport]: 'Impedance Report',
-  [ProductReport.TestReport]: 'Test Report',
 };
 
 export const pcbFieldRules: Record<string, PCBFieldRule> = {
@@ -221,7 +218,18 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   silkscreen: {
     label: 'Silkscreen',
-    options: Object.values(Silkscreen),
+    options: (form: PcbQuoteForm) => {
+      const mask = (form.solderMask || '').toLowerCase();
+      // 获取所有可选字符颜色
+      let opts = Object.values(Silkscreen);
+      // 1. 禁止同色
+      opts = opts.filter(silk => silk.toLowerCase() !== mask);
+      // 2. 阻焊为蓝/红时，禁止黑字
+      if (mask === 'blue' || mask === 'red') {
+        opts = opts.filter(silk => silk.toLowerCase() !== 'black');
+      }
+      return opts;
+    },
     default: 'white',
     required: true,
   },
