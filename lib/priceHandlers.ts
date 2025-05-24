@@ -676,18 +676,22 @@ export const basePriceHandler = Object.assign(
         }
       // 正常范围内减价：0.6-1.0MM，单双面板，制板单价减15元/平米
       } else if ((layers === 1 || layers === 2) && thickness >= 0.6 && thickness <= 1.0 && thickness >= normalMin && thickness <= normalMax) {
-        const fee = -15 * Math.max(1, area);
-        thicknessFee = fee;
-        thicknessNote = `Thickness ${thickness}mm (1-2L): -15 CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
-        detail['thickness'] = fee;
-        notes.push(thicknessNote);
+        if (area > 5) {
+          const fee = -15 * Math.max(1, area);
+          thicknessFee = fee;
+          thicknessNote = `Thickness ${thickness}mm (1-2L): -15 CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
+          detail['thickness'] = fee;
+          notes.push(thicknessNote);
+        }
       // 正常范围内减价：1.2MM，单双面板，制板单价减10元/平米
       } else if ((layers === 1 || layers === 2) && thickness === 1.2 && thickness >= normalMin && thickness <= normalMax) {
-        const fee = -10 * Math.max(1, area);
-        thicknessFee = fee;
-        thicknessNote = `Thickness 1.2mm (1-2L): -10 CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
-        detail['thickness'] = fee;
-        notes.push(thicknessNote);
+        if (area > 5) {
+          const fee = -10 * Math.max(1, area);
+          thicknessFee = fee;
+          thicknessNote = `Thickness 1.2mm (1-2L): -10 CNY/㎡ × ${Math.max(1, area).toFixed(2)} = ${fee.toFixed(2)} CNY`;
+          detail['thickness'] = fee;
+          notes.push(thicknessNote);
+        }
       }
     }
     // 板厚加价累计到基础价
