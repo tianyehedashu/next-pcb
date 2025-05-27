@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { supabase } from "@/lib/supabaseClient";
 import { useEffect } from "react";
+import type { Session } from "@supabase/supabase-js";
 
 export type UserRole = "admin" | "user" | "guest";
 
@@ -15,7 +15,7 @@ export interface UserInfo {
   phone?: string;
   address?: string;
   last_login?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 const rolePermissions: Record<UserRole, string[]> = {
@@ -26,66 +26,99 @@ const rolePermissions: Record<UserRole, string[]> = {
 
 interface UserState {
   user: UserInfo | null;
-  setUser: (user: UserInfo | null) => void;
-  clearUser: () => void;
-  fetchUser: () => Promise<void>;
+  session: Session | null;
+  accessToken: string | null;
   isAdmin: () => boolean;
   hasPermission: (permission: string) => boolean;
 }
 
-export const useUserStore = create(
-  persist<UserState>(
-    (set, get) => ({
-      user: null,
-      setUser: (user) => set({ user }),
-      clearUser: () => set({ user: null }),
-      fetchUser: async () => {
-        const { data: { user: supaUser } } = await supabase.auth.getUser();
-        console.log('[userStore] supaUser:', supaUser);
-        if (supaUser) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", supaUser.id)
-            .maybeSingle();
-          console.log('[userStore] user_metadata:', supaUser.user_metadata);
-          console.log('[userStore] profile:', profile);
-          const userMetaRole = supaUser.user_metadata?.role;
-          const { role: _profileRole, ...profileRest } = profile || {};
-          const mergedUser = { id: supaUser.id, email: supaUser.email, ...supaUser.user_metadata, ...profileRest, role: userMetaRole };
-          console.log('[userStore] mergedUser:', mergedUser);
-          set({ user: mergedUser });
-        } else {
-          set({ user: null });
-        }
-      },
-      isAdmin: () => get().user?.role === "admin",
-      hasPermission: (permission: string) => {
-        const role = get().user?.role;
-        return role ? rolePermissions[role]?.includes(permission) : false;
-      },
-    }),
-    { name: "user-store" }
-  )
-);
+export const useUserStore = create<UserState>((set, get) => ({
+  user: null,
+  session: null,
+  accessToken: null,
+  isAdmin: () => get().user?.role === "admin",
+  hasPermission: (permission: string) => {
+    const role = get().user?.role;
+    return role ? rolePermissions[role]?.includes(permission) : false;
+  },
+}));
 
-export function useSyncUser() {
-  const setUser = useUserStore(state => state.setUser);
+/**
+ * SSR 场景下初始化 userStore。
+ * 在 getServerSideProps/getInitialProps 等服务端逻辑中调用。
+ * @param user UserInfo
+ * @param session Session
+ */
+export function setUserFromSSR(user: UserInfo, session: Session) {
+  useUserStore.setState({
+    user,
+    session,
+    accessToken: session.access_token,
+  });
+}
+
+// 桥接 Supabase 状态到全局 store（客户端专用）
+export function useBridgeUser() {
+  const setUser = useUserStore.setState;
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setUser({ id: user.id, email: user.email, ...user.user_metadata });
-      }
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const sync = async (session: Session | null) => {
       if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email, ...session.user.user_metadata });
+        // 只在有 user 时拉 profile，合并 user_metadata
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .maybeSingle();
+        const userMetaRole = session.user.user_metadata?.role;
+        const profileRest = profile || {};
+        const mergedUser: UserInfo = {
+          id: session.user.id,
+          email: session.user.email,
+          ...session.user.user_metadata,
+          ...profileRest,
+          role: userMetaRole,
+        };
+        setUser({
+          user: mergedUser,
+          session,
+          accessToken: session.access_token,
+        });
       } else {
-        setUser(null);
+        setUser({
+          user: null,
+          session: null,
+          accessToken: null,
+        });
       }
+    };
+
+    // 首次同步
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      sync(session);
     });
+
+    // 监听 session 变化
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      sync(session);
+    });
+
+    const unsub = () => listener.subscription.unsubscribe();
+
     return () => {
-      listener.subscription.unsubscribe();
+      unsub();
     };
   }, [setUser]);
+}
+
+/**
+ * 安全登出：清除 Supabase session、userStore，并可选跳转
+ * @param redirect 跳转地址（如 "/auth?redirect=..."），不传则不跳转
+ */
+export async function logoutAndRedirect(redirect?: string) {
+  await supabase.auth.signOut();
+  useUserStore.setState({ user: null, session: null, accessToken: null });
+  if (redirect) {
+    window.location.replace(redirect);
+  }
 } 

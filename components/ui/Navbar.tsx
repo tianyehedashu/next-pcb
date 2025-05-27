@@ -6,7 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useUserStore } from "@/lib/userStore";
+import { useUserStore ,logoutAndRedirect} from "@/lib/userStore";
 import { User, ListOrdered, LogOut } from "lucide-react";
 
 
@@ -20,7 +20,7 @@ export default function Navbar() {
  
 
   useEffect(() => {
-    let lastScroll = window.scrollY;
+
     const onScroll = () => {
       // 检查是否在锚点区域
       let inAnchor = false;
@@ -39,7 +39,7 @@ export default function Navbar() {
       } else if (!hover) {
         setShow(false);
       }
-      lastScroll = window.scrollY;
+    
     };
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
@@ -54,8 +54,7 @@ export default function Navbar() {
   }, [show]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/auth";
+    logoutAndRedirect("/");
   };
 
   return (

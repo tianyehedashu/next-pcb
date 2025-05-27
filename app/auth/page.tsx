@@ -1,24 +1,29 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { CheckCircle2, Mail, Github, Chrome } from "lucide-react";
+import { Mail, Github, Chrome } from "lucide-react";
+import Image from "next/image";
 import { useUserStore } from "@/lib/userStore";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+import type { UserRole } from "@/lib/userStore";
 
 export default function AuthPage() {
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-100 font-sans overflow-hidden">
       {/* 背景图层 */}
-      <img
+      <Image
         src="/pcb-bg.png"
         alt="PCB background"
+        fill
         className="absolute inset-0 w-full h-full object-cover object-center opacity-60 z-0 pointer-events-none select-none"
         style={{ filter: 'blur(2px) brightness(0.85)' }}
+        priority
       />
       {/* 深色遮罩，提升卡片可读性 */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-100/80 via-white/60 to-blue-200/80 z-10" />
@@ -32,6 +37,29 @@ export default function AuthPage() {
   );
 }
 
+function isSafeRedirect(redirect: string | null): string {
+  // 只允许跳转到本站内的路径，防止 open redirect
+  if (!redirect || typeof redirect !== "string") return "/";
+  if (redirect.startsWith("/") && !redirect.startsWith("//")) return redirect;
+  return "/";
+}
+
+function mapSupabaseUserToUserInfo(user: SupabaseUser) {
+  let role: UserRole | undefined;
+  if (user.user_metadata?.role === "admin" || user.user_metadata?.role === "user" || user.user_metadata?.role === "guest") {
+    role = user.user_metadata.role;
+  } else {
+    role = undefined;
+  }
+  return {
+    id: user.id,
+    email: user.email,
+    avatar_url: user.user_metadata?.avatar_url,
+    role,
+    ...user.user_metadata,
+  };
+}
+
 function AuthContent() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
@@ -42,11 +70,44 @@ function AuthContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [loginMethod, setLoginMethod] = useState<'email' | 'google' | 'github'>('email');
-  const fetchUser = useUserStore(state => state.fetchUser);
+  const user = useUserStore(state => state.user);
+  const hasRedirected = useRef(false);
 
   useEffect(() => {
     if (searchParams.get("signup")) setIsSignUp(true);
   }, [searchParams]);
+
+  // 登录成功后自动跳转（只跳一次）
+  useEffect(() => {
+    if (user && !hasRedirected.current) {
+      hasRedirected.current = true;
+      const redirect = isSafeRedirect(searchParams.get("redirect"));
+      toast({
+        title: "Login successful!",
+        description: "Redirecting...",
+        duration: 1200,
+      });
+      setTimeout(() => {
+        // 清理 URL，避免刷新后重复跳转
+        window.history.replaceState({}, document.title, "/auth");
+        router.replace(redirect);
+      }, 1000);
+    }
+  }, [user, router, searchParams, toast]);
+
+  // 新增：登录状态变化时自动同步 user 到全局 store
+  useEffect(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        useUserStore.setState({ user: mapSupabaseUserToUserInfo(session.user) });
+      } else {
+        useUserStore.setState({ user: null });
+      }
+    });
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   const handleEmailAuth = async () => {
     setLoading(true);
@@ -57,42 +118,38 @@ function AuthContent() {
       else setMessage("Registration successful! Please check your email inbox to confirm your account.");
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (!error) {
-        await fetchUser();
-        toast({
-          title: "Login successful!",
-          description: (
-            <span className="flex items-center gap-2 text-green-600">
-              <CheckCircle2 className="w-5 h-5" />
-              Redirecting to homepage...
-            </span>
-          ),
-          duration: 2000,
-        });
-        setTimeout(() => {
-          const redirect = searchParams.get("redirect");
-          if (redirect) {
-            router.push(redirect.startsWith("/") ? redirect : `/${redirect}`);
-          } else {
-            router.push("/");
-          }
-        }, 2000);
-      } else {
-        setMessage(error.message);
-      }
+      if (error) setMessage(error.message);
     }
     setLoading(false);
   };
 
   const handleGoogle = async () => {
     setLoading(true);
-    await supabase.auth.signInWithOAuth({ provider: "google" });
+    const redirect = isSafeRedirect(searchParams.get("redirect")) || "/";
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(redirect)}`,
+        queryParams: {
+          prompt: "select_account"
+        }
+      }
+    });
     setLoading(false);
   };
 
   const handleGithub = async () => {
     setLoading(true);
-    await supabase.auth.signInWithOAuth({ provider: "github" });
+    const redirect = isSafeRedirect(searchParams.get("redirect")) || "/";
+    await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(redirect)}`,
+        queryParams: {
+          prompt: "select_account consent"
+        }
+      }
+    });
     setLoading(false);
   };
 
@@ -134,13 +191,14 @@ function AuthContent() {
       <CardContent className="py-3 px-4 md:px-2 space-y-3 flex flex-col items-center">
         {/* 邮箱登录表单 */}
         {loginMethod === 'email' && (
-          <div className="w-full flex flex-col gap-4">
+          <form onSubmit={(e) => { e.preventDefault(); handleEmailAuth(); }} autoComplete="off" className="w-full flex flex-col gap-4">
             <Input
               placeholder="Email"
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               autoFocus
+              autoComplete="username"
               className="h-11 text-base rounded-lg border-blue-200 focus:border-blue-400 bg-white/80 shadow-sm"
             />
             <Input
@@ -148,6 +206,7 @@ function AuthContent() {
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
+              autoComplete="new-password"
               className="h-11 text-base rounded-lg border-blue-200 focus:border-blue-400 bg-white/80 shadow-sm"
             />
             <Button
@@ -157,7 +216,7 @@ function AuthContent() {
             >
               {isSignUp ? "Sign Up with Email" : "Sign In with Email"}
             </Button>
-          </div>
+          </form>
         )}
         {/* 登录方式切换icon按钮（缩小，主按钮下方） */}
         <div className="flex items-center justify-center gap-3 mt-2 mb-2">

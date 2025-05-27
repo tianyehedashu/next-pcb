@@ -15,7 +15,7 @@ import { calculateCustomsFee } from "@/lib/customs-fee";
 import React, { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useEnsureLogin } from "@/lib/auth";
-import { useUserStore, useSyncUser } from "@/lib/userStore";
+import { useUserStore } from "@/lib/userStore";
 import { ORDER_STEPS } from "@/components/ui/order-steps";
 import FileUpload from "@/app/components/custom-ui/FileUpload";
 import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
@@ -256,7 +256,6 @@ export default function QuoteConfirmPage() {
   };
 
   useEnsureLogin();
-  useSyncUser();
 
   if (!quote) return null;
 
