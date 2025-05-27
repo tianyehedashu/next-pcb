@@ -10,15 +10,13 @@ import { useEnsureLogin } from "@/lib/auth";
 import Sidebar from "../../components/custom-ui/Sidebar";
 import { ArrowRight, Download, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import OrderStepBar from "@/components/ui/OrderStepBar";
 import Pagination from "../../components/ui/pagination";
-import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
 import { toUSD } from "@/lib/utils";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 
 export default function OrdersPage() {
-  const { rate, loading, error } = useCnyToUsdRate();
+  useEnsureLogin();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoading] = useState(false);
   const router = useRouter();
@@ -27,15 +25,6 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const pagedOrders = orders.slice((page - 1) * pageSize, page * pageSize);
-
-  // 动态菜单配置
-  const menu = [
-    { label: "My Orders", path: "/quote/orders", show: true },
-    { label: "New Quote", path: "/quote", show: true },
-    { label: "Profile", path: "/profile", show: true },
-    // 管理员专属菜单
-    { label: "Admin Panel", path: "/quote/admin/orders", show: user?.role === "admin" },
-  ];
 
   useEffect(() => {
     const fetchOrders = async () => {

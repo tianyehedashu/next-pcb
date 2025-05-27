@@ -3,7 +3,6 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useUserStore ,logoutAndRedirect} from "@/lib/userStore";
@@ -17,7 +16,6 @@ export default function Navbar() {
   const [hover, setHover] = useState(false);
   const [navAnim, setNavAnim] = useState(false);
   const user = useUserStore(state => state.user);
- 
 
   useEffect(() => {
 

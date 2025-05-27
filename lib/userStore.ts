@@ -65,18 +65,12 @@ export function useBridgeUser() {
     const sync = async (session: Session | null) => {
       if (session?.user) {
         // 只在有 user 时拉 profile，合并 user_metadata
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .maybeSingle();
+   
         const userMetaRole = session.user.user_metadata?.role;
-        const profileRest = profile || {};
-        const mergedUser: UserInfo = {
+           const mergedUser: UserInfo = {
           id: session.user.id,
           email: session.user.email,
           ...session.user.user_metadata,
-          ...profileRest,
           role: userMetaRole,
         };
         setUser({

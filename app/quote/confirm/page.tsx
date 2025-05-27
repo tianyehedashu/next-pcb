@@ -10,20 +10,19 @@ import { useQuoteStore } from "@/lib/quoteStore";
 import { calcProductionCycle, getRealDeliveryDate } from "@/lib/pcb-calc";
 import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
 import { calculateShippingCost, shippingZones } from "@/lib/shipping-calculator";
-import OrderStepBar from "@/components/ui/OrderStepBar";
 import { calculateCustomsFee } from "@/lib/customs-fee";
 import React, { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useEnsureLogin } from "@/lib/auth";
 import { useUserStore } from "@/lib/userStore";
-import { ORDER_STEPS } from "@/components/ui/order-steps";
 import FileUpload from "@/app/components/custom-ui/FileUpload";
-import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
+import { useExchangeRate } from "@/lib/hooks/useExchangeRate";
 import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
 // OptionType 类型定义
 export type OptionType = { value: string; label: string };
 const ReactSelect = dynamic(() => import("react-select"), { ssr: false });
+
 
 // useGeoOptions hook
 interface StateApiItem { state_code: string; name: string; }
@@ -61,6 +60,7 @@ function validateQuoteForm(form: PcbQuoteForm): string | null {
 
 
 export default function QuoteConfirmPage() {
+  useEnsureLogin();
   const router = useRouter();
   const { form: quote, clearForm, setForm: setQuoteForm } = useQuoteStore();
   const [form, setForm] = useState<PcbQuoteForm>(quote);
@@ -75,8 +75,8 @@ export default function QuoteConfirmPage() {
   const { states, cities } = useGeoOptions(form.shippingAddress.country, form.shippingAddress.province);
 
   // 汇率
-  const { rate, loading: rateLoading } = useCnyToUsdRate();
-  const toUSD = (cny: number) => rate ? cny * rate : 0;
+  const { cnyToUsdRate, loading: rateLoading } = useExchangeRate();
+  const toUSD = (cny: number) => cnyToUsdRate && cnyToUsdRate > 0 ? cny * cnyToUsdRate : 0;
 
   // PCB价格等
   const pcbPrice = quote ? calcPcbPriceV2(quote).total : 0;
@@ -255,7 +255,6 @@ export default function QuoteConfirmPage() {
     }),
   };
 
-  useEnsureLogin();
 
   if (!quote) return null;
 
@@ -276,7 +275,7 @@ export default function QuoteConfirmPage() {
         </div>
         {/* 订单进度步骤条 */}
         <div className="mb-10">
-          <OrderStepBar currentStatus={"inquiry"} steps={ORDER_STEPS} />
+          {/* OrderStepBar component would be rendered here */}
         </div>
         <div className="grid grid-cols-12 gap-8">
           {/* 左侧主要内容区域 */}
@@ -473,7 +472,7 @@ export default function QuoteConfirmPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">PCB Price</span>
                     <span className="text-lg font-bold text-blue-700">
-                      {rateLoading || !rate ? '-' : `$ ${toUSD(pcbPrice).toFixed(2)}`}
+                      {rateLoading || !cnyToUsdRate ? '-' : `$ ${toUSD(pcbPrice).toFixed(2)}`}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -487,14 +486,14 @@ export default function QuoteConfirmPage() {
                   <div className="flex justify-between items-center pt-3">
                     <span className="text-sm text-muted-foreground">Shipping Cost</span>
                     <span className="text-lg font-bold text-blue-700">
-                      {rateLoading || !rate ? '-' : `$ ${(shipping ?? 0).toFixed(2)}`}
+                      {rateLoading || !cnyToUsdRate ? '-' : `$ ${(shipping ?? 0).toFixed(2)}`}
                     </span>
                   </div>
                   <div className="flex flex-col mb-1">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Customs Fee</span>
                       <span className="text-base font-semibold text-blue-700">
-                        {rateLoading || !rate ? '-' : `$ ${(customs).toFixed(2)}`}
+                        {rateLoading || !cnyToUsdRate ? '-' : `$ ${(customs).toFixed(2)}`}
                       </span>
                     </div>
                     <div className="ml-2 text-xs text-gray-500">
@@ -505,7 +504,7 @@ export default function QuoteConfirmPage() {
                     <div className="flex justify-between items-center">
                       <span className="text-xl font-bold text-blue-900">Total</span>
                       <span className="text-2xl font-extrabold text-blue-700">
-                        {rateLoading || !rate ? '-' : `$ ${toUSD(total).toFixed(2)}`}
+                        {rateLoading || !cnyToUsdRate ? '-' : `$ ${toUSD(total).toFixed(2)}`}
                       </span>
                     </div>
                   </div>
@@ -525,4 +524,4 @@ export default function QuoteConfirmPage() {
       </div>
     </div>
   );
-} 
+}

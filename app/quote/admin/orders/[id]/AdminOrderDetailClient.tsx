@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectItem, SelectContent, SelectTrigger } from "@/components/ui/select";
 import { getPublicFileUrl } from "@/lib/supabase-file-url";
 import DownloadButton from "../../../../components/custom-ui/DownloadButton";
-import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
+import { useExchangeRate } from "@/lib/hooks/useExchangeRate";
 import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
 import { calcProductionCycle } from "@/lib/pcb-calc";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -128,7 +128,7 @@ function OrderShippingCard({ order }: { order: Record<string, unknown> }) {
 }
 
 function OrderCustomsCard({ customs }: { customs: Record<string, unknown> }) {
-  const { rate } = useCnyToUsdRate();
+  const { cnyToUsdRate: rate } = useExchangeRate();
   const toUSD = (cny: number) => rate ? cny * rate : 0;
   return (
     <Card className="mb-4">
@@ -320,7 +320,7 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate, address }: { order: Re
   });
   const [saving, setSaving] = useState(false);
   const [recalcLoading, setRecalcLoading] = useState(false);
-  const { rate } = useCnyToUsdRate();
+  const { cnyToUsdRate: rate } = useExchangeRate();
   const toUSD = (cny: number) => rate ? cny * rate : 0;
   // 重新计算
   function handleRecalc() {

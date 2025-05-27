@@ -4,11 +4,11 @@ import QuoteForm from "./QuoteForm";
 import SectionNav from "./SectionNav";
 import { useQuoteStore } from "@/lib/quoteStore";
 import QuoteSummaryCard from "./QuoteSummaryCard";
-import { useCnyToUsdRate } from "@/lib/hooks/useCnyToUsdRate";
+import { useExchangeRate } from "@/lib/hooks/useExchangeRate";
+
 import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
 
 export default function QuoteClientMain() {
-  const { rate } = useCnyToUsdRate();
   const { form, setForm } = useQuoteStore();
   const [errors, setErrors] = useState<any>({});
   const [shippingCost, setShippingCost] = useState(0);
@@ -19,6 +19,8 @@ export default function QuoteClientMain() {
     useRef<HTMLDivElement>(null), // Service
     useRef<HTMLDivElement>(null), // Shipping
   ];
+
+  const { cnyToUsdRate: rate } = useExchangeRate();
 
   // 滚动监听，自动高亮当前分区
   function handleScroll() {

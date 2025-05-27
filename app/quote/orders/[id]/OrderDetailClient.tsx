@@ -12,7 +12,6 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
 import { getPublicFileUrl } from "@/lib/supabase-file-url";
 import DownloadButton from "../../../components/custom-ui/DownloadButton";
-import { useInitExchangeRate } from "@/lib/hooks/useInitExchangeRate";
 import { toUSD } from "@/lib/utils";
 import type { UserInfo } from "@/lib/userStore";
 
@@ -412,8 +411,6 @@ interface OrderDetailClientProps {
   order: Database["public"]["Tables"]["orders"]["Row"];
 }
 export default function OrderDetailClient({ user, order }: OrderDetailClientProps) {
-  useInitExchangeRate();
-  const setUser = useUserStore(state => state.setUser);
   const router = useRouter();
   const { toast } = useToast();
   const [actionLoading, setActionLoading] = useState(false);
@@ -423,9 +420,9 @@ export default function OrderDetailClient({ user, order }: OrderDetailClientProp
 
   useEffect(() => {
     if (user && typeof user === "object" && user !== null && "id" in user) {
-      setUser(user as UserInfo);
+      useUserStore.setState({ user: user as UserInfo });
     }
-  }, [user, setUser]);
+  }, [user]);
 
   useEffect(() => {
     async function fetchDetails() {
