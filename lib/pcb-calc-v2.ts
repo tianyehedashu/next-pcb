@@ -31,7 +31,9 @@ import {
   filmFeeHandler,
   engFeeHandler,
   copperWeightHandler, // 外层铜厚
-  multilayerCopperWeightHandler, // 内层铜厚 
+  multilayerCopperWeightHandler,
+  traceHandler,
+  drillAndThicknessHandler, // 内层铜厚 
 } from './priceHandlers';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
 
@@ -115,6 +117,8 @@ export function calcPcbPriceV2(form: PcbQuoteForm): {
     holeCu25umHandler, // 孔铜25um
     copperWeightHandler, // 外层铜厚
     multilayerCopperWeightHandler, // 内层铜厚
+    traceHandler, // 线宽线距
+    drillAndThicknessHandler, // 最小线宽线距
 
     // ...如有其它handler继续补充...
   ];

@@ -93,6 +93,24 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
         filtered = filtered.filter(v => v >= 1.2);
       }
 
+      // 业务特殊限制
+      // 铜厚=2OZ时，2L/4L/6L 仅允许0.8mm及以上
+      if ((outer === '2' || inner === '2') && [2, 4, 6].includes(layers)) {
+        filtered = filtered.filter(v => v >= 0.8);
+      }
+      // 铜厚=3OZ时
+      if ((outer === '3' || inner === '3')) {
+        if (layers === 2) {
+          filtered = filtered.filter(v => v >= 1.0);
+        } else if (layers === 4) {
+          filtered = filtered.filter(v => v >= 1.2);
+        }
+      }
+      // 铜厚=4OZ时，4L及以上仅允许1.6mm及以上
+      if ((outer === '4' || inner === '4') && layers >= 4) {
+        filtered = filtered.filter(v => v >= 1.6);
+      }
+
       return filtered;
     },
     default: (form: PcbQuoteForm) => {
@@ -100,6 +118,11 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
         ? pcbFieldRules.thickness.options(form)
         : pcbFieldRules.thickness.options;
       const layers = form.layers ?? 2;
+      // 如果当前值在可选项内，直接返回当前值
+      if (opts.includes(form.thickness)) {
+        return form.thickness;
+      }
+      // 否则按推荐逻辑给默认值
       if (layers === 18 || layers === 20) {
         return opts.includes(2.4) ? 2.4 : opts[0];
       } else if (layers === 16) {
@@ -145,22 +168,48 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     label: 'Min Trace/Space',
     options: (form: PcbQuoteForm) => {
       const layers = form.layers ?? 2;
+      // 层数可选范围
+      let layerOptions: string[] = [];
       if (layers === 1 || layers === 2) {
-        return ['6/6', '5/5', '4/4', '3.5/3.5', '8/8', '10/10'];
+        layerOptions = ['6/6', '5/5', '4/4', '3.5/3.5', '8/8', '10/10'];
       } else if (layers === 4) {
-        return ['6/6', '5/5', '4/4', '3.5/3.5', '8/8', '10/10'];
+        layerOptions = ['6/6', '5/5', '4/4', '3.5/3.5', '8/8', '10/10'];
       } else if (layers >= 6) {
-        return ['6/6', '5/5', '4/4', '3.5/3.5', '8/8', '10/10'];
+        layerOptions = ['6/6', '5/5', '4/4', '3.5/3.5', '8/8', '10/10'];
+      } else {
+        layerOptions = ['6/6', '5/5', '4/4', '3.5/3.5', '8/8', '10/10'];
       }
-      return ['6/6', '5/5', '4/4', '3.5/3.5', '8/8', '10/10'];
+
+      // 铜厚下限
+      const outer = form.outerCopperWeight;
+      const inner = layers >= 4 ? form.innerCopperWeight : undefined;
+      const allOptions = ['3.5/3.5', '4/4', '5/5', '6/6', '8/8', '10/10'];
+      let minIndex = 0;
+      const copperList = [outer, inner].filter(Boolean).map(String);
+      let maxCopper = '1';
+      if (copperList.includes('4')) maxCopper = '4';
+      else if (copperList.includes('3')) maxCopper = '3';
+      else if (copperList.includes('2')) maxCopper = '2';
+      if (maxCopper === '2') minIndex = allOptions.indexOf('6/6');
+      else if (maxCopper === '3' || maxCopper === '4') minIndex = allOptions.indexOf('10/10');
+      else minIndex = allOptions.indexOf('3.5/3.5');
+      const copperOptions = allOptions.slice(minIndex);
+
+      // 取交集，始终返回 string[]
+      return layerOptions.filter(opt => copperOptions.includes(opt));
     },
     default: (form: PcbQuoteForm) => {
-      const layers = form.layers ?? 2;
-      if (layers >= 4) return '4/4';
-      return '6/6';
+      // 默认值逻辑：优先取 options 的第一个
+      const opts = typeof pcbFieldRules.minTrace.options === 'function'
+        ? pcbFieldRules.minTrace.options(form)
+        : pcbFieldRules.minTrace.options;
+      if (opts.includes(form.minTrace)) {
+        return form.minTrace;
+      }
+      return opts[0];
     },
     required: true,
-    dependencies: ['layers'],
+    dependencies: ['layers', 'outerCopperWeight', 'innerCopperWeight'],
     shouldDisable: () => false,
     unit: 'mil',
   },

@@ -1,6 +1,6 @@
 import { pcbFieldRules } from './pcbFieldRules';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { ProdCap, TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask, MaskCover } from '../types/form';
+import { ProdCap, TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask, MaskCover, CopperWeight } from '../types/form';
 
 // 类型定义
 /**
@@ -1096,7 +1096,7 @@ export const filmFeeHandler = (form: PcbQuoteForm) => {
  * 只在detail/engFee体现，不累计到extra
  */
 export const engFeeHandler: PriceHandler = (form, area) => {
-  // 工程费分档表
+  // 工程费分档表（1oz及以下）
   const engFeeTable: Record<number, { engFee_0_05: number; engFee_05_3: number; engFee_3up: number }> = {
     1: { engFee_0_05: 210, engFee_05_3: 142, engFee_3up: 0 },
     2: { engFee_0_05: 210, engFee_05_3: 142, engFee_3up: 0 },
@@ -1110,19 +1110,43 @@ export const engFeeHandler: PriceHandler = (form, area) => {
     18: { engFee_0_05: 3000, engFee_05_3: 3000, engFee_3up: 0 },
     20: { engFee_0_05: 3500, engFee_05_3: 3500, engFee_3up: 0 },
   };
-  const table = engFeeTable[form.layers as keyof typeof engFeeTable];
+  // 工程费分档表（铜厚大于1oz，参考csv）
+  const engFeeTable_2oz: Record<number, { engFee_0_05: number; engFee_05_3: number; engFee_3up: number }> = {
+    1: { engFee_0_05: 180, engFee_05_3: 180, engFee_3up: 0 },
+    2: { engFee_0_05: 210, engFee_05_3: 210, engFee_3up: 0 },
+    4: { engFee_0_05: 500, engFee_05_3: 500, engFee_3up: 0 },
+    6: { engFee_0_05: 1100, engFee_05_3: 1100, engFee_3up: 0 },
+    8: { engFee_0_05: 1350, engFee_05_3: 1350, engFee_3up: 0 },
+    10: { engFee_0_05: 1500, engFee_05_3: 1500, engFee_3up: 0 },
+    12: { engFee_0_05: 1600, engFee_05_3: 1600, engFee_3up: 0 },
+    14: { engFee_0_05: 2000, engFee_05_3: 2000, engFee_3up: 0 },
+    16: { engFee_0_05: 2500, engFee_05_3: 2500, engFee_3up: 0 },
+    18: { engFee_0_05: 3000, engFee_05_3: 3000, engFee_3up: 0 },
+    20: { engFee_0_05: 3500, engFee_05_3: 3500, engFee_3up: 0 },
+  };
+  // 判断铜厚是否大于1oz
+  const isCopperGt1oz = (val?: string) => {
+    if (!val) return false;
+    const num = parseFloat(val);
+    return num > 1;
+  };
+  const use2ozTable = isCopperGt1oz(form.outerCopperWeight) || isCopperGt1oz(form.innerCopperWeight);
+  const table = use2ozTable ? engFeeTable_2oz[form.layers as keyof typeof engFeeTable_2oz] : engFeeTable[form.layers as keyof typeof engFeeTable];
   let engFee: number | undefined = undefined;
   const notes: string[] = [];
   if (!table) {
     notes.push('This layer count is not supported for engineering fee, please contact sales for manual evaluation');
     return { extra: 0, detail: {}, notes };
   }
-  if (area <= 0.5) {
+  if (area <= 0.2) {
+    engFee = 0;
+    notes.push('Engineering fee: area≤0.2㎡, no engineering fee (pack price only)');
+  } else if (area > 0.2 && area <= 0.5) {
     engFee = table.engFee_0_05;
-    notes.push(`Engineering fee: area≤0.5㎡, engFee=${engFee}`);
+    notes.push(`Engineering fee: 0.2㎡<area≤0.5㎡, engFee=${engFee}${use2ozTable ? ' (copper >1oz)' : ''}`);
   } else if (area > 0.5 && area <= 3) {
-    engFee = table.engFee_05_3;
-    notes.push(`Engineering fee: 0.5㎡<area≤3㎡, engFee=${engFee}`);
+    engFee = use2ozTable ? table.engFee_05_3 : table.engFee_05_3;
+    notes.push(`Engineering fee: 0.5㎡<area≤3㎡, engFee=${engFee}${use2ozTable ? ' (copper >1oz)' : ''}`);
   } else {
     engFee = table.engFee_3up;
     notes.push('Engineering fee: area>3㎡, engFee=0');
@@ -1233,20 +1257,15 @@ export const copperWeightHandler: PriceHandler = (form, area) => {
     notes.push('请填写铜厚（单位oz）');
     return { extra, detail, notes };
   }
-  // 只允许 InnerCopperWeight 枚举值
-  const validCopper = ['0.5', '1', '2', '3', '4'];
-  if (!validCopper.includes(copper)) {
-    notes.push('铜厚仅支持0.5oz、1oz、2oz、3oz、4oz');
-    return { extra, detail, notes };
-  }
+
   // 单价查表
   const priceTable = {
-    '0.5': undefined, // 0.5oz 不加价
+    '1': { sample: 0, batch: 0 },
     '2': { sample: 100, batch: 100 },
     '3': { sample: 320, batch: 310 },
     '4': { sample: 550, batch: 510 },
   };
-  if (copper === '1' || copper === '0.5') {
+  if (copper  === CopperWeight.One) {
     notes.push(`铜厚${copper}oz不加价`);
     return { extra, detail, notes };
   }
@@ -1265,75 +1284,138 @@ export const copperWeightHandler: PriceHandler = (form, area) => {
 // 多层板铜厚加价查表（4层、6层，可扩展）
 export const multilayerCopperPriceTable: Record<string, Record<string, { sample: number; batch: number }>> = {
   '4': {
+    '1-0.5': { sample: 0, batch: 0 },
+    '1-1': { sample: 0, batch: 0 },
+    '2-0.5': { sample: 100, batch: 100 },
     '2-1': { sample: 100, batch: 100 },
     '2-2': { sample: 230, batch: 220 },
+    '3-0.5': { sample: 400, batch: 400 },
+    '3-1': { sample: 400, batch: 400 },
     '3-2': { sample: 400, batch: 400 },
     '3-3': { sample: 610, batch: 550 },
+    '4-0.5': { sample: 800, batch: 900 },
+    '4-1': { sample: 800, batch: 900 },
     '4-3': { sample: 800, batch: 900 },
     '4-4': { sample: 1200, batch: 1200 },
   },
   '6': {
+    '1-0.5': { sample: 0, batch: 0 },
+    '1-1': { sample: 0, batch: 0 },
+    '2-0.5': { sample: 100, batch: 100 },
     '2-1': { sample: 100, batch: 100 },
     '2-2': { sample: 400, batch: 380 },
     '2-3': { sample: 750, batch: 700 },
+    '3-0.5': { sample: 1100, batch: 900 },
+    '3-1': { sample: 1100, batch: 900 },
     '3-3': { sample: 1100, batch: 900 },
     '3-4': { sample: 1500, batch: 1300 },
+    '4-0.5': { sample: 1900, batch: 1700 },
+    '4-1': { sample: 1900, batch: 1700 },
     '4-4': { sample: 1900, batch: 1700 },
   },
   '8': {
+    '1-0.5': { sample: 0, batch: 0 },
+    '1-1': { sample: 0, batch: 0 },
+    '2-0.5': { sample: 100, batch: 100 },
     '2-1': { sample: 100, batch: 100 },
     '2-2': { sample: 580, batch: 560 },
     '2-3': { sample: 1450, batch: 1400 },
+    '3-0.5': { sample: 2090, batch: 1600 },
+    '3-1': { sample: 2090, batch: 1600 },
     '3-3': { sample: 2090, batch: 1600 },
     '3-4': { sample: 2300, batch: 2100 },
+    '4-0.5': { sample: 3300, batch: 2700 },
+    '4-1': { sample: 3300, batch: 2700 },
     '4-4': { sample: 3300, batch: 2700 },
   },
   '10': {
+    '1-0.5': { sample: 0, batch: 0 },
+    '1-1': { sample: 0, batch: 0 },
+    '2-0.5': { sample: 100, batch: 100 },
     '2-1': { sample: 100, batch: 100 },
     '2-2': { sample: 760, batch: 740 },
     '2-3': { sample: 1800, batch: 1750 },
+    '3-0.5': { sample: 2580, batch: 1950 },
+    '3-1': { sample: 2580, batch: 1950 },
     '3-3': { sample: 2580, batch: 1950 },
     '3-4': { sample: 2700, batch: 2500 },
+    '4-0.5': { sample: 4000, batch: 3200 },
+    '4-1': { sample: 4000, batch: 3200 },
     '4-4': { sample: 4000, batch: 3200 },
   },
   '12': {
+    '1-0.5': { sample: 0, batch: 0 },
+    '1-1': { sample: 0, batch: 0 },
+    '2-0.5': { sample: 100, batch: 100 },
     '2-1': { sample: 100, batch: 100 },
     '2-2': { sample: 940, batch: 920 },
     '2-3': { sample: 2150, batch: 2100 },
+    '3-0.5': { sample: 3070, batch: 2300 },
+    '3-1': { sample: 3070, batch: 2300 },
     '3-3': { sample: 3070, batch: 2300 },
     '3-4': { sample: 3100, batch: 2900 },
+    '4-0.5': { sample: 4700, batch: 3700 },
+    '4-1': { sample: 4700, batch: 3700 },
     '4-4': { sample: 4700, batch: 3700 },
   },
   '14': {
+    '1-0.5': { sample: 0, batch: 0 },
+    '1-1': { sample: 0, batch: 0 },
+    '2-0.5': { sample: 100, batch: 100 },
     '2-1': { sample: 100, batch: 100 },
     '2-2': { sample: 1120, batch: 1100 },
     '2-3': { sample: 2500, batch: 2450 },
+    '3-0.5': { sample: 3560, batch: 2650 },
+    '3-1': { sample: 3560, batch: 2650 },
     '3-3': { sample: 3560, batch: 2650 },
     '3-4': { sample: 3500, batch: 3300 },
+    '4-0.5': { sample: 5400, batch: 4200 },
+    '4-1': { sample: 5400, batch: 4200 },
     '4-4': { sample: 5400, batch: 4200 },
   },
   '16': {
+    '1-0.5': { sample: 0, batch: 0 },
+    '1-1': { sample: 0, batch: 0 },
+    '2-0.5': { sample: 100, batch: 100 },
     '2-1': { sample: 100, batch: 100 },
     '2-2': { sample: 1300, batch: 1280 },
     '2-3': { sample: 2850, batch: 2800 },
+    '3-0.5': { sample: 4050, batch: 3000 },
+    '3-1': { sample: 4050, batch: 3000 },
     '3-3': { sample: 4050, batch: 3000 },
     '3-4': { sample: 3900, batch: 3700 },
+    '4-0.5': { sample: 6100, batch: 4700 },
+    '4-1': { sample: 6100, batch: 4700 },
     '4-4': { sample: 6100, batch: 4700 },
   },
   '18': {
+    '1-0.5': { sample: 0, batch: 0 },
+    '1-1': { sample: 0, batch: 0 },
+    '2-0.5': { sample: 100, batch: 100 },
     '2-1': { sample: 100, batch: 100 },
     '2-2': { sample: 1480, batch: 1460 },
     '2-3': { sample: 3200, batch: 3150 },
+    '3-0.5': { sample: 4540, batch: 3350 },
+    '3-1': { sample: 4540, batch: 3350 },
     '3-3': { sample: 4540, batch: 3350 },
     '3-4': { sample: 4300, batch: 4100 },
+    '4-0.5': { sample: 6800, batch: 5200 },
+    '4-1': { sample: 6800, batch: 5200 },
     '4-4': { sample: 6800, batch: 5200 },
   },
   '20': {
+    '1-0.5': { sample: 0, batch: 0 },
+    '1-1': { sample: 0, batch: 0 },
+    '2-0.5': { sample: 100, batch: 100 },
     '2-1': { sample: 100, batch: 100 },
     '2-2': { sample: 1660, batch: 1640 },
     '2-3': { sample: 3550, batch: 3500 },
+    '3-0.5': { sample: 5030, batch: 3700 },
+    '3-1': { sample: 5030, batch: 3700 },
     '3-3': { sample: 5030, batch: 3700 },
     '3-4': { sample: 4700, batch: 4500 },
+    '4-0.5': { sample: 7500, batch: 5700 },
+    '4-1': { sample: 7500, batch: 5700 },
     '4-4': { sample: 7500, batch: 5700 },
   },
 };

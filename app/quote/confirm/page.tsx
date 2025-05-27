@@ -266,7 +266,7 @@ export default function QuoteConfirmPage() {
         <div className="flex items-center gap-4 mt-2 mb-8">
           <Button
             variant="outline"
-            onClick={() => router.back()}
+            onClick={() => router.push("/quote")}
             className="h-10"
           >
             ← Back
