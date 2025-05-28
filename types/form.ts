@@ -167,7 +167,7 @@ export enum Silkscreen {
 export enum SurfaceFinish {
   HASL = 'HASL', // 性价比高，适合通用
   LeadFree = 'Leadfree HASL', // 环保，适合出口
-  Enig = 'Enig', // 平整耐腐蚀，适合高端
+  Enig = 'ENIG', // 平整耐腐蚀，适合高端
   OSP = 'OSP', // 环保，适合SMT
   ImmersionSilver = 'Immersion Silver', // 高频信号，易氧化
   ImmersionTin = 'Immersion Tin', // 高密度，长期易变色
