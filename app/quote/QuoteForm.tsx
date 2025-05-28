@@ -9,19 +9,19 @@ import { Layers, Settings, UserCheck, UploadCloud, Truck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
+import { useUserStore } from "@/lib/userStore";
 
 export interface QuoteFormProps {
   form: PcbQuoteForm & { gerber?: File };
-  errors: any;
   setForm: React.Dispatch<React.SetStateAction<PcbQuoteForm & { gerber?: File }>>;
-  setErrors: React.Dispatch<React.SetStateAction<any>>;
   sectionRefs: React.RefObject<HTMLDivElement>[];
   setShippingCost: (cost: number) => void;
 }
 
-export default function QuoteForm({ form, errors, setForm, setErrors, sectionRefs, setShippingCost }: QuoteFormProps) {
+export default function QuoteForm({ form, setForm, sectionRefs, setShippingCost }: QuoteFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const user = useUserStore(state => state.user);
 
   async function handleGerberUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -31,7 +31,6 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // 这里只做简单跳转，登录校验和后端交互可在父组件处理
     router.push("/quote/confirm");
   }
 
@@ -66,7 +65,7 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
           <CardTitle className="text-lg font-bold tracking-wide text-blue-800">Basic Information</CardTitle>
         </CardHeader>
         <CardContent className="pt-2 pb-4 px-2 md:px-4">
-          <BasicInfoSection form={form} errors={errors} setForm={setForm} sectionRef={sectionRefs[0]} />
+          <BasicInfoSection form={form} setForm={setForm} sectionRef={sectionRefs[0]} />
         </CardContent>
       </Card>
       {/* Process Information */}
@@ -76,7 +75,7 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
           <CardTitle className="text-lg font-bold tracking-wide text-blue-800">Process Information</CardTitle>
         </CardHeader>
         <CardContent className="pt-2 pb-4 px-2 md:px-4">
-          <ProcessInfoSection form={form} errors={errors} setForm={setForm} sectionRef={sectionRefs[1]} />
+          <ProcessInfoSection form={form} setForm={setForm as any} sectionRef={sectionRefs[1]} />
         </CardContent>
       </Card>
       {/* Service Information */}
@@ -86,7 +85,7 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
           <CardTitle className="text-lg font-bold tracking-wide text-blue-800">Service Information</CardTitle>
         </CardHeader>
         <CardContent className="pt-2 pb-4 px-2 md:px-4">
-          <ServiceInfoSection form={form} errors={errors} setForm={setForm} sectionRef={sectionRefs[2]} />
+          <ServiceInfoSection form={form} setForm={setForm as any} sectionRef={sectionRefs[2]} />
         </CardContent>
       </Card>
       {/* Shipping Cost Estimation */}
@@ -99,7 +98,11 @@ export default function QuoteForm({ form, errors, setForm, setErrors, sectionRef
           <ShippingCostEstimationSection form={form} setShippingCost={setShippingCost} sectionRef={sectionRefs[3]} />
         </CardContent>
       </Card>
-      <Button type="submit" className="w-full mt-2 mb-8 h-12 text-base font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition">Get Quote</Button>
+      {user ? (
+        <Button type="submit" className="w-full mt-2 mb-8 h-12 text-base font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition">continue</Button>
+      ) : (
+        <Button type="button" className="w-full mt-2 mb-8 h-12 text-base font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition" onClick={() => router.push(`/auth?redirect=/quote/confirm`)}>Login to continue</Button>
+      )}
     </form>
   );
 } 

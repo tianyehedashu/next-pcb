@@ -90,7 +90,7 @@ export const shippingZones: ShippingZone[] = [
   },
   {
     name: 'Zone 3 - Asia Pacific',
-    countries: ['au', 'jp', 'kr', 'sg', 'my', 'th', 'vn', 'id', 'ph', 'nz'],
+    countries: ['au', 'jp', 'kr', 'sg', 'my', 'th', 'vn', 'id', 'ph', 'nz', 'cn'],
     dhl: {
       baseRate: 40,
       pricePerKg: 7.5,

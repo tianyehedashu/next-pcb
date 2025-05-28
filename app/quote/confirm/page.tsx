@@ -13,7 +13,6 @@ import { calculateShippingCost, shippingZones } from "@/lib/shipping-calculator"
 import { calculateCustomsFee } from "@/lib/customs-fee";
 import React, { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { useEnsureLogin } from "@/lib/auth";
 import { useUserStore } from "@/lib/userStore";
 import FileUpload from "@/app/components/custom-ui/FileUpload";
 import { useExchangeRate } from "@/lib/hooks/useExchangeRate";
@@ -23,24 +22,104 @@ import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 export type OptionType = { value: string; label: string };
 const ReactSelect = dynamic(() => import("react-select"), { ssr: false });
 
+// 去重，保留第一个 iso2 出现的项
+const COUNTRY_LIST = [
+  { iso2: 'US', name: 'United States', emoji: '🇺🇸', geonameId: 6252001 },
+  { iso2: 'CN', name: 'China', emoji: '🇨🇳', geonameId: 1814991 },
+  { iso2: 'JP', name: 'Japan', emoji: '🇯🇵', geonameId: 1861060 },
+  { iso2: 'DE', name: 'Germany', emoji: '🇩🇪', geonameId: 2921044 },
+  { iso2: 'GB', name: 'United Kingdom', emoji: '🇬🇧', geonameId: 2635167 },
+  { iso2: 'FR', name: 'France', emoji: '🇫🇷', geonameId: 3017382 },
+  { iso2: 'IT', name: 'Italy', emoji: '🇮🇹', geonameId: 3175395 },
+  { iso2: 'ES', name: 'Spain', emoji: '🇪🇸', geonameId: 2510769 },
+  { iso2: 'NL', name: 'Netherlands', emoji: '🇳🇱', geonameId: 2750405 },
+  { iso2: 'BE', name: 'Belgium', emoji: '🇧🇪', geonameId: 2802361 },
+  { iso2: 'CH', name: 'Switzerland', emoji: '🇨🇭', geonameId: 2658434 },
+  { iso2: 'SE', name: 'Sweden', emoji: '🇸🇪', geonameId: 2661886 },
+  { iso2: 'NO', name: 'Norway', emoji: '🇳🇴', geonameId: 3144096 },
+  { iso2: 'DK', name: 'Denmark', emoji: '🇩🇰', geonameId: 2623032 },
+  { iso2: 'FI', name: 'Finland', emoji: '🇫🇮', geonameId: 660013 },
+  { iso2: 'CA', name: 'Canada', emoji: '🇨🇦', geonameId: 6251999 },
+  { iso2: 'AU', name: 'Australia', emoji: '🇦🇺', geonameId: 2077456 },
+  { iso2: 'KR', name: 'South Korea', emoji: '🇰🇷', geonameId: 1835841 },
+  { iso2: 'SG', name: 'Singapore', emoji: '🇸🇬', geonameId: 1880251 },
+  { iso2: 'IN', name: 'India', emoji: '🇮🇳', geonameId: 1269750 },
+  { iso2: 'BR', name: 'Brazil', emoji: '🇧🇷', geonameId: 3469034 },
+  { iso2: 'RU', name: 'Russia', emoji: '🇷🇺', geonameId: 2017370 },
+  { iso2: 'MX', name: 'Mexico', emoji: '🇲🇽', geonameId: 3996063 },
+  // 欧盟成员国（去除已在上方出现的重复项）
+  { iso2: 'AT', name: 'Austria', emoji: '🇦🇹', geonameId: 2782113 },
+  { iso2: 'BG', name: 'Bulgaria', emoji: '🇧🇬', geonameId: 732800 },
+  { iso2: 'HR', name: 'Croatia', emoji: '🇭🇷', geonameId: 3202326 },
+  { iso2: 'CY', name: 'Cyprus', emoji: '🇨🇾', geonameId: 146669 },
+  { iso2: 'CZ', name: 'Czechia', emoji: '🇨🇿', geonameId: 3077311 },
+  { iso2: 'EE', name: 'Estonia', emoji: '🇪🇪', geonameId: 453733 },
+  { iso2: 'GR', name: 'Greece', emoji: '🇬🇷', geonameId: 390903 },
+  { iso2: 'HU', name: 'Hungary', emoji: '🇭🇺', geonameId: 719819 },
+  { iso2: 'IE', name: 'Ireland', emoji: '🇮🇪', geonameId: 2963597 },
+  { iso2: 'LV', name: 'Latvia', emoji: '🇱🇻', geonameId: 458258 },
+  { iso2: 'LT', name: 'Lithuania', emoji: '🇱🇹', geonameId: 597427 },
+  { iso2: 'LU', name: 'Luxembourg', emoji: '🇱🇺', geonameId: 2960313 },
+  { iso2: 'MT', name: 'Malta', emoji: '🇲🇹', geonameId: 2562770 },
+  { iso2: 'PL', name: 'Poland', emoji: '🇵🇱', geonameId: 798544 },
+  { iso2: 'PT', name: 'Portugal', emoji: '🇵🇹', geonameId: 2264397 },
+  { iso2: 'RO', name: 'Romania', emoji: '🇷🇴', geonameId: 798549 },
+  { iso2: 'SK', name: 'Slovakia', emoji: '🇸🇰', geonameId: 3057568 },
+  { iso2: 'SI', name: 'Slovenia', emoji: '🇸🇮', geonameId: 3190538 },
+];
 
 // useGeoOptions hook
-interface StateApiItem { state_code: string; name: string; }
-interface CityApiItem { code: string; name: string; }
+// GeoNames 省/州类型
+type GeoNamesState = {
+  geonameId: number;
+  name: string;
+  adminCodes1?: { ISO3166_2?: string };
+  adminCode1?: string;
+};
+// GeoNames 城市类型
+type GeoNamesCity = {
+  geonameId: number;
+  name: string;
+};
+
 function useGeoOptions(country: string, province: string) {
   const [states, setStates] = useState<OptionType[]>([]);
   const [cities, setCities] = useState<OptionType[]>([]);
+  const geonamesUser = "leodennis"; // TODO: 替换为你的 GeoNames 用户名
+
+  // 通过 iso2 获取 geonameId
+  function getCountryGeonameId(iso2: string): number | undefined {
+    return COUNTRY_LIST.find(c => c.iso2 === iso2)?.geonameId;
+  }
+
   useEffect(() => {
     if (!country) { setStates([]); return; }
-    fetch(`/api/geo/states?country=${country}`)
+    const geonameId = getCountryGeonameId(country);
+    if (!geonameId) { setStates([]); return; }
+    fetch(`https://secure.geonames.org/childrenJSON?geonameId=${geonameId}&username=${geonamesUser}`)
       .then(res => res.json())
-      .then(data => setStates(Array.isArray(data.data) ? (data.data as StateApiItem[]).map((s) => ({ value: s.state_code, label: s.name })) : []));
+      .then(data => setStates(
+        Array.isArray(data.geonames)
+          ? data.geonames.map((s: GeoNamesState) => ({
+              value: s.adminCode1 || String(s.geonameId),
+              label: s.name
+            }))
+          : []
+      ));
   }, [country]);
+
   useEffect(() => {
     if (!country || !province) { setCities([]); return; }
-    fetch(`/api/geo/cities?country=${country}&state=${province}`)
+    fetch(`https://secure.geonames.org/searchJSON?country=${country}&adminCode1=${province}&featureClass=P&maxRows=1000&username=${geonamesUser}`)
       .then(res => res.json())
-      .then(data => setCities(Array.isArray(data.data) ? (data.data as CityApiItem[]).map((c) => ({ value: c.code, label: c.name })) : []));
+      .then(data => setCities(
+        Array.isArray(data.geonames)
+          ? data.geonames.map((c: GeoNamesCity) => ({
+              value: String(c.geonameId),
+              label: c.name
+            }))
+          : []
+      ));
   }, [country, province]);
   return { states, cities };
 }
@@ -58,9 +137,12 @@ function validateQuoteForm(form: PcbQuoteForm): string | null {
   return null;
 }
 
+// 前缀匹配函数
+const prefixFilterOption = (option: { label: string; value: string }, input: string) => {
+  return option.label.toLowerCase().startsWith(input.toLowerCase());
+};
 
 export default function QuoteConfirmPage() {
-  useEnsureLogin();
   const router = useRouter();
   const { form: quote, clearForm, setForm: setQuoteForm } = useQuoteStore();
   const [form, setForm] = useState<PcbQuoteForm>(quote);
@@ -200,45 +282,24 @@ export default function QuoteConfirmPage() {
   };
 
   // 国家选项
-  const SUPPORTED_COUNTRIES: string[] = Array.from(new Set(shippingZones.flatMap((z: typeof shippingZones[number]) => z.countries)));
-  const COMMON_COUNTRIES = [
-    { iso2: 'US', name: 'United States', emoji: '🇺🇸' },
-    { iso2: 'CN', name: 'China', emoji: '🇨🇳' },
-    { iso2: 'JP', name: 'Japan', emoji: '🇯🇵' },
-    { iso2: 'DE', name: 'Germany', emoji: '🇩🇪' },
-    { iso2: 'GB', name: 'United Kingdom', emoji: '🇬🇧' },
-    { iso2: 'FR', name: 'France', emoji: '🇫🇷' },
-    { iso2: 'IT', name: 'Italy', emoji: '🇮🇹' },
-    { iso2: 'ES', name: 'Spain', emoji: '🇪🇸' },
-    { iso2: 'NL', name: 'Netherlands', emoji: '🇳🇱' },
-    { iso2: 'BE', name: 'Belgium', emoji: '🇧🇪' },
-    { iso2: 'CH', name: 'Switzerland', emoji: '🇨🇭' },
-    { iso2: 'SE', name: 'Sweden', emoji: '🇸🇪' },
-    { iso2: 'NO', name: 'Norway', emoji: '🇳🇴' },
-    { iso2: 'DK', name: 'Denmark', emoji: '🇩🇰' },
-    { iso2: 'FI', name: 'Finland', emoji: '🇫🇮' },
-    { iso2: 'CA', name: 'Canada', emoji: '🇨🇦' },
-    { iso2: 'AU', name: 'Australia', emoji: '🇦🇺' },
-    { iso2: 'KR', name: 'South Korea', emoji: '🇰🇷' },
-    { iso2: 'SG', name: 'Singapore', emoji: '🇸🇬' },
-    { iso2: 'IN', name: 'India', emoji: '🇮🇳' },
-    { iso2: 'BR', name: 'Brazil', emoji: '🇧🇷' },
-    { iso2: 'RU', name: 'Russia', emoji: '🇷🇺' },
-    { iso2: 'MX', name: 'Mexico', emoji: '🇲🇽' },
-  ].filter(c => SUPPORTED_COUNTRIES.includes(c.iso2.toLowerCase()));
+  const SUPPORTED_COUNTRIES: string[] = Array.from(
+    new Set(
+      shippingZones.flatMap((z: typeof shippingZones[number]) => z.countries.map((c: string) => c.toUpperCase()))
+    )
+  );
   const countryOptions: OptionType[] = useMemo(() => {
-    const exists = COMMON_COUNTRIES.some(c => c.iso2 === form.shippingAddress.country);
-    let opts = COMMON_COUNTRIES
-      .filter(c => SUPPORTED_COUNTRIES.includes(c.iso2.toLowerCase()))
+    const exists = COUNTRY_LIST.some(c => c.iso2 === form.shippingAddress.country);
+    let opts = COUNTRY_LIST
+      .filter(c => SUPPORTED_COUNTRIES.includes(c.iso2))
       .map(c => ({ value: c.iso2, label: `${c.emoji ? c.emoji + " " : ""}${c.name}` }));
-    if (form.shippingAddress.country && !exists && SUPPORTED_COUNTRIES.includes(form.shippingAddress.country.toLowerCase())) {
+    if (form.shippingAddress.country && !exists && SUPPORTED_COUNTRIES.includes(form.shippingAddress.country)) {
       opts = [
         ...opts,
         { value: form.shippingAddress.country, label: form.shippingAddress.country }
       ];
     }
     return opts;
-  }, [form.shippingAddress.country, COMMON_COUNTRIES, SUPPORTED_COUNTRIES]);
+  }, [form.shippingAddress.country, SUPPORTED_COUNTRIES]);
 
   // select样式类型
   const selectStyles: Record<string, unknown> = {
@@ -349,6 +410,7 @@ export default function QuoteConfirmPage() {
                       placeholder="Select State/Province"
                       isClearable
                       styles={selectStyles}
+                      filterOption={prefixFilterOption}
                     />
                   </div>
                   <div>
@@ -363,6 +425,7 @@ export default function QuoteConfirmPage() {
                       placeholder="Select City"
                       isClearable
                       styles={selectStyles}
+                      filterOption={prefixFilterOption}
                     />
                   </div>
                   <div>
