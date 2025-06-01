@@ -2,14 +2,13 @@
 
 export function calcArea(form: {
   shipmentType: string;
-  singleLength: number;
-  singleWidth: number;
+  singleDimensions: { length: number; width: number };
   singleCount: number;
   panelRow?: number;
   panelColumn?: number;
   panelSet?: number;
 }) {
-  const { shipmentType, singleLength, singleWidth, singleCount, panelRow = 1, panelColumn = 1, panelSet = 0 } = form;
+  const { shipmentType, singleDimensions, singleCount, panelRow = 1, panelColumn = 1, panelSet = 0 } = form;
   let totalCount = singleCount;
 
   if (shipmentType === 'panel' || shipmentType === 'panel_agent') {
@@ -18,6 +17,6 @@ export function calcArea(form: {
   }
 
   // 面积单位：平方米
-  const area = (singleLength * singleWidth * totalCount) / 10000;
+  const area = (singleDimensions.length * singleDimensions.width * totalCount) / 10000;
   return area;
 } 

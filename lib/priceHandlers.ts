@@ -1058,9 +1058,9 @@ export const holeCu25umHandler: PriceHandler = (form, area) => {
  */
 export const filmFeeHandler = (form: PcbQuoteForm) => {
   // 菲林面积
-  let singleArea = form.singleLength * form.singleWidth / 10000;
-  if (form.shipmentType === 'panel' && form.panelRow && form.panelColumn) {
-    singleArea = (singleArea * form.panelRow * form.panelColumn);
+  let singleArea = (form.singleDimensions?.length ?? 0) * (form.singleDimensions?.width ?? 0) / 10000;
+  if (form.shipmentType === 'panel' && form.panelDimensions?.row && form.panelDimensions?.column) {
+    singleArea = (singleArea * form.panelDimensions.row * form.panelDimensions.column);
   }
   // 菲林张数
   let filmCount = 0;
@@ -1392,3 +1392,88 @@ export const multilayerCopperWeightHandler: PriceHandler = (form, area) => {
   notes.push(`多层板铜厚加价：${layers}层，外层${outer}oz，内层${inner}oz，${isSample ? '样品' : '批量'}单价${unitPrice}元/㎡，面积${area.toFixed(2)}㎡，总加价${extra}元`);
   return { extra, detail, notes };
 };
+
+// 根据板厚调整基础报价
+export const thicknessHandler = Object.assign(
+  (_form: PcbQuoteForm, _area: number) => {
+    const { layers = 2, thickness = 1.6 } = _form;
+    let thicknessFee = 0;
+    const detail: Record<string, number> = {};
+    const notes: string[] = [];
+    const isSample = _area < 1;
+    // 正常制程范围定义
+    let normalMin = 0, normalMax = 0;
+    if (layers === 1 || layers === 2 || layers === 3 || layers === 4) {
+      normalMin = 0.6; normalMax = 1.6;
+    } else if (layers === 6) {
+      normalMin = 0.8; normalMax = 1.6;
+    } else if (layers === 8) {
+      normalMin = 1.0; normalMax = 1.6;
+    } else if (layers === 10) {
+      normalMin = 1.2; normalMax = 1.6;
+    } else if (layers >= 12) {
+      normalMin = 1.6; normalMax = 99;
+    }
+    // 只处理 thickness 为 number
+    if (typeof thickness === 'number') {
+      // 0.2-0.4mm，单双面板，制板单价加50%/平米(样板+300元/款）
+      if ((layers === 1 || layers === 2) && thickness >= 0.2 && thickness <= 0.4) {
+        if (isSample) {
+          thicknessFee = 300;
+          detail['thickness_sample'] = 300;
+          notes.push(`Thickness 0.2-0.4mm (1-2L) sample: +300 CNY/lot`);
+        } else {
+          // 批量：单价加50%/平米，需要基础价格
+          notes.push(`Thickness ${thickness}mm (1-2L): requires 50% base price adjustment`);
+        }
+        // 1.6-3.2mm，单双面板，板厚每加0.4MM单价加100元/平米，订单不足1平米按1平米收费
+      } else if ((layers === 1 || layers === 2) && thickness >= 1.6 && thickness <= 3.2) {
+        const base = 1.6;
+        if (thickness > base) {
+          const step = Math.round((thickness - base) / 0.4);
+          if (step > 0) {
+            const fee = step * 100 * Math.max(1, _area);
+            thicknessFee = fee;
+            detail['thickness'] = fee;
+            notes.push(`Thickness ${thickness}mm (1-2L): +${step * 100} CNY/㎡ × ${Math.max(1, _area).toFixed(2)} = ${fee.toFixed(2)} CNY`);
+          }
+        }
+        // 1.6-3.2mm，4层及以上，板厚每加0.4MM单价加80元/平米，订单不足1平米按1平米收费
+      } else if (layers >= 4 && thickness >= 1.6 && thickness <= 3.2) {
+        const base = 1.6;
+        if (thickness > base) {
+          const step = Math.round((thickness - base) / 0.4);
+          if (step > 0) {
+            const fee = step * 80 * Math.max(1, _area);
+            thicknessFee = fee;
+            detail['thickness'] = fee;
+            notes.push(`Thickness ${thickness}mm (${layers}L): +${step * 80} CNY/㎡ × ${Math.max(1, _area).toFixed(2)} = ${fee.toFixed(2)} CNY`);
+          }
+        }
+        // 正常范围内减价：0.6-1.0MM，单双面板，制板单价减15元/平米
+      } else if ((layers === 1 || layers === 2) && thickness >= 0.6 && thickness <= 1.0 && thickness >= normalMin && thickness <= normalMax) {
+        if (_area > 5) {
+          const fee = -15 * Math.max(1, _area);
+          thicknessFee = fee;
+          detail['thickness'] = fee;
+          notes.push(`Thickness ${thickness}mm (1-2L): -15 CNY/㎡ × ${Math.max(1, _area).toFixed(2)} = ${fee.toFixed(2)} CNY`);
+        }
+        // 正常范围内减价：1.2MM，单双面板，制板单价减10元/平米
+      } else if ((layers === 1 || layers === 2) && thickness === 1.2 && thickness >= normalMin && thickness <= normalMax) {
+        if (_area > 5) {
+          const fee = -10 * Math.max(1, _area);
+          thicknessFee = fee;
+          detail['thickness'] = fee;
+          notes.push(`Thickness 1.2mm (1-2L): -10 CNY/㎡ × ${Math.max(1, _area).toFixed(2)} = ${fee.toFixed(2)} CNY`);
+        }
+      }
+    }
+    
+    return {
+      extra: thicknessFee,
+      detail: { ...detail },
+      notes: [...notes],
+    };
+  },
+  { dependencies: ['layers', 'singleLength', 'singleWidth', 'panelCount', 'panelSet', 'singleCount', 'outerCopperWeight', 'innerCopperWeight'] }
+);

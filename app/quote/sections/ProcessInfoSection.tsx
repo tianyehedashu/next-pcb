@@ -1,10 +1,11 @@
 import RadioGroup from "../RadioGroup";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { Tooltip } from "@/components/ui/tooltip";
 import { pcbFieldRules } from "@/lib/pcbFieldRules";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
+import { useFormDependencyEffects } from '@/lib/hooks/useFormDependencyEffects';
 
 // 字段定义与类型统一
 export const processInfoFields = {
@@ -54,32 +55,7 @@ interface ProcessInfoSectionProps {
 }
 
 export default function ProcessInfoSection({ form, setForm, sectionRef }: ProcessInfoSectionProps) {
-  const formData = form as unknown as Record<string, unknown>;
-  const prevDepsRef = useRef<Record<string, unknown[]>>({});
-  useEffect(() => {
-    const newForm: Record<string, unknown> = { ...formData };
-    let changed = false;
-    Object.entries(pcbFieldRules).forEach(([key, rule]) => {
-      if (!rule.dependencies) return;
-      const currentDeps = rule.dependencies.map(dep => formData[dep]);
-      const prevDeps = prevDepsRef.current[key];
-      if (!prevDeps || currentDeps.some((v, i) => v !== prevDeps[i])) {
-        const defaultValue = typeof rule.default === "function"
-          ? rule.default(form as PcbQuoteForm)
-          : rule.default;
-        const options = ('options' in pcbFieldRules[key] && pcbFieldRules[key].options ? pcbFieldRules[key].options : (typeof rule.options === 'function' ? rule.options(form as PcbQuoteForm) : rule.options)) as (string | number | boolean)[] || [];
-        if (!Array.isArray(options) || !options.includes(newForm[key] as string | number | boolean) || newForm[key] !== defaultValue) {
-          newForm[key] = defaultValue;
-          changed = true;
-        }
-      }
-      prevDepsRef.current[key] = currentDeps;
-    });
-    if (changed) {
-      setForm(newForm as Partial<PcbQuoteForm>);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, setForm]);
+  useFormDependencyEffects({ form, setForm: setForm as any }); // Cast setForm to any for now due to complex type
 
   return (
     <div ref={sectionRef} className="scroll-mt-32">
@@ -141,18 +117,18 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
                         disabled: rule.shouldDisable ? rule.shouldDisable({ ...(form as PcbQuoteForm), [key]: v }) : false
                       }));
                     })()}
-                    value={typeof formData[key] === 'string' || typeof formData[key] === 'number' || typeof formData[key] === 'boolean' ? formData[key].toString() : ('default' in field && field.default !== undefined && field.default !== null ? field.default.toString() : '')}
-                    onChange={(v: string) => setForm((prev) => ({ ...prev, [key]: typeof sortedOptions[0] === 'boolean' ? v === 'true' : v }))}
+                    value={typeof form[key as keyof PcbQuoteForm] === 'string' || typeof form[key as keyof PcbQuoteForm] === 'number' || typeof form[key as keyof PcbQuoteForm] === 'boolean' ? String(form[key as keyof PcbQuoteForm]) : ''}
+                    onChange={(v: string) => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm]: typeof sortedOptions[0] === 'boolean' ? v === 'true' : v }))}
                   />
                 )}
                 {(type as string) === "select" && sortedOptions.length > 0 && (
-                  <Select value={typeof formData[key] === 'string' || typeof formData[key] === 'number' || typeof formData[key] === 'boolean' ? formData[key].toString() : ''} onValueChange={(v) => setForm((prev) => ({ ...prev, [key]: v }))}>
+                  <Select value={typeof form[key as keyof PcbQuoteForm] === 'string' || typeof form[key as keyof PcbQuoteForm] === 'number' || typeof form[key as keyof PcbQuoteForm] === 'boolean' ? String(form[key as keyof PcbQuoteForm]) : ''} onValueChange={(v) => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm]: v }))}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder={`Select ${rule.label}`} />
                     </SelectTrigger>
                     <SelectContent>
                       {sortedOptions.map((v) => (
-                        <SelectItem key={v.toString()} value={v.toString()} disabled={rule.shouldDisable ? rule.shouldDisable({ ...(form as PcbQuoteForm), [key]: v }) : false}>
+                        <SelectItem key={String(v)} value={String(v)} disabled={rule.shouldDisable ? rule.shouldDisable({ ...(form as PcbQuoteForm), [key]: v }) : false}>
                           {typeof v === 'string' || typeof v === 'number'
                             ? `${v}${rule.unit ? ` ${rule.unit}` : ''}`
                             : String(v)}
@@ -163,8 +139,8 @@ export default function ProcessInfoSection({ form, setForm, sectionRef }: Proces
                 )}
                 {(type as string) === "input" && (
                   <Input
-                    value={typeof formData[key] === 'string' || typeof formData[key] === 'number' || typeof formData[key] === 'boolean' ? formData[key].toString() : ''}
-                    onChange={e => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                    value={typeof form[key as keyof PcbQuoteForm] === 'string' || typeof form[key as keyof PcbQuoteForm] === 'number' || typeof form[key as keyof PcbQuoteForm] === 'boolean' ? String(form[key as keyof PcbQuoteForm]) : ''}
+                    onChange={e => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm]: e.target.value }))}
                     placeholder={`Enter ${rule.label}`}
                     className="w-48"
                   />

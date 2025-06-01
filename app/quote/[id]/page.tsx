@@ -7,15 +7,16 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import { Layers, Settings, UserCheck, FileEdit, ShoppingCart } from "lucide-react";
 import { fieldMap } from "@/lib/fieldMap";
+import { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
-const BASIC_FIELDS = [
-  "pcbType", "layers", "thickness", "hdi", "tg", "panelCount", "shipmentType", "singleLength", "singleWidth", "singleCount", "border"
+const BASIC_FIELDS: (keyof PcbQuoteForm)[] = [
+  "pcbType", "layers", "thickness", "hdi", "tg", "panelSet", "shipmentType", "border", "differentDesignsCount"
 ];
-const PROCESS_FIELDS = [
-  "copperWeight", "minTrace", "minHole", "solderMask", "silkscreen", "surfaceFinish", "impedance", "castellated", "goldFingers", "edgePlating", "halfHole", "edgeCover", "maskCover", "flyingProbe"
+const PROCESS_FIELDS: (keyof PcbQuoteForm)[] = [
+  "minTrace", "minHole", "solderMask", "silkscreen", "surfaceFinish", "surfaceFinishEnigType", "impedance", "castellated", "goldFingers", "goldFingersBevel", "edgePlating", "halfHole", "edgeCover", "maskCover", "holeCu25um", "outerCopperWeight", "innerCopperWeight"
 ];
-const SERVICE_FIELDS = [
-  "testMethod", "prodCap", "productReport", "rejectBoard", "yyPin", "customerCode", "payMethod", "qualityAttach", "smt"
+const SERVICE_FIELDS: (keyof PcbQuoteForm)[] = [
+  "testMethod", "prodCap", "productReport", "rejectBoard", "yyPin", "customerCode", "payMethod", "qualityAttach", "smt", "useShengyiMaterial", "holeCount", "bga", "workingGerber", "ulMark", "crossOuts", "ipcClass", "ifDataConflicts", "specialRequests", "pcbNote", "userNote"
 ];
 
 // 反向映射：后端字段名 => 前端字段名
@@ -23,10 +24,10 @@ const backendToFrontendMap = Object.fromEntries(
   Object.entries(fieldMap).map(([k, v]) => [v, k])
 );
 
-function mapBackendToFrontend(data: Record<string, any>) {
+function mapBackendToFrontend(data: Record<string, any>): PcbQuoteForm {
   return Object.fromEntries(
     Object.entries(data).map(([k, v]) => [backendToFrontendMap[k] || k, v])
-  );
+  ) as PcbQuoteForm;
 }
 
 function renderField(label: string, value: any) {
@@ -53,7 +54,7 @@ export default function QuoteDetailPage() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id;
-  const [quote, setQuote] = useState<any>(null);
+  const [quote, setQuote] = useState<PcbQuoteForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -109,24 +110,27 @@ export default function QuoteDetailPage() {
             </div>
             <div className="grid grid-cols-3 gap-x-2 gap-y-1">
               {BASIC_FIELDS.filter(f => quote[f] !== undefined).map(f => {
-                if (f === "singleLength" || f === "singleWidth") {
-                  return (
-                    <div key={f}>
-                      <span className="font-semibold text-muted-foreground text-xs w-36 truncate">{getSizeLabel(quote.shipmentType)}</span>
-                      <span className="break-all text-sm flex-1">{quote.singleLength} × {quote.singleWidth} <span className="text-xs text-muted-foreground">cm</span></span>
-                    </div>
-                  );
-                }
-                if (f === "singleCount") {
-                  return (
-                    <div key={f}>
-                      <span className="font-semibold text-muted-foreground text-xs w-36 truncate">{getCountLabel(quote.shipmentType)}</span>
-                      <span className="break-all text-sm flex-1">{quote.singleCount} <span className="text-xs text-muted-foreground">{getCountUnit(quote.shipmentType)}</span></span>
-                    </div>
-                  );
-                }
+                if (f === "singleDimensions" || f === "singleCount" || f === "panelDimensions") return null;
                 return renderField(f, quote[f]);
               })}
+              {quote?.singleDimensions && (
+                <div>
+                  <span className="font-semibold text-muted-foreground text-xs w-36 truncate">{getSizeLabel(quote.shipmentType)}</span>
+                  <span className="break-all text-sm flex-1">{quote.singleDimensions.length} × {quote.singleDimensions.width} <span className="text-xs text-muted-foreground">cm</span></span>
+                </div>
+              )}
+              {quote?.singleCount !== undefined && quote?.singleCount !== null && (
+                <div>
+                  <span className="font-semibold text-muted-foreground text-xs w-36 truncate">{getCountLabel(quote.shipmentType)}</span>
+                  <span className="break-all text-sm flex-1">{quote.singleCount} <span className="text-xs text-muted-foreground">{getCountUnit(quote.shipmentType)}</span></span>
+                </div>
+              )}
+              {quote?.panelDimensions && quote.shipmentType === 'panel' && (
+                <div>
+                  <span className="font-semibold text-muted-foreground text-xs w-36 truncate">Panel Size (pcs)</span>
+                  <span className="break-all text-sm flex-1">{quote.panelDimensions.row} × {quote.panelDimensions.column} <span className="text-xs text-muted-foreground">pcs</span></span>
+                </div>
+              )}
             </div>
           </div>
           {/* Process Info */}

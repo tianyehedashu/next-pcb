@@ -41,7 +41,7 @@ import type { PcbQuoteForm } from '../types/pcbQuoteForm';
 function getTotalCountAndArea(form: PcbQuoteForm): { totalCount: number; area: number } {
   let totalCount = form.singleCount;
   if (form.shipmentType === 'panel' || form.shipmentType === 'panel_agent') {
-    totalCount = (form.panelRow || 1) * (form.panelColumn || 1) * (form.panelSet || 0);
+    totalCount = (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
   }
   const area = (form.singleLength * form.singleWidth * totalCount) / 10000;
   return { totalCount, area };
@@ -165,3 +165,20 @@ notes = [...notes, ...(engFeeResult.notes || []), ...(filmFeeResult.notes || [])
 }
 
 // 详细实现请参考docs/pcb-pricing-v2.md 
+
+// 计算总数量 (根据出货方式)
+export function calcTotalCount(form: PcbQuoteForm): number {
+  if (form.shipmentType === 'single') {
+    return form.singleCount || 0;
+  } else if (form.shipmentType === 'panel') {
+    return (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
+  }
+  return 0;
+}
+
+// 计算板子总面积 (平方米)
+export function calcArea(form: PcbQuoteForm): number {
+  const totalCount = calcTotalCount(form);
+  const area = ((form.singleDimensions?.length ?? 0) * (form.singleDimensions?.width ?? 0) * totalCount) / 10000;
+  return area;
+}

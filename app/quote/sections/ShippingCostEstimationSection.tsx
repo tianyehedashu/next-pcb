@@ -62,9 +62,10 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
     setShippingInfo(newInfo);
     if (newInfo.country && newInfo.courier) {
       try {
-        const cost = calculateShippingCost(
-         form
-        );
+        const cost = calculateShippingCost({
+          ...form,
+          panelDimensions: form.panelDimensions,
+        });
         setShippingCostState(cost);
         setShippingCost(cost.finalCost);
       } catch {
@@ -80,15 +81,17 @@ export default function ShippingCostEstimationSection({ form, setShippingCost, s
         singleLength: form.singleLength,
         singleWidth: form.singleWidth,
         thickness: form.thickness,
-        panelRow: form.panelRow,
-        panelColumn: form.panelColumn,
+        panelDimensions: form.panelDimensions,
         outerCopperWeight: form.outerCopperWeight,
         innerCopperWeight: form.innerCopperWeight,
         layers: form.layers,
         pcbType: form.pcbType
       });
       try {
-        const cost = calculateShippingCost(form);
+        const cost = calculateShippingCost({
+          ...form,
+          panelDimensions: form.panelDimensions,
+        });
         setShippingCostState(cost);
         setShippingCost(cost.finalCost);
       } catch {

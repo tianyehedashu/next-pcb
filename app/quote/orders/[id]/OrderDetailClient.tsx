@@ -14,9 +14,10 @@ import { getPublicFileUrl } from "@/lib/supabase-file-url";
 import DownloadButton from "../../../components/custom-ui/DownloadButton";
 import { toUSD } from "@/lib/utils";
 import type { UserInfo } from "@/lib/userStore";
+import { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
 // 字段分组与友好名映射
-const FIELD_GROUPS = [
+const FIELD_GROUPS: { title: string; fields: { key: keyof PcbQuoteForm; label: string }[] }[] = [
   {
     title: "Base Info",
     fields: [
@@ -25,9 +26,8 @@ const FIELD_GROUPS = [
       { key: "thickness", label: "Thickness" },
       { key: "hdi", label: "HDI" },
       { key: "tg", label: "TG" },
-      { key: "panelCount", label: "Panel Count" },
-      { key: "singleLength", label: "Length (mm)" },
-      { key: "singleWidth", label: "Width (mm)" },
+      { key: "panelSet", label: "Panel Count" },
+      { key: "singleDimensions", label: "Single Size (cm)" },
       { key: "singleCount", label: "Single Count" },
       { key: "shipmentType", label: "Shipment" },
       { key: "border", label: "Border" },
@@ -39,7 +39,8 @@ const FIELD_GROUPS = [
   {
     title: "Process",
     fields: [
-      { key: "copperWeight", label: "Copper" },
+      { key: "outerCopperWeight", label: "Outer Copper" },
+      { key: "innerCopperWeight", label: "Inner Copper" },
       { key: "surfaceFinish", label: "Surface" },
       { key: "minTrace", label: "Min Trace" },
       { key: "minHole", label: "Min Hole" },
@@ -52,14 +53,12 @@ const FIELD_GROUPS = [
       { key: "halfHole", label: "Half Hole" },
       { key: "edgeCover", label: "Edge Cover" },
       { key: "maskCover", label: "Mask Cover" },
-      { key: "flyingProbe", label: "Flying Probe" },
+      { key: "testMethod", label: "Test Method" },
     ],
   },
   {
     title: "Service",
     fields: [
-      { key: "quantity", label: "Quantity" },
-      { key: "delivery", label: "Delivery" },
       { key: "testMethod", label: "Test Method" },
       { key: "prodCap", label: "Production Cap." },
       { key: "productReport", label: "Product Report" },
@@ -217,7 +216,7 @@ const getCountLabel = (shipmentType: string) => shipmentType === "single" ? "Sin
 const getCountUnit = (shipmentType: string) => shipmentType === "single" ? "Pcs" : "Set";
 
 interface OrderPcbSpecCardProps {
-  pcb_spec: Record<string, unknown>;
+  pcb_spec: PcbQuoteForm;
   gerber_file_url?: string | null;
   order: Database["public"]["Tables"]["orders"]["Row"];
 }
@@ -247,41 +246,43 @@ function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: OrderPcbSpecCard
       <CardContent className="p-6">
         {/* 基础参数 */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {FIELD_GROUPS[0].fields.filter(f => f.key !== "gerber").map(f => {
-            if (f.key === "singleLength" || f.key === "singleWidth") {
+          {FIELD_GROUPS[0].fields
+            .filter(f => f.key !== "gerber" && f.key !== "singleDimensions" && f.key !== "singleCount")
+            .map(f => {
               return (
                 <div key={f.key}>
                   <span className="text-xs text-muted-foreground font-semibold uppercase">{getSizeLabel(shipmentType)}</span>
                   <div className="text-base font-semibold text-gray-800 break-all">
-                    {String(pcb_spec.singleLength)} × {String(pcb_spec.singleWidth)} <span className="text-xs text-muted-foreground">cm</span>
+                    {String(pcb_spec.singleDimensions?.length)} × {String(pcb_spec.singleDimensions?.width)} <span className="text-xs text-muted-foreground">cm</span>
                   </div>
                 </div>
               );
-            }
-            if (f.key === "singleCount") {
-              return (
-                <div key={f.key}>
-                  <span className="text-xs text-muted-foreground font-semibold uppercase">{getCountLabel(shipmentType)}</span>
-                  <div className="text-base font-semibold text-gray-800 break-all">
-                    {String(pcb_spec.singleCount)} <span className="text-xs text-muted-foreground">{getCountUnit(shipmentType)}</span>
-                  </div>
-                </div>
-              );
-            }
-            return (
-              <div key={f.key}>
-                <span className="text-xs text-muted-foreground font-semibold uppercase">{f.label}</span>
-                <div className="text-base font-semibold text-gray-800 break-all">{renderValue(pcb_spec[f.key])}</div>
+            })}
+          {/* Handle singleDimensions */}
+          {pcb_spec.singleDimensions && (
+            <div>
+              <span className="text-xs text-muted-foreground font-semibold uppercase">{getSizeLabel(shipmentType)}</span>
+              <div className="text-base font-semibold text-gray-800 break-all">
+                {String(pcb_spec.singleDimensions.length)} × {String(pcb_spec.singleDimensions.width)} <span className="text-xs text-muted-foreground">cm</span>
               </div>
-            );
-          })}
+            </div>
+          )}
+          {/* Handle singleCount */}
+          {pcb_spec.singleCount !== undefined && pcb_spec.singleCount !== null && (
+            <div>
+              <span className="text-xs text-muted-foreground font-semibold uppercase">{getCountLabel(shipmentType)}</span>
+              <div className="text-base font-semibold text-gray-800 break-all">
+                {String(pcb_spec.singleCount)} <span className="text-xs text-muted-foreground">{getCountUnit(shipmentType)}</span>
+              </div>
+            </div>
+          )}
         </div>
         {/* Process */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {FIELD_GROUPS[1].fields.map(f => (
             <div key={f.key}>
               <span className="text-xs text-muted-foreground font-semibold uppercase">{f.label}</span>
-              <div className="text-base font-semibold text-gray-800 break-all">{renderValue(pcb_spec[f.key])}</div>
+              <div className="text-base font-semibold text-gray-800 break-all">{renderValue(pcb_spec[f.key as keyof PcbQuoteForm])}</div>
             </div>
           ))}
         </div>
@@ -291,7 +292,7 @@ function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: OrderPcbSpecCard
           {FIELD_GROUPS[2].fields.map(f => (
             <div key={f.key}>
               <span className="text-xs text-muted-foreground font-semibold uppercase">{f.label}</span>
-              <div className="text-base font-semibold text-gray-800 break-all">{renderValue(pcb_spec[f.key])}</div>
+              <div className="text-base font-semibold text-gray-800 break-all">{renderValue(pcb_spec[f.key as keyof PcbQuoteForm])}</div>
             </div>
           ))}
         </div>

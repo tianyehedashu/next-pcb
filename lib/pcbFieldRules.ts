@@ -4,8 +4,11 @@
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
 import { TestMethod, CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber, CrossOuts, IPCClass, IfDataConflicts, PcbColor } from '../types/form';
 
+export type ComponentType = 'Select' | 'Input' | 'Checkbox' | 'NumberInput' | 'DimensionsInput' | 'PanelDimensionsInput' | 'TextArea' | 'Radio';
+
 export type PCBFieldRule<T = unknown> = {
   label: string;
+  component: ComponentType;
   options: T[] | ((form: PcbQuoteForm & { area?: number }) => T[]);
   default: T | ((form: PcbQuoteForm & { area?: number }) => T);
   required: boolean;
@@ -14,6 +17,11 @@ export type PCBFieldRule<T = unknown> = {
   dependencies?: (keyof PcbQuoteForm)[];
   unit?: string;
   optionUnit?: (v: T) => string | undefined;
+  placeholder?: string;
+  minLength?: number;
+  maxLength?: number;
+  trueLabel?: string;
+  falseLabel?: string;
   [key: string]: unknown;
 };
 
@@ -28,6 +36,7 @@ const productReportOptionLabels: Record<string, string> = {
 export const pcbFieldRules: Record<string, PCBFieldRule> = {
   pcbType: {
     label: 'Material Type',
+    component: 'Select',
     options: Object.values(PcbType),
     default: PcbType.FR4,
     required: true,
@@ -36,6 +45,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   layers: {
     label: 'Layers',
+    component: 'Select',
     options: [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20],
     default: 2,
     required: true,
@@ -43,6 +53,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   outerCopperWeight: {
     label: 'Outer Copper Weight',
+    component: 'Select',
     options: Object.values(CopperWeight),
     default: CopperWeight.One,
     required: true,
@@ -51,6 +62,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   innerCopperWeight: {
     label: 'Inner Copper Weight',
+    component: 'Select',
     options: Object.values(InnerCopperWeight),
     default: InnerCopperWeight.Half,
     required: true,
@@ -60,6 +72,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   thickness: {
     label: 'Thickness',
+    component: 'Select',
     options: (form: PcbQuoteForm) => {
       const all = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.6, 2.0, 2.4, 3.0, 3.2];
       let filtered = all;
@@ -82,30 +95,23 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
         filtered = filtered.filter(v => v > 0.8);
       }
 
-      // 铜厚限制
+      // 铜厚限制 - 先处理特殊情况，再处理一般情况
+      // 业务特殊限制：铜厚=2OZ时，2L/4L/6L 仅允许0.8mm及以上
+      if ((outer === '2' || inner === '2') && [2, 4, 6].includes(layers)) {
+        filtered = filtered.filter(v => v >= 0.8);
+      } else if (outer === '2' || inner === '2') {
+        // 其他情况下，铜厚=2OZ时需要1.2mm及以上
+        filtered = filtered.filter(v => v >= 1.2);
+      }
+
       if (outer === '3' || inner === '3') {
         if (layers >= 8) {
           filtered = filtered.filter(v => v >= 2.0);
         } else {
           filtered = filtered.filter(v => v >= 1.6);
         }
-      } else if (outer === '2' || inner === '2') {
-        filtered = filtered.filter(v => v >= 1.2);
       }
 
-      // 业务特殊限制
-      // 铜厚=2OZ时，2L/4L/6L 仅允许0.8mm及以上
-      if ((outer === '2' || inner === '2') && [2, 4, 6].includes(layers)) {
-        filtered = filtered.filter(v => v >= 0.8);
-      }
-      // 铜厚=3OZ时
-      if ((outer === '3' || inner === '3')) {
-        if (layers === 2) {
-          filtered = filtered.filter(v => v >= 1.0);
-        } else if (layers === 4) {
-          filtered = filtered.filter(v => v >= 1.2);
-        }
-      }
       // 铜厚=4OZ时，4L及以上仅允许1.6mm及以上
       if ((outer === '4' || inner === '4') && layers >= 4) {
         filtered = filtered.filter(v => v >= 1.6);
@@ -139,6 +145,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   hdi: {
     label: 'HDI',
+    component: 'Select',
     options: Object.values(HdiType),
     default: 'none',
     required: true,
@@ -146,18 +153,21 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   tg: {
     label: 'TG',
+    component: 'Select',
     options: Object.values(TgType),
     default: TgType.TG135,
     required: true,
   },
   shipmentType: {
     label: 'Board Type',
+    component: 'Radio',
     options: Object.values(ShipmentType),
     default: 'single',
     required: true,
   },
   border: {
     label: 'Break-away Rail',
+    component: 'Select',
     options: Object.values(BorderType),
     default: BorderType.None,
     required: false,
@@ -166,6 +176,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   minTrace: {
     label: 'Min Trace/Space',
+    component: 'Select',
     options: (form: PcbQuoteForm) => {
       const layers = form.layers ?? 2;
       // 层数可选范围
@@ -215,6 +226,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   minHole: {
     label: 'Min Hole',
+    component: 'Select',
     options: (form: PcbQuoteForm) => {
       const layers = form.layers ?? 2;
       const thickness = form.thickness ?? 1.6;
@@ -261,12 +273,14 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   solderMask: {
     label: 'Solder Mask',
+    component: 'Select',
     options: Object.values(PcbColor),
     default: PcbColor.Green,
     required: true,
   },
   silkscreen: {
     label: 'Silk Screen',
+    component: 'Select',
     options: (form: PcbQuoteForm) => {
       const maskShouldDisableBlack: string[] = [
         PcbColor.Black,
@@ -300,6 +314,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   surfaceFinish: {
     label: 'Surface Finish',
+    component: 'Select',
     options: (form: PcbQuoteForm) => {
       const layers = form.layers ?? 2;
       const thickness = form.thickness ?? 1.6;
@@ -321,6 +336,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   surfaceFinishEnigType: {
     label: 'ENIG Thickness',
+    component: 'Select',
     options: Object.values(SurfaceFinishEnigType),
     default: SurfaceFinishEnigType.Enig1u,
     required: false,
@@ -328,30 +344,35 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   impedance: {
     label: 'Impedance',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
   },
   castellated: {
     label: 'Castellated Holes',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
   },
   goldFingers: {
     label: 'Gold Fingers',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
   },
   edgePlating: {
     label: 'Plated Half-holes/Edge Plating',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
   },
   maskCover: {
     label: 'Via Processing',
+    component: 'Select',
     options: (form: PcbQuoteForm) => {
       const { layers = 2 } = form;
       if (layers === 1) {
@@ -393,6 +414,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
    */
   testMethod: {
     label: 'Electrical Test',
+    component: 'Select',
     options: (form: PcbQuoteForm & { area?: number }) => {
       const { layers = 2, area = 0 } = form;
       if (layers === 1) {
@@ -410,7 +432,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
       return TestMethod.FlyingProbe;
     },
     required: true,
-    dependencies: ['layers', 'singleLength', 'singleWidth',  'singleCount', 'shipmentType', 'panelRow', 'panelColumn','panelSet'],
+    dependencies: ['layers', 'singleDimensions',  'singleCount', 'shipmentType', 'panelDimensions','panelSet'],
     shouldDisable: (form: PcbQuoteForm & { area?: number }) => {
       const { layers = 2, area = 0, testMethod } = form;
       if (layers > 1 && testMethod === TestMethod.None) return true;
@@ -420,6 +442,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   smt: {
     label: 'SMT',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
@@ -429,6 +452,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   useShengyiMaterial: {
     label: 'Shengyi Material',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
@@ -445,12 +469,14 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
    */
   bga: {
     label: 'BGA ≤0.25mm',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
   },
   blueMask: {
     label: 'Blue Mask',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
@@ -458,6 +484,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   holeCu25um: {
     label: 'Hole Cu 25um',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
@@ -465,12 +492,14 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   prodCap: {
     label: 'Production Capacity',
+    component: 'Select',
     options: Object.values(ProdCap),
     default: 'auto',
     required: false,
   },
   productReport: {
     label: 'Product Report(Electronic)',
+    component: 'Select',
     options: productReportOptions,
     optionLabels: productReportOptionLabels,
     default: 'Not Required',
@@ -479,6 +508,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   rejectBoard: {
     label: 'Reject Board',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
@@ -489,6 +519,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   yyPin: {
     label: 'YY Pin',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
@@ -497,50 +528,28 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   customerCode: {
     label: 'Customer Code',
+    component: 'Input',
     options: Object.values(CustomerCode),
     default: '',
     required: false,
   },
   qualityAttach: {
     label: 'Quality Attach',
+    component: 'Select',
     options: Object.values(QualityAttach),
     default: 'standard',
     required: false,
   },
   holeCount: {
     label: 'Hole Count',
+    component: 'NumberInput',
     options: [],
     default: '',
     required: false,
   },
-  singleLength: {
-    label: 'Single Length (cm)',
-    options: [],
-    default: '',
-    required: true,
-  },
-  singleWidth: {
-    label: 'Single Width (cm)',
-    options: [],
-    default: '',
-    required: true,
-  },
-  panelRow: {
-    label: '',
-    options: [],
-    default: 1,
-    required: true,
-    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel',
-  },
-  panelColumn: {
-    label: '',
-    options: [],
-    default: 1,
-    required: true,
-    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel',
-  },
   singleCount: {
     label: 'Single Qty',
+    component: 'NumberInput',
     options: [],
     default: '',
     required: true,
@@ -548,18 +557,29 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   differentDesignsCount: {
     label: 'Different Designs',
+    component: 'NumberInput',
     options: [],
     default: 1,
     required: true,
   },
-  singleSize: {
+  singleDimensions: {
     label: 'Single Size (cm)',
+    component: 'DimensionsInput',
     options: [],
-    default: '',
+    default: { length: 5, width: 5 },
     required: true,
+  },
+  panelDimensions: {
+    label: 'Panel Type (pcs)',
+    component: 'PanelDimensionsInput',
+    options: [],
+    default: { row: 1, column: 1 },
+    required: true,
+    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel',
   },
   goldFingersBevel: {
     label: 'Bevel Gold Fingers',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
@@ -567,54 +587,63 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
   },
   payMethod: {
     label: 'Pay Method',
+    component: 'Select',
     options: Object.values(PayMethod),
     default: 'auto',
     required: false,
   },
   edgeCover: {
     label: 'Edge Cover',
+    component: 'Select',
     options: Object.values(EdgeCover),
     default: 'none',
     required: false,
   },
   panelSet: {
     label: 'Panel Qty',
+    component: 'NumberInput',
     options: [],
     default: '',
     required: false,
   },
   workingGerber: {
     label: 'Working Gerber',
+    component: 'Select',
     options: Object.values(WorkingGerber),
     default: WorkingGerber.NotRequired,
     required: false,
   },
   ulMark: {
     label: 'UL Mark',
+    component: 'Checkbox',
     options: [true, false],
     default: false,
     required: false,
   },
   crossOuts: {
     label: 'Cross Outs',
+    component: 'Select',
     options: Object.values(CrossOuts),
     default: CrossOuts.NotAccept,
     required: false,
   },
   ipcClass: {
     label: 'IPC Class',
+    component: 'Select',
     options: Object.values(IPCClass),
     default: IPCClass.Level2,
     required: false,
   },
   ifDataConflicts: {
     label: 'If Data Conflicts',
+    component: 'Select',
     options: Object.values(IfDataConflicts),
     default: IfDataConflicts.FollowOrder,
     required: false,
   },
   specialRequests: {
     label: 'Special Requests',
+    component: 'TextArea',
     options: [],
     default: '',
     required: false,

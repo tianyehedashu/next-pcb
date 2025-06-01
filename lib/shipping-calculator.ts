@@ -12,8 +12,7 @@ interface PCBSpecs {
   layers: number;
   outerCopperWeight: string; // 外层铜厚
   innerCopperWeight?: string; // 内层铜厚（4层及以上必填）
-  singleLength: string;
-  singleWidth: string;
+  singleDimensions: { length: string | number; width: string | number };
   thickness: string;
   quantity: number;
   panelCount: number;
@@ -136,13 +135,13 @@ const OZ_TO_MM = 0.035;
 function calculateSinglePCBWeight(specs: PCBSpecs | PcbQuoteForm): number {
   // 兼容 PcbQuoteForm
   const s = specs as PcbQuoteForm;
-  const singleLength = typeof s.singleLength === 'number' ? s.singleLength : parseFloat(String(s.singleLength)) || 0;
-  const singleWidth = typeof s.singleWidth === 'number' ? s.singleWidth : parseFloat(String(s.singleWidth)) || 0;
+  const singleLength = typeof s.singleDimensions.length === 'number' ? s.singleDimensions.length : parseFloat(String(s.singleDimensions.length)) || 0;
+  const singleWidth = typeof s.singleDimensions.width === 'number' ? s.singleDimensions.width : parseFloat(String(s.singleDimensions.width)) || 0;
   const thickness = typeof s.thickness === 'number' ? s.thickness : parseFloat(String(s.thickness)) || 0;
   const area = singleLength * singleWidth; // 面积(cm²)
 
   // 1. 计算基材重量
-  const density = materialDensity[s.pcbType as keyof typeof materialDensity] ?? 1.85;
+  const density = materialDensity[s.pcbType.toLowerCase() as keyof typeof materialDensity] ?? 1.85;
   const baseVolume = area * (thickness / 10);
   const baseWeight = baseVolume * density;
 
@@ -214,8 +213,8 @@ export function calculateShippingCost(
   const totalWeight = (singleWeight * (specs.panelRow && specs.panelColumn && specs.panelSet ? specs.panelRow * specs.panelColumn * specs.panelSet : specs.singleCount || 1) * (specs.panelRow && specs.panelColumn ? specs.panelRow * specs.panelColumn : 1)) / 1000;
 
   const dimensions = {
-    length: Number(specs.singleLength),
-    width: Number(specs.singleWidth),
+    length: Number(specs.singleDimensions.length),
+    width: Number(specs.singleDimensions.width),
     height: Number(specs.thickness),
     quantity: (specs.panelRow && specs.panelColumn && specs.panelSet ? specs.panelRow * specs.panelColumn * specs.panelSet : specs.singleCount || 1) * (specs.panelRow && specs.panelColumn ? specs.panelRow * specs.panelColumn : 1)
   };

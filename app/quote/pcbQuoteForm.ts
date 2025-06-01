@@ -17,8 +17,10 @@ export const pcbQuoteFormSchema = z.object({
   singleWidth: z.number().default(10).describe("Single Width (cm)"),
   singleCount: z.number().optional().describe("Single Count"),
   shipmentType: z.enum(["single", "panel", "panel_agent"]).default("single").describe("Shipment Type"),
-  panelRow: z.number().optional().describe("Panel Rows"),
-  panelColumn: z.number().optional().describe("Panel Columns"),
+  panelDimensions: z.object({
+    row: z.number().optional(),
+    column: z.number().optional(),
+  }).optional().describe("Panel Dimensions"),
   panelSet: z.number().optional().describe("Panel Set"),
   differentDesignsCount: z.number().optional().describe("Different Designs Count"),
   border: z.enum(["none", "5", "10"]).optional().describe("Break-away Rail"),

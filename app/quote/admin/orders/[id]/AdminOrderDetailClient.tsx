@@ -13,9 +13,11 @@ import { useExchangeRate } from "@/lib/hooks/useExchangeRate";
 import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
 import { calcProductionCycle } from "@/lib/pcb-calc";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { toUSD } from "@/lib/utils";
+import { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
 // 字段分组与友好名映射
-const FIELD_GROUPS = [
+const FIELD_GROUPS: { title: string; fields: { key: keyof PcbQuoteForm; label: string }[] }[] = [
   {
     title: "基础信息",
     fields: [
@@ -24,8 +26,8 @@ const FIELD_GROUPS = [
       { key: "thickness", label: "板厚" },
       { key: "hdi", label: "HDI" },
       { key: "tg", label: "TG" },
-      { key: "panelCount", label: "拼板数" },
-      { key: "singleLength", label: "单板长 (mm)" },
+      { key: "panelSet", label: "拼板数" },
+      { key: "singleDimensions", label: "单板长 (mm)" },
       { key: "singleWidth", label: "单板宽 (mm)" },
       { key: "singleCount", label: "单板数" },
       { key: "shipmentType", label: "发货方式" },
@@ -37,7 +39,7 @@ const FIELD_GROUPS = [
   {
     title: "工艺参数",
     fields: [
-      { key: "copperWeight", label: "铜厚" },
+      { key: "outerCopperWeight", label: "铜厚" },
       { key: "surfaceFinish", label: "表面处理" },
       { key: "minTrace", label: "最小线宽" },
       { key: "minHole", label: "最小孔径" },
@@ -50,7 +52,7 @@ const FIELD_GROUPS = [
       { key: "halfHole", label: "半孔" },
       { key: "edgeCover", label: "边覆盖" },
       { key: "maskCover", label: "阻焊覆盖" },
-      { key: "flyingProbe", label: "飞针测试" },
+      { key: "testMethod", label: "飞针测试" },
     ],
   },
   {
@@ -170,15 +172,22 @@ function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: { pcb_spec: Reco
       <CardContent className="p-6">
         {/* 基础参数 */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {FIELD_GROUPS[0].fields.filter(f => f.key !== "gerber" && f.key !== "singleDimensions" && f.key !== "singleCount").map(f => {
+            return (
+              <div key={f.key}>
+                <span className="text-xs text-muted-foreground font-semibold uppercase">{f.label}</span>
+                <div className="text-base font-semibold text-gray-800 break-all">{renderValue(pcb_spec[f.key as keyof PcbQuoteForm])}</div>
+              </div>
+            );
+          })}
+          {/* Handle singleDimensions */}
+          {pcb_spec.singleDimensions && (
+            <div>
+              <span className="text-xs text-muted-foreground font-semibold uppercase">{getSizeLabel(shipmentType)}</span>
+              <div className="text-base font-semibold text-gray-800 break-all">{pcb_spec.singleLength} × {pcb_spec.singleWidth} <span className="text-xs text-muted-foreground">cm</span></div>
+            </div>
+          )}
           {FIELD_GROUPS[0].fields.filter(f => f.key !== "gerber").map(f => {
-            if (f.key === "singleLength" || f.key === "singleWidth") {
-              return (
-                <div key={f.key}>
-                  <span className="text-xs text-muted-foreground font-semibold uppercase">{getSizeLabel(shipmentType)}</span>
-                  <div className="text-base font-semibold text-gray-800 break-all">{pcb_spec.singleLength} × {pcb_spec.singleWidth} <span className="text-xs text-muted-foreground">cm</span></div>
-                </div>
-              );
-            }
             if (f.key === "singleCount") {
               return (
                 <div key={f.key}>

@@ -1,5 +1,5 @@
 import RadioGroup from "../RadioGroup";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { Tooltip } from "@/components/ui/tooltip";
 import { pcbFieldRules } from "@/lib/pcbFieldRules";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
 import { ProductReport } from "@/types/form";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useFormDependencyEffects } from '@/lib/hooks/useFormDependencyEffects';
 
 // 统一字段配置
 export const serviceInfoFields: { key: keyof PcbQuoteForm | 'productReport'; type: 'radio' | 'checkbox' | 'select' | 'input' }[] = [
@@ -32,41 +33,7 @@ interface ServiceInfoSectionProps {
 }
 
 export default function ServiceInfoSection({ form, setForm, sectionRef }: ServiceInfoSectionProps) {
-  // 统一依赖联动重置方案
-  const prevDepsRef = useRef<Record<string, unknown[]>>({});
-  useEffect(() => {
-    const newForm: typeof form = { ...form };
-    let changed = false;
-    Object.entries(pcbFieldRules).forEach(([key, rule]) => {
-      if (!rule.dependencies) return;
-      const currentDeps = rule.dependencies.map(dep => form[dep as keyof typeof form]);
-      const prevDeps = prevDepsRef.current[key];
-      if (!prevDeps || currentDeps.some((v, i) => v !== prevDeps[i])) {
-        const defaultValue = typeof rule.default === "function"
-          ? rule.default(form)
-          : rule.default;
-        const options = typeof rule.options === "function"
-          ? rule.options(form)
-          : rule.options;
-        if (!options?.includes(newForm[key as keyof typeof newForm]) || newForm[key as keyof typeof newForm] !== defaultValue) {
-          (newForm as Record<string, unknown>)[key] = defaultValue;
-          changed = true;
-        }
-      }
-      prevDepsRef.current[key] = currentDeps;
-    });
-    // Product Report 联动逻辑：选了Not Required，其它选项自动清空
-    if (Array.isArray(form.productReport)) {
-      if (form.productReport.includes(ProductReport.None) && form.productReport.length > 1) {
-        newForm.productReport = [ProductReport.None];
-        changed = true;
-      }
-    }
-    if (changed) {
-      setForm(newForm);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, setForm]);
+  useFormDependencyEffects({ form, setForm: setForm as any }); // Cast setForm to any for now due to complex type
 
   return (
     <div ref={sectionRef} className="scroll-mt-32">
@@ -143,7 +110,7 @@ export default function ServiceInfoSection({ form, setForm, sectionRef }: Servic
                 </div>
               )}
               {type === "select" && options.length > 0 && (
-                <Select value={String(form[key as keyof typeof form] ?? '')} onValueChange={(v) => setForm((prev) => ({ ...prev, [key]: v }))}>
+                <Select value={String(form[key as keyof PcbQuoteForm] ?? '')} onValueChange={(v) => setForm((prev) => ({ ...prev, [key as keyof PcbQuoteForm]: v }))}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder={`Select ${rule.label}`} />
                   </SelectTrigger>
@@ -161,7 +128,7 @@ export default function ServiceInfoSection({ form, setForm, sectionRef }: Servic
                   value={String(form[key as keyof typeof form] ?? '')}
                   onChange={e => setForm((prev) => ({
                     ...prev,
-                    [key]: e.target.value === '' ? undefined : Number(e.target.value)
+                    [key as keyof PcbQuoteForm]: e.target.value === '' ? undefined : Number(e.target.value) as any
                   }))}
                   placeholder={`Enter ${rule.label}`}
                   className="w-48"

@@ -31,6 +31,11 @@ import {
 } from './form';
 import { Address } from './address';
 
+export interface PcbDimensions {
+  length: number; // 单片长(cm)
+  width: number; // 单片宽(cm)
+}
+
 /**
  * PCB报价表单类型（字段完全对齐实际表单）
  */
@@ -44,18 +49,18 @@ export interface PcbQuoteForm {
   hdi: HdiType; // HDI工艺
   tg: TgType; // TG值
   shipmentType: ShipmentType; // 出货方式
-  singleLength: number; // 单片长(cm)
-  singleWidth: number; // 单片宽(cm)
+  /**
+   * 单片尺寸
+   */
+  singleDimensions: PcbDimensions;
   singleCount: number; // 单片出货情况下单总数量
   /**
  * 拼板行数
  */
-  panelRow?: number;
+  panelDimensions?: PanelDimensions; // 拼板尺寸 (行 x 列)
   /**
    * 拼板列数
    */
-  panelColumn?: number;
-
   panelSet?: number; // 连板/大板下单数量
   differentDesignsCount: number; // Number of different designs per panel (多款拼板数量)
   border?: BorderType; // 工艺边
@@ -186,4 +191,10 @@ export interface CustomsDeclaration {
   declaredValue?: string;
   companyName?: string;
   customsNote?: string;
+}
+
+// 新增拼板尺寸类型
+export interface PanelDimensions {
+  row?: number; // 拼板行数
+  column?: number; // 拼板列数
 } 
