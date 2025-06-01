@@ -111,7 +111,7 @@ export function getThicknessOptions([layers, outerCopper, innerCopper]: Thicknes
     }
   }
 
-  return filtered.map(value => ({ label: `${value}mm`, value }));
+  return filtered.map(value => ({ label: `${value}mm`, value: value.toString() }));
 }
 
 /**
@@ -410,7 +410,11 @@ export function runSmartAdjustment($self: FormilyField) {
         const closest = validOptions.reduce((prev: number, curr: number) => 
           Math.abs(curr - targetThickness) < Math.abs(prev - targetThickness) ? curr : prev
         );
-        newValue = closest.toString();
+        // 找到对应的选项值（字符串类型）
+        const closestOption = currentOptions.find((opt: OptionItem) => 
+          parseFloat((opt.value || opt).toString()) === closest
+        );
+        newValue = closestOption ? (closestOption.value || closestOption) : closest.toString();
       } else {
         newValue = currentOptions[0]?.value || currentOptions[0];
       }
@@ -432,10 +436,13 @@ export function runSmartAdjustment($self: FormilyField) {
       : newValue;
     
     if (finalValue !== null && finalValue !== currentValue && $self.setValue) {
+      console.log(`Auto-adjusting ${fieldName} from ${currentValue} to ${finalValue}`);
       $self.setValue(finalValue);
     }
     
-  } catch {
+  } catch (error) {
+    console.error('Error in runSmartAdjustment:', error);
+  } finally {
     $self.adjusting = false;
   }
 }
@@ -662,3 +669,26 @@ const formilyHelpers = {
 export { PcbType };
 
 export default formilyHelpers;
+
+// 🧪 测试函数 - 验证 thickness 自动调整
+export function testThicknessAutoAdjustment() {
+  console.log('=== Testing Thickness Auto Adjustment ===');
+  
+  // 测试用例 1: 2层板，1oz铜厚
+  const test1 = getThicknessOptions([2, '1', '1']);
+  console.log('2层板，1oz铜厚:', test1);
+  
+  // 测试用例 2: 4层板，2oz铜厚
+  const test2 = getThicknessOptions([4, '2', '2']);
+  console.log('4层板，2oz铜厚:', test2);
+  
+  // 测试用例 3: 6层板，3oz铜厚
+  const test3 = getThicknessOptions([6, '3', '3']);
+  console.log('6层板，3oz铜厚:', test3);
+  
+  // 测试 Formily 格式
+  const formilyTest = getThicknessOptionsForFormily([2, '1', '1']);
+  console.log('Formily格式测试:', formilyTest);
+  
+  console.log('=== Test Complete ===');
+}

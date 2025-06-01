@@ -34,7 +34,7 @@ export function QuoteFormGroup({
               label={fieldSchema.title as string || fieldName}
               required={fieldSchema.required as boolean}
               layout="inline"
-              className="w-full transition-all duration-200 hover:scale-[1.01]"
+              className="w-full"
             >
               <SchemaField
                 name={fieldName}

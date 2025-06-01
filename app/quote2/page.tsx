@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import QuoteForm from "./components/QuoteForm";
 import PriceSummary from "./components/PriceSummary";
+import { FileUploadSection } from "./components/FileUploadSection";
 import { Card, CardContent } from "@/components/ui/card";
 import {  Shield,   } from "lucide-react";
 
@@ -28,7 +29,11 @@ export default function Quote2Page() {
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 lg:gap-12 items-start">
               {/* 表单区域 */}
-              <div className="xl:col-span-2">
+              <div className="xl:col-span-2 space-y-8">
+                {/* 文件上传区域 */}
+                <FileUploadSection />
+                
+                {/* 表单区域 */}
                 <Card className="bg-white/70 backdrop-blur-sm border-white/20 shadow-xl hover:shadow-2xl transition-all duration-500 h-fit">
                   <CardContent className="p-0">
                     <QuoteForm />

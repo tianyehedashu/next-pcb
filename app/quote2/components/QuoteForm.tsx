@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { createForm } from "@formily/core";
+import { createForm, Form } from "@formily/core";
 import { FormProvider, FormConsumer } from "@formily/react";
 import { useQuoteStore } from "@/lib/stores/quote-store";
 import SchemaField from "./FormilyComponents";
@@ -12,42 +12,97 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RotateCcw, Send } from "lucide-react";
 
 export function QuoteForm() {
-  const { formData, updateFormData, resetForm } = useQuoteStore();
+  const { updateFormData, resetForm } = useQuoteStore();
+  const [form, setForm] = React.useState<Form | null>(null);
 
-  // 创建 Formily 表单实例
-  const form = React.useMemo(() => {
-    return createForm({
-      initialValues: formData,
-    });
-  }, [formData]);
-
-  // 订阅表单变化并更新 Store
+  // 等待 store 水合完成后创建表单
   React.useEffect(() => {
-    const subscriptionId = form.subscribe(({ type, payload }) => {
-      if (type === 'onFormValuesChange') {
-        updateFormData(payload);
+    const initializeForm = async () => {
+      // 如果还没有水合，先等待水合完成
+      if (!useQuoteStore.persist.hasHydrated()) {
+        await useQuoteStore.persist.rehydrate();
+      }
+      
+      // 水合完成后，使用恢复的数据创建表单
+      const newForm = createForm({
+        initialValues: useQuoteStore.getState().formData,
+      });
+      setForm(newForm);
+    };
+
+    initializeForm();
+  }, []);
+
+  // 监听表单变化，等待联动完成后同步到 store
+  React.useEffect(() => {
+    if (!form) return;
+
+    // 使用防抖，等待联动完成后再同步到 store
+    let timeoutId: NodeJS.Timeout;
+    let isUpdating = false;
+
+    const syncToStore = () => {
+      if (isUpdating) return;
+      isUpdating = true;
+      
+      // 使用 requestAnimationFrame 确保在下一帧更新，让联动完全完成
+      requestAnimationFrame(() => {
+        updateFormData(form.values);
+        isUpdating = false;
+      });
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const subscriptionId = form.subscribe((payload: any) => {
+      if (payload.type === 'onFormValuesChange') {
+        // 清除之前的定时器
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        
+        // 设置新的定时器，等待联动完成
+        timeoutId = setTimeout(syncToStore, 150); // 150ms 延迟，确保联动完成
       }
     });
 
-    return () => form.unsubscribe(subscriptionId);
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      form.unsubscribe(subscriptionId);
+    };
   }, [form, updateFormData]);
 
   const handleSubmit = React.useCallback(() => {
     if (!form) return;
     
-    form.submit((values) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    form.submit((values: any) => {
       console.log('Form submitted:', values);
+      updateFormData(values);
       // 处理表单提交逻辑
     });
-  }, [form]);
+  }, [form, updateFormData]);
 
   const handleReset = React.useCallback(() => {
     if (!form) return;
     
-    // 使用 Store 的重置方法，会恢复到默认值
+    // 重置 store 到默认值
     resetForm();
+    // 重置表单到默认值
     form.reset();
   }, [form, resetForm]);
+
+  // 在表单未初始化时显示加载状态
+  if (!form) {
+    return (
+      <div className="quote-form p-6 lg:p-8 space-y-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-gray-500">Loading form...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <FormProvider form={form}>
@@ -58,7 +113,7 @@ export function QuoteForm() {
               {/* 使用现有的QuoteFormGroup组件渲染分组表单 */}
               {fieldGroups.map((group, index) => (
                 <div key={group.title} className="group">
-                  <Card className="border-gray-200/60 shadow-sm hover:shadow-md transition-all duration-300 hover:border-blue-200/60">
+                  <Card className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow duration-200 hover:border-blue-200/60">
                     <CardHeader className="pb-4">
                       <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                         <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-sm font-bold">
@@ -87,9 +142,9 @@ export function QuoteForm() {
                         type="button" 
                         variant="outline"
                         onClick={handleReset}
-                        className="group hover:border-red-300 hover:text-red-600 transition-all duration-200"
+                        className="group hover:border-red-300 hover:text-red-600 transition-colors duration-200"
                       >
-                        <RotateCcw className="h-4 w-4 mr-2 group-hover:rotate-180 transition-transform duration-300" />
+                        <RotateCcw className="h-4 w-4 mr-2" />
                         Reset Form
                       </Button>
                     </div>
@@ -101,9 +156,9 @@ export function QuoteForm() {
                       <Button 
                         type="submit"
                         size="lg"
-                        className="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
                       >
-                        <Send className="h-4 w-4 mr-2 group-hover:translate-x-1 transition-transform duration-200" />
+                        <Send className="h-4 w-4 mr-2" />
                         Get Instant Quote
                       </Button>
                     </div>

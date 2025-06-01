@@ -103,7 +103,6 @@ export const pcbFormilySchema: ISchema = {
         },
         {
           dependencies: ["layers", "outerCopperWeight", "innerCopperWeight"],
-          when: "{{$deps.length > 0}}",
           fulfill: {
             run: "{{setTimeout(() => runSmartAdjustment($self), 0)}}"
           }
@@ -292,7 +291,6 @@ export const pcbFormilySchema: ISchema = {
         },
         {
           dependencies: ["layers", "outerCopperWeight", "innerCopperWeight"],
-          when: "{{$deps.length > 0}}",
           fulfill: {
             run: "{{setTimeout(() => runSmartAdjustment($self), 0)}}"
           }
@@ -315,7 +313,6 @@ export const pcbFormilySchema: ISchema = {
         },
         {
           dependencies: ["layers", "thickness"],
-          when: "{{$deps.length > 0}}",
           fulfill: {
             run: "{{setTimeout(() => runSmartAdjustment($self), 0)}}"
           }
@@ -347,7 +344,6 @@ export const pcbFormilySchema: ISchema = {
         },
         {
           dependencies: ["solderMask"],
-          when: "{{$deps.length > 0}}",
           fulfill: {
             run: "{{setTimeout(() => runSmartAdjustment($self), 0)}}"
           }
@@ -370,7 +366,6 @@ export const pcbFormilySchema: ISchema = {
         },
         {
           dependencies: ["layers", "thickness"],
-          when: "{{$deps.length > 0}}",
           fulfill: {
             run: "{{setTimeout(() => runSmartAdjustment($self), 0)}}"
           }
@@ -410,7 +405,6 @@ export const pcbFormilySchema: ISchema = {
         },
         {
           dependencies: ["layers"],
-          when: "{{$deps.length > 0}}",
           fulfill: {
             run: "{{setTimeout(() => runSmartAdjustment($self), 0)}}"
           }
@@ -510,7 +504,6 @@ export const pcbFormilySchema: ISchema = {
         },
         {
           dependencies: ["layers", "singleDimensions", "singleCount", "shipmentType", "panelDimensions", "panelSet"],
-          when: "{{$deps.length > 0}}",
           fulfill: {
             run: "{{setTimeout(() => runSmartAdjustment($self), 0)}}"
           }
@@ -604,22 +597,13 @@ export const pcbFormilySchema: ISchema = {
 
     // === 文件上传 ===
     
-    gerber: fullWidth({
-      type: "string",
-      title: "Upload Gerber/Zip",
-      "x-component": "FileUpload",
-      "x-component-props": {
-        accept: ".zip,.rar,.7z,.gerber",
-        placeholder: "Click to upload Gerber files..."
-      }
-    }),
-
     gerberUrl: fullWidth({
       type: "string",
-      title: "Gerber URL",
+      title: "Gerber File URL",
       "x-component": "Input",
       "x-component-props": {
-        placeholder: "Or provide a download URL..."
+        placeholder: "Gerber file URL will be automatically filled after upload...",
+        readOnly: true
       }
     }),
 
@@ -716,9 +700,6 @@ export const pcbFormilySchema: ISchema = {
 
 // 🎯 字段分组配置 - 参考 SpeedXPCB 网站结构
 export const fieldGroups = [
-  { title: "Gerber File",
-    fields: ['gerber']
-   },
   {
     title: "Basic Information",
     fields: [
@@ -743,6 +724,10 @@ export const fieldGroups = [
       'productReport', 'ulMark', 'crossOuts', 'ipcClass', 'ifDataConflicts',
       'rejectBoard', 'specialRequests'
     ]
+  },
+  {
+    title: "File Upload",
+    fields: ['gerberUrl']
   },
   {
     title: "Shipping Information", 

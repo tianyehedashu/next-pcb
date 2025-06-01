@@ -94,7 +94,6 @@ export const quoteSchema = z.object({
   specialRequests: z.string().max(1000, "Special requests cannot exceed 1000 characters").optional().default(""),
 
   // === File Upload ===
-  gerber: z.any().optional(),
   gerberUrl: z.string().url("Invalid gerber URL").or(z.literal("")).optional().default(""),
 
   // === Shipping & Notes ===
