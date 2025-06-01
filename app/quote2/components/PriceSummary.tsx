@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import { FormConsumer } from "@formily/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calculator, Info, Truck, Clock, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calculator, Info, Truck, Clock, Zap, TrendingUp, CheckCircle, Download, Share } from "lucide-react";
 import type { QuoteFormData } from "../schema/quoteSchema";
 
 interface PriceBreakdown {
@@ -135,163 +136,219 @@ function PriceSummaryContent({ formValues }: { formValues: Partial<QuoteFormData
   const specs = getTechSpecs();
 
   return (
-    <div className="space-y-4">
-      {/* 价格概览卡片 */}
-      <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-        <CardHeader className="pb-3">
+    <div className="p-6 lg:p-8 space-y-6">
+      {/* 主要价格展示卡片 */}
+      <Card className="border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 shadow-lg hover:shadow-xl transition-all duration-300">
+        <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-blue-800">
-            <Calculator className="h-5 w-5" />
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Calculator className="h-5 w-5 text-blue-600" />
+            </div>
             Quote Summary
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center mb-4">
-            <div className="text-3xl font-bold text-blue-600">
-              ${priceBreakdown.totalPrice.toFixed(2)}
+          <div className="text-center mb-6">
+            <div className="relative">
+              <div className="text-4xl lg:text-5xl font-bold text-blue-600 mb-2 animate-pulse">
+                ${priceBreakdown.totalPrice.toFixed(2)}
+              </div>
+              <div className="absolute -top-2 -right-2">
+                <div className="w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+                <div className="absolute inset-0 w-3 h-3 bg-green-400 rounded-full"></div>
+              </div>
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 mb-4">
               ${priceBreakdown.unitPrice.toFixed(3)} per piece
+            </div>
+            
+            {/* 价格趋势指示器 */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+              <TrendingUp className="h-4 w-4" />
+              Competitive Price
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex justify-between">
+          <div className="grid grid-cols-2 gap-4 text-sm mb-6">
+            <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
               <span className="text-gray-600">Quantity:</span>
-              <span className="font-medium">{specs.quantity} pcs</span>
+              <span className="font-semibold text-gray-900">{specs.quantity} pcs</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
               <span className="text-gray-600">Layers:</span>
-              <span className="font-medium">{specs.layers}L</span>
+              <span className="font-semibold text-gray-900">{specs.layers}L</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
               <span className="text-gray-600">Size:</span>
-              <span className="font-medium">{specs.size} cm</span>
+              <span className="font-semibold text-gray-900">{specs.size} cm</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
               <span className="text-gray-600">Material:</span>
-              <span className="font-medium">{specs.material}</span>
+              <span className="font-semibold text-gray-900">{specs.material}</span>
             </div>
+          </div>
+
+          {/* 操作按钮 */}
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1 group">
+              <Download className="h-4 w-4 mr-2 group-hover:translate-y-0.5 transition-transform" />
+              Download
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1 group">
+              <Share className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
+              Share
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* 交货信息 */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-green-500" />
-              <span className="text-gray-600">Lead Time:</span>
-              <span className="font-medium text-green-700">{getLeadTime()}</span>
+      {/* 交货和服务信息 */}
+      <Card className="shadow-md hover:shadow-lg transition-all duration-300">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-green-500" />
+            Delivery & Service
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+            <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+            <div>
+              <div className="font-medium text-green-800">Lead Time: {getLeadTime()}</div>
+              <div className="text-sm text-green-600">Standard manufacturing time</div>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Truck className="h-4 w-4 text-blue-500" />
-              <span className="text-gray-600">Shipping:</span>
-              <span className="font-medium">Free for orders over $100</span>
+          </div>
+          
+          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <Truck className="h-5 w-5 text-blue-500 flex-shrink-0" />
+            <div>
+              <div className="font-medium text-blue-800">Free Shipping</div>
+              <div className="text-sm text-blue-600">For orders over $100</div>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Zap className="h-4 w-4 text-orange-500" />
-              <span className="text-gray-600">Express:</span>
-              <span className="font-medium">Available (+50% cost)</span>
+          </div>
+          
+          <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+            <Zap className="h-5 w-5 text-orange-500 flex-shrink-0" />
+            <div>
+              <div className="font-medium text-orange-800">Express Available</div>
+              <div className="text-sm text-orange-600">+50% cost for rush orders</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* 价格明细 */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-gray-700">Price Breakdown</CardTitle>
+      <Card className="shadow-md hover:shadow-lg transition-all duration-300">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold text-gray-800">Price Breakdown</CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
+        <CardContent>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between items-center py-2 border-b border-gray-100">
               <span className="text-gray-600">Base Price:</span>
-              <span>${priceBreakdown.basePrice.toFixed(2)}</span>
+              <span className="font-medium">${priceBreakdown.basePrice.toFixed(2)}</span>
             </div>
             {priceBreakdown.layerCost > 0 && (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
                 <span className="text-gray-600">Layer Cost:</span>
-                <span>+${priceBreakdown.layerCost.toFixed(2)}</span>
+                <span className="font-medium text-blue-600">+${priceBreakdown.layerCost.toFixed(2)}</span>
               </div>
             )}
             {priceBreakdown.sizeCost > 0 && (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
                 <span className="text-gray-600">Size Cost:</span>
-                <span>+${priceBreakdown.sizeCost.toFixed(2)}</span>
+                <span className="font-medium text-blue-600">+${priceBreakdown.sizeCost.toFixed(2)}</span>
               </div>
             )}
             {priceBreakdown.surfaceFinishCost > 0 && (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
                 <span className="text-gray-600">Surface Finish:</span>
-                <span>+${priceBreakdown.surfaceFinishCost.toFixed(2)}</span>
+                <span className="font-medium text-blue-600">+${priceBreakdown.surfaceFinishCost.toFixed(2)}</span>
               </div>
             )}
             {priceBreakdown.drillCost > 0 && (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
                 <span className="text-gray-600">Drilling:</span>
-                <span>+${priceBreakdown.drillCost.toFixed(2)}</span>
+                <span className="font-medium text-blue-600">+${priceBreakdown.drillCost.toFixed(2)}</span>
               </div>
             )}
             {priceBreakdown.expediteCost > 0 && (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
                 <span className="text-gray-600">Express Fee:</span>
-                <span>+${priceBreakdown.expediteCost.toFixed(2)}</span>
+                <span className="font-medium text-orange-600">+${priceBreakdown.expediteCost.toFixed(2)}</span>
               </div>
             )}
             {priceBreakdown.quantityDiscount > 0 && (
-              <div className="flex justify-between text-green-600">
-                <span>Quantity Discount:</span>
-                <span>-${priceBreakdown.quantityDiscount.toFixed(2)}</span>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-green-600 font-medium">Quantity Discount:</span>
+                <span className="font-medium text-green-600">-${priceBreakdown.quantityDiscount.toFixed(2)}</span>
               </div>
             )}
+            <div className="flex justify-between items-center py-3 bg-gray-50 rounded-lg px-3 font-semibold">
+              <span className="text-gray-800">Total per Unit:</span>
+              <span className="text-blue-600 text-lg">${priceBreakdown.unitPrice.toFixed(3)}</span>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* 技术规格 */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-gray-700">Technical Specifications</CardTitle>
+      <Card className="shadow-md hover:shadow-lg transition-all duration-300">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold text-gray-800">Technical Specifications</CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Thickness:</span>
-              <span>{specs.thickness}mm</span>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+              <span className="text-gray-600">Thickness:</span>
+              <span className="font-medium">{specs.thickness}mm</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Color:</span>
-              <span>{specs.color}</span>
+            <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+              <span className="text-gray-600">Color:</span>
+              <span className="font-medium">{specs.color}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Surface:</span>
-              <span>{specs.surfaceFinish}</span>
+            <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+              <span className="text-gray-600">Surface:</span>
+              <span className="font-medium">{specs.surfaceFinish}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Min Trace:</span>
-              <span>{specs.minTrace}mil</span>
+            <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+              <span className="text-gray-600">Min Trace:</span>
+              <span className="font-medium">{specs.minTrace}mil</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Min Hole:</span>
-              <span>{specs.minHole}mm</span>
+            <div className="flex justify-between items-center p-2 bg-gray-50 rounded col-span-2">
+              <span className="text-gray-600">Min Hole:</span>
+              <span className="font-medium">{specs.minHole}mm</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* 注意事项 */}
-      <Card className="border-amber-200 bg-amber-50">
-        <CardContent className="pt-4">
-          <div className="flex items-start gap-2">
-            <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-amber-800">
-              <p className="font-medium mb-1">Important Notes:</p>
-              <ul className="space-y-1 text-amber-700">
-                <li>• This is an estimated price based on standard specifications</li>
-                <li>• Final pricing may vary after engineering review</li>
-                <li>• Free design verification included</li>
-                <li>• 100% quality testing guaranteed</li>
+      {/* 重要提示 */}
+      <Card className="border-amber-200/60 bg-gradient-to-br from-amber-50/80 to-yellow-50/80 shadow-md">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0">
+              <Info className="h-4 w-4 text-amber-600" />
+            </div>
+            <div className="text-sm">
+              <p className="font-semibold text-amber-800 mb-2">Important Notes:</p>
+              <ul className="space-y-1.5 text-amber-700">
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="h-3 w-3 text-amber-600 mt-0.5 flex-shrink-0" />
+                  Estimated price based on standard specifications
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="h-3 w-3 text-amber-600 mt-0.5 flex-shrink-0" />
+                  Final pricing confirmed after engineering review
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="h-3 w-3 text-amber-600 mt-0.5 flex-shrink-0" />
+                  Free design verification included
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="h-3 w-3 text-amber-600 mt-0.5 flex-shrink-0" />
+                  100% quality testing guaranteed
+                </li>
               </ul>
             </div>
           </div>
