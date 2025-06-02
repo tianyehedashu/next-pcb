@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useExchangeRateStore } from "@/lib/exchangeRateStore";
 import { calcProductionCycle, getRealDeliveryDate } from "@/lib/pcb-calc";
+import { PcbQuoteForm } from "@/types/pcbQuoteForm";
 
 interface QuoteSummaryCardProps {
   pcbPrice: number;
@@ -9,7 +10,7 @@ interface QuoteSummaryCardProps {
   discount?: number;
   totalPrice: number;
   deliveryDate?: string;
-  form?: any;
+  form?: Partial<PcbQuoteForm>;
   detail?: Record<string, number>;
   notes?: string[];
 }
@@ -31,6 +32,8 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
   notes,
 }) => {
   const [showDetail, setShowDetail] = useState(true);
+  const [showProductionCycleDetail, setShowProductionCycleDetail] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
   const rate = useExchangeRateStore((s) => s.cnyToUsd);
 //@TODO: 汇率计算 先使用1 调试
   // const toUSD = (cny: number) => rate ? cny * rate : 0;
@@ -39,14 +42,15 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
 
   // 生产周期信息
   const prodCycles = compareOptions.map(opt => {
-    const testForm = { ...form, delivery: opt.delivery };
+    const testForm = { ...form, delivery: opt.delivery } as PcbQuoteForm;
     const info = calcProductionCycle(testForm, now);
     const finishDate = getRealDeliveryDate(now, info.cycleDays);
     return {
       label: opt.label,
       days: info.cycleDays,
       finish: finishDate.toISOString().slice(0, 10),
-      isUrgent: opt.delivery === "urgent"
+      isUrgent: opt.delivery === "urgent",
+      reasons: info.reason
     };
   });
 
@@ -93,25 +97,42 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
         </div>
         {/* 生产周期信息 */}
         <div className="mt-2">
-          <div className="font-semibold text-blue-700 mb-1">Production Cycle</div>
-          <table className="w-full text-xs text-center bg-slate-50 rounded-md">
-            <thead>
-              <tr className="border-b">
-                <th className="py-1 font-medium">Type</th>
-                <th className="py-1 font-medium">Cycle</th>
-                <th className="py-1 font-medium">Est. Finish</th>
-              </tr>
-            </thead>
-            <tbody>
-              {prodCycles.map((item) => (
-                <tr key={item.label} className={item.isUrgent ? "bg-red-50 text-red-600 font-semibold" : ""}>
-                  <td className="py-1">{item.isUrgent && <span className="text-base">⚡</span>} {item.label}</td>
-                  <td className="py-1">{item.days} day(s)</td>
-                  <td className="py-1">{item.finish}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="flex justify-between items-center mb-1">
+            <div className="text-blue-700 font-medium">Production Cycle</div>
+            <button
+              type="button"
+              className="text-xs text-blue-500 hover:underline transition-colors"
+              onClick={() => setShowProductionCycleDetail(!showProductionCycleDetail)}
+            >
+              {showProductionCycleDetail ? "Hide Detail" : "Show Production Cycle Detail"}
+            </button>
+          </div>
+          
+          <div className="flex justify-between text-sm mb-1">
+            <span className="text-blue-700 font-medium">Lead Time</span>
+            <span className="font-semibold">{prodCycles[0].days} day(s)</span>
+          </div>
+          
+          <div className="flex justify-between text-sm">
+            <span className="text-blue-700 font-medium">Est. Finish</span>
+            <span className="font-semibold">{prodCycles[0].finish}</span>
+          </div>
+          
+          {/* 生产周期详细信息 */}
+          {showProductionCycleDetail && (
+            <div className="mt-2">
+              <div className="bg-gray-50 rounded-md p-2">
+                <div className="font-medium text-xs text-blue-700 mb-1">
+                  Production Details:
+                </div>
+                <ul className="text-xs text-gray-600 space-y-0.5">
+                  {prodCycles[0].reasons.map((reason, idx) => (
+                    <li key={idx} className="text-xs leading-relaxed">• {reason}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
         {/* PCB价格明细（可选） */}
         {detail && Object.keys(detail).length > 0 && (
@@ -119,6 +140,27 @@ const QuoteSummaryCard: React.FC<QuoteSummaryCardProps> = ({
             <summary className="cursor-pointer text-blue-600">Show Price Details</summary>
             <pre className="text-xs bg-slate-100 rounded p-2 mt-1">{JSON.stringify(detail, null, 2)}</pre>
           </details>
+        )}
+        
+        {/* Show Debug 按钮 */}
+        <div className="mt-2">
+          <button
+            type="button"
+            className="text-xs text-blue-500 hover:underline transition-colors"
+            onClick={() => setShowDebug(!showDebug)}
+          >
+            {showDebug ? "Hide Debug" : "Show Debug"}
+          </button>
+        </div>
+        
+        {/* Debug Information */}
+        {showDebug && (
+          <div className="mt-2 space-y-2 text-xs bg-gray-50 rounded-lg p-3 max-h-64 overflow-y-auto">
+            <div className="font-medium text-gray-700 mb-2">Form Properties:</div>
+            <pre className="whitespace-pre-wrap text-xs text-gray-600 font-mono">
+              {JSON.stringify(form, null, 2)}
+            </pre>
+          </div>
         )}
       </div>
       {/* 总价区 */}

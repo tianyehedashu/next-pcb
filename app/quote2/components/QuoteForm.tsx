@@ -3,7 +3,7 @@
 import React from "react";
 import { createForm, Form } from "@formily/core";
 import { FormProvider, FormConsumer } from "@formily/react";
-import { useQuoteStore } from "@/lib/stores/quote-store";
+import { useQuoteStore, DEFAULT_FORM_DATA } from "@/lib/stores/quote-store";
 import SchemaField from "./FormilyComponents";
 import { pcbFormilySchema, fieldGroups } from "../schema/pcbFormilySchema";
 import { QuoteFormGroup } from "./QuoteFormGroup";
@@ -90,8 +90,13 @@ export function QuoteForm() {
     
     // 重置 store 到默认值
     resetForm();
-    // 重置表单到默认值
-    form.reset();
+    
+    // 使用导入的默认值，确保与 store 中的默认值一致
+    form.setValues(DEFAULT_FORM_DATA);
+    
+    // 清除表单的修改状态和错误
+    form.setSubmitting(false);
+    form.clearErrors();
   }, [form, resetForm]);
 
   // 在表单未初始化时显示加载状态
@@ -110,6 +115,23 @@ export function QuoteForm() {
       <div className="quote-form p-6 lg:p-8 space-y-8">
         {/* 添加表单通知系统 */}
         <FormNotificationContainer />
+        
+        {/* 表单顶部操作区域 */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">PCB Quote Request</h2>
+            <p className="text-gray-600 mt-1">Fill out the form below to get an instant quote</p>
+          </div>
+          <Button 
+            type="button" 
+            variant="outline"
+            onClick={handleReset}
+            className="group hover:border-red-300 hover:text-red-600 transition-colors duration-200"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Reset Form
+          </Button>
+        </div>
         
         <FormConsumer>
           {() => (
@@ -137,22 +159,10 @@ export function QuoteForm() {
                 </div>
               ))}
               
-              {/* 优化的表单操作按钮 */}
+              {/* 优化的表单提交按钮区域 */}
               <Card className="border-gray-200/60 shadow-sm bg-gradient-to-r from-gray-50/50 to-blue-50/50">
                 <CardContent className="p-6">
-                  <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-                    <div className="flex gap-3">
-                      <Button 
-                        type="button" 
-                        variant="outline"
-                        onClick={handleReset}
-                        className="group hover:border-red-300 hover:text-red-600 transition-colors duration-200"
-                      >
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Reset Form
-                      </Button>
-                    </div>
-                    
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                     <div className="flex items-center gap-3">
                       <div className="hidden sm:block text-sm text-gray-500">
                         Ready to get your quote?

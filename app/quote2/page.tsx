@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 // 服务端组件 - 静态内容和 SEO
 export default function Quote2Page() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 relative">
 
 
       <div className="relative z-10">
@@ -27,7 +27,7 @@ export default function Quote2Page() {
         {/* 主要内容区域 */}
         <main className="pt-20 pb-12">
           <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 lg:gap-12 items-start">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 lg:gap-12">
               {/* 表单区域 */}
               <div className="xl:col-span-2 space-y-8">
                 {/* 文件上传区域 */}
@@ -43,15 +43,15 @@ export default function Quote2Page() {
               
               {/* 价格摘要区域 */}
               <div className="xl:col-span-1">
-                <div className="sticky top-24 space-y-6">
-                  <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-xl hover:shadow-2xl transition-all duration-500 h-fit">
+                <div className="sticky top-20 z-50 space-y-6">
+                  <Card className="bg-white/95 backdrop-blur-md border-white/20 shadow-xl hover:shadow-2xl transition-all duration-500">
                     <CardContent className="p-0">
                       <PriceSummary />
                     </CardContent>
                   </Card>
                   
                   {/* 额外信息卡片 */}
-                  <Card className="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 backdrop-blur-sm border-blue-200/50 shadow-lg">
+                  <Card className="bg-gradient-to-br from-blue-50/90 to-indigo-50/90 backdrop-blur-md border-blue-200/50 shadow-lg">
                     <CardContent className="p-6">
                       <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
                         <Shield className="h-5 w-5" />
