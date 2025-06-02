@@ -14,6 +14,29 @@ export type NotificationType = 'value-changed' | 'options-changed' | 'visibility
 // 简化的选项类型
 type OptionType = { label: string; value: string | number | boolean };
 
+// 格式化值显示的工具函数
+const formatValue = (value: unknown): string => {
+  if (value === null || value === undefined) return 'empty';
+  if (typeof value === 'string' && value === '') return 'empty';
+  if (typeof value === 'string' && value.toLowerCase() === 'none') return 'empty';
+  if (value === 0 || value === '0') return 'empty';
+  return String(value);
+};
+
+// 检查是否应该过滤通知
+const shouldFilterNotification = (oldValue: unknown, newValue: unknown): boolean => {
+  const oldValueStr = formatValue(oldValue);
+  const newValueStr = formatValue(newValue);
+  
+  // 过滤掉所有涉及 empty 的变化
+  return oldValueStr === 'empty' || newValueStr === 'empty';
+};
+
+// 检查是否为重要字段
+const isImportantField = (fieldPath: string): boolean => {
+  return fieldPath === 'silkscreen' || fieldPath === 'thickness' || fieldPath === 'surfaceFinish';
+};
+
 export interface FormNotification {
   id: string;
   type: NotificationType;
@@ -155,6 +178,40 @@ export const useFormNotifications = () => {
       });
     };
 
+    // 处理值变化的函数
+    const handleValueChange = (field: Field, fieldPath: string, previousState: { value: unknown; options: OptionType[]; visible: boolean }) => {
+      const currentValue = field.value;
+      
+      // 检查是否为自动调整
+      const isAutoAdjustingFlag = (field as unknown as Record<string, unknown>).isAutoAdjusting === true;
+      const isAutoAdjustment = isAutoAdjustingFlag || !field.modified;
+      
+      if (!isAutoAdjustment) return;
+      
+      // 过滤掉涉及 empty 的变化
+      if (shouldFilterNotification(previousState.value, currentValue)) return;
+      
+      // 构建并发送通知
+      const oldValueStr = formatValue(previousState.value);
+      const newValueStr = formatValue(currentValue);
+      const fieldDisplayName = field.title || fieldPath;
+      const adjustmentMessage = `Auto-adjusted from "${oldValueStr}" to "${newValueStr}" based on other field changes`;
+      const notificationDuration = isImportantField(fieldPath) ? 8000 : 4000;
+      
+      addNotification({
+        type: 'value-changed',
+        title: fieldDisplayName,
+        message: adjustmentMessage,
+        fieldPath,
+        fieldTitle: field.title,
+        duration: notificationDuration,
+        details: {
+          oldValue: previousState.value,
+          newValue: currentValue
+        }
+      });
+    };
+
     // 延迟初始化，确保表单完全加载
     const timer = setTimeout(initializeFieldStates, 1000);
 
@@ -176,71 +233,9 @@ export const useFormNotifications = () => {
           
         const currentVisible = field.visible;
 
-        if (previousState) {
-          // 检查值变化（只检测自动调整）
-          if (previousState.value !== currentValue) {
-            // 检查是否为自动调整
-            const isAutoAdjustingFlag = (field as unknown as Record<string, unknown>).isAutoAdjusting === true;
-            const isAutoAdjustment = isAutoAdjustingFlag || !field.modified;
-            
-            if (isAutoAdjustment) {
-              // 格式化值显示
-              const formatValue = (value: unknown): string => {
-                if (value === null || value === undefined) return 'empty';
-                if (typeof value === 'string' && value === '') return 'empty';
-                if (typeof value === 'string' && value.toLowerCase() === 'none') return 'empty';
-                return String(value);
-              };
-              
-              const oldValueStr = formatValue(previousState.value);
-              const newValueStr = formatValue(currentValue);
-              
-              // 过滤掉从empty到empty的变化
-              if (oldValueStr === 'empty' && newValueStr === 'empty') {
-                fieldChangeMap.set(fieldPath, {
-                  value: currentValue,
-                  options: currentOptions,
-                  visible: currentVisible
-                });
-                return;
-              }
-              
-              // 构建调整说明
-              const adjustmentMessage = `${field.title || fieldPath} was automatically adjusted from "${oldValueStr}" to "${newValueStr}" based on other field changes.`;
-              
-              // 为重要字段设置更长的显示时间
-              const isImportantField = fieldPath === 'silkscreen' || fieldPath === 'thickness' || fieldPath === 'surfaceFinish';
-              const notificationDuration = isImportantField ? 8000 : 4000;
-              
-              addNotification({
-                type: 'value-changed',
-                title: 'Value Auto-adjusted',
-                message: adjustmentMessage,
-                fieldPath,
-                fieldTitle: field.title,
-                duration: notificationDuration,
-                details: {
-                  oldValue: previousState.value,
-                  newValue: currentValue
-                }
-              });
-            }
-          }
-
-          // 检查可见性变化 - 只在变为不可见时通知
-          if (previousState.visible !== currentVisible && !currentVisible) {
-            addNotification({
-              type: 'visibility-changed',
-              title: 'Field Hidden',
-              message: `${field.title || fieldPath} is no longer applicable with current settings.`,
-              fieldPath,
-              fieldTitle: field.title,
-              details: {
-                wasVisible: previousState.visible,
-                isVisible: currentVisible
-              }
-            });
-          }
+        // 处理值变化
+        if (previousState && previousState.value !== currentValue) {
+          handleValueChange(field, fieldPath, previousState);
         }
 
         // 更新状态
@@ -359,29 +354,25 @@ const NotificationItem = ({
         <div className="flex items-start gap-3">
           <NotificationIcon type={notification.type} />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="font-medium text-sm">{notification.title}</div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="font-bold text-base text-current">{notification.title}</div>
+              <span className="text-xs px-2 py-0.5 bg-current/10 rounded-full font-medium opacity-75">
+                Auto-adjusted
+              </span>
             </div>
-            <div className="text-xs mt-1 opacity-90">{notification.message}</div>
+            <div className="text-sm mt-1 opacity-90 font-medium">{notification.message}</div>
             
             {/* 时间戳 */}
-            <div className="text-xs mt-1 opacity-60">
+            <div className="text-xs mt-2 opacity-60">
               {new Date(notification.timestamp).toLocaleTimeString()}
             </div>
             
-            {/* 字段标题 */}
-            {notification.fieldTitle && (
-              <div className="text-xs mt-1 opacity-75 font-medium">
-                Field: {notification.fieldTitle}
-              </div>
-            )}
-            
             {/* 通知的详细信息 */}
             {notification.details && (
-              <div className="text-xs mt-2 opacity-75">
+              <div className="text-xs mt-3 opacity-75">
                 {notification.type === 'value-changed' && (
                   <div className="bg-white/70 rounded-md px-3 py-2 border border-current/30">
-                    <div className="font-semibold mb-2 text-xs">Adjustment Details:</div>
+                    <div className="font-semibold mb-2 text-xs">Value Change:</div>
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-xs font-medium opacity-70">From</span>
