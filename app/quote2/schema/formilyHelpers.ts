@@ -454,16 +454,40 @@ export function runSmartAdjustment($self: FormilyField) {
       console.log(`Auto-adjusting ${fieldName} from ${currentValue} to ${finalValue}`);
       console.log(`Field modified status before setValue:`, $self.modified);
       
-      // 标记这是自动调整
+      // 增加针对 silkscreen 字段的特殊调试
+      if (fieldName && (fieldName === 'silkscreen' || fieldName.includes('silkscreen'))) {
+        console.log('🎨 Silk Screen auto-adjustment:', {
+          fieldPath: fieldName,
+          currentValue,
+          finalValue,
+          modifiedBefore: $self.modified,
+          isAutoAdjustingBefore: $self.isAutoAdjusting
+        });
+      }
+      
+      // 标记这是自动调整 - 在 setValue 之前设置
       $self.isAutoAdjusting = true;
+      
+      // 立即设置值
       $self.setValue(finalValue);
       
-      // 延迟清除标记，确保通知系统能够检测到
-      setTimeout(() => {
-        $self.isAutoAdjusting = false;
-      }, 50);
-      
       console.log(`Field modified status after setValue:`, $self.modified);
+      
+      // 增加针对 silkscreen 字段的后续调试
+      if (fieldName && (fieldName === 'silkscreen' || fieldName.includes('silkscreen'))) {
+        console.log('🎨 Silk Screen after setValue:', {
+          modifiedAfter: $self.modified,
+          isAutoAdjustingAfter: $self.isAutoAdjusting
+        });
+      }
+      
+      // 延长清除标记的时间，确保通知系统能够检测到
+      setTimeout(() => {
+        if (fieldName && (fieldName === 'silkscreen' || fieldName.includes('silkscreen'))) {
+          console.log('🎨 Silk Screen clearing isAutoAdjusting flag');
+        }
+        $self.isAutoAdjusting = false;
+      }, 200); // 增加到 200ms
     }
     
   } catch (error) {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useForm } from "@formily/react";
 import { Field, GeneralField } from "@formily/core";
 import { motion, AnimatePresence } from "framer-motion";
@@ -46,8 +47,8 @@ export const useFormNotifications = () => {
       ...notification,
       id: Math.random().toString(36).substr(2, 9),
       timestamp: Date.now(),
-      autoHide: notification.autoHide !== false, // 默认为 true，除非明确设置为 false
-      duration: notification.duration || 3000, // 改为3秒
+      autoHide: notification.autoHide !== false,
+      duration: notification.duration || 3000,
     };
 
     setNotifications(prev => [...prev, newNotification]);
@@ -63,8 +64,6 @@ export const useFormNotifications = () => {
 
   // 移除通知
   const removeNotification = useCallback((id: string) => {
-    console.log('Attempting to remove notification:', id, 'current hovered:', hoveredNotificationId);
-    
     setNotifications(prev => prev.filter(n => n.id !== id));
     
     // 清除对应的定时器
@@ -111,7 +110,6 @@ export const useFormNotifications = () => {
 
   // 恢复自动隐藏
   const resumeAutoHide = useCallback((id: string, duration: number) => {
-    console.log('Resume auto hide for notification:', id, 'duration:', duration);
     // 先清除可能存在的旧定时器
     const existingTimeoutId = timeoutsRef.current.get(id);
     if (existingTimeoutId) {
@@ -120,7 +118,6 @@ export const useFormNotifications = () => {
     
     // 设置新的定时器
     const timeoutId = setTimeout(() => {
-      console.log('Auto hide timeout triggered for notification:', id);
       removeNotification(id);
     }, duration);
     timeoutsRef.current.set(id, timeoutId);
@@ -128,7 +125,6 @@ export const useFormNotifications = () => {
 
   // 设置悬停通知
   const setHoveredNotification = useCallback((id: string | null) => {
-    console.log('Setting hovered notification:', id);
     setHoveredNotificationId(id);
   }, []);
 
@@ -183,11 +179,9 @@ export const useFormNotifications = () => {
         if (previousState) {
           // 检查值变化（只检测自动调整）
           if (previousState.value !== currentValue) {
-            // 检查是否为自动调整：
-            // 1. field.modified 为 false（明确的被动改变）
-            // 2. 或者字段被标记为正在自动调整
-            const isAutoAdjustment = !field.modified || 
-              (field as unknown as Record<string, unknown>).isAutoAdjusting === true;
+            // 检查是否为自动调整
+            const isAutoAdjustingFlag = (field as unknown as Record<string, unknown>).isAutoAdjusting === true;
+            const isAutoAdjustment = isAutoAdjustingFlag || !field.modified;
             
             if (isAutoAdjustment) {
               // 格式化值显示
@@ -201,9 +195,8 @@ export const useFormNotifications = () => {
               const oldValueStr = formatValue(previousState.value);
               const newValueStr = formatValue(currentValue);
               
-              // 过滤掉从empty到empty的变化（包括none <-> empty的转换）
+              // 过滤掉从empty到empty的变化
               if (oldValueStr === 'empty' && newValueStr === 'empty') {
-                // 更新状态但不显示通知
                 fieldChangeMap.set(fieldPath, {
                   value: currentValue,
                   options: currentOptions,
@@ -215,12 +208,17 @@ export const useFormNotifications = () => {
               // 构建调整说明
               const adjustmentMessage = `${field.title || fieldPath} was automatically adjusted from "${oldValueStr}" to "${newValueStr}" based on other field changes.`;
               
+              // 为重要字段设置更长的显示时间
+              const isImportantField = fieldPath === 'silkscreen' || fieldPath === 'thickness' || fieldPath === 'surfaceFinish';
+              const notificationDuration = isImportantField ? 8000 : 4000;
+              
               addNotification({
                 type: 'value-changed',
                 title: 'Value Auto-adjusted',
                 message: adjustmentMessage,
                 fieldPath,
                 fieldTitle: field.title,
+                duration: notificationDuration,
                 details: {
                   oldValue: previousState.value,
                   newValue: currentValue
@@ -316,31 +314,27 @@ const NotificationItem = ({
   const getNotificationStyles = (type: NotificationType) => {
     switch (type) {
       case 'value-changed':
-        return 'bg-blue-50 border-blue-200 text-blue-800';
+        return 'bg-blue-50 border-blue-200 text-blue-800 shadow-lg border-2';
       case 'options-changed':
-        return 'bg-amber-50 border-amber-200 text-amber-800';
+        return 'bg-amber-50 border-amber-200 text-amber-800 shadow-lg border-2';
       case 'visibility-changed':
-        return 'bg-purple-50 border-purple-200 text-purple-800';
+        return 'bg-purple-50 border-purple-200 text-purple-800 shadow-lg border-2';
       case 'validation-error':
-        return 'bg-red-50 border-red-200 text-red-800';
+        return 'bg-red-50 border-red-200 text-red-800 shadow-lg border-2';
       default:
-        return 'bg-green-50 border-green-200 text-green-800';
+        return 'bg-green-50 border-green-200 text-green-800 shadow-lg border-2';
     }
   };
 
   const handleMouseEnter = () => {
-    console.log('Mouse enter notification:', notification.id, 'autoHide:', notification.autoHide);
     onHoverChange(notification.id);
-    // 立即暂停自动隐藏，无论当前状态如何
     onPauseAutoHide(notification.id);
   };
 
   const handleMouseLeave = () => {
-    console.log('Mouse leave notification:', notification.id, 'autoHide:', notification.autoHide, 'duration:', notification.duration);
     onHoverChange(null);
-    // 离开时重新开始1秒的自动隐藏周期
     if (notification.autoHide) {
-      onResumeAutoHide(notification.id, 1000); // 固定为1秒
+      onResumeAutoHide(notification.id, 1000);
     }
   };
 
@@ -350,11 +344,11 @@ const NotificationItem = ({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.95 }}
       transition={{ duration: 0.2 }}
-      layout={!isHovered} // 只有在非悬停状态下才允许布局动画
+      layout={!isHovered}
       className={cn(
-        "relative rounded-lg border shadow-sm cursor-default",
+        "relative rounded-lg border shadow-sm cursor-default backdrop-blur-sm",
         getNotificationStyles(notification.type),
-        isHovered && "z-10 shadow-lg" // 悬停时提高层级和阴影
+        isHovered && "z-10 shadow-xl scale-105"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -474,35 +468,50 @@ export const FormNotificationContainer = () => {
     hoveredNotificationId
   } = useFormNotifications();
 
-  if (notifications.length === 0) return null;
+  const [mounted, setMounted] = useState(false);
 
-  return (
-    <div className="fixed top-4 right-4 z-50 w-80 max-w-sm space-y-2">
-      <AnimatePresence mode="popLayout">
-        {notifications.map((notification) => (
-          <NotificationItem
-            key={notification.id}
-            notification={notification}
-            onForceRemove={forceRemoveNotification}
-            onPauseAutoHide={pauseAutoHide}
-            onResumeAutoHide={resumeAutoHide}
-            onHoverChange={setHoveredNotification}
-            isHovered={hoveredNotificationId === notification.id}
-          />
-        ))}
-      </AnimatePresence>
-      
-      {notifications.length > 1 && (
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={clearNotifications}
-          className="w-full text-xs text-gray-500 hover:text-gray-700 py-2 text-center border-t border-gray-200 bg-white/80 backdrop-blur-sm rounded-b-lg"
-        >
-          Clear all notifications
-        </motion.button>
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  const notificationContent = (
+    <>
+      {/* 通知容器 - 固定在视窗右上角 */}
+      {notifications.length > 0 && (
+        <div className="fixed top-4 right-4 z-[10000] w-80 max-w-sm space-y-2">
+          <AnimatePresence mode="popLayout">
+            {notifications.map((notification) => (
+              <div key={notification.id}>
+                <NotificationItem
+                  notification={notification}
+                  onForceRemove={forceRemoveNotification}
+                  onPauseAutoHide={pauseAutoHide}
+                  onResumeAutoHide={resumeAutoHide}
+                  onHoverChange={setHoveredNotification}
+                  isHovered={hoveredNotificationId === notification.id}
+                />
+              </div>
+            ))}
+          </AnimatePresence>
+          
+          {notifications.length > 1 && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={clearNotifications}
+              className="w-full text-xs text-gray-500 hover:text-gray-700 py-2 text-center border-t border-gray-200 bg-white/80 backdrop-blur-sm rounded-b-lg"
+            >
+              Clear all notifications
+            </motion.button>
+          )}
+        </div>
       )}
-    </div>
+    </>
   );
+
+  // 使用 Portal 将通知渲染到 body 中
+  return createPortal(notificationContent, document.body);
 }; 

@@ -10,7 +10,7 @@ dependencies:
     version: 2.3.7
   '@formily/react':
     specifier: ^2.3.7
-    version: 2.3.7(@types/react-dom@19.1.5)(@types/react@19.1.4)(react-dom@19.1.0)(react-is@16.13.1)(react@19.1.0)(typescript@5.8.3)
+    version: 2.3.7(@types/react-dom@19.1.5)(@types/react@19.1.4)(react-dom@19.1.0)(react-is@18.3.1)(react@19.1.0)(typescript@5.8.3)
   '@formily/reactive':
     specifier: ^2.3.7
     version: 2.3.7
@@ -108,8 +108,8 @@ dependencies:
     specifier: ^3.24.4
     version: 3.24.4
   zustand:
-    specifier: ^5.0.4
-    version: 5.0.4(@types/react@19.1.4)(immer@10.1.1)(react@19.1.0)
+    specifier: ^4.3.9
+    version: 4.3.9(immer@10.1.1)(react@19.1.0)
 
 devDependencies:
   '@eslint/eslintrc':
@@ -769,7 +769,7 @@ packages:
     engines: {npm: '>=3.0.0'}
     dev: false
 
-  /@formily/react@2.3.7(@types/react-dom@19.1.5)(@types/react@19.1.4)(react-dom@19.1.0)(react-is@16.13.1)(react@19.1.0)(typescript@5.8.3):
+  /@formily/react@2.3.7(@types/react-dom@19.1.5)(@types/react@19.1.4)(react-dom@19.1.0)(react-is@18.3.1)(react@19.1.0)(typescript@5.8.3):
     resolution: {integrity: sha512-yn3xhFgl5pdDECiyOtt/hlwhnxzpjjYkig1Oyyg4mgYDeP9UT9jd0V3/iLasOdoogUJj+j28XegFZRneITIuew==}
     engines: {npm: '>=3.0.0'}
     peerDependencies:
@@ -787,7 +787,7 @@ packages:
       '@formily/core': 2.3.7
       '@formily/json-schema': 2.3.7(typescript@5.8.3)
       '@formily/reactive': 2.3.7
-      '@formily/reactive-react': 2.3.7(@types/react-dom@19.1.5)(@types/react@19.1.4)(react-dom@19.1.0)(react-is@16.13.1)(react@19.1.0)
+      '@formily/reactive-react': 2.3.7(@types/react-dom@19.1.5)(@types/react@19.1.4)(react-dom@19.1.0)(react-is@18.3.1)(react@19.1.0)
       '@formily/shared': 2.3.7
       '@formily/validator': 2.3.7
       '@types/react': 19.1.4
@@ -795,12 +795,12 @@ packages:
       hoist-non-react-statics: 3.3.2
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-      react-is: 16.13.1
+      react-is: 18.3.1
     transitivePeerDependencies:
       - typescript
     dev: false
 
-  /@formily/reactive-react@2.3.7(@types/react-dom@19.1.5)(@types/react@19.1.4)(react-dom@19.1.0)(react-is@16.13.1)(react@19.1.0):
+  /@formily/reactive-react@2.3.7(@types/react-dom@19.1.5)(@types/react@19.1.4)(react-dom@19.1.0)(react-is@18.3.1)(react@19.1.0):
     resolution: {integrity: sha512-foUP2El31RrCS+cj6QhZ9nhO5h8HhTFT4kof6Dt9qI72pzcdoxjGSiPSSstfn4eFmUbyiD8APz8d/ynB4INo5Q==}
     engines: {npm: '>=3.0.0'}
     peerDependencies:
@@ -821,7 +821,7 @@ packages:
       hoist-non-react-statics: 3.3.2
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-      react-is: 16.13.1
+      react-is: 18.3.1
     dev: false
 
   /@formily/reactive@2.3.7:
@@ -6615,6 +6615,10 @@ packages:
   /react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
 
+  /react-is@18.3.1:
+    resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
+    dev: false
+
   /react-remove-scroll-bar@2.3.8(@types/react@19.1.4)(react@19.1.0):
     resolution: {integrity: sha512-9r+yi9+mgU33AKcj6IbT9oRCO78WriSj6t/cF8DWBZJ9aOGPOTEDvdUDz1FwKim7QXWwmHqtdHnRJfhAxEG46Q==}
     engines: {node: '>=10'}
@@ -7638,6 +7642,14 @@ packages:
       react: 19.1.0
       tslib: 2.8.1
 
+  /use-sync-external-store@1.2.0(react@19.1.0):
+    resolution: {integrity: sha512-eEgnFxGQ1Ife9bzYs6VLi8/4X6CObHMw9Qr9tPY43iKwsPw8xE8+EFsf/2cFZ5S3esXgpWgtSCtLNS41F+sKPA==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 19.1.0
+    dev: false
+
   /use-sync-external-store@1.5.0(react@19.1.0):
     resolution: {integrity: sha512-Rb46I4cGGVBmjamjphe8L/UnvJD+uPPtTkNvX5mZgqdbavhI4EbgIWJiIHXJ8bc/i9EQGPRh4DwEURJ552Do0A==}
     peerDependencies:
@@ -7849,25 +7861,19 @@ packages:
     resolution: {integrity: sha512-OdqJE9UDRPwWsrHjLN2F8bPxvwJBK22EHLWtanu0LSYr5YqzsaaW3RMgmjwr8Rypg5k+meEJdSPXJZXE/yqOMg==}
     dev: false
 
-  /zustand@5.0.4(@types/react@19.1.4)(immer@10.1.1)(react@19.1.0):
-    resolution: {integrity: sha512-39VFTN5InDtMd28ZhjLyuTnlytDr9HfwO512Ai4I8ZABCoyAj4F1+sr7sD1jP/+p7k77Iko0Pb5NhgBFDCX0kQ==}
-    engines: {node: '>=12.20.0'}
+  /zustand@4.3.9(immer@10.1.1)(react@19.1.0):
+    resolution: {integrity: sha512-Tat5r8jOMG1Vcsj8uldMyqYKC5IZvQif8zetmLHs9WoZlntTHmIoNM8TpLRY31ExncuUvUOXehd0kvahkuHjDw==}
+    engines: {node: '>=12.7.0'}
     peerDependencies:
-      '@types/react': '>=18.0.0'
-      immer: '>=9.0.6'
-      react: '>=18.0.0'
-      use-sync-external-store: '>=1.2.0'
+      immer: '>=9.0'
+      react: '>=16.8'
     peerDependenciesMeta:
-      '@types/react':
-        optional: true
       immer:
         optional: true
       react:
         optional: true
-      use-sync-external-store:
-        optional: true
     dependencies:
-      '@types/react': 19.1.4
       immer: 10.1.1
       react: 19.1.0
+      use-sync-external-store: 1.2.0(react@19.1.0)
     dev: false
