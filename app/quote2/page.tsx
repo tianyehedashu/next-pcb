@@ -1,9 +1,5 @@
 import { Metadata } from "next";
-import QuoteForm from "./components/QuoteForm";
-import PriceSummary from "./components/PriceSummary";
-import { FileUploadSection } from "./components/FileUploadSection";
-import { Card, CardContent } from "@/components/ui/card";
-import {  Shield,   } from "lucide-react";
+import { QuotePageClient } from "./components/QuotePageClient";
 
 export const metadata: Metadata = {
   title: "PCB Quote Request - Get Instant Pricing | NextPCB",
@@ -20,69 +16,8 @@ export const metadata: Metadata = {
 export default function Quote2Page() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 relative">
-
-
       <div className="relative z-10">
-
-        {/* 主要内容区域 */}
-        <main className="pt-20 pb-12">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 lg:gap-12">
-              {/* 表单区域 */}
-              <div className="xl:col-span-2 space-y-8">
-                {/* 文件上传区域 */}
-                <FileUploadSection />
-                
-                {/* 表单区域 */}
-                <Card className="bg-white/70 backdrop-blur-sm border-white/20 shadow-xl hover:shadow-2xl transition-all duration-500 h-fit">
-                  <CardContent className="p-0">
-                    <QuoteForm />
-                  </CardContent>
-                </Card>
-              </div>
-              
-              {/* 价格摘要区域 */}
-              <div className="xl:col-span-1">
-                <div className="sticky top-20 z-50 space-y-6">
-                  <Card className="bg-white/95 backdrop-blur-md border-white/20 shadow-xl hover:shadow-2xl transition-all duration-500">
-                    <CardContent className="p-0">
-                      <PriceSummary />
-                    </CardContent>
-                  </Card>
-                  
-                  {/* 额外信息卡片 */}
-                  <Card className="bg-gradient-to-br from-blue-50/90 to-indigo-50/90 backdrop-blur-md border-blue-200/50 shadow-lg">
-                    <CardContent className="p-6">
-                      <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                        <Shield className="h-5 w-5" />
-                        Quality Guarantee
-                      </h3>
-                      <ul className="space-y-2 text-sm text-blue-800">
-                        <li className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                          100% electrical testing
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                          IPC Class 2/3 standards
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                          Free design review
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                          24/7 engineering support
-                        </li>
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-
+        <QuotePageClient />
       </div>
     </div>
   );

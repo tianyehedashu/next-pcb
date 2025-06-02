@@ -65,7 +65,7 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
             onClick={() => handleSelect(option.value)}
             disabled={disabled}
             className={cn(
-              "px-4 py-2 min-w-[80px] rounded-lg border transition-colors duration-150 relative",
+              "px-4 py-2 min-w-[80px] h-9 rounded-md border transition-colors duration-150 relative",
               isSelected
                 ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
                 : "bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50",

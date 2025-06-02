@@ -8,7 +8,7 @@ import SchemaField from "./FormilyComponents";
 import { pcbFormilySchema, fieldGroups } from "../schema/pcbFormilySchema";
 import { QuoteFormGroup } from "./QuoteFormGroup";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { RotateCcw, Send } from "lucide-react";
 import { FormNotificationContainer } from "./FormNotificationSystem";
 
@@ -135,29 +135,32 @@ export function QuoteForm() {
         
         <FormConsumer>
           {() => (
-            <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-6">
+            <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-8">
               {/* 使用现有的QuoteFormGroup组件渲染分组表单 */}
-              {fieldGroups.map((group, index) => (
-                <div key={group.title} className="group">
-                  <Card className="border-gray-200/60 shadow-sm hover:shadow-md transition-shadow duration-200 hover:border-blue-200/60">
-                    <CardHeader className="pb-4">
-                      <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                        <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-sm font-bold">
-                          {index + 1}
-                        </div>
+              {fieldGroups.map((group, index) => {
+                return (
+                  <div key={group.title} className="group" id={`form-step-${index}`}>
+                    {/* 简洁的分组标题 */}
+                    <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200">
+                      <div className="flex items-center justify-center w-8 h-8 bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm">
+                        {index + 1}
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900">
                         {group.title}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-0">
+                      </h3>
+                    </div>
+                    
+                    {/* 表单字段内容 */}
+                    <div className="pl-4">
                       <QuoteFormGroup
                         fields={group.fields}
                         schema={pcbFormilySchema}
                         SchemaField={SchemaField}
                       />
-                    </CardContent>
-                  </Card>
-                </div>
-              ))}
+                    </div>
+                  </div>
+                );
+              })}
               
               {/* 优化的表单提交按钮区域 */}
               <Card className="border-gray-200/60 shadow-sm bg-gradient-to-r from-gray-50/50 to-blue-50/50">

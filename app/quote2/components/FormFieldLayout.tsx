@@ -25,9 +25,9 @@ export const FormFieldLayout: React.FC<FormFieldLayoutProps> = ({
   // 内联布局 - 标签和选项在同一行
   if (layout === 'inline') {
     return (
-      <div className={cn("flex items-start gap-3", className)}>
+      <div className={cn("flex items-start gap-4", className)}>
         <label className={cn(
-          "text-sm font-medium text-gray-700 w-40 flex-shrink-0 text-right pt-2.5",
+          "text-sm font-semibold text-gray-800 w-36 flex-shrink-0 text-right pt-2.5",
           required && "after:content-['*'] after:text-red-500 after:ml-1"
         )}>
           {label}:
@@ -43,7 +43,7 @@ export const FormFieldLayout: React.FC<FormFieldLayoutProps> = ({
     return (
       <div className={cn("space-y-2", className)}>
         <label className={cn(
-          "text-sm font-medium text-gray-700 block",
+          "text-sm font-semibold text-gray-800 block",
           required && "after:content-['*'] after:text-red-500 after:ml-1"
         )}>
           {label}:
@@ -57,9 +57,9 @@ export const FormFieldLayout: React.FC<FormFieldLayoutProps> = ({
 
   // 水平布局（原有布局）
   return (
-    <div className={cn("flex items-start gap-4 min-h-[40px]", className)}>
+    <div className={cn("flex items-start gap-4 min-h-[44px]", className)}>
       <label className={cn(
-        "text-sm font-medium text-gray-700 w-40 flex-shrink-0 text-right pt-2.5",
+        "text-sm font-semibold text-gray-800 w-36 flex-shrink-0 text-right pt-2.5",
         required && "after:content-['*'] after:text-red-500 after:ml-1"
       )}>
         {label}:

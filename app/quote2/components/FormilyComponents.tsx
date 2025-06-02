@@ -41,7 +41,7 @@ export const formilyComponents = {
         value={String(props.value || '')}
         onChange={(e) => props.onChange?.(e.target.value)}
         placeholder={props.placeholder}
-        className="transition-colors duration-150"
+        className="transition-colors duration-150 text-sm h-10"
       />
     );
   },
@@ -50,12 +50,12 @@ export const formilyComponents = {
 
     return (
       <UISelect value={String(props.value || '')} onValueChange={props.onChange}>
-        <SelectTrigger>
+        <SelectTrigger className="h-10 text-sm">
           <SelectValue placeholder={props.placeholder} />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
-            <SelectItem key={String(option.value)} value={String(option.value)}>
+            <SelectItem key={String(option.value)} value={String(option.value)} className="text-sm py-2">
               {option.label}
             </SelectItem>
           ))}
@@ -63,8 +63,22 @@ export const formilyComponents = {
       </UISelect>
     );
   },
-  TextArea: Textarea,
-  Checkbox,
+  TextArea: (props: FormilyFieldProps) => (
+    <Textarea 
+      value={String(props.value || '')}
+      onChange={(e) => props.onChange?.(e.target.value)}
+      placeholder={props.placeholder}
+      rows={props.rows}
+      className="text-sm min-h-[80px] resize-y"
+    />
+  ),
+  Checkbox: (props: FormilyFieldProps) => (
+    <Checkbox 
+      checked={Boolean(props.value)}
+      onCheckedChange={(checked) => props.onChange?.(checked)}
+      className="w-4 h-4"
+    />
+  ),
   ColorSelector: (props: FormilyFieldProps) => {
     const options = props.componentProps?.options || props.dataSource || props.enum || props.options || [];
     // 转换选项格式以匹配 ColorSelector 的 ColorOption 类型
@@ -95,7 +109,7 @@ export const formilyComponents = {
             size="sm"
             onClick={() => props.onChange?.(option.value)}
             className={cn(
-              "px-4 py-2 min-w-[60px] rounded-lg border transition-colors duration-150",
+              "px-4 py-2 min-w-[70px] h-9 rounded-md border transition-colors duration-150 text-sm font-medium",
               props.value === option.value
                 ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
                 : "bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
@@ -115,7 +129,7 @@ export const formilyComponents = {
         size="sm"
         onClick={() => props.onChange?.(false)}
         className={cn(
-          "px-4 py-2 min-w-[60px] rounded-lg border transition-colors duration-150",
+          "px-4 py-2 min-w-[70px] h-9 rounded-md border transition-colors duration-150 text-sm font-medium",
           props.value === false
             ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
             : "bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
@@ -129,7 +143,7 @@ export const formilyComponents = {
         size="sm"
         onClick={() => props.onChange?.(true)}
         className={cn(
-          "px-4 py-2 min-w-[60px] rounded-lg border transition-colors duration-150",
+          "px-4 py-2 min-w-[70px] h-9 rounded-md border transition-colors duration-150 text-sm font-medium",
           props.value === true
             ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
             : "bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
@@ -153,7 +167,7 @@ export const formilyComponents = {
             size="sm"
             onClick={() => props.onChange?.(option.value)}
             className={cn(
-              "px-4 py-2 min-w-[80px] rounded-lg border transition-colors duration-150",
+              "px-4 py-2 min-w-[80px] h-9 rounded-md border transition-colors duration-150 text-sm font-medium",
               props.value === option.value
                 ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
                 : "bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
@@ -170,7 +184,7 @@ export const formilyComponents = {
     const hasError = value && (props.min && value < props.min || props.max && value > props.max);
 
     return (
-      <div className="space-y-1">
+      <div className="space-y-2">
         <div className="flex items-center gap-3">
           <Input
             type="number"
@@ -180,7 +194,7 @@ export const formilyComponents = {
             min={props.min}
             max={props.max}
             className={cn(
-              "w-32 transition-colors duration-150 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]",
+              "w-32 h-10 text-sm transition-colors duration-150 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]",
               hasError
                 ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
                 : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
@@ -193,7 +207,7 @@ export const formilyComponents = {
           )}
         </div>
         {hasError && (
-          <div className="text-xs text-red-500">
+          <div className="text-sm text-red-500">
             {props.min && value < props.min && `Minimum value is ${props.min}`}
             {props.max && value > props.max && `Maximum value is ${props.max}`}
           </div>
@@ -213,9 +227,9 @@ export const formilyComponents = {
             ...dimensions,
             length: e.target.value ? Number(e.target.value) : 0
           })}
-          className="w-24"
+          className="w-28 h-10 text-sm"
         />
-        <span>×</span>
+        <span className="text-sm font-medium">×</span>
         <Input
           type="number"
           placeholder="Width"
@@ -224,9 +238,9 @@ export const formilyComponents = {
             ...dimensions,
             width: e.target.value ? Number(e.target.value) : 0
           })}
-          className="w-24"
+          className="w-28 h-10 text-sm"
         />
-        <span className="text-xs text-muted-foreground">cm</span>
+        <span className="text-sm text-muted-foreground font-medium">cm</span>
       </div>
     );
   },
@@ -242,9 +256,9 @@ export const formilyComponents = {
             ...panelDimensions,
             row: e.target.value ? Number(e.target.value) : 1
           })}
-          className="w-20"
+          className="w-24 h-10 text-sm"
         />
-        <span className="text-xs">pcs ×</span>
+        <span className="text-sm font-medium">pcs ×</span>
         <Input
           type="number"
           placeholder="Columns"
@@ -253,9 +267,9 @@ export const formilyComponents = {
             ...panelDimensions,
             column: e.target.value ? Number(e.target.value) : 1
           })}
-          className="w-20"
+          className="w-24 h-10 text-sm"
         />
-        <span className="text-xs text-muted-foreground">pcs</span>
+        <span className="text-sm text-muted-foreground font-medium">pcs</span>
       </div>
     );
   },
@@ -273,6 +287,7 @@ export const formilyComponents = {
       accept={props.accept}
       onChange={(e) => props.onChange?.(e.target.files?.[0] || null)}
       placeholder={props.placeholder}
+      className="h-10 text-sm file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
     />
   ),
   MultiSelect: ({ value, onChange, ...props }: FormilyFieldProps) => {
@@ -353,7 +368,7 @@ export const formilyComponents = {
               size="sm"
               onClick={() => handleChange(safeOptionValue)}
               className={cn(
-                "px-4 py-2 min-w-[80px] rounded-lg border transition-colors duration-150",
+                "px-4 py-2 min-w-[80px] h-9 rounded-md border transition-colors duration-150 text-sm font-medium",
                 isSelected
                   ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
                   : "bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50"

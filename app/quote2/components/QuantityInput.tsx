@@ -85,7 +85,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
         value=""
         onValueChange={handlePresetSelect}
       >
-        <SelectTrigger className="w-32 h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-200">
+        <SelectTrigger className="w-36 h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-200">
           <span className={cn(
             "text-sm",
             numericValue ? "text-gray-900 font-medium" : "text-gray-500"
@@ -101,7 +101,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
               <SelectItem 
                 key={count} 
                 value={String(count)}
-                className="text-center justify-center min-w-[60px] h-8 text-sm hover:bg-blue-50 focus:bg-blue-100"
+                className="text-center justify-center min-w-[60px] h-9 text-sm hover:bg-blue-50 focus:bg-blue-100"
               >
                 {count}
               </SelectItem>
@@ -122,13 +122,13 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
               onFocus={stopPropagation}
               onKeyDown={handleKeyDown}
               placeholder="Other quantity"
-              className="flex-1 h-8 text-sm border-gray-300 focus:border-blue-500 focus:ring-blue-200"
+              className="flex-1 h-9 text-sm border-gray-300 focus:border-blue-500 focus:ring-blue-200"
             />
             <Button
               size="sm"
               onClick={handleCustomConfirm}
               disabled={!isCustomValueValid}
-              className="h-8 px-3 text-sm bg-gray-800 hover:bg-gray-900 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-9 px-3 text-sm bg-gray-800 hover:bg-gray-900 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Confirm
             </Button>

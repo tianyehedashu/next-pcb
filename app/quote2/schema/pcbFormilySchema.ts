@@ -703,6 +703,7 @@ export const pcbFormilySchema: ISchema = {
 export const fieldGroups = [
   {
     title: "Basic Information",
+    icon: "Info",
     fields: [
       'pcbType', 'layers', 'useShengyiMaterial', 'thickness', 'tg', 
       'differentDesignsCount', 'singleDimensions', 'shipmentType', 
@@ -710,7 +711,8 @@ export const fieldGroups = [
     ]
   },
   {
-    title: "Process Information", 
+    title: "Process Information",
+    icon: "Settings", 
     fields: [
       'outerCopperWeight', 'innerCopperWeight', 'minTrace', 'minHole',
       'solderMask', 'silkscreen', 'surfaceFinish', 'surfaceFinishEnigType',
@@ -720,6 +722,7 @@ export const fieldGroups = [
   },
   {
     title: "Service Information",
+    icon: "Wrench",
     fields: [
       'hdi', 'castellated', 'testMethod',  'workingGerber',
       'productReport', 'ulMark', 'crossOuts', 'ipcClass', 'ifDataConflicts',
@@ -727,7 +730,8 @@ export const fieldGroups = [
     ]
   },
   {
-    title: "Shipping Information", 
+    title: "Shipping Information",
+    icon: "Truck", 
     fields: [
       'shippingAddress', 'customsNote', 'userNote'
     ]
