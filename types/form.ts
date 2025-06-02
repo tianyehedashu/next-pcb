@@ -26,7 +26,7 @@ export enum PcbType {
  * - 1step/2step/3step：盲埋孔阶数，阶数越高，布线更密集，工艺更复杂，价格更高。
  */
 export enum HdiType {
-  None = 'none', // 普通板，工艺简单，成本低
+  None = 'None', // 普通板，工艺简单，成本低
   Step1 = '1step', // 一阶HDI，适合中高密度设计
   Step2 = '2step', // 二阶HDI，适合更高密度设计
   Step3 = '3step', // 三阶HDI，极高密度，工艺最复杂
@@ -65,7 +65,7 @@ export enum ShipmentType {
  * - 5/10：5mm/10mm工艺边，便于贴片、分板等。
  */
 export enum BorderType {
-  None = 'none', // 无工艺边，节省材料
+  None = 'None', // 无工艺边，节省材料
   Five = '5', // 5mm工艺边，便于加工
   Ten = '10', // 10mm工艺边，适合大板
 }
@@ -251,9 +251,9 @@ export type YYPin = boolean;
  * - add_pos：指定位置加码，满足特殊管理需求。
  */
 export enum CustomerCode {
-  None = 'none', // 常规订单
-  Add = 'add', // 加码，提升追溯
-  AddPos = 'add_pos', // 指定位置加码
+  None = 'None', // 常规订单
+  Add = 'Add', // 加码，提升追溯
+  AddPos = 'Add Pos', // 指定位置加码
 }
 
 /**
@@ -315,10 +315,10 @@ export enum SurfaceFinishEnigType {
  * false：不需要Break-away Rail，常规订单。
  */
 export enum BreakAwayRail {
-  None = 'none', // 无工艺边
-  LeftRight = 'left_right', // 左右工艺边
-  TopBottom = 'top_bottom', // 上下工艺边
-  All = 'all', // 四边都有工艺边
+  None = 'None', // 无工艺边
+  LeftRight = 'Left and Right', // 左右工艺边
+  TopBottom = 'Top and Bottom', // 上下工艺边
+  All = 'All', // 四边都有工艺边
 }
 
 /**
@@ -330,10 +330,10 @@ export enum BreakAwayRail {
  * - both：两侧都有半孔，适合两侧都有特殊工艺需求。
  */
 export enum HalfHole {
-  None = 'none',
-  Left = 'left',
-  Right = 'right',
-  Both = 'both'
+  None = 'None',
+  Left = 'Left',
+  Right = 'Right',
+  Both = 'Both'
 }
 
 /**
@@ -354,7 +354,7 @@ export enum HalfHole {
  * - both：两侧都有边覆盖，适合两侧都有特殊工艺需求。
  */
 export enum EdgeCover {
-  None = 'none',
+  None = 'None',
   Left = 'left',
   Right = 'right',
   Both = 'both'

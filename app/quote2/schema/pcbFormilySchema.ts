@@ -91,7 +91,7 @@ export const pcbFormilySchema: ISchema = {
     },
 
     thickness: {
-      type: "string",
+      type: "number",
       title: "Board Thickness", 
       "x-component": "TabSelect",
       "x-reactions": [

@@ -10,6 +10,7 @@ import { QuoteFormGroup } from "./QuoteFormGroup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RotateCcw, Send } from "lucide-react";
+import { FormNotificationContainer } from "./FormNotificationSystem";
 
 export function QuoteForm() {
   const { updateFormData, resetForm } = useQuoteStore();
@@ -107,6 +108,9 @@ export function QuoteForm() {
   return (
     <FormProvider form={form}>
       <div className="quote-form p-6 lg:p-8 space-y-8">
+        {/* 添加表单通知系统 */}
+        <FormNotificationContainer />
+        
         <FormConsumer>
           {() => (
             <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-6">

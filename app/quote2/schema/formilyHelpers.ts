@@ -36,6 +36,7 @@ interface FormilyField {
   value?: FieldValue;
   dataSource?: OptionItem[];
   adjusting?: boolean;
+  isAutoAdjusting?: boolean;
   setValue?: (value: FieldValue) => void;
   componentProps?: {
     options?: OptionItem[];
@@ -451,7 +452,18 @@ export function runSmartAdjustment($self: FormilyField) {
     
     if (finalValue !== null && finalValue !== currentValue && $self.setValue) {
       console.log(`Auto-adjusting ${fieldName} from ${currentValue} to ${finalValue}`);
+      console.log(`Field modified status before setValue:`, $self.modified);
+      
+      // 标记这是自动调整
+      $self.isAutoAdjusting = true;
       $self.setValue(finalValue);
+      
+      // 延迟清除标记，确保通知系统能够检测到
+      setTimeout(() => {
+        $self.isAutoAdjusting = false;
+      }, 50);
+      
+      console.log(`Field modified status after setValue:`, $self.modified);
     }
     
   } catch (error) {
