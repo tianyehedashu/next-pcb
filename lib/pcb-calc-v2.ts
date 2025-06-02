@@ -1,5 +1,6 @@
 // PCB报价计算（严格参照线上报价单.csv）
 
+import { ShipmentType } from '@/types/form';
 import {
   PriceHandler,
   basePriceHandler,
@@ -39,11 +40,22 @@ import type { PcbQuoteForm } from '../types/pcbQuoteForm';
 
 // 计算总数和面积（平方米）
 function getTotalCountAndArea(form: PcbQuoteForm): { totalCount: number; area: number } {
-  let totalCount = form.singleCount;
-  if (form.shipmentType === 'panel' || form.shipmentType === 'panel_agent') {
+  let totalCount = 0;
+  let area = 0;
+  
+  // 安全检查 singleDimensions
+  const dimensions = form.singleDimensions || { length: 5, width: 5 };
+  // 修复精度问题：使用 Math.round 保留6位小数精度，避免浮点数计算误差
+  // 修复精度问题：使用 Math.round 保留6位小数精度，避免浮点数计算误差
+  const singleArea = Math.round(dimensions.length * dimensions.width / 10000 * 1000000) / 1000000;
+  
+  if (form.shipmentType === ShipmentType.Panel) {
     totalCount = (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
+  } else if (form.shipmentType === ShipmentType.Single) {
+    totalCount = form.singleCount || 0;
   }
-  const area = (form.singleLength * form.singleWidth * totalCount) / 10000;
+  
+  area = singleArea * totalCount;
   return { totalCount, area };
 }
 
@@ -179,6 +191,7 @@ export function calcTotalCount(form: PcbQuoteForm): number {
 // 计算板子总面积 (平方米)
 export function calcArea(form: PcbQuoteForm): number {
   const totalCount = calcTotalCount(form);
-  const area = ((form.singleDimensions?.length ?? 0) * (form.singleDimensions?.width ?? 0) * totalCount) / 10000;
+  // 修复精度问题：使用 Math.round 保留6位小数精度，避免浮点数计算误差
+  const area = Math.round(((form.singleDimensions?.length ?? 0) * (form.singleDimensions?.width ?? 0) * totalCount) / 10000 * 1000000) / 1000000;
   return area;
 }

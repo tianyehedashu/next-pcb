@@ -32,6 +32,7 @@ import {
 } from './priceHandlers-v3';
 
 import { QuoteFormData } from '@/app/quote2/schema/quoteSchema';
+import { calculateSinglePcbArea } from './utils/precision';
 
 // 计算总数和面积（平方米）
 function getTotalCountAndArea(form: QuoteFormData): { totalCount: number; area: number } {
@@ -40,7 +41,8 @@ function getTotalCountAndArea(form: QuoteFormData): { totalCount: number; area: 
   
   // 安全检查 singleDimensions
   const dimensions = form.singleDimensions || { length: 5, width: 5 };
-  const singleArea = dimensions.length * dimensions.width / 10000;
+  // 使用新的精度处理函数
+  const singleArea = calculateSinglePcbArea(dimensions.length, dimensions.width);
   
   if (form.shipmentType === ShipmentType.Panel) {
     totalCount = (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);

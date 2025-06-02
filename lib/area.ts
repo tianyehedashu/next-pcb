@@ -1,4 +1,5 @@
 // PCB面积计算工具函数
+import { calculatePcbArea } from './utils/precision';
 
 export function calcArea(form: {
   shipmentType: string;
@@ -17,6 +18,7 @@ export function calcArea(form: {
   }
 
   // 面积单位：平方米
-  const area = (singleDimensions.length * singleDimensions.width * totalCount) / 10000;
+  // 使用新的精度处理函数
+  const area = calculatePcbArea(singleDimensions.length, singleDimensions.width, totalCount);
   return area;
 } 

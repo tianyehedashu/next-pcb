@@ -4,10 +4,8 @@ import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { calcPcbPriceV3 } from "@/lib/pcb-calc-v3";
-import { calcProductionCycle, getRealDeliveryDate } from "@/lib/pcb-calc";
-import { PcbQuoteForm } from "@/types/pcbQuoteForm";
+import { calcProductionCycle, getRealDeliveryDate } from "@/lib/productCycleCalc-v3";
 import { useQuoteFormData, useQuoteCalculated } from "@/lib/stores/quote-store";
-import type { QuoteFormData } from "../schema/quoteSchema";
 
 interface PriceBreakdown {
   totalPrice: number;
@@ -119,51 +117,20 @@ export default function PriceSummary() {
       };
     }
 
-    // 将 QuoteFormData 转换为 PcbQuoteForm 格式
-    const convertToPcbQuoteForm = (data: QuoteFormData): Partial<PcbQuoteForm> => {
-      return {
-        pcbType: data.pcbType,
-        layers: data.layers,
-        thickness: data.thickness,
-        hdi: data.hdi,
-        tg: data.tg,
-        shipmentType: data.shipmentType,
-        singleDimensions: {
-          length: data.singleDimensions?.length || 5,
-          width: data.singleDimensions?.width || 5,
-        },
-        singleCount: data.singleCount,
-        panelDimensions: data.panelDimensions,
-        panelSet: data.panelSet,
-        differentDesignsCount: data.differentDesignsCount,
-        outerCopperWeight: data.outerCopperWeight,
-        innerCopperWeight: data.innerCopperWeight,
-        minTrace: data.minTrace,
-        minHole: data.minHole,
-        solderMask: data.solderMask,
-        silkscreen: data.silkscreen,
-        surfaceFinish: data.surfaceFinish,
-        impedance: data.impedance,
-        castellated: data.castellated,
-        goldFingers: data.goldFingers,
-        edgePlating: data.edgePlating,
-        testMethod: data.testMethod,
-        productReport: data.productReport,
-        // 添加其他需要的字段...
-      };
-    };
-
-    const pcbForm = convertToPcbQuoteForm(formData);
     const now = new Date();
     
-    // 计算标准和加急生产周期
-    const standardInfo = calcProductionCycle(pcbForm as PcbQuoteForm, now, 'standard');
-    const urgentInfo = calcProductionCycle(pcbForm as PcbQuoteForm, now, 'urgent');
+    // 直接使用 QuoteFormData 格式，因为 productCycleCalc-v3 已经支持
+    const standardInfo = calcProductionCycle(formData, now, 'standard');
+    const urgentInfo = calcProductionCycle(formData, now, 'urgent');
     
     const standardFinish = getRealDeliveryDate(now, standardInfo.cycleDays);
     const urgentFinish = getRealDeliveryDate(now, urgentInfo.cycleDays);
     
-    const isUrgent = formData.testMethod === "Test Fixture" || (formData.layers && formData.layers > 6);
+    // 判断是否可以加急（根据复杂度或特殊工艺）
+    const isUrgentAvailable = formData.testMethod !== "Test Fixture" && 
+                             (formData.layers || 0) <= 6 && 
+                             !formData.hdi && 
+                             !formData.goldFingers;
     
     return {
       standard: {
@@ -176,7 +143,7 @@ export default function PriceSummary() {
         type: "Urgent",
         cycle: `${urgentInfo.cycleDays} day(s)`,
         finish: urgentFinish.toISOString().slice(0, 10),
-        available: isUrgent,
+        available: isUrgentAvailable,
         reasons: urgentInfo.reason
       }
     };

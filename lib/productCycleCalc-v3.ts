@@ -1,9 +1,8 @@
 // PCB生产周期相关通用函数
 
 import { ShipmentType } from '@/types/form';
-import type { PcbQuoteForm } from '../types/pcbQuoteForm';
+import type { QuoteFormData as PcbQuoteForm } from '@/app/quote2/schema/quoteSchema';
 import { calculateSinglePcbArea } from './utils/precision';
-
 // 节假日/周末判断与顺延用到的假期列表
 const holidays = [
   // 示例：2024年五一假期
@@ -43,12 +42,11 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
 
   const reason: string[] = [];
 
-  let totalCount = 0;
+  // 2. 计算总面积（单位mm²），并转为平方米（m²），用于后续面积倍数计算
   let area = 0;
-  
+  let totalCount = 0;
   // 安全检查 singleDimensions
   const dimensions = form.singleDimensions || { length: 5, width: 5 };
-  // 使用新的精度处理函数
   const singleArea = calculateSinglePcbArea(dimensions.length, dimensions.width);
   
   if (form.shipmentType === ShipmentType.Panel) {
@@ -75,19 +73,19 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
 
   // 4. 查表获取基础交期天数（已考虑层数、面积、铜厚）
   //    若查表结果为≥20天或评估，则reason中提示需评估确认
-  const { days: baseDays, needReview } = getBaseDeliveryDays(layers, areaM2, copperWeightForTable);
+  const { days: baseDays, needReview } = getBaseDeliveryDays(layers, area, copperWeightForTable);
   if (needReview) {
     reason.push("需要评估确认，交期≥20天");
   }
   reason.push(`Base delivery days: ${baseDays}`);
-  reason.push(`Area factor: ${areaFactor}x`);
+  reason.push(`Area  ${area}`);
 
   let extraDays = 0;
 
   // 厚铜特殊交期规则
   const maxOz = Math.max(outerOz, innerOz);
   if (maxOz >= 3) {
-    if (areaM2 <= 1) {
+    if (area <= 1) {
       // 样品
       if (maxOz === 3) {
         extraDays += 2;
@@ -163,22 +161,7 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
     extraDays += add;
     reason.push(`Castellated holes: +1 day × ${areaFactor} = +${add} days`);
   }
-  if (form.smt) {
-    const add = 2 * areaFactor;
-    extraDays += add;
-    reason.push(`SMT assembly: +2 days × ${areaFactor} = +${add} days`);
-  }
-  // if (form.testMethod === 'flyingProbe') {
-  //   const add = 1 * areaFactor;
-  //   extraDays += add;
-  //   reason.push(`Flying probe test: +1 day × ${areaFactor} = +${add} days`);
-  // }
-  if (form.qualityAttach === 'full') {
-    const add = 1 * areaFactor;
-    extraDays += add;
-    reason.push(`Full quality inspection: +1 day × ${areaFactor} = +${add} days`);
-  }
-  if (form.productReport && form.productReport.length > 0 && form.productReport.some((v) => v !== 'none')) {
+  if (form.productReport && form.productReport.length > 0) {
     const add = 1 * areaFactor;
     extraDays += add;
     reason.push(`Product report: +1 day × ${areaFactor} = +${add} days`);
