@@ -3,8 +3,9 @@ import { ISchema } from "@formily/react";
 import { 
   PcbType, HdiType, TgType, ShipmentType, BorderType,
   CopperWeight, InnerCopperWeight, 
-  SolderMask, SurfaceFinishEnigType
+  SolderMask, SurfaceFinishEnigType, CrossOuts, IPCClass, IfDataConflicts
 } from "./shared-types";
+import { ProductReport } from "../../../types/form";
 import * as formilyHelpers from "./formilyHelpers";
 
 // 🎯 简单的枚举转选项函数
@@ -37,6 +38,7 @@ export const {
   getEdgeCoverOptions,
   getTestMethodOptions,
   getQualityAttachOptions,
+  getProductReportOptions,
 
   runSmartAdjustment,
   runSmartAdjustmentWithCheck,
@@ -113,7 +115,7 @@ export const pcbFormilySchema: ISchema = {
     hdi: {
       type: "string",
       title: "HDI",
-      "x-component": "Select",
+      "x-component": "TabSelect",
       "x-component-props": {
         options: enumToOptions(HdiType)
       },
@@ -169,6 +171,7 @@ export const pcbFormilySchema: ISchema = {
       title: "Quantity(single)",
       "x-component": "QuantityInput",
       "x-component-props": {
+        placeholder: "Select",
         unit: "Pcs"
       },
       "x-reactions": {
@@ -202,7 +205,7 @@ export const pcbFormilySchema: ISchema = {
       "x-component": "QuantityInput",
       "x-component-props": {
         unit: "Pcs",
-        placeholder: "Select panel quantity"
+        placeholder: "Select"
       },
       "x-reactions": {
         dependencies: ["shipmentType"],
@@ -244,7 +247,7 @@ export const pcbFormilySchema: ISchema = {
     outerCopperWeight: {
       type: "string",
       title: "Outer Copper Weight",
-      "x-component": "Select",
+      "x-component": "TabSelect",
       "x-component-props": {
         options: enumToOptions(CopperWeight).map(option => ({
           ...option,
@@ -257,7 +260,7 @@ export const pcbFormilySchema: ISchema = {
     innerCopperWeight: {
       type: "string", 
       title: "Inner Copper Weight",
-      "x-component": "Select",
+      "x-component": "TabSelect",
       "x-component-props": {
         options: enumToOptions(InnerCopperWeight).map(option => ({
           ...option,
@@ -323,7 +326,7 @@ export const pcbFormilySchema: ISchema = {
     solderMask: {
       type: "string",
       title: "Solder Mask",
-      "x-component": "TabSelect",
+      "x-component": "ColorSelector",
       "x-component-props": {
         options: enumToOptions(SolderMask)
       }
@@ -332,7 +335,7 @@ export const pcbFormilySchema: ISchema = {
     silkscreen: {
       type: "string", 
       title: "Silk Screen",
-      "x-component": "TabSelect",
+      "x-component": "ColorSelector",
       "x-reactions": [
         {
           dependencies: ["solderMask"],
@@ -376,7 +379,7 @@ export const pcbFormilySchema: ISchema = {
     surfaceFinishEnigType: {
       type: "string",
       title: "ENIG Thickness", 
-      "x-component": "Select",
+      "x-component": "TabSelect",
       "x-component-props": {
         options: enumToOptions(SurfaceFinishEnigType)
       },
@@ -539,11 +542,20 @@ export const pcbFormilySchema: ISchema = {
 
     productReport: {
       type: "array",
-      title: "Product Report",
+      title: "Product Report(Electronic)",
       "x-component": "MultiSelect",
       "x-component-props": {
-        placeholder: "Select reports..."
-      }
+        placeholder: "Select reports...",
+        allowClear: true,
+        mode: "multiple",
+        isProductReport: true,
+        options: [
+          { label: "Not Required", value: "None" },
+          { label: "Production Report", value: "Production Report" },
+          { label: "Impedance Report", value: "Impedance Report" }
+        ]
+      },
+      default: [ProductReport.None]
     },
 
     ulMark: {
@@ -557,10 +569,7 @@ export const pcbFormilySchema: ISchema = {
       title: "Cross Outs",
       "x-component": "RadioTabs",
       "x-component-props": {
-        options: [
-          { label: "Not Accept", value: "not_accept" },
-          { label: "Accept", value: "accept" }
-        ]
+        options: enumToOptions(CrossOuts)
       }
     },
 
@@ -569,10 +578,7 @@ export const pcbFormilySchema: ISchema = {
       title: "IPC Class",
       "x-component": "RadioTabs",
       "x-component-props": {
-        options: [
-          { label: "IPC Level 2 Standard", value: "level2" },
-          { label: "IPC Level 3 Standard", value: "level3" }
-        ]
+        options: enumToOptions(IPCClass)
       }
     },
 
@@ -581,11 +587,7 @@ export const pcbFormilySchema: ISchema = {
       title: "If Data Conflicts",
       "x-component": "RadioTabs",
       "x-component-props": {
-        options: [
-          { label: "Follow Order Parameters", value: "follow_order" },
-          { label: "Follow Files", value: "follow_files" },
-          { label: "Ask for Confirmation", value: "ask_confirmation" }
-        ]
+        options: enumToOptions(IfDataConflicts)
       }
     },
 
@@ -603,7 +605,6 @@ export const pcbFormilySchema: ISchema = {
       "x-component": "Input",
       "x-component-props": {
         placeholder: "Gerber file URL will be automatically filled after upload...",
-        readOnly: true
       }
     }),
 
@@ -713,21 +714,17 @@ export const fieldGroups = [
     fields: [
       'outerCopperWeight', 'innerCopperWeight', 'minTrace', 'minHole',
       'solderMask', 'silkscreen', 'surfaceFinish', 'surfaceFinishEnigType',
-      'impedance', 'impedanceNote', 'goldFingers', 'goldFingersBevel',
+      'impedance', 'goldFingers', 'goldFingersBevel',
       'maskCover', 'edgePlating', 'edgeCover'
     ]
   },
   {
     title: "Service Information",
     fields: [
-      'hdi', 'castellated', 'testMethod', 'qualityAttach', 'workingGerber',
+      'hdi', 'castellated', 'testMethod',  'workingGerber',
       'productReport', 'ulMark', 'crossOuts', 'ipcClass', 'ifDataConflicts',
       'rejectBoard', 'specialRequests'
     ]
-  },
-  {
-    title: "File Upload",
-    fields: ['gerberUrl']
   },
   {
     title: "Shipping Information", 

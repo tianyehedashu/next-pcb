@@ -28,19 +28,24 @@ export function QuoteFormGroup({
         const fieldSchema = properties[fieldName];
         if (!fieldSchema) return null;
 
+        // 创建带有 decorator 的 schema
+        const fieldSchemaWithDecorator = {
+          ...fieldSchema,
+          "x-decorator": FormFieldLayout,
+          "x-decorator-props": {
+            label: fieldSchema.title as string || fieldName,
+            required: fieldSchema.required as boolean,
+            layout: "inline",
+            className: "w-full"
+          }
+        };
+
         return (
           <div key={fieldName} className="group">
-            <FormFieldLayout
-              label={fieldSchema.title as string || fieldName}
-              required={fieldSchema.required as boolean}
-              layout="inline"
-              className="w-full"
-            >
-              <SchemaField
-                name={fieldName}
-                schema={fieldSchema}
-              />
-            </FormFieldLayout>
+            <SchemaField
+              name={fieldName}
+              schema={fieldSchemaWithDecorator}
+            />
           </div>
         );
       })}

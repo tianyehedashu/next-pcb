@@ -9,7 +9,8 @@ import {
   MaskCover, 
   EdgeCover, 
   TestMethod,
-  QualityAttach
+  QualityAttach,
+  ProductReport
 } from "../../../types/form";
 
 // === 类型定义 ===
@@ -365,6 +366,19 @@ export function getQualityAttachOptions(): OptionsResult {
 }
 
 /**
+ * 🎯 获取产品报告选项 - 支持 None 或多选逻辑
+ */
+export function getProductReportOptions(): OptionsResult {
+  const options = [
+    { label: "Not Required", value: ProductReport.None },
+    { label: "Production Report", value: ProductReport.ProductionReport },
+    { label: "Impedance Report", value: ProductReport.ImpedanceReport }
+  ];
+  
+  return { options };
+}
+
+/**
  * 🎯 智能调整函数 - 基于当前值和选项进行智能调整（优化版）
  */
 export function runSmartAdjustment($self: FormilyField) {
@@ -652,6 +666,7 @@ const formilyHelpers = {
   getEdgeCoverOptions,
   getTestMethodOptions,
   getQualityAttachOptions,
+  getProductReportOptions,
   
   // 智能调整函数
   runSmartAdjustment,

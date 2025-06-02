@@ -6,8 +6,10 @@ import { Select as UISelect, SelectContent, SelectItem, SelectTrigger, SelectVal
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { ProductReport } from "@/types/form";
 import * as formilyHelpers from "../schema/formilyHelpers";
 import QuantityInput from "./QuantityInput";
+import ColorSelector from "./ColorSelector";
 import { cn } from "@/lib/utils";
 
 // 定义 Formily 组件的 props 类型
@@ -18,12 +20,17 @@ interface FormilyFieldProps {
   dataSource?: Array<{ label: string; value: string | number | boolean }>;
   enum?: Array<{ label: string; value: string | number | boolean }>;
   options?: Array<{ label: string; value: string | number | boolean }>;
-  componentProps?: { options?: Array<{ label: string; value: string | number | boolean }> };
+  componentProps?: { 
+    options?: Array<{ label: string; value: string | number | boolean }>;
+    isProductReport?: boolean;
+  };
+  isProductReport?: boolean;
   min?: number;
   max?: number;
   accept?: string;
   unit?: string;
   rows?: number;
+  [key: string]: unknown;
 }
 
 // Formily 组件映射配置
@@ -58,6 +65,22 @@ export const formilyComponents = {
   },
   TextArea: Textarea,
   Checkbox,
+  ColorSelector: (props: FormilyFieldProps) => {
+    const options = props.componentProps?.options || props.dataSource || props.enum || props.options || [];
+    // 转换选项格式以匹配 ColorSelector 的 ColorOption 类型
+    const colorOptions = options.map(option => ({
+      label: String(option.label),
+      value: String(option.value)
+    }));
+    return (
+      <ColorSelector
+        value={String(props.value || '')}
+        onChange={props.onChange}
+        options={colorOptions}
+        disabled={false}
+      />
+    );
+  },
   TabSelect: (props: FormilyFieldProps) => {
     // 支持多种选项数据源：componentProps（动态）、dataSource（动态）、enum（schema定义）、options（组件props）
     const options = props.componentProps?.options || props.dataSource || props.enum || props.options || [];
@@ -252,14 +275,95 @@ export const formilyComponents = {
       placeholder={props.placeholder}
     />
   ),
-  MultiSelect: (props: FormilyFieldProps) => {
-    const arrayValue = Array.isArray(props.value) ? props.value : [];
+  MultiSelect: ({ value, onChange, ...props }: FormilyFieldProps) => {
+    // 检查是否有 isProductReport 属性在任何地方
+    const isProductReport = props.componentProps?.isProductReport || 
+                           props.isProductReport || 
+                           (props as { isProductReport?: boolean }).isProductReport;
+    
+    // 获取选项数组
+    const options = props.componentProps?.options || props.dataSource || props.enum || props.options || [];
+    
+    // 确保 value 是数组
+    const selectedValues = Array.isArray(value) ? value : (value ? [value] : []);
+    
+    const handleChange = (optionValue: string | number) => {
+      if (isProductReport) {
+        // 检查是否选择了 "None"
+        const isNoneSelected = optionValue === ProductReport.None || optionValue === 'None';
+        const isNoneCurrentlySelected = selectedValues.includes(ProductReport.None) || selectedValues.includes('None');
+        
+        let newValues: (string | number)[];
+        
+        if (isNoneSelected) {
+          if (isNoneCurrentlySelected) {
+            // 如果 "None" 已选中，取消选择它
+            newValues = selectedValues.filter(v => v !== ProductReport.None && v !== 'None');
+          } else {
+            // 如果选择 "None"，清除其他所有选项
+            newValues = [ProductReport.None];
+          }
+        } else {
+          // 选择其他选项
+          if (selectedValues.includes(optionValue)) {
+            // 取消选择该选项
+            newValues = selectedValues.filter(v => v !== optionValue);
+          } else {
+            // 添加该选项，并移除 "None"
+            newValues = [...selectedValues.filter(v => v !== ProductReport.None && v !== 'None'), optionValue];
+          }
+        }
+        
+        // 如果没有选择任何选项，默认选择 "None"
+        if (newValues.length === 0) {
+          newValues = [ProductReport.None];
+        }
+        
+        onChange?.(newValues);
+      } else {
+        // 普通多选逻辑
+        const newValues = selectedValues.includes(optionValue)
+          ? selectedValues.filter(v => v !== optionValue)
+          : [...selectedValues, optionValue];
+        onChange?.(newValues);
+      }
+    };
+    
     return (
-      <Input
-        value={arrayValue.join(', ')}
-        onChange={(e) => props.onChange?.(e.target.value.split(', ').filter(Boolean))}
-        placeholder={props.placeholder}
-      />
+      <div className="flex flex-wrap gap-2">
+        {options.map((option, index) => {
+          // 处理选项格式：可能是 {label, value} 对象或直接的值
+          const optionValue = typeof option === 'object' && option !== null && 'value' in option 
+            ? option.value 
+            : option;
+          const optionLabel = typeof option === 'object' && option !== null && 'label' in option 
+            ? option.label 
+            : option;
+          
+          // 确保 optionValue 是 string 或 number 类型
+          const safeOptionValue = typeof optionValue === 'boolean' ? String(optionValue) : optionValue;
+          
+          const isSelected = selectedValues.includes(safeOptionValue);
+          
+          return (
+            <Button
+              key={index}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleChange(safeOptionValue)}
+              className={cn(
+                "px-4 py-2 min-w-[80px] rounded-lg border transition-colors duration-150",
+                isSelected
+                  ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+              )}
+            >
+              {optionLabel}
+            </Button>
+          );
+        })}
+      </div>
     );
   },
   AddressInput: (props: FormilyFieldProps) => {
