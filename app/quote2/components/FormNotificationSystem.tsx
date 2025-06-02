@@ -23,15 +23,6 @@ const formatValue = (value: unknown): string => {
   return String(value);
 };
 
-// 检查是否应该过滤通知
-const shouldFilterNotification = (oldValue: unknown, newValue: unknown): boolean => {
-  const oldValueStr = formatValue(oldValue);
-  const newValueStr = formatValue(newValue);
-  
-  // 过滤掉所有涉及 empty 的变化
-  return oldValueStr === 'empty' || newValueStr === 'empty';
-};
-
 // 检查是否为重要字段
 const isImportantField = (fieldPath: string): boolean => {
   return fieldPath === 'silkscreen' || fieldPath === 'thickness' || fieldPath === 'surfaceFinish';
@@ -188,12 +179,16 @@ export const useFormNotifications = () => {
       
       if (!isAutoAdjustment) return;
       
-      // 过滤掉涉及 empty 的变化
-      if (shouldFilterNotification(previousState.value, currentValue)) return;
-      
-      // 构建并发送通知
+      // 先格式化值
       const oldValueStr = formatValue(previousState.value);
       const newValueStr = formatValue(currentValue);
+      
+      // 过滤掉不需要通知的变化
+      if (oldValueStr === 'empty' || newValueStr === 'empty' || oldValueStr === newValueStr) {
+        return;
+      }
+      
+      // 构建并发送通知
       const fieldDisplayName = field.title || fieldPath;
       const adjustmentMessage = `Auto-adjusted from "${oldValueStr}" to "${newValueStr}" based on other field changes`;
       const notificationDuration = isImportantField(fieldPath) ? 8000 : 4000;
