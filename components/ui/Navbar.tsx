@@ -81,7 +81,7 @@ export default function Navbar() {
         <div className="hidden md:flex gap-6 text-base font-medium">
           {[
             { href: "/", label: "Home" },
-            { href: "/quote", label: "Quote" },
+            { href: "/quote2", label: "Quote" },
             { href: "#services", label: "Services" },
             { href: "#why", label: "Why Us" },
             { href: "#testimonials", label: "Testimonials" },
