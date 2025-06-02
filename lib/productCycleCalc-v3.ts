@@ -78,7 +78,7 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
     reason.push("需要评估确认，交期≥20天");
   }
   reason.push(`Base delivery days: ${baseDays}`);
-  reason.push(`Area  ${area}`);
+  reason.push(`Area factor: ${areaFactor}x`);
 
   let extraDays = 0;
 

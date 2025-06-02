@@ -75,7 +75,7 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
 
   // 4. 查表获取基础交期天数（已考虑层数、面积、铜厚）
   //    若查表结果为≥20天或评估，则reason中提示需评估确认
-  const { days: baseDays, needReview } = getBaseDeliveryDays(layers, areaM2, copperWeightForTable);
+  const { days: baseDays, needReview } = getBaseDeliveryDays(layers, area, copperWeightForTable);
   if (needReview) {
     reason.push("需要评估确认，交期≥20天");
   }
@@ -87,7 +87,7 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
   // 厚铜特殊交期规则
   const maxOz = Math.max(outerOz, innerOz);
   if (maxOz >= 3) {
-    if (areaM2 <= 1) {
+    if (area <= 1) {
       // 样品
       if (maxOz === 3) {
         extraDays += 2;
