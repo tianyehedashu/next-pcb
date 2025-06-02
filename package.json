@@ -14,6 +14,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@formily/antd-v5": "^1.2.4",
     "@formily/core": "^2.3.7",
     "@formily/react": "^2.3.7",
     "@formily/reactive": "^2.3.7",
@@ -48,7 +49,7 @@
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.2.0",
     "zod": "^3.24.4",
-    "zustand": "^5.0.4"
+    "zustand": "^4.3.9"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

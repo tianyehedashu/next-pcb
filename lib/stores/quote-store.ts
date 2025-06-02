@@ -1,6 +1,5 @@
 import { create } from "zustand";
-import { devtools, persist } from "zustand/middleware";
-import { immer } from "zustand/middleware/immer";
+import { persist } from "zustand/middleware";
 import { quoteSchema, type QuoteFormData } from "../../app/quote2/schema/quoteSchema";
 import { 
   PcbType, ShipmentType, BorderType, CopperWeight, InnerCopperWeight, 
@@ -263,360 +262,397 @@ const calculateProperties = (formData: QuoteFormData): CalculatedProperties => {
 
 // === Store 实现 ===
 const useQuoteStore = create<QuoteStore>()(
-  devtools(
-    persist(
-      immer((set, get) => ({
-        // === 初始状态 ===
-        formData: { ...DEFAULT_FORM_DATA },
-        originalData: { ...DEFAULT_FORM_DATA },
-        validationState: 'idle' as ValidationState,
-        isSubmitting: false,
-        isDirty: false,
-        errors: {
-          fieldErrors: {},
-          formErrors: null,
-          businessErrors: [],
-          systemErrors: []
-        },
-        debugMode: false,
-        autoSaveEnabled: true,
-        lastSavedAt: null,
-        isValid: false,
-        hasChanges: false,
-        calculated: calculateProperties(DEFAULT_FORM_DATA),
+  persist(
+    (set, get) => ({
+      // === 初始状态 ===
+      formData: { ...DEFAULT_FORM_DATA },
+      originalData: { ...DEFAULT_FORM_DATA },
+      validationState: 'idle' as ValidationState,
+      isSubmitting: false,
+      isDirty: false,
+      errors: {
+        fieldErrors: {},
+        formErrors: null,
+        businessErrors: [],
+        systemErrors: []
+      },
+      debugMode: false,
+      autoSaveEnabled: true,
+      lastSavedAt: null,
+      isValid: false,
+      hasChanges: false,
+      calculated: calculateProperties(DEFAULT_FORM_DATA),
 
-        // === 基础操作 ===
-        updateFormData: (updates) => {
-          set((state) => {
-            // 直接更新表单数据，不需要特殊处理文件字段
-            Object.assign(state.formData, updates);
-            
-            // 更新状态
-            state.isDirty = true;
-            state.hasChanges = get().hasFormChanges();
-            state.validationState = 'idle';
-            
-            // 清除相关字段的错误
-            Object.keys(updates).forEach(key => {
-              delete state.errors.fieldErrors[key];
-            });
+      // === 基础操作 ===
+      updateFormData: (updates) => {
+        set((state) => {
+          const newFormData = { ...state.formData, ...updates };
+          const newFieldErrors = { ...state.errors.fieldErrors };
+          Object.keys(updates).forEach(key => {
+            delete newFieldErrors[key];
           });
-        },
-
-        updateField: (field, value) => {
-          set((state) => {
-            (state.formData as Record<string, unknown>)[field as string] = value;
-            
-            state.isDirty = true;
-            state.hasChanges = get().hasFormChanges();
-            state.validationState = 'idle';
-            
-            // 清除字段错误
-            delete state.errors.fieldErrors[field as string];
-          });
-        },
-
-        resetForm: () => {
-          set((state) => {
-            state.formData = { ...DEFAULT_FORM_DATA };
-            state.originalData = { ...DEFAULT_FORM_DATA };
-            state.isDirty = false;
-            state.hasChanges = false;
-            state.validationState = 'idle';
-            state.errors = {
-              fieldErrors: {},
-              formErrors: null,
-              businessErrors: [],
-              systemErrors: []
-            };
-          });
-        },
-
-        resetToOriginal: () => {
-          set((state) => {
-            state.formData = { ...state.originalData };
-            state.isDirty = false;
-            state.hasChanges = false;
-            state.validationState = 'idle';
-            state.errors = {
-              fieldErrors: {},
-              formErrors: null,
-              businessErrors: [],
-              systemErrors: []
-            };
-          });
-        },
-
-        // === 验证操作 ===
-        validateForm: async () => {
-          const { formData } = get();
-          
-          set((state) => {
-            state.validationState = 'validating';
-          });
-
-          try {
-            const result = quoteSchema.safeParse(formData);
-            
-            set((state) => {
-              if (result.success) {
-                state.validationState = 'valid';
-                state.isValid = true;
-                state.errors.fieldErrors = {};
-                state.errors.formErrors = null;
-              } else {
-                state.validationState = 'invalid';
-                state.isValid = false;
-                
-                // 处理验证错误
-                const fieldErrors: Record<string, string[]> = {};
-                result.error.errors.forEach(error => {
-                  const path = error.path.join('.');
-                  if (!fieldErrors[path]) {
-                    fieldErrors[path] = [];
-                  }
-                  fieldErrors[path].push(error.message);
-                });
-                
-                state.errors.fieldErrors = fieldErrors;
-                state.errors.formErrors = result.error.errors.map(e => e.message);
-              }
-            });
-
-            return result.success;
-          } catch (error) {
-            set((state) => {
-              state.validationState = 'invalid';
-              state.isValid = false;
-              state.errors.systemErrors.push(
-                error instanceof Error ? error.message : 'Validation failed'
-              );
-            });
-            return false;
-          }
-        },
-
-        validateField: async (field, value) => {
-          try {
-            // 创建临时对象进行字段验证
-            const tempData = { ...get().formData, [field]: value };
-            const result = quoteSchema.safeParse(tempData);
-            
-            set((state) => {
-              if (result.success) {
-                delete state.errors.fieldErrors[field as string];
-              } else {
-                const fieldErrors = result.error.errors
-                  .filter(error => error.path.includes(field as string))
-                  .map(error => error.message);
-                
-                if (fieldErrors.length > 0) {
-                  state.errors.fieldErrors[field as string] = fieldErrors;
-                }
-              }
-            });
-
-            return result.success;
-          } catch (error) {
-            set((state) => {
-              state.errors.fieldErrors[field as string] = [
-                error instanceof Error ? error.message : 'Validation failed'
-              ];
-            });
-            return false;
-          }
-        },
-
-        clearErrors: () => {
-          set((state) => {
-            state.errors = {
-              fieldErrors: {},
-              formErrors: null,
-              businessErrors: [],
-              systemErrors: []
-            };
-          });
-        },
-
-        clearFieldError: (field) => {
-          set((state) => {
-            delete state.errors.fieldErrors[field];
-          });
-        },
-
-        // === 提交操作 ===
-        submitForm: async () => {
-          const { formData, validateForm } = get();
-          
-          set((state) => {
-            state.isSubmitting = true;
-          });
-
-          try {
-            // 先验证表单
-            const isValid = await validateForm();
-            if (!isValid) {
-              return { success: false, error: 'Form validation failed' };
-            }
-
-            // 这里可以添加实际的提交逻辑
-            // const response = await submitQuote(formData);
-            
-            set((state) => {
-              state.originalData = { ...state.formData };
-              state.isDirty = false;
-              state.hasChanges = false;
-              state.lastSavedAt = new Date();
-            });
-
-            return { success: true, data: formData };
-          } catch (error) {
-            set((state) => {
-              state.errors.systemErrors.push(
-                error instanceof Error ? error.message : 'Submit failed'
-              );
-            });
-            return { 
-              success: false, 
-              error: error instanceof Error ? error.message : 'Submit failed' 
-            };
-          } finally {
-            set((state) => {
-              state.isSubmitting = false;
-            });
-          }
-        },
-
-        saveProgress: async () => {
-          try {
-            // 这里可以添加自动保存逻辑
-            // await saveProgress(formData);
-            
-            set((state) => {
-              state.lastSavedAt = new Date();
-              state.isDirty = false;
-            });
-          } catch (error) {
-            console.warn('Auto-save failed:', error);
-          }
-        },
-
-        // === 状态管理 ===
-        setValidationState: (validationState: ValidationState) => {
-          set((state) => {
-            state.validationState = validationState;
-          });
-        },
-
-        setSubmitting: (isSubmitting: boolean) => {
-          set((state) => {
-            state.isSubmitting = isSubmitting;
-          });
-        },
-
-        markAsSaved: () => {
-          set((state) => {
-            state.lastSavedAt = new Date();
-            state.isDirty = false;
-          });
-        },
-
-        // === 调试和工具 ===
-        toggleDebugMode: () => {
-          set((state) => {
-            state.debugMode = !state.debugMode;
-          });
-        },
-
-        exportFormData: () => {
-          const { formData } = get();
-          return JSON.stringify(formData, null, 2);
-        },
-
-        importFormData: (jsonData: string) => {
-          try {
-            const data = JSON.parse(jsonData);
-            const result = quoteSchema.safeParse(data);
-            
-            if (result.success) {
-              set((state) => {
-                state.formData = result.data;
-                state.isDirty = true;
-                state.hasChanges = true;
-                state.validationState = 'valid';
-                state.isValid = true;
-              });
-              return true;
-            } else {
-              console.warn('Invalid import data:', result.error);
-              return false;
-            }
-          } catch (error) {
-            console.warn('Failed to parse import data:', error);
-            return false;
-          }
-        },
-
-        getFormSummary: () => {
-          const { formData } = get();
+          const hasChanges = JSON.stringify(newFormData) !== JSON.stringify(state.originalData);
           return {
-            pcbType: formData.pcbType,
-            layers: formData.layers,
-            thickness: formData.thickness,
-            shipmentType: formData.shipmentType,
-            dimensions: formData.singleDimensions,
-            count: formData.singleCount,
-            surfaceFinish: formData.surfaceFinish,
-            solderMask: formData.solderMask,
+            ...state,
+            formData: newFormData,
+            calculated: calculateProperties(newFormData),
+            isDirty: true,
+            hasChanges,
+            validationState: 'idle',
+            errors: {
+              ...state.errors,
+              fieldErrors: newFieldErrors,
+            },
           };
-        },
+        });
+      },
 
-        // 内部辅助方法
-        hasFormChanges: () => {
-          const { formData, originalData } = get();
-          
-          // 现在可以直接比较，因为没有File对象了
-          return JSON.stringify(formData) !== JSON.stringify(originalData);
-        },
+      updateField: (field, value) => {
+        set((state) => {
+          const newFormData = { ...state.formData, [field]: value };
+          const newFieldErrors = { ...state.errors.fieldErrors };
+          delete newFieldErrors[field as string];
+          const hasChanges = JSON.stringify(newFormData) !== JSON.stringify(state.originalData);
+          return {
+            ...state,
+            formData: newFormData,
+            calculated: calculateProperties(newFormData),
+            isDirty: true,
+            hasChanges,
+            validationState: 'idle',
+            errors: {
+              ...state.errors,
+              fieldErrors: newFieldErrors,
+            },
+          };
+        });
+      },
 
-        // 计算属性相关方法
-        updateCalculatedProperties: () => {
-          const { formData } = get();
-          set((state) => {
-            state.calculated = calculateProperties(formData);
-          });
-        },
+      resetForm: () => {
+        set((state) => ({
+          ...state,
+          formData: { ...DEFAULT_FORM_DATA },
+          originalData: { ...DEFAULT_FORM_DATA },
+          calculated: calculateProperties(DEFAULT_FORM_DATA),
+          isDirty: false,
+          hasChanges: false,
+          validationState: 'idle',
+          errors: {
+            fieldErrors: {},
+            formErrors: null,
+            businessErrors: [],
+            systemErrors: []
+          },
+        }));
+      },
 
-        getCalculatedProperty: (key) => {
-          return get().calculated[key];
-        },
+      resetToOriginal: () => {
+        set((state) => ({
+          ...state,
+          formData: { ...state.originalData },
+          calculated: calculateProperties(state.originalData),
+          isDirty: false,
+          hasChanges: false,
+          validationState: 'idle',
+          errors: {
+            fieldErrors: {},
+            formErrors: null,
+            businessErrors: [],
+            systemErrors: []
+          },
+        }));
+      },
 
-        getAllCalculatedProperties: () => {
-          return get().calculated;
-        },
-      })),
-      {
-        name: 'quote-form-storage',
-        partialize: (state) => ({
-          formData: state.formData,
-          originalData: state.originalData,
-          autoSaveEnabled: state.autoSaveEnabled,
-        }),
-      }
-    ),
-    { name: 'quote-store' }
+      // === 验证操作 ===
+      validateForm: async () => {
+        const { formData } = get();
+        set((state) => ({
+          ...state,
+          validationState: 'validating',
+        }));
+        try {
+          const result = quoteSchema.safeParse(formData);
+          if (result.success) {
+            set((state) => ({
+              ...state,
+              validationState: 'valid',
+              isValid: true,
+              errors: {
+                fieldErrors: {},
+                formErrors: null,
+                businessErrors: [],
+                systemErrors: []
+              },
+            }));
+          } else {
+            set((state) => ({
+              ...state,
+              validationState: 'invalid',
+              isValid: false,
+              errors: {
+                fieldErrors: Object.fromEntries(
+                  result.error.errors.map(error => [error.path.join('.'), [error.message]])
+                ),
+                formErrors: result.error.errors.map(e => e.message),
+                businessErrors: [],
+                systemErrors: []
+              },
+            }));
+          }
+          return result.success;
+        } catch (error) {
+          set((state) => ({
+            ...state,
+            validationState: 'invalid',
+            isValid: false,
+            errors: {
+              systemErrors: [
+                error instanceof Error ? error.message : 'Validation failed'
+              ],
+              fieldErrors: {},
+              formErrors: null,
+              businessErrors: [],
+            },
+          }));
+          return false;
+        }
+      },
+
+      validateField: async (field, value) => {
+        try {
+          const tempData = { ...get().formData, [field]: value };
+          const result = quoteSchema.safeParse(tempData);
+          if (result.success) {
+            set((state) => {
+              const newFieldErrors = { ...state.errors.fieldErrors };
+              delete newFieldErrors[field as string];
+              return {
+                ...state,
+                errors: {
+                  ...state.errors,
+                  fieldErrors: newFieldErrors,
+                },
+              };
+            });
+          } else {
+            set((state) => ({
+              ...state,
+              errors: {
+                ...state.errors,
+                fieldErrors: {
+                  ...state.errors.fieldErrors,
+                  [field]: result.error.errors
+                    .filter(error => error.path.includes(field as string))
+                    .map(error => error.message)
+                },
+              },
+            }));
+          }
+          return result.success;
+        } catch (error) {
+          set((state) => ({
+            ...state,
+            errors: {
+              ...state.errors,
+              fieldErrors: {
+                ...state.errors.fieldErrors,
+                [field]: [
+                  error instanceof Error ? error.message : 'Validation failed'
+                ]
+              },
+            },
+          }));
+          return false;
+        }
+      },
+
+      clearErrors: () => {
+        set((state) => ({
+          ...state,
+          errors: {
+            fieldErrors: {},
+            formErrors: null,
+            businessErrors: [],
+            systemErrors: []
+          },
+        }));
+      },
+
+      clearFieldError: (field) => {
+        set((state) => {
+          const newFieldErrors = { ...state.errors.fieldErrors };
+          delete newFieldErrors[field];
+          return {
+            ...state,
+            errors: {
+              ...state.errors,
+              fieldErrors: newFieldErrors,
+            },
+          };
+        });
+      },
+
+      // === 提交操作 ===
+      submitForm: async () => {
+        const { formData, validateForm } = get();
+        set((state) => ({
+          ...state,
+          isSubmitting: true,
+        }));
+        try {
+          const isValid = await validateForm();
+          if (!isValid) {
+            return { success: false, error: 'Form validation failed' };
+          }
+          set((state) => ({
+            ...state,
+            originalData: { ...state.formData },
+            isDirty: false,
+            hasChanges: false,
+            lastSavedAt: new Date(),
+          }));
+          return { success: true, data: formData };
+        } catch (error) {
+          set((state) => ({
+            ...state,
+            errors: {
+              ...state.errors,
+              systemErrors: [
+                error instanceof Error ? error.message : 'Submit failed'
+              ],
+            },
+          }));
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Submit failed'
+          };
+        } finally {
+          set((state) => ({
+            ...state,
+            isSubmitting: false,
+          }));
+        }
+      },
+
+      saveProgress: async () => {
+        try {
+          set((state) => ({
+            ...state,
+            lastSavedAt: new Date(),
+            isDirty: false,
+          }));
+        } catch (error) {
+          console.warn('Auto-save failed:', error);
+        }
+      },
+
+      // === 状态管理 ===
+      setValidationState: (validationState: ValidationState) => {
+        set((state) => ({
+          ...state,
+          validationState,
+        }));
+      },
+
+      setSubmitting: (isSubmitting: boolean) => {
+        set((state) => ({
+          ...state,
+          isSubmitting,
+        }));
+      },
+
+      markAsSaved: () => {
+        set((state) => ({
+          ...state,
+          lastSavedAt: new Date(),
+          isDirty: false,
+        }));
+      },
+
+      // === 调试和工具 ===
+      toggleDebugMode: () => {
+        set((state) => ({
+          ...state,
+          debugMode: !state.debugMode,
+        }));
+      },
+
+      exportFormData: () => {
+        const { formData } = get();
+        return JSON.stringify(formData, null, 2);
+      },
+
+      importFormData: (jsonData: string) => {
+        try {
+          const data = JSON.parse(jsonData);
+          const result = quoteSchema.safeParse(data);
+          if (result.success) {
+            set((state) => ({
+              ...state,
+              formData: result.data,
+              calculated: calculateProperties(result.data),
+              isDirty: true,
+              hasChanges: true,
+              validationState: 'valid',
+              isValid: true,
+            }));
+            return true;
+          } else {
+            console.warn('Invalid import data:', result.error);
+            return false;
+          }
+        } catch (error) {
+          console.warn('Failed to parse import data:', error);
+          return false;
+        }
+      },
+
+      getFormSummary: () => {
+        const { formData } = get();
+        return {
+          pcbType: formData.pcbType,
+          layers: formData.layers,
+          thickness: formData.thickness,
+          shipmentType: formData.shipmentType,
+          dimensions: formData.singleDimensions,
+          count: formData.singleCount,
+          surfaceFinish: formData.surfaceFinish,
+          solderMask: formData.solderMask,
+        };
+      },
+
+      // 内部辅助方法
+      hasFormChanges: () => {
+        const { formData, originalData } = get();
+        return JSON.stringify(formData) !== JSON.stringify(originalData);
+      },
+
+      // 计算属性相关方法
+      updateCalculatedProperties: () => {
+        const { formData } = get();
+        set((state) => ({
+          ...state,
+          calculated: calculateProperties(formData),
+        }));
+      },
+
+      getCalculatedProperty: (key) => {
+        return get().calculated[key];
+      },
+
+      getAllCalculatedProperties: () => {
+        return get().calculated;
+      },
+    }),
+    {
+      name: 'quote-form-storage',
+      partialize: (state) => ({
+        formData: state.formData,
+        originalData: state.originalData,
+        autoSaveEnabled: state.autoSaveEnabled,
+      }),
+    }
   )
-);
-
-// 自动计算属性订阅器 - 在 store 创建后立即设置
-useQuoteStore.subscribe(
-  () => {
-    // 当 store 状态变化时，自动更新计算属性
-    const currentState = useQuoteStore.getState();
-    useQuoteStore.setState({
-      calculated: calculateProperties(currentState.formData)
-    });
-  }
 );
 
 // 选择器 hooks
