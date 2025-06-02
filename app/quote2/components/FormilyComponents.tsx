@@ -180,14 +180,14 @@ export const formilyComponents = {
             min={props.min}
             max={props.max}
             className={cn(
-              "w-32 transition-colors duration-150",
+              "w-32 transition-colors duration-150 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]",
               hasError
                 ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
                 : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
             )}
           />
           {props.unit && (
-            <span className="text-sm font-medium text-gray-600 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200">
+            <span className="text-sm font-medium text-gray-600 bg-gray-50 px-3 py-2 rounded-md border border-gray-200">
               {props.unit}
             </span>
           )}
@@ -464,7 +464,7 @@ export const formilyComponents = {
           onChange={(e) => props.onChange?.(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
           min={1}
           max={20}
-          className="w-20 text-center font-medium"
+          className="w-20 text-center font-medium [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
           placeholder="1"
         />
 
@@ -480,8 +480,8 @@ export const formilyComponents = {
           +
         </Button>
 
-        <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded border">
-          designs
+        <span className="text-sm font-medium text-gray-600 bg-gray-50 px-3 py-2 rounded-md border border-gray-200">
+          qty
         </span>
       </div>
     );

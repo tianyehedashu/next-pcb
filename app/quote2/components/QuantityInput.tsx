@@ -28,7 +28,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   value, 
   onChange, 
   placeholder = "Select quantity",
-  unit = "Pcs",
+  unit = "pcs",
   className
 }) => {
   const [customValue, setCustomValue] = useState("");
@@ -138,7 +138,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
       
       {/* 单位显示 */}
       {unit && (
-        <span className="text-sm text-gray-600 bg-gray-100 px-3 py-2 rounded border border-gray-200 font-medium">
+        <span className="text-sm font-medium text-gray-600 bg-gray-50 px-3 py-2 rounded-md border border-gray-200">
           {unit}
         </span>
       )}

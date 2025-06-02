@@ -172,7 +172,7 @@ export const pcbFormilySchema: ISchema = {
       "x-component": "QuantityInput",
       "x-component-props": {
         placeholder: "Select",
-        unit: "Pcs"
+        unit: "pcs"
       },
       "x-reactions": {
         dependencies: ["shipmentType"],
@@ -204,7 +204,7 @@ export const pcbFormilySchema: ISchema = {
       title: "Quantity(panel)",
       "x-component": "QuantityInput",
       "x-component-props": {
-        unit: "Pcs",
+        unit: "pcs",
         placeholder: "Select"
       },
       "x-reactions": {
