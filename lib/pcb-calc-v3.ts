@@ -28,7 +28,8 @@ import {
   copperWeightHandler, // 外层铜厚
   multilayerCopperWeightHandler,
   traceHandler,
-  drillAndThicknessHandler, // 内层铜厚 
+  drillAndThicknessHandler, // 内层铜厚
+  urgentDeliveryHandler, // 加急费
 } from './priceHandlers-v3';
 
 import { QuoteFormData } from '@/app/quote2/schema/quoteSchema';
@@ -116,6 +117,7 @@ export function calcPcbPriceV3(form: QuoteFormData): {
     multilayerCopperWeightHandler, // 内层铜厚
     traceHandler, // 线宽线距
     drillAndThicknessHandler, // 最小线宽线距
+    urgentDeliveryHandler, // 加急费
 
     // ...如有其它handler继续补充...
   ];

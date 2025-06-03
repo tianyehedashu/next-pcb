@@ -2,10 +2,13 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { calcPcbPriceV3 } from "@/lib/pcb-calc-v3";
-import { calcProductionCycle, getRealDeliveryDate } from "@/lib/productCycleCalc-v3";
+import { getRealDeliveryDate } from "@/lib/productCycleCalc-v3";
 import { useQuoteFormData, useQuoteCalculated } from "@/lib/stores/quote-store";
+import { calculateLeadTime } from '@/lib/stores/quote-calculations';
+import { useQuoteStore } from "@/lib/stores/quote-store";
+import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
 
 interface PriceBreakdown {
   totalPrice: number;
@@ -18,7 +21,6 @@ interface PriceBreakdown {
 }
 
 export default function PriceSummary() {
-  const [showDetails, setShowDetails] = useState(false);
   const [showPriceDetails, setShowPriceDetails] = useState(false);
   const [showProductionCycleDetail, setShowProductionCycleDetail] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
@@ -36,7 +38,6 @@ export default function PriceSummary() {
   // 使用 calcPcbPriceV3 进行价格计算
   const priceBreakdown = useMemo((): PriceBreakdown => {
     if (!isClient) {
-      // 服务端渲染时返回默认值
       return {
         totalPrice: 0,
         unitPrice: 0,
@@ -46,7 +47,7 @@ export default function PriceSummary() {
           "Tax": 0,
           "Discount": 0
         },
-        notes: [],
+        notes: ["Loading..."],
         minOrderQty: 0,
         leadTime: "TBD",
         totalCount: 0
@@ -62,6 +63,9 @@ export default function PriceSummary() {
       // 计算单价
       const unitPrice = totalCount > 0 ? total / totalCount : 0;
       
+      // 直接计算交期
+      const leadTimeResult = calculateLeadTime(formData, new Date(), formData.delivery);
+      
       return {
         totalPrice: total,
         unitPrice,
@@ -74,7 +78,7 @@ export default function PriceSummary() {
         },
         notes,
         minOrderQty: 5, // 默认最小起订量
-        leadTime: `${calculated.estimatedLeadTime} days`, // 使用 store 中的预估交期
+        leadTime: `${leadTimeResult.cycleDays} days`,
         totalCount
       };
     } catch (error) {
@@ -94,7 +98,35 @@ export default function PriceSummary() {
         totalCount: 0
       };
     }
-  }, [formData, calculated.totalQuantity, calculated.estimatedLeadTime, isClient]);
+  }, [formData, calculated.totalQuantity, isClient]);
+
+  // 专门的调试函数
+  const debugQuantityCalculation = () => {
+    console.log('=== Quantity Calculation Debug ===');
+    console.log('Form Data:', {
+      shipmentType: formData.shipmentType,
+      singleCount: formData.singleCount,
+      panelSet: formData.panelSet,
+      panelDimensions: formData.panelDimensions
+    });
+    
+    // 手动计算 totalCount
+    let manualTotalCount = 0;
+    if (formData.shipmentType === 'single') {
+      manualTotalCount = formData.singleCount || 0;
+    } else if (formData.shipmentType === 'panel') {
+      manualTotalCount = (formData.panelDimensions?.row || 1) * (formData.panelDimensions?.column || 1) * (formData.panelSet || 0);
+    }
+    
+    console.log('Manual Total Count:', manualTotalCount);
+    console.log('Store Calculated Total Quantity:', calculated.totalQuantity);
+    
+    // 直接调用 calcProductionCycle 来测试
+    const testResult = calcProductionCycle(formData, new Date(), 'standard');
+    console.log('Direct calcProductionCycle result:', testResult);
+    
+    return manualTotalCount;
+  };
 
   // 获取生产周期信息
   const getProductionCycle = () => {
@@ -106,45 +138,53 @@ export default function PriceSummary() {
           cycle: "TBD",
           finish: "TBD",
           reasons: []
-        },
-        urgent: {
-          type: "Urgent",
-          cycle: "TBD",
-          finish: "TBD",
-          available: false,
-          reasons: []
+        }
+      };
+    }
+
+    // 调用调试函数
+    const manualTotalCount = debugQuantityCalculation();
+    
+    // 检查数量是否为0
+    if (manualTotalCount === 0) {
+      return {
+        standard: {
+          type: "Standard",
+          cycle: "Please enter quantity",
+          finish: "Please enter quantity",
+          reasons: ["Quantity is required to calculate production cycle"]
         }
       };
     }
 
     const now = new Date();
     
-    // 直接使用 QuoteFormData 格式，因为 productCycleCalc-v3 已经支持
-    const standardInfo = calcProductionCycle(formData, now, 'standard');
-    const urgentInfo = calcProductionCycle(formData, now, 'urgent');
+    // 直接计算交期数据
+    const leadTimeData = calculateLeadTime(formData, new Date(), formData.delivery);
+    const standardFinish = getRealDeliveryDate(now, leadTimeData.cycleDays);
     
-    const standardFinish = getRealDeliveryDate(now, standardInfo.cycleDays);
-    const urgentFinish = getRealDeliveryDate(now, urgentInfo.cycleDays);
-    
-    // 判断是否可以加急（根据复杂度或特殊工艺）
-    const isUrgentAvailable = formData.testMethod !== "Test Fixture" && 
-                             (formData.layers || 0) <= 6 && 
-                             !formData.hdi && 
-                             !formData.goldFingers;
+    // 添加调试信息
+    console.log('Production Cycle Debug:', {
+      totalQuantity: calculated.totalQuantity,
+      singleCount: formData.singleCount,
+      shipmentType: formData.shipmentType,
+      panelSet: formData.panelSet,
+      panelDimensions: formData.panelDimensions,
+      leadTimeData,
+      cycleDays: leadTimeData.cycleDays,
+      storeState: {
+        hasHydrated: useQuoteStore.persist.hasHydrated(),
+        isDirty: useQuoteStore.getState().isDirty,
+        hasChanges: useQuoteStore.getState().hasChanges
+      }
+    });
     
     return {
       standard: {
         type: "Standard",
-        cycle: `${standardInfo.cycleDays} day(s)`,
+        cycle: `${leadTimeData.cycleDays} day(s)`,
         finish: standardFinish.toISOString().slice(0, 10),
-        reasons: standardInfo.reason
-      },
-      urgent: {
-        type: "Urgent",
-        cycle: `${urgentInfo.cycleDays} day(s)`,
-        finish: urgentFinish.toISOString().slice(0, 10),
-        available: isUrgentAvailable,
-        reasons: urgentInfo.reason
+        reasons: leadTimeData.reason
       }
     };
   };
@@ -156,24 +196,6 @@ export default function PriceSummary() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <h2 className="text-xl font-semibold text-blue-600">Order Summary</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowDetails(!showDetails)}
-          className="text-blue-600 hover:text-blue-700"
-        >
-          {showDetails ? (
-            <>
-              <EyeOff className="h-4 w-4 mr-1" />
-              Hide Detail
-            </>
-          ) : (
-            <>
-              <Eye className="h-4 w-4 mr-1" />
-              Show Detail
-            </>
-          )}
-        </Button>
       </div>
 
       <div className="p-4 space-y-4">
@@ -181,7 +203,11 @@ export default function PriceSummary() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-blue-600 font-medium">PCB Cost</span>
-            <span className="font-semibold">${priceBreakdown.totalPrice.toFixed(2)}</span>
+            {priceBreakdown.totalPrice === 0 ? (
+              <span className="text-gray-400 text-sm italic">Enter details to calculate</span>
+            ) : (
+              <span className="font-semibold text-green-600">${priceBreakdown.totalPrice.toFixed(2)}</span>
+            )}
           </div>
           <div className="flex justify-between items-center">
             <span className="text-blue-600 font-medium">Shipping</span>
@@ -195,45 +221,84 @@ export default function PriceSummary() {
             <span className="text-blue-600 font-medium">Discount</span>
             <span className="font-semibold text-green-600">-$0.00</span>
           </div>
+          
+          {/* Total Price */}
+          <div className="pt-3 border-t border-gray-200">
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-semibold text-blue-700">Total</span>
+              {priceBreakdown.totalPrice === 0 ? (
+                <span className="text-gray-400 text-lg italic">$0.00</span>
+              ) : (
+                <span className="text-lg font-bold text-blue-700">${priceBreakdown.totalPrice.toFixed(2)}</span>
+              )}
+            </div>
+            {calculated.totalQuantity > 0 && priceBreakdown.totalPrice > 0 && (
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-sm text-gray-500">Unit Price</span>
+                <span className="text-sm text-gray-600">${priceBreakdown.unitPrice.toFixed(3)}/pc</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Production Cycle */}
         <div className="pt-4 border-t border-gray-200">
           <div className="flex justify-between items-center mb-3">
             <span className="text-blue-600 font-medium">Production Cycle</span>
-            <button
-              type="button"
-              className="text-xs text-blue-500 hover:underline transition-colors"
-              onClick={() => setShowProductionCycleDetail(!showProductionCycleDetail)}
-            >
-              {showProductionCycleDetail ? "Hide Detail" : "Show Production Cycle Detail"}
-            </button>
+            {calculated.totalQuantity > 0 && (
+              <button
+                type="button"
+                className="text-xs text-blue-500 hover:underline transition-colors"
+                onClick={() => setShowProductionCycleDetail(!showProductionCycleDetail)}
+              >
+                {showProductionCycleDetail ? "Hide Detail" : "Show Production Cycle Detail"}
+              </button>
+            )}
           </div>
           
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-blue-600 font-medium">Lead Time</span>
-            <span className="font-semibold">{productionCycle.standard.cycle}</span>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <span className="text-blue-600 font-medium">Est. Finish</span>
-            <span className="font-semibold">{productionCycle.standard.finish}</span>
-          </div>
-
-          {/* 生产周期详细信息 */}
-          {showProductionCycleDetail && (
-            <div className="mt-3">
-              <div className="bg-gray-50 rounded-md p-3">
-                <div className="font-medium text-xs text-blue-700 mb-2">
-                  Production Details:
-                </div>
-                <ul className="text-xs text-gray-600 space-y-0.5">
-                  {productionCycle.standard.reasons.map((reason, idx) => (
-                    <li key={idx} className="text-xs leading-relaxed">• {reason}</li>
-                  ))}
-                </ul>
+          {calculated.totalQuantity === 0 ? (
+            // 当数量为0时显示友好提示
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+              <div className="text-blue-600 text-sm font-medium mb-1">
+                Ready to Calculate Production Time
+              </div>
+              <div className="text-blue-500 text-xs">
+                Please enter your PCB quantity to see lead time and delivery date
               </div>
             </div>
+          ) : (
+            // 当有数量时显示正常信息
+            <>
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-blue-600 font-medium">Lead Time</span>
+                <span className="font-semibold text-green-600">
+                  {productionCycle.standard.cycle}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-blue-600 font-medium">Est. Finish</span>
+                <span className="font-semibold text-green-600">
+                  {productionCycle.standard.finish}
+                </span>
+              </div>
+
+              {/* 生产周期详细信息 */}
+              {showProductionCycleDetail && (
+                <div className="mt-3">
+                  <div className="bg-gray-50 rounded-md p-3">
+                    <div className="font-medium text-xs text-blue-700 mb-2">
+                      Production Details:
+                    </div>
+                    <ul className="text-xs text-gray-600 space-y-0.5">
+                      {productionCycle.standard.reasons.map((reason: string, idx: number) => (
+                        <li key={idx} className="text-xs leading-relaxed">• {reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -268,6 +333,21 @@ export default function PriceSummary() {
               )}
               Show Debug
             </Button>
+            {showDebug && (
+              <div className="mt-2 space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    localStorage.clear();
+                    window.location.reload();
+                  }}
+                  className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  Clear Storage & Reload
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -282,6 +362,14 @@ export default function PriceSummary() {
             <pre className="whitespace-pre-wrap text-xs text-gray-600 font-mono">
               {JSON.stringify(calculated, null, 2)}
             </pre>
+            <div className="font-medium text-gray-700 mb-2 mt-4">Quantity Debug:</div>
+            <div className="text-xs text-gray-600">
+              <p>Shipment Type: {formData.shipmentType}</p>
+              <p>Single Count: {formData.singleCount}</p>
+              <p>Panel Set: {formData.panelSet}</p>
+              <p>Panel Dimensions: {formData.panelDimensions?.row} x {formData.panelDimensions?.column}</p>
+              <p>Calculated Total Quantity: {calculated.totalQuantity}</p>
+            </div>
           </div>
         )}
 
@@ -325,14 +413,6 @@ export default function PriceSummary() {
               <div className="font-medium text-gray-700 mb-2">Calculated Properties:</div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Complexity:</span>
-                  <span className="font-medium">{isClient ? calculated.complexityLevel : 'Loading...'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Category:</span>
-                  <span className="font-medium">{isClient ? calculated.priceCategory : 'Loading...'}</span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-gray-600">PCB Area:</span>
                   <span className="font-medium">{isClient ? `${calculated.singlePcbArea.toFixed(2)} cm²` : 'Loading...'}</span>
                 </div>
@@ -341,12 +421,8 @@ export default function PriceSummary() {
                   <span className="font-medium">{isClient ? `${calculated.totalArea.toFixed(2)} cm²` : 'Loading...'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Est. Weight:</span>
-                  <span className="font-medium">{isClient ? `${calculated.estimatedWeight.toFixed(1)}g` : 'Loading...'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Difficulty:</span>
-                  <span className="font-medium">{isClient ? `${calculated.productionDifficulty}/10` : 'Loading...'}</span>
+                  <span className="text-gray-600">Quantity:</span>
+                  <span className="font-medium">{isClient ? `${calculated.totalQuantity} pcs` : 'Loading...'}</span>
                 </div>
               </div>
             </div>
@@ -358,45 +434,46 @@ export default function PriceSummary() {
           For reference only, final price is subject to review.
         </div>
 
-        {/* Additional Details (when showDetails is true) */}
-        {showDetails && (
-          <div className="pt-4 border-t border-gray-200 space-y-3">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Quantity:</span>
+        {/* Order Details - Always Show */}
+        <div className="pt-4 border-t border-gray-200 space-y-3">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Quantity:</span>
+              {priceBreakdown.totalCount === 0 ? (
+                <span className="text-gray-400 italic">Not set</span>
+              ) : (
                 <span className="font-medium">{priceBreakdown.totalCount} pcs</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Unit Price:</span>
-                <span className="font-medium">${priceBreakdown.unitPrice.toFixed(3)}</span>
-              </div>
-              {priceBreakdown.minOrderQty > 0 && (
-                <div className="flex justify-between col-span-2">
-                  <span className="text-gray-600">Min Order Qty:</span>
-                  <span className="font-medium">{priceBreakdown.minOrderQty} pcs</span>
-                </div>
               )}
-              
-              {/* 显示更多 store 中的计算属性 */}
-              <div className="flex justify-between">
-                <span className="text-gray-600">Multi-Layer:</span>
-                <span className="font-medium">{isClient ? (calculated.isMultiLayer ? 'Yes' : 'No') : 'Loading...'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Unit Price:</span>
+              {priceBreakdown.totalCount === 0 || priceBreakdown.totalPrice === 0 ? (
+                <span className="text-gray-400 italic">-</span>
+              ) : (
+                <span className="font-medium">${priceBreakdown.unitPrice.toFixed(3)}</span>
+              )}
+            </div>
+            {priceBreakdown.minOrderQty > 0 && (
+              <div className="flex justify-between col-span-2">
+                <span className="text-gray-600">Min Order Qty:</span>
+                <span className="font-medium">{priceBreakdown.minOrderQty} pcs</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">HDI:</span>
-                <span className="font-medium">{isClient ? (calculated.isHDI ? 'Yes' : 'No') : 'Loading...'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Impedance:</span>
-                <span className="font-medium">{isClient ? (calculated.requiresImpedance ? 'Yes' : 'No') : 'Loading...'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Special Finish:</span>
-                <span className="font-medium">{isClient ? (calculated.hasSpecialFinish ? 'Yes' : 'No') : 'Loading...'}</span>
-              </div>
+            )}
+            
+            <div className="flex justify-between">
+              <span className="text-gray-600">PCB Area:</span>
+              <span className="font-medium">{isClient ? `${calculated.singlePcbArea.toFixed(2)} cm²` : 'Loading...'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Total Area:</span>
+              {calculated.totalQuantity === 0 ? (
+                <span className="text-gray-400 italic">-</span>
+              ) : (
+                <span className="font-medium">{isClient ? `${calculated.totalArea.toFixed(2)} cm²` : 'Loading...'}</span>
+              )}
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

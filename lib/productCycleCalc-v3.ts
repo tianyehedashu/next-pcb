@@ -55,6 +55,14 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
     totalCount = form.singleCount || 0;
   }
   
+  // 检查数量是否为0，如果是则返回特殊状态
+  if(totalCount === 0) {
+    return { 
+      cycleDays: 0, 
+      reason: ['Quantity is required to calculate production cycle'] 
+    };
+  }
+  
   area = singleArea * totalCount;
 
   const areaFactor = Math.max(1, Math.ceil(area));

@@ -30,4 +30,9 @@ export const componentMap: Record<ComponentType, string> = {
   AddressInput: "AddressInput",
   CustomsInput: "CustomsInput",
   MultiSelect: "MultiSelect",
-}; 
+};
+
+export enum DeliveryType {
+  Standard = "standard",
+  Urgent = "urgent"
+} 

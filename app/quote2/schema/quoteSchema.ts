@@ -5,7 +5,7 @@ import {
   SurfaceFinish, SurfaceFinishEnigType, MaskCover, TestMethod,
   ProductReport,
   WorkingGerber, CrossOuts, IPCClass, IfDataConflicts,
-  EdgeCover
+  EdgeCover, DeliveryType
 } from "./shared-types";
 
 // 尺寸对象校验
@@ -58,6 +58,9 @@ export const quoteSchema = z.object({
   border: z.nativeEnum(BorderType).default(BorderType.None),
   useShengyiMaterial: z.boolean().default(false),
   pcbNote: z.string().max(1000, "PCB note too long").optional().default(""),
+
+  // === Delivery Information ===
+  delivery: z.nativeEnum(DeliveryType).default(DeliveryType.Standard),
 
   // === Process Information ===
   outerCopperWeight: z.nativeEnum(CopperWeight, { required_error: "Outer copper weight is required" }).default(CopperWeight.One),
