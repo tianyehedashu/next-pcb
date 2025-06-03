@@ -74,7 +74,13 @@ export const edgeCoverHandler: PriceHandler = (form) => {
 
 /**
  * 阻焊盖孔加价
- * 规则：如需盖孔（maskCover=plug/plug_flat），整单加10元。
+ * 规则：
+ * 1. 非导电填孔+盖油（VII，Non-Conductive Fill & Cap）：
+ *    - 样品（面积<1㎡）：600元/款
+ *    - 批量（面积≥1㎡）：500元/㎡
+ * 2. 阻焊塞孔（IV-B，Solder Mask Plug）：
+ *    - 仅2层板收费：50元/㎡，不足1㎡按1㎡计算
+ *    - 大于2层板：不收费
  */
 export const maskCoverHandler: PriceHandler = (form, area) => {
   let extra = 0;
@@ -93,9 +99,19 @@ export const maskCoverHandler: PriceHandler = (form, area) => {
       notes.push(`Mask cover: Non-Conductive Fill & Cap (VII) +500 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
     }
   } else if (form.maskCover === MaskCover.SolderMaskPlug) {
-    extra = 10;
-    detail['maskCover'] = 10;
-    notes.push('Mask cover: Solder Mask Plug (IV-B) +10 CNY');
+    // 阻焊塞孔（IV-B）：只有2层板需要加50元/㎡，不足1㎡按1㎡计算，大于2层的不用加价
+    if (form.layers === 2) {
+      const billingArea = Math.max(1, area);
+      const fee = 50 * billingArea;
+      extra = fee;
+      detail['maskCover'] = fee;
+      notes.push(`Mask cover: Solder Mask Plug (IV-B) +50 CNY/㎡ × ${billingArea.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+      if (area < 1) {
+        notes.push('Solder Mask Plug: minimum billing area 1㎡');
+      }
+    } else {
+      notes.push('Mask cover: Solder Mask Plug (IV-B) - no charge for non-2L boards');
+    }
   }
   return {
     extra: extra,
