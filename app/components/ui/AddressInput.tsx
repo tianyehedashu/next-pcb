@@ -1,9 +1,9 @@
 import React from "react";
 import { connect, mapProps } from "@formily/react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { AddressFormComponent } from "@/app/quote2/components/AddressFormComponent";
 
 interface AddressValue {
+  id?: string;
   country: string;
   state?: string;
   city: string;
@@ -11,111 +11,47 @@ interface AddressValue {
   zipCode: string;
   phone?: string;
   contactName: string;
+  courier?: string;
+  isDefault?: boolean;
+  label?: string;
 }
 
 interface AddressInputProps {
   value?: AddressValue;
   onChange?: (value: AddressValue) => void;
   disabled?: boolean;
+  userId?: string; // 用户ID，用于获取地址列表
 }
 
-const AddressInput: React.FC<AddressInputProps> = ({ value, onChange, disabled }) => {
-  const handleChange = (field: keyof AddressValue, fieldValue: string) => {
-    const defaultValue = {
-      country: "",
-      city: "",
-      address: "",
-      zipCode: "",
-      contactName: "",
-      state: "",
-      phone: "",
-    };
-    const newValue = { ...defaultValue, ...value, [field]: fieldValue };
-    onChange?.(newValue);
-  };
+const AddressInput: React.FC<AddressInputProps> = ({ value, onChange, disabled, userId }) => {
+  // 如果组件被禁用，显示只读版本
+  if (disabled) {
+    return (
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 w-full">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-lg">📍</span>
+          <h4 className="text-lg font-semibold text-gray-600">Shipping Address (Read Only)</h4>
+        </div>
+        <div className="space-y-2 text-sm text-gray-600">
+          <div><strong>Contact:</strong> {value?.contactName || 'N/A'}</div>
+          <div><strong>Phone:</strong> {value?.phone || 'N/A'}</div>
+          <div><strong>Address:</strong> {value?.address || 'N/A'}</div>
+          <div><strong>City:</strong> {value?.city || 'N/A'}</div>
+          <div><strong>State:</strong> {value?.state || 'N/A'}</div>
+          <div><strong>ZIP:</strong> {value?.zipCode || 'N/A'}</div>
+          <div><strong>Country:</strong> {value?.country || 'N/A'}</div>
+          <div><strong>Courier:</strong> {value?.courier || 'N/A'}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="country">Country *</Label>
-          <Input
-            id="country"
-            value={value?.country || ""}
-            onChange={(e) => handleChange("country", e.target.value)}
-            disabled={disabled}
-            placeholder="Enter country"
-          />
-        </div>
-        <div>
-          <Label htmlFor="state">State/Province</Label>
-          <Input
-            id="state"
-            value={value?.state || ""}
-            onChange={(e) => handleChange("state", e.target.value)}
-            disabled={disabled}
-            placeholder="Enter state/province"
-          />
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="city">City *</Label>
-          <Input
-            id="city"
-            value={value?.city || ""}
-            onChange={(e) => handleChange("city", e.target.value)}
-            disabled={disabled}
-            placeholder="Enter city"
-          />
-        </div>
-        <div>
-          <Label htmlFor="zipCode">Zip Code *</Label>
-          <Input
-            id="zipCode"
-            value={value?.zipCode || ""}
-            onChange={(e) => handleChange("zipCode", e.target.value)}
-            disabled={disabled}
-            placeholder="Enter zip code"
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="address">Address *</Label>
-        <Input
-          id="address"
-          value={value?.address || ""}
-          onChange={(e) => handleChange("address", e.target.value)}
-          disabled={disabled}
-          placeholder="Enter full address"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="contactName">Contact Name *</Label>
-          <Input
-            id="contactName"
-            value={value?.contactName || ""}
-            onChange={(e) => handleChange("contactName", e.target.value)}
-            disabled={disabled}
-            placeholder="Enter contact name"
-          />
-        </div>
-        <div>
-          <Label htmlFor="phone">Phone</Label>
-          <Input
-            id="phone"
-            value={value?.phone || ""}
-            onChange={(e) => handleChange("phone", e.target.value)}
-            disabled={disabled}
-            placeholder="Enter phone number"
-          />
-        </div>
-      </div>
-    </div>
+    <AddressFormComponent
+      value={value}
+      onChange={onChange}
+      userId={userId}
+    />
   );
 };
 

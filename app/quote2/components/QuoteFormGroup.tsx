@@ -28,6 +28,18 @@ export function QuoteFormGroup({
         const fieldSchema = properties[fieldName];
         if (!fieldSchema) return null;
 
+        // 对于 shippingCostEstimation 字段，不添加 FormFieldLayout decorator
+        if (fieldName === 'shippingCostEstimation') {
+          return (
+            <div key={fieldName} className="group w-full">
+              <SchemaField
+                name={fieldName}
+                schema={fieldSchema}
+              />
+            </div>
+          );
+        }
+
         // 创建带有 decorator 的 schema
         const fieldSchemaWithDecorator = {
           ...fieldSchema,

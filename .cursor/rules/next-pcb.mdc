@@ -3,7 +3,7 @@ description:
 globs: 
 alwaysApply: true
 ---
-
+不要运行或者编译(重要)
 页面内容使用英文，面向海外用户，主要针对网页端设计。
 shell 命令需适配 PowerShell（pwsh），不要使用 bash 语法。
 基础 UI 组件（如 Button、Input、Modal 等）优先使用 shadcn/ui，保持风格一致。shadcn/ui 组件统一放在 app/components/ui 目录，自定义 UI 组件放在 app/components/custom-ui 目录。

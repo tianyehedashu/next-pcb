@@ -29,6 +29,7 @@ const addressSchema = z.object({
   zipCode: z.string().default(""),
   phone: z.string().optional().default(""),
   contactName: z.string().default(""),
+  courier: z.string().optional().default(""),
 });
 
 // 报关信息校验
@@ -100,6 +101,10 @@ export const quoteSchema = z.object({
   gerberUrl: z.string().url("Invalid gerber URL").or(z.literal("")).optional().default(""),
 
   // === Shipping & Notes ===
+  shippingCostEstimation: z.object({
+    country: z.string().optional().default(""),
+    courier: z.string().optional().default(""),
+  }).optional().default({ country: "", courier: "" }),
   shippingAddress: addressSchema.default({
     country: "",
     state: "",
@@ -108,6 +113,7 @@ export const quoteSchema = z.object({
     zipCode: "",
     phone: "",
     contactName: "",
+    courier: "",
   }),
   customs: customsDeclarationSchema.optional(),
   customsNote: z.string().max(500, "Customs note too long").optional().default(""),

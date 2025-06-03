@@ -11,6 +11,8 @@ import * as formilyHelpers from "../schema/formilyHelpers";
 import QuantityInput from "./QuantityInput";
 import ColorSelector from "./ColorSelector";
 import { cn } from "@/lib/utils";
+import { AddressFormComponent } from "./AddressFormComponent";
+import type { AddressFormValue } from "./AddressFormComponent";
 
 // 定义 Formily 组件的 props 类型
 interface FormilyFieldProps {
@@ -23,8 +25,10 @@ interface FormilyFieldProps {
   componentProps?: { 
     options?: Array<{ label: string; value: string | number | boolean }>;
     isProductReport?: boolean;
+    userId?: string;
   };
   isProductReport?: boolean;
+  userId?: string;
   min?: number;
   max?: number;
   accept?: string;
@@ -382,66 +386,169 @@ export const formilyComponents = {
     );
   },
   AddressInput: (props: FormilyFieldProps) => {
-    const address = (props.value as Record<string, string>) || {};
+    // 从 props 中获取 userId，如果没有则尝试从 form context 获取
+    const userId = props.userId || props.componentProps?.userId;
+    
     return (
-      <div className="space-y-2">
-        <Input
-          placeholder="Country"
-          value={address.country || ''}
-          onChange={(e) => props.onChange?.({
-            ...address,
-            country: e.target.value
-          })}
+      <div className="formily-address-input">
+        <AddressFormComponent
+          value={props.value as AddressFormValue}
+          onChange={props.onChange}
+          userId={userId}
         />
-        <Input
-          placeholder="State/Province"
-          value={address.state || ''}
-          onChange={(e) => props.onChange?.({
-            ...address,
-            state: e.target.value
-          })}
-        />
-        <Input
-          placeholder="City"
-          value={address.city || ''}
-          onChange={(e) => props.onChange?.({
-            ...address,
-            city: e.target.value
-          })}
-        />
-        <Textarea
-          placeholder="Address"
-          value={address.address || ''}
-          onChange={(e) => props.onChange?.({
-            ...address,
-            address: e.target.value
-          })}
-          rows={2}
-        />
-        <Input
-          placeholder="ZIP/Postal Code"
-          value={address.zipCode || ''}
-          onChange={(e) => props.onChange?.({
-            ...address,
-            zipCode: e.target.value
-          })}
-        />
-        <Input
-          placeholder="Contact Name"
-          value={address.contactName || ''}
-          onChange={(e) => props.onChange?.({
-            ...address,
-            contactName: e.target.value
-          })}
-        />
-        <Input
-          placeholder="Phone Number"
-          value={address.phone || ''}
-          onChange={(e) => props.onChange?.({
-            ...address,
-            phone: e.target.value
-          })}
-        />
+      </div>
+    );
+  },
+  ShippingCostEstimation: (props: FormilyFieldProps) => {
+    const shippingData = (props.value as Record<string, string>) || {};
+    
+    // 国家列表
+    const countries = [
+      { code: "US", name: "United States", flag: "🇺🇸" },
+      { code: "CA", name: "Canada", flag: "🇨🇦" },
+      { code: "GB", name: "United Kingdom", flag: "🇬🇧" },
+      { code: "DE", name: "Germany", flag: "🇩🇪" },
+      { code: "FR", name: "France", flag: "🇫🇷" },
+      { code: "JP", name: "Japan", flag: "🇯🇵" },
+      { code: "AU", name: "Australia", flag: "🇦🇺" },
+      { code: "SG", name: "Singapore", flag: "🇸🇬" },
+      { code: "CN", name: "China", flag: "🇨🇳" },
+      { code: "KR", name: "South Korea", flag: "🇰🇷" },
+      { code: "IN", name: "India", flag: "🇮🇳" },
+      { code: "BR", name: "Brazil", flag: "🇧🇷" },
+      { code: "MX", name: "Mexico", flag: "🇲🇽" },
+      { code: "IT", name: "Italy", flag: "🇮🇹" },
+      { code: "ES", name: "Spain", flag: "🇪🇸" },
+      { code: "NL", name: "Netherlands", flag: "🇳🇱" },
+      { code: "SE", name: "Sweden", flag: "🇸🇪" },
+      { code: "NO", name: "Norway", flag: "🇳🇴" },
+      { code: "DK", name: "Denmark", flag: "🇩🇰" },
+      { code: "FI", name: "Finland", flag: "🇫🇮" },
+    ];
+
+    // 快递公司列表
+    const couriers = [
+      { id: "dhl", name: "DHL", icon: "📦", estimatedCost: 25.00, estimatedDays: "3-5" },
+      { id: "fedex", name: "FedEx", icon: "📮", estimatedCost: 28.00, estimatedDays: "2-4" },
+      { id: "ups", name: "UPS", icon: "📫", estimatedCost: 22.00, estimatedDays: "4-6" },
+      { id: "standard", name: "Standard Shipping", icon: "📪", estimatedCost: 15.00, estimatedDays: "7-14" },
+    ];
+
+    const selectedCountry = countries.find(c => c.code === shippingData.country);
+    const selectedCourier = couriers.find(c => c.id === shippingData.courier);
+
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-lg">🚚</span>
+          <h4 className="text-lg font-semibold text-blue-600">Shipping Cost Estimation</h4>
+        </div>
+        
+        {/* Country and Courier Selection */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          {/* Destination Country */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Destination Country
+            </label>
+            <UISelect 
+              value={shippingData.country || ""} 
+              onValueChange={(value) => props.onChange?.({
+                ...shippingData,
+                country: value
+              })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select country">
+                  {selectedCountry && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{selectedCountry.flag}</span>
+                      <span>{selectedCountry.name}</span>
+                    </div>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {countries.map((country) => (
+                  <SelectItem key={country.code} value={country.code}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{country.flag}</span>
+                      <span>{country.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </UISelect>
+          </div>
+
+          {/* Courier Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Courier
+            </label>
+            <UISelect 
+              value={shippingData.courier || ""} 
+              onValueChange={(value) => props.onChange?.({
+                ...shippingData,
+                courier: value
+              })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select courier">
+                  {selectedCourier && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{selectedCourier.icon}</span>
+                      <span>{selectedCourier.name}</span>
+                    </div>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {couriers.map((courier) => (
+                  <SelectItem key={courier.id} value={courier.id}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{courier.icon}</span>
+                      <span>{courier.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </UISelect>
+          </div>
+        </div>
+
+        {/* Estimation Result */}
+        {shippingData.country && shippingData.courier ? (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📦</span>
+                <span className="text-sm font-medium text-green-700">
+                  Estimated Shipping Cost
+                </span>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-bold text-green-700">
+                  ${selectedCourier?.estimatedCost.toFixed(2) || '0.00'}
+                </div>
+                <div className="text-xs text-green-600">
+                  {selectedCourier?.estimatedDays} business days
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+            <div className="text-gray-500 text-sm">
+              Please select country and courier to estimate shipping cost.
+            </div>
+          </div>
+        )}
+
+        {/* Additional Info */}
+        <div className="text-xs text-gray-500 text-center mt-3">
+          * Shipping costs are estimates and may vary based on package weight and dimensions.
+        </div>
       </div>
     );
   },

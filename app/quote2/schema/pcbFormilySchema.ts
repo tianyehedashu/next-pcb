@@ -624,89 +624,40 @@ export const pcbFormilySchema: ISchema = {
 
     // === 运输信息 ===
     
-    shippingAddress: fullWidth({
+    shippingCostEstimation: fullWidth({
       type: "object",
-      title: "Shipping Address",
-      "x-component": "AddressInput",
-      required: true,
+      "x-component": "ShippingCostEstimation",
       properties: {
         country: {
           type: "string",
           title: "Country",
-          "x-component": "Select",
-          "x-component-props": {
-            placeholder: "Select country..."
-          }
+          "x-component": "Select"
         },
-        state: {
-          type: "string", 
-          title: "State/Province",
-          "x-component": "Input",
-          "x-component-props": {
-            placeholder: "Enter state or province..."
-          }
-        },
-        city: {
+        courier: {
           type: "string",
-          title: "City",
-          "x-component": "Input",
-          "x-component-props": {
-            placeholder: "Enter city..."
-          }
-        },
-        address: {
-          type: "string",
-          title: "Address",
-          "x-component": "TextArea",
-          "x-component-props": {
-            placeholder: "Enter detailed address...",
-            rows: 2
-          }
-        },
-        zipCode: {
-          type: "string",
-          title: "ZIP/Postal Code",
-          "x-component": "Input",
-          "x-component-props": {
-            placeholder: "Enter ZIP or postal code..."
-          }
-        },
-        contactName: {
-          type: "string",
-          title: "Contact Name",
-          "x-component": "Input",
-          "x-component-props": {
-            placeholder: "Enter contact person name..."
-          }
-        },
-        phone: {
-          type: "string",
-          title: "Phone Number",
-          "x-component": "Input",
-          "x-component-props": {
-            placeholder: "Enter phone number..."
-          }
+          title: "Courier",
+          "x-component": "Select"
         }
       }
     }),
-
-    customsNote: fullWidth({
-      type: "string",
-      title: "Customs Note",
-      "x-component": "TextArea",
+    
+    shippingAddress: fullWidth({
+      type: "object",
+      title: "Shipping Address",
+      "x-component": "AddressInput",
       "x-component-props": {
-        placeholder: "Additional customs information...",
-        rows: 3
-      }
-    }),
-
-    userNote: fullWidth({
-      type: "string",
-      title: "Additional Notes",
-      "x-component": "TextArea", 
-      "x-component-props": {
-        placeholder: "Any additional requirements or notes...",
-        rows: 4
+        // userId 将通过 form context 或 reactions 传递
+      },
+      required: true,
+      default: {
+        country: "",
+        state: "",
+        city: "",
+        address: "",
+        zipCode: "",
+        contactName: "",
+        phone: "",
+        courier: ""
       }
     })
 
@@ -744,10 +695,17 @@ export const fieldGroups = [
     ]
   },
   {
+    title: "Shipping Cost Estimation",
+    icon: "Calculator",
+    fields: [
+      'shippingCostEstimation'
+    ]
+  },
+  {
     title: "Shipping Information",
     icon: "Truck", 
     fields: [
-      'shippingAddress', 'customsNote', 'userNote'
+      'shippingAddress'
     ]
   }
 ]; 

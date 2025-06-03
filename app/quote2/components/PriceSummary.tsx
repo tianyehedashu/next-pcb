@@ -35,6 +35,43 @@ export default function PriceSummary() {
     setIsClient(true);
   }, []);
 
+  // 获取运费的辅助函数 - 移到 useMemo 之前
+  const getShippingCost = (courier?: string): number => {
+    if (!courier) return 0;
+    
+    const courierCosts: Record<string, number> = {
+      "dhl": 25.00,
+      "fedex": 28.00,
+      "ups": 22.00,
+      "standard": 15.00,
+    };
+    
+    return courierCosts[courier] || 0;
+  };
+
+  // 获取运费信息的辅助函数 - 移到 useMemo 之前
+  const getShippingInfo = () => {
+    const courier = formData.shippingCostEstimation?.courier;
+    const country = formData.shippingCostEstimation?.country;
+    
+    if (!courier || !country) {
+      return {
+        cost: 0,
+        days: "",
+        courierName: ""
+      };
+    }
+    
+    const courierInfo: Record<string, { courierName: string; days: string; cost: number }> = {
+      "dhl": { courierName: "DHL", days: "3-5", cost: 25.00 },
+      "fedex": { courierName: "FedEx", days: "2-4", cost: 28.00 },
+      "ups": { courierName: "UPS", days: "4-6", cost: 22.00 },
+      "standard": { courierName: "Standard Shipping", days: "7-14", cost: 15.00 },
+    };
+    
+    return courierInfo[courier] || { cost: 0, days: "", courierName: "" };
+  };
+
   // 使用 calcPcbPriceV3 进行价格计算
   const priceBreakdown = useMemo((): PriceBreakdown => {
     if (!isClient) {
@@ -66,12 +103,15 @@ export default function PriceSummary() {
       // 直接计算交期
       const leadTimeResult = calculateLeadTime(formData, new Date(), formData.delivery);
       
+      // 计算运费
+      const shippingCost = getShippingCost(formData.shippingCostEstimation?.courier);
+      
       return {
         totalPrice: total,
         unitPrice,
         detail: {
           "PCB Cost": total,
-          "Shipping": 0,
+          "Shipping": shippingCost,
           "Tax": 0,
           "Discount": 0,
           ...detail
@@ -99,6 +139,8 @@ export default function PriceSummary() {
       };
     }
   }, [formData, calculated.totalQuantity, isClient]);
+
+  const shippingInfo = getShippingInfo();
 
   // 专门的调试函数
   const debugQuantityCalculation = () => {
@@ -211,7 +253,11 @@ export default function PriceSummary() {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-blue-600 font-medium">Shipping</span>
-            <span className="font-semibold">$ 0.00</span>
+            {shippingInfo.cost === 0 ? (
+              <span className="text-gray-400 text-sm italic">Select courier to calculate</span>
+            ) : (
+              <span className="font-semibold text-green-600">$ {shippingInfo.cost.toFixed(2)}</span>
+            )}
           </div>
           <div className="flex justify-between items-center">
             <span className="text-blue-600 font-medium">Tax</span>
@@ -226,16 +272,24 @@ export default function PriceSummary() {
           <div className="pt-3 border-t border-gray-200">
             <div className="flex justify-between items-center">
               <span className="text-lg font-semibold text-blue-700">Total</span>
-              {priceBreakdown.totalPrice === 0 ? (
+              {priceBreakdown.totalPrice === 0 && shippingInfo.cost === 0 ? (
                 <span className="text-gray-400 text-lg italic">$0.00</span>
               ) : (
-                <span className="text-lg font-bold text-blue-700">${priceBreakdown.totalPrice.toFixed(2)}</span>
+                <span className="text-lg font-bold text-blue-700">
+                  ${(priceBreakdown.totalPrice + shippingInfo.cost).toFixed(2)}
+                </span>
               )}
             </div>
             {calculated.totalQuantity > 0 && priceBreakdown.totalPrice > 0 && (
               <div className="flex justify-between items-center mt-1">
                 <span className="text-sm text-gray-500">Unit Price</span>
                 <span className="text-sm text-gray-600">${priceBreakdown.unitPrice.toFixed(3)}/pc</span>
+              </div>
+            )}
+            {shippingInfo.cost > 0 && shippingInfo.courierName && (
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-sm text-gray-500">via {shippingInfo.courierName}</span>
+                <span className="text-sm text-gray-600">{shippingInfo.days} days</span>
               </div>
             )}
           </div>
