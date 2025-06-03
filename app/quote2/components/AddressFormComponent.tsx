@@ -536,31 +536,33 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
             ) : (
               <div className="space-y-3">
                 {addresses.map((address) => (
-                  <div key={address.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium">{address.label}</span>
+                  <div key={address.id} className="border rounded-lg p-3 sm:p-4 hover:bg-gray-50">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                          <span className="font-medium text-sm sm:text-base truncate">{address.label}</span>
                           {address.isDefault && (
-                            <Badge variant="default" className="text-xs">Default</Badge>
+                            <Badge variant="default" className="text-xs w-fit">Default</Badge>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600">
-                          <div>{address.contactName} • {address.phone}</div>
-                          <div>{address.address}</div>
+                        <div className="text-xs sm:text-sm text-gray-600 space-y-1">
+                          <div className="truncate">{address.contactName} • {address.phone}</div>
+                          <div className="break-words">{address.address}</div>
                           <div>{address.city}, {address.state} {address.zipCode}</div>
-                          <div>{countriesOptions.find((c: OptionType) => c.value === address.country)?.label}</div>
+                          <div className="truncate">{countriesOptions.find((c: OptionType) => c.value === address.country)?.label}</div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap sm:flex-nowrap gap-1 sm:gap-2 justify-end">
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
                           onClick={() => handleSelectAddress(address)}
                           title="Use this address"
+                          className="text-xs px-2"
                         >
-                          <Check className="w-4 h-4" />
+                          <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span className="hidden sm:inline ml-1">Use</span>
                         </Button>
                         <Button
                           type="button"
@@ -573,8 +575,10 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
                             onChange?.(address);
                           }}
                           title="Edit address"
+                          className="text-xs px-2"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span className="hidden sm:inline ml-1">Edit</span>
                         </Button>
                         {!address.isDefault && (
                           <Button
@@ -583,9 +587,10 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
                             variant="outline"
                             onClick={() => setDefaultAddress(address.id!)}
                             title="Set as default"
-                            className="text-blue-600 hover:text-blue-700"
+                            className="text-blue-600 hover:text-blue-700 text-xs px-2"
                           >
-                            Set Default
+                            <span className="hidden sm:inline">Set Default</span>
+                            <span className="sm:hidden">Default</span>
                           </Button>
                         )}
                         <Button
@@ -618,9 +623,10 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
                             }
                           }}
                           title="Delete address"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600 hover:text-red-700 text-xs px-2"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span className="hidden sm:inline ml-1">Delete</span>
                         </Button>
                       </div>
                     </div>
@@ -633,10 +639,10 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
       )}
 
       {/* 地址表单 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 w-full">
-        <div className="flex items-center gap-2 mb-6">
-          <span className="text-lg">📍</span>
-          <h4 className="text-lg font-semibold text-blue-600">Shipping Address</h4>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6 w-full">
+        <div className="flex items-center gap-2 mb-4 sm:mb-6">
+          <span className="text-base sm:text-lg">📍</span>
+          <h4 className="text-base sm:text-lg font-semibold text-blue-600">Shipping Address</h4>
         </div>
 
         {/* 保存消息提示 */}
@@ -660,11 +666,12 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
               value={addressLabel}
               onChange={(e) => setAddressLabel(e.target.value)}
               placeholder="e.g., Home, Office, etc."
+              className="text-sm sm:text-base"
             />
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
           {/* Country */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -754,7 +761,7 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
           </div>
 
           {/* Detailed Address */}
-          <div className="col-span-2">
+          <div className="col-span-1 sm:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Detailed Address <span className="text-red-500">*</span>
             </label>
@@ -762,11 +769,12 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
               value={value?.address || ''}
               onChange={(e) => handleFieldChange('address', e.target.value)}
               placeholder="Enter your detailed address"
+              className="text-sm sm:text-base"
             />
           </div>
 
           {/* Courier Selection */}
-          <div className="col-span-2">
+          <div className="col-span-1 sm:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Preferred Courier <span className="text-red-500">*</span>
             </label>
@@ -787,7 +795,7 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
         {userId && (
           <div className="mt-4 pt-4 border-t">
             {/* Set as Default 复选框 */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-start sm:items-center gap-2 mb-4">
               <input
                 type="checkbox"
                 id="setAsDefault"
@@ -797,9 +805,9 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
                     onChange?.({...value, isDefault: e.target.checked});
                   }
                 }}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5 sm:mt-0"
               />
-              <label htmlFor="setAsDefault" className="text-sm font-medium text-gray-700">
+              <label htmlFor="setAsDefault" className="text-sm font-medium text-gray-700 leading-relaxed">
                 Set as default address
               </label>
             </div>
@@ -842,7 +850,7 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
                 isSaving || 
                 (value?.id ? !hasAddressChanged() : false)
               }
-              className="w-full md:w-auto"
+              className="w-full sm:w-auto text-sm sm:text-base"
             >
               {isSaving ? 'Saving...' : (editingAddress ? 'Update Address' : 'Save Address')}
             </Button>
