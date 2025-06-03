@@ -6,14 +6,8 @@ import {
   MinTrace, MinHole, SolderMask, Silkscreen, SurfaceFinish, 
   MaskCover, TestMethod, ProductReport, HdiType, TgType,
   SurfaceFinishEnigType, EdgeCover, WorkingGerber, CrossOuts, 
-  IPCClass, IfDataConflicts
+  IPCClass, IfDataConflicts, DeliveryType
 } from "../../app/quote2/schema/shared-types";
-import { 
-  calculateWeight, 
-  calculateLeadTime, 
-  calculateComplexityScore,
-  calculateCostMultiplier
-} from "./quote-calculations";
 
 // === 类型定义 ===
 type ValidationState = 'idle' | 'validating' | 'valid' | 'invalid';
@@ -31,18 +25,6 @@ interface CalculatedProperties {
   totalQuantity: number;
   singlePcbArea: number;
   totalArea: number;
-  isMultiLayer: boolean;
-  isHDI: boolean;
-  requiresImpedance: boolean;
-  hasSpecialFinish: boolean;
-  estimatedWeight: number;
-  complexityLevel: 'Simple' | 'Standard' | 'Complex' | 'Advanced';
-  priceCategory: 'Economy' | 'Standard' | 'Premium' | 'Ultra';
-  hasAdvancedFeatures: boolean;
-  productionDifficulty: number; // 1-10 scale
-  estimatedLeadTime: number; // days
-  materialCost: number;
-  processingCost: number;
 }
 
 // === Store 状态类型 ===
@@ -129,6 +111,9 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
   useShengyiMaterial: false,
   pcbNote: '',
 
+  // Delivery Information
+  delivery: DeliveryType.Standard,
+
   // Process Information
   outerCopperWeight: CopperWeight.One,
   innerCopperWeight: InnerCopperWeight.Half,
@@ -182,81 +167,21 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
 
 // === 计算属性辅助函数 ===
 const calculateProperties = (formData: QuoteFormData): CalculatedProperties => {
-  // 基础计算
-  const totalQuantity = formData.singleCount;
+  // 基础计算 - 修复totalQuantity计算逻辑
+  let totalQuantity = 0;
+  if (formData.shipmentType === ShipmentType.Single) {
+    totalQuantity = formData.singleCount || 0;
+  } else if (formData.shipmentType === ShipmentType.Panel) {
+    totalQuantity = (formData.panelDimensions?.row || 1) * (formData.panelDimensions?.column || 1) * (formData.panelSet || 0);
+  }
+  
   const singlePcbArea = formData.singleDimensions.length * formData.singleDimensions.width;
   const totalArea = singlePcbArea * totalQuantity;
-  
-  // 层数相关
-  const isMultiLayer = formData.layers > 2;
-  const isHDI = formData.hdi !== HdiType.None;
-  
-  // 特殊工艺判断
-  const requiresImpedance = formData.impedance;
-  const hasSpecialFinish = formData.surfaceFinish !== SurfaceFinish.HASL;
-  const hasAdvancedFeatures = formData.castellated || formData.goldFingers || 
-    formData.edgePlating || formData.bga || formData.holeCu25um || formData.blueMask;
-  
-  // 使用工具函数计算重量
-  const estimatedWeight = calculateWeight(formData);
-  
-  // 使用工具函数计算交期
-  const estimatedLeadTime = calculateLeadTime(formData);
-  
-  // 使用工具函数计算复杂度分数
-  const complexityScore = calculateComplexityScore(formData);
-  
-  // 复杂度等级 - 基于分数
-  let complexityLevel: CalculatedProperties['complexityLevel'] = 'Simple';
-  if (complexityScore >= 80) {
-    complexityLevel = 'Advanced';
-  } else if (complexityScore >= 60) {
-    complexityLevel = 'Complex';
-  } else if (complexityScore >= 30) {
-    complexityLevel = 'Standard';
-  } else {
-    complexityLevel = 'Simple';
-  }
-  
-  // 价格类别 - 基于复杂度和特殊工艺
-  let priceCategory: CalculatedProperties['priceCategory'] = 'Economy';
-  if (complexityScore >= 80 || formData.hdi === HdiType.Step3) {
-    priceCategory = 'Ultra';
-  } else if (complexityScore >= 60 || hasSpecialFinish || isHDI) {
-    priceCategory = 'Premium';
-  } else if (complexityScore >= 30 || formData.layers > 4 || hasAdvancedFeatures) {
-    priceCategory = 'Standard';
-  } else {
-    priceCategory = 'Economy';
-  }
-  
-  // 生产难度评分 (1-10) - 基于复杂度分数
-  const productionDifficulty = Math.max(1, Math.min(10, Math.ceil(complexityScore / 10)));
-  
-  // 使用工具函数计算成本系数
-  const costMultiplier = calculateCostMultiplier(formData);
-  
-  // 成本估算 (相对值) - 更精确的计算
-  const baseMaterialCost = singlePcbArea * formData.layers * 0.1;
-  const materialCost = baseMaterialCost * costMultiplier * totalQuantity;
-  const processingCost = productionDifficulty * 10 * costMultiplier * totalQuantity;
   
   return {
     totalQuantity,
     singlePcbArea,
     totalArea,
-    isMultiLayer,
-    isHDI,
-    requiresImpedance,
-    hasSpecialFinish,
-    estimatedWeight,
-    complexityLevel,
-    priceCategory,
-    hasAdvancedFeatures,
-    productionDifficulty,
-    estimatedLeadTime,
-    materialCost,
-    processingCost,
   };
 };
 

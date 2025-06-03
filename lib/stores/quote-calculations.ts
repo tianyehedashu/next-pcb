@@ -1,8 +1,8 @@
 import { QuoteFormData } from "../../app/quote2/schema/quoteSchema";
-import { CalculatedProperties } from "./quote-store";
 import { 
   HdiType, SurfaceFinish, MinTrace, MinHole, CopperWeight, InnerCopperWeight 
 } from "../../app/quote2/schema/shared-types";
+import { calcProductionCycle } from "../productCycleCalc-v3";
 
 // === 计算工具函数 ===
 
@@ -81,37 +81,32 @@ export const calculateCostMultiplier = (formData: QuoteFormData): number => {
 };
 
 /**
- * 计算预估交期
+ * 计算预估交期 - 使用v3版本的精确计算，返回完整信息
  */
-export const calculateLeadTime = (formData: QuoteFormData): number => {
-  let leadTime = 3; // 基础交期
+export const calculateLeadTime = (formData: QuoteFormData, orderTime?: Date, delivery?: 'standard' | 'urgent'): { cycleDays: number; reason: string[] } => {
+  const result = calcProductionCycle(
+    formData, 
+    orderTime || new Date(), 
+    delivery || 'standard'
+  );
   
-  // 层数影响
-  if (formData.layers > 4) {
-    leadTime += Math.ceil((formData.layers - 4) / 2);
-  }
-  
-  // HDI工艺
-  if (formData.hdi !== HdiType.None) {
-    leadTime += 2;
-  }
-  
-  // 特殊表面处理
-  if (formData.surfaceFinish !== SurfaceFinish.HASL && 
-      formData.surfaceFinish !== SurfaceFinish.LeadFree) {
-    leadTime += 1;
-  }
-  
-  // 数量影响
-  if (formData.singleCount > 100) {
-    leadTime += Math.ceil(formData.singleCount / 100);
-  }
-  
-  // 特殊工艺
-  if (formData.impedance) leadTime += 1;
-  if (formData.goldFingers) leadTime += 1;
-  
-  return leadTime;
+  return result;
+};
+
+/**
+ * 计算预估交期（带详细原因）- 使用v3版本的精确计算
+ * @deprecated 使用 calculateLeadTime 替代，现在它已经返回完整信息
+ */
+export const calculateLeadTimeWithReason = (
+  formData: QuoteFormData, 
+  orderTime?: Date, 
+  delivery?: 'standard' | 'urgent'
+): { cycleDays: number; reason: string[] } => {
+  return calcProductionCycle(
+    formData, 
+    orderTime || new Date(), 
+    delivery || 'standard'
+  );
 };
 
 /**
@@ -146,7 +141,7 @@ export const calculateWeight = (formData: QuoteFormData): number => {
 /**
  * 获取复杂度等级描述
  */
-export const getComplexityDescription = (level: CalculatedProperties['complexityLevel']): string => {
+export const getComplexityDescription = (level: 'Simple' | 'Standard' | 'Complex' | 'Advanced'): string => {
   switch (level) {
     case 'Simple':
       return 'Basic PCB with standard features, easy to manufacture';
@@ -164,7 +159,7 @@ export const getComplexityDescription = (level: CalculatedProperties['complexity
 /**
  * 获取价格类别描述
  */
-export const getPriceCategoryDescription = (category: CalculatedProperties['priceCategory']): string => {
+export const getPriceCategoryDescription = (category: 'Economy' | 'Standard' | 'Premium' | 'Ultra'): string => {
   switch (category) {
     case 'Economy':
       return 'Cost-effective solution for standard applications';
@@ -237,6 +232,7 @@ export const QuoteCalculationUtils = {
   calculateComplexityScore,
   calculateCostMultiplier,
   calculateLeadTime,
+  calculateLeadTimeWithReason,
   calculateWeight,
   getComplexityDescription,
   getPriceCategoryDescription,

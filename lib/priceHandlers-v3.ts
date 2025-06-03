@@ -1393,3 +1393,49 @@ export const thicknessHandler = Object.assign(
   },
   { dependencies: ['layers', 'singleLength', 'singleWidth', 'panelCount', 'panelSet', 'singleCount', 'outerCopperWeight', 'innerCopperWeight'] }
 );
+
+/**
+ * 加急费用处理器
+ * 规则：
+ * - 标准交期（delivery=standard）：不收费
+ * - 加急交期（delivery=urgent）：
+ *   - 样品（面积<1㎡）：加急费100元/款
+ *   - 批量（面积≥1㎡）：加急费50元/㎡，最低100元
+ * 
+ * Urgent Delivery Fee Handler
+ * - Standard delivery (delivery=standard): no charge
+ * - Urgent delivery (delivery=urgent):
+ *   - Sample (area < 1㎡): +100 CNY/lot
+ *   - Batch (area ≥ 1㎡): +50 CNY/㎡, minimum 100 CNY
+ */
+export const urgentDeliveryHandler: PriceHandler = (form, area) => {
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
+  
+  if (form.delivery === 'urgent') {
+    const isSample = area < 1;
+    
+    if (isSample) {
+      // 样品加急费：100元/款
+      extra = 100;
+      detail['urgentDelivery'] = 100;
+      notes.push('Urgent delivery: sample +100 CNY/lot');
+    } else {
+      // 批量加急费：50元/㎡，最低100元
+      const fee = Math.max(100, 50 * area);
+      extra = fee;
+      detail['urgentDelivery'] = fee;
+      notes.push(`Urgent delivery: +50 CNY/㎡ × ${area.toFixed(2)} = ${(50 * area).toFixed(2)} CNY, minimum 100 CNY, actual fee: ${fee.toFixed(2)} CNY`);
+    }
+    
+    // 添加交期说明
+    notes.push('Urgent delivery: lead time reduced by 2 days (minimum 1 day)');
+  }
+  
+  return {
+    extra,
+    detail,
+    notes,
+  };
+};

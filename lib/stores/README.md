@@ -37,7 +37,7 @@ Quote Store 提供了一套完整的计算属性系统，用于实时计算PCB�
 
 | 属性名 | 类型 | 描述 |
 |--------|------|------|
-| `estimatedLeadTime` | `number` | 预估交期 (天) |
+| `estimatedLeadTime` | `{ cycleDays: number; reason: string[] }` | 预估交期信息（包含天数和原因） |
 | `materialCost` | `number` | 材料成本估算 |
 | `processingCost` | `number` | 加工成本估算 |
 
@@ -55,7 +55,7 @@ function MyComponent() {
     <div>
       <p>复杂度: {calculated.complexityLevel}</p>
       <p>预估重量: {calculated.estimatedWeight.toFixed(1)}g</p>
-      <p>交期: {calculated.estimatedLeadTime}天</p>
+      <p>交期: {calculated.estimatedLeadTime.cycleDays}天</p>
     </div>
   );
 }

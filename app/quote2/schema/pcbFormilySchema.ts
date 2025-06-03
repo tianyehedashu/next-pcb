@@ -3,7 +3,8 @@ import { ISchema } from "@formily/react";
 import { 
   PcbType, HdiType, TgType, ShipmentType, BorderType,
   CopperWeight, InnerCopperWeight, 
-  SolderMask, SurfaceFinishEnigType, CrossOuts, IPCClass, IfDataConflicts
+  SolderMask, SurfaceFinishEnigType, CrossOuts, IPCClass, IfDataConflicts,
+  DeliveryType
 } from "./shared-types";
 import { ProductReport } from "../../../types/form";
 import * as formilyHelpers from "./formilyHelpers";
@@ -597,6 +598,19 @@ export const pcbFormilySchema: ISchema = {
       "x-component": "BooleanTabs"
     },
 
+    delivery: {
+      type: "string",
+      title: "Delivery Type",
+      "x-component": "RadioTabs",
+      "x-component-props": {
+        options: [
+          { label: "Standard", value: DeliveryType.Standard },
+          { label: "Urgent ⚡", value: DeliveryType.Urgent }
+        ]
+      },
+      default: DeliveryType.Standard
+    },
+
     // === 文件上传 ===
     
     gerberUrl: fullWidth({
@@ -726,7 +740,7 @@ export const fieldGroups = [
     fields: [
       'hdi', 'castellated', 'testMethod',  'workingGerber',
       'productReport', 'ulMark', 'crossOuts', 'ipcClass', 'ifDataConflicts',
-      'rejectBoard', 'specialRequests'
+      'rejectBoard', 'delivery', 'specialRequests'
     ]
   },
   {
