@@ -204,33 +204,67 @@ function useAddressList(userId?: string) {
   useEffect(() => {
     if (!userId) return;
     
-    setLoading(true);
-    fetch(`/api/user/addresses?userId=${userId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.addresses) {
-          setAddresses(data.addresses);
+    const fetchAddresses = async () => {
+      setLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          console.error('No authentication token available');
+          setAddresses([]);
+          setLoading(false);
+          return;
         }
-      })
-      .catch(error => {
+        
+        const response = await fetch('/api/user/addresses', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.addresses) {
+          setAddresses(data.addresses);
+        } else {
+          console.error('Error fetching addresses:', data.error);
+          setAddresses([]);
+        }
+      } catch (error) {
         console.error('Error fetching addresses:', error);
         setAddresses([]);
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAddresses();
   }, [userId]);
 
   const saveAddress = async (address: AddressFormValue) => {
     if (!userId) return address;
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
       const response = await fetch('/api/user/addresses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          userId,
-          address
+          address: {
+            ...address,
+            // 如果当前没有任何地址，第一个地址自动设为默认
+            isDefault: address.isDefault || addresses.length === 0
+          }
         }),
       });
       
@@ -241,10 +275,22 @@ function useAddressList(userId?: string) {
         
         if (address.id) {
           // 更新现有地址
-          setAddresses(prev => prev.map(addr => addr.id === address.id ? savedAddress : addr));
+          setAddresses(prev => prev.map(addr => ({
+            ...addr,
+            // 如果保存的地址设为默认，其他地址的默认状态需要清除
+            isDefault: savedAddress.isDefault ? addr.id === savedAddress.id : addr.isDefault,
+            // 更新对应的地址
+            ...(addr.id === savedAddress.id ? savedAddress : {})
+          })));
         } else {
           // 添加新地址
-          setAddresses(prev => [...prev, savedAddress]);
+          setAddresses(prev => {
+            // 如果新地址是默认地址，清除其他地址的默认状态
+            const updatedAddresses = savedAddress.isDefault 
+              ? prev.map(addr => ({ ...addr, isDefault: false }))
+              : prev;
+            return [...updatedAddresses, savedAddress];
+          });
         }
         
         return savedAddress;
@@ -261,8 +307,18 @@ function useAddressList(userId?: string) {
     if (!userId) return;
     
     try {
-      const response = await fetch(`/api/user/addresses?userId=${userId}&addressId=${addressId}`, {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      const response = await fetch(`/api/user/addresses?addressId=${addressId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (response.ok) {
@@ -281,13 +337,20 @@ function useAddressList(userId?: string) {
     if (!userId) return;
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
       const response = await fetch('/api/user/addresses', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          userId,
           addressId,
           action: 'setDefault'
         }),
@@ -317,7 +380,18 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
   const [showAddressList, setShowAddressList] = useState(false);
   const [editingAddress, setEditingAddress] = useState<AddressFormValue | null>(null);
   const [addressLabel, setAddressLabel] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [originalAddress, setOriginalAddress] = useState<AddressFormValue | null>(null);
   const hasAutoFilled = React.useRef(false);
+
+  // 清除保存消息
+  useEffect(() => {
+    if (saveMessage) {
+      const timer = setTimeout(() => setSaveMessage(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveMessage]);
 
   // 自动填充用户信息
   useEffect(() => {
@@ -384,6 +458,19 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
     hasAutoFilled.current = false;
   }, [userId]);
 
+  // 检查地址是否有变更
+  const hasAddressChanged = (): boolean => {
+    if (!value || !originalAddress) return true;
+    
+    const fieldsToCompare: (keyof AddressFormValue)[] = [
+      'country', 'state', 'city', 'address', 'zipCode', 
+      'contactName', 'phone', 'courier', 'isDefault'
+    ];
+    
+    return fieldsToCompare.some(field => value[field] !== originalAddress[field]) ||
+           addressLabel !== (originalAddress.label || '');
+  };
+
   const handleFieldChange = (field: keyof AddressFormValue, fieldValue: string) => {
     const newValue = {
       country: '',
@@ -413,71 +500,15 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
 
   const handleSelectAddress = (address: AddressFormValue) => {
     onChange?.(address);
+    setOriginalAddress({...address});
+    setAddressLabel(address.label || '');
     setShowAddressList(false);
-  };
-
-  const handleSaveCurrentAddress = async () => {
-    if (!value) return;
-    
-    const addressToSave = {
-      ...value,
-      label: addressLabel || 'New Address',
-      id: editingAddress?.id
-    };
-    
-    await saveAddress(addressToSave);
-    setAddressLabel('');
-    setEditingAddress(null);
-  };
-
-  const handleSetAsDefault = async () => {
-    if (!value?.id) {
-      // 如果当前地址还没保存，先保存再设为默认
-      const savedAddress = await saveAddress({
-        ...value!,
-        label: addressLabel || 'Default Address'
-      });
-      await setDefaultAddress(savedAddress.id!);
-      // 更新当前值为保存后的地址（包含ID）
-      onChange?.({...savedAddress, isDefault: true});
-    } else {
-      // 如果地址已经存在，直接设置为默认
-      await setDefaultAddress(value.id);
-      // 更新当前值的默认状态
-      onChange?.({...value, isDefault: true});
-    }
-  };
-
-  // 处理删除地址（包括默认地址）
-  const handleDeleteAddress = async (addressId: string, isDefault: boolean) => {
-    await deleteAddress(addressId);
-    
-    // 如果删除的是默认地址且还有其他地址，自动设置第一个地址为默认
-    if (isDefault && addresses.length > 1) {
-      const remainingAddresses = addresses.filter(addr => addr.id !== addressId);
-      if (remainingAddresses.length > 0) {
-        await setDefaultAddress(remainingAddresses[0].id!);
-        onChange?.(remainingAddresses[0]);
-      }
-    } else if (addresses.length === 1) {
-      // 如果删除的是唯一地址，清空当前表单
-      onChange?.({
-        country: '',
-        state: '',
-        city: '',
-        address: '',
-        zipCode: '',
-        contactName: '',
-        phone: '',
-        courier: '',
-      });
-    }
   };
 
   return (
     <div className="space-y-4">
-      {/* 地址列表切换按钮 */}
-      {userId && (
+      {/* 地址列表切换按钮 - 只在有地址时显示 */}
+      {userId && addresses.length > 0 && (
         <div className="flex gap-2 mb-4">
           <Button
             type="button"
@@ -527,6 +558,7 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
                           size="sm"
                           variant="outline"
                           onClick={() => handleSelectAddress(address)}
+                          title="Use this address"
                         >
                           <Check className="w-4 h-4" />
                         </Button>
@@ -537,18 +569,56 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
                           onClick={() => {
                             setEditingAddress(address);
                             setAddressLabel(address.label || '');
+                            setOriginalAddress({...address});
                             onChange?.(address);
                           }}
+                          title="Edit address"
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        {/* 修改删除按钮逻辑：允许删除默认地址，但需要检查是否是唯一地址 */}
+                        {!address.isDefault && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setDefaultAddress(address.id!)}
+                            title="Set as default"
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            Set Default
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => handleDeleteAddress(address.id!, address.isDefault || false)}
+                          onClick={async () => {
+                            const isDefault = address.isDefault || false;
+                            await deleteAddress(address.id!);
+                            
+                            // 如果删除的是默认地址且还有其他地址，自动设置第一个地址为默认
+                            if (isDefault && addresses.length > 1) {
+                              const remainingAddresses = addresses.filter(addr => addr.id !== address.id);
+                              if (remainingAddresses.length > 0) {
+                                await setDefaultAddress(remainingAddresses[0].id!);
+                                onChange?.(remainingAddresses[0]);
+                              }
+                            } else if (addresses.length === 1) {
+                              // 如果删除的是唯一地址，清空当前表单
+                              onChange?.({
+                                country: '',
+                                state: '',
+                                city: '',
+                                address: '',
+                                zipCode: '',
+                                contactName: '',
+                                phone: '',
+                                courier: '',
+                              });
+                            }
+                          }}
                           title="Delete address"
+                          className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -568,6 +638,17 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
           <span className="text-lg">📍</span>
           <h4 className="text-lg font-semibold text-blue-600">Shipping Address</h4>
         </div>
+
+        {/* 保存消息提示 */}
+        {saveMessage && (
+          <div className={`mb-4 p-3 rounded-lg text-sm ${
+            saveMessage.includes('Failed') 
+              ? 'bg-red-50 text-red-700 border border-red-200' 
+              : 'bg-green-50 text-green-700 border border-green-200'
+          }`}>
+            {saveMessage}
+          </div>
+        )}
 
         {/* 地址标签输入 */}
         {userId && (
@@ -704,22 +785,66 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
 
         {/* 地址操作按钮 */}
         {userId && (
-          <div className="flex gap-2 mt-4 pt-4 border-t">
+          <div className="mt-4 pt-4 border-t">
+            {/* Set as Default 复选框 */}
+            <div className="flex items-center gap-2 mb-4">
+              <input
+                type="checkbox"
+                id="setAsDefault"
+                checked={value?.isDefault || false}
+                onChange={(e) => {
+                  if (value) {
+                    onChange?.({...value, isDefault: e.target.checked});
+                  }
+                }}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="setAsDefault" className="text-sm font-medium text-gray-700">
+                Set as default address
+              </label>
+            </div>
+            
+            {/* 保存按钮 */}
             <Button
               type="button"
               variant="outline"
-              onClick={handleSaveCurrentAddress}
-              disabled={!value?.country || !value?.address}
+              onClick={async () => {
+                if (!value) return;
+                
+                setIsSaving(true);
+                setSaveMessage('');
+                
+                try {
+                  const addressToSave = {
+                    ...value,
+                    label: addressLabel || (value.isDefault ? 'Default Address' : 'New Address'),
+                    id: editingAddress?.id
+                  };
+                  
+                  const savedAddress = await saveAddress(addressToSave);
+                  setAddressLabel(savedAddress.label || '');
+                  setEditingAddress(null);
+                  // 更新原始地址状态
+                  setOriginalAddress({...savedAddress});
+                  // 更新当前值
+                  onChange?.(savedAddress);
+                  setSaveMessage(savedAddress.isDefault ? 'Address saved and set as default!' : 'Address saved successfully!');
+                } catch (error) {
+                  setSaveMessage('Failed to save address. Please try again.');
+                  console.error('Error saving address:', error);
+                } finally {
+                  setIsSaving(false);
+                }
+              }}
+              disabled={
+                !value?.country || 
+                !value?.address || 
+                isSaving || 
+                (value?.id ? !hasAddressChanged() : false)
+              }
+              className="w-full md:w-auto"
             >
-              {editingAddress ? 'Update Address' : 'Save Address'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleSetAsDefault}
-              disabled={!value?.country || !value?.address}
-            >
-              Set as Default
+              {isSaving ? 'Saving...' : (editingAddress ? 'Update Address' : 'Save Address')}
             </Button>
           </div>
         )}

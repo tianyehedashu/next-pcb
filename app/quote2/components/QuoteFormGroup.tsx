@@ -28,8 +28,8 @@ export function QuoteFormGroup({
         const fieldSchema = properties[fieldName];
         if (!fieldSchema) return null;
 
-        // 对于 shippingCostEstimation 字段，不添加 FormFieldLayout decorator
-        if (fieldName === 'shippingCostEstimation') {
+        // 对于 shippingCostEstimation 和 shippingAddress 字段，不添加 FormFieldLayout decorator
+        if (fieldName === 'shippingCostEstimation' || fieldName === 'shippingAddress') {
           return (
             <div key={fieldName} className="group w-full">
               <SchemaField

@@ -1,63 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-interface Address {
-  id: string;
-  label: string;
-  country: string;
-  state: string;
-  city: string;
-  address: string;
-  zipCode: string;
-  contactName: string;
-  phone: string;
-  courier: string;
-  isDefault: boolean;
-}
-
-// 模拟数据库存储
-const mockAddresses = new Map<string, Address[]>();
-
-// 初始化测试数据
-mockAddresses.set('test-user-123', [
-  {
-    id: '1',
-    label: 'Home',
-    country: 'US',
-    state: 'CA',
-    city: 'San Francisco',
-    address: '123 Main St, Apt 4B',
-    zipCode: '94102',
-    contactName: 'John Doe',
-    phone: '+1-555-0123',
-    courier: 'dhl',
-    isDefault: true
-  },
-  {
-    id: '2',
-    label: 'Office',
-    country: 'US',
-    state: 'NY',
-    city: 'New York',
-    address: '456 Business Ave, Suite 200',
-    zipCode: '10001',
-    contactName: 'John Doe',
-    phone: '+1-555-0456',
-    courier: 'fedex',
-    isDefault: false
-  }
-]);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
     
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    const addresses = mockAddresses.get(userId) || [];
-    return NextResponse.json({ addresses });
+    // 使用用户token创建客户端（启用RLS）
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+
+    // 验证用户
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    // RLS会自动过滤，只返回当前用户的地址
+    const { data: addresses, error } = await supabase
+      .from('user_addresses')
+      .select('*')
+      .order('is_default', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Database error:', error);
+      return NextResponse.json({ error: 'Failed to fetch addresses' }, { status: 500 });
+    }
+
+    // 转换字段名以保持前端兼容性
+    const formattedAddresses = addresses.map(addr => ({
+      id: addr.id.toString(),
+      label: addr.label || '',
+      country: addr.country,
+      state: addr.state || '',
+      city: addr.city || '',
+      address: addr.address,
+      zipCode: addr.zip_code || '',
+      contactName: addr.contact_name,
+      phone: addr.phone,
+      courier: addr.courier || '',
+      isDefault: addr.is_default
+    }));
+
+    return NextResponse.json({ addresses: formattedAddresses });
   } catch (error) {
     console.error('Error fetching addresses:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -66,34 +60,99 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId, address } = body;
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
     
-    if (!userId || !address) {
-      return NextResponse.json({ error: 'User ID and address are required' }, { status: 400 });
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    const userAddresses = mockAddresses.get(userId) || [];
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { address } = body;
     
-    // 如果设置为默认地址，将其他地址的 isDefault 设为 false
+    if (!address) {
+      return NextResponse.json({ error: 'Address data is required' }, { status: 400 });
+    }
+
+    // 如果设置为默认地址，先将其他地址的 is_default 设为 false
     if (address.isDefault) {
-      userAddresses.forEach(addr => addr.isDefault = false);
+      await supabase
+        .from('user_addresses')
+        .update({ is_default: false })
+        .eq('user_id', user.id);
     }
     
-    // 添加新地址或更新现有地址
+    // 转换字段名适配数据库结构
+    const dbAddress = {
+      user_id: user.id,
+      label: address.label || null,
+      contact_name: address.contactName,
+      phone: address.phone,
+      country: address.country,
+      state: address.state || null,
+      city: address.city || null,
+      address: address.address,
+      zip_code: address.zipCode || null,
+      courier: address.courier || null,
+      is_default: address.isDefault || false
+    };
+    
+    let result;
+    
+    // 更新现有地址或创建新地址
     if (address.id) {
-      const index = userAddresses.findIndex(addr => addr.id === address.id);
-      if (index !== -1) {
-        userAddresses[index] = address;
+      const { data, error } = await supabase
+        .from('user_addresses')
+        .update(dbAddress)
+        .eq('id', address.id)
+        .eq('user_id', user.id) // RLS会处理，但显式检查更安全
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Update error:', error);
+        return NextResponse.json({ error: 'Failed to update address' }, { status: 500 });
       }
+      result = data;
     } else {
-      address.id = Date.now().toString();
-      userAddresses.push(address);
+      const { data, error } = await supabase
+        .from('user_addresses')
+        .insert([dbAddress])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Insert error:', error);
+        return NextResponse.json({ error: 'Failed to create address' }, { status: 500 });
+      }
+      result = data;
     }
     
-    mockAddresses.set(userId, userAddresses);
+    // 转换字段名返回给前端
+    const savedAddress = {
+      id: result.id.toString(),
+      label: result.label || '',
+      country: result.country,
+      state: result.state || '',
+      city: result.city || '',
+      address: result.address,
+      zipCode: result.zip_code || '',
+      contactName: result.contact_name,
+      phone: result.phone,
+      courier: result.courier || '',
+      isDefault: result.is_default
+    };
     
-    return NextResponse.json({ address });
+    return NextResponse.json({ address: savedAddress });
   } catch (error) {
     console.error('Error saving address:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -102,18 +161,39 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const addressId = searchParams.get('addressId');
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
     
-    if (!userId || !addressId) {
-      return NextResponse.json({ error: 'User ID and address ID are required' }, { status: 400 });
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    const userAddresses = mockAddresses.get(userId) || [];
-    const filteredAddresses = userAddresses.filter(addr => addr.id !== addressId);
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const addressId = searchParams.get('addressId');
     
-    mockAddresses.set(userId, filteredAddresses);
+    if (!addressId) {
+      return NextResponse.json({ error: 'Address ID is required' }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from('user_addresses')
+      .delete()
+      .eq('id', addressId)
+      .eq('user_id', user.id); // RLS会处理，但显式检查更安全
+    
+    if (error) {
+      console.error('Delete error:', error);
+      return NextResponse.json({ error: 'Failed to delete address' }, { status: 500 });
+    }
     
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -124,22 +204,47 @@ export async function DELETE(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId, addressId, action } = body;
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
     
-    if (!userId || !addressId) {
-      return NextResponse.json({ error: 'User ID and address ID are required' }, { status: 400 });
+    if (!token) {
+      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
     }
 
-    const userAddresses = mockAddresses.get(userId) || [];
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { addressId, action } = body;
     
+    if (!addressId) {
+      return NextResponse.json({ error: 'Address ID is required' }, { status: 400 });
+    }
+
     if (action === 'setDefault') {
-      // 将所有地址的 isDefault 设为 false，然后设置指定地址为默认
-      userAddresses.forEach(addr => {
-        addr.isDefault = addr.id === addressId;
-      });
+      // 先将所有地址设为非默认
+      await supabase
+        .from('user_addresses')
+        .update({ is_default: false })
+        .eq('user_id', user.id);
       
-      mockAddresses.set(userId, userAddresses);
+      // 设置指定地址为默认
+      const { error } = await supabase
+        .from('user_addresses')
+        .update({ is_default: true })
+        .eq('id', addressId)
+        .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('Update error:', error);
+        return NextResponse.json({ error: 'Failed to set default address' }, { status: 500 });
+      }
     }
     
     return NextResponse.json({ success: true });

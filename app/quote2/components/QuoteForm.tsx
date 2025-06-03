@@ -119,6 +119,9 @@ export function QuoteForm() {
         console.log('Form submitted:', values);
         updateFormData(values);
         
+        // 提取关键字段和地址信息
+        const { phone: userPhone, shippingAddress, gerberUrl, ...pcbSpecData } = values;
+        
         if (user) {
           // 已登录用户：保存到用户账户并跳转到确认页面
           const { data: { session } } = await supabase.auth.getSession();
@@ -132,8 +135,11 @@ export function QuoteForm() {
                 'Authorization': `Bearer ${access_token}`
               },
               body: JSON.stringify({
-                ...values,
-                user_id: user.id
+                email: user.email,
+                phone: userPhone || null,
+                shippingAddress,
+                gerberFileUrl: gerberUrl || null,
+                ...pcbSpecData // 所有PCB规格作为平铺字段传递，后端会合并为JSON
               })
             });
             
@@ -164,6 +170,9 @@ export function QuoteForm() {
     setIsSubmitting(true);
     
     try {
+      // 提取关键字段和地址信息
+      const { shippingAddress, gerberUrl, ...pcbSpecData } = form.values;
+      
       const response = await fetch('/api/quote/guest', {
         method: 'POST',
         headers: {
@@ -171,9 +180,10 @@ export function QuoteForm() {
         },
         body: JSON.stringify({
           email: guestEmail,
-          phone: guestPhone,
-          formData: form.values,
-          shippingAddress: form.values.shippingAddress || {}
+          phone: guestPhone || null,
+          shippingAddress,
+          gerberFileUrl: gerberUrl || null,
+          ...pcbSpecData // 所有PCB规格作为平铺字段传递，后端会合并为JSON
         })
       });
       
