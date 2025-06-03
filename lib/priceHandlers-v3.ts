@@ -1,5 +1,5 @@
 import type { QuoteFormData as PcbQuoteForm } from '@/app/quote2/schema/quoteSchema';
-import { TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask, MaskCover, CopperWeight, EdgeCover, TgType } from '../types/form';
+import { TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask, MaskCover, CopperWeight, EdgeCover, TgType, ProductReport } from '../types/form';
 
 // 类型定义
 /**
@@ -27,54 +27,26 @@ export type PriceHandler = (
   totalCount: number
 ) => PriceContextOut;
 
-/**
- * 沉金边加价
- * 规则：如需沉金边（edgePlating=true），整单加100元。
- */
-export const edgePlatingHandler = Object.assign(
-  (form: PcbQuoteForm, area: number) => {
-    let extra = 0;
-    const detail: Record<string, number> = {};
-    const notes: string[] = [];
-    if (form.edgePlating === true) {
-      if (area < 1) {
-        extra = 100;
-        detail['edgePlating'] = 100;
-        notes.push('Edge plating: sample +100 CNY/lot');
-      } else {
-        const fee = 50 * area;
-        extra = fee;
-        detail['edgePlating'] = fee;
-        notes.push(`Edge plating: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
-      }
-    }
-    return {
-      extra: extra,
-      detail: detail,
-      notes: notes,
-    };
-  },
-  { dependencies: ['edgePlating'] }
-);
+
 
 /**
- * 半孔/铣槽加价
+ * 沉金边+半孔/铣槽加价
  * 规则：如需半孔（castellated=true 或 halfHole!=none），整单加100元。
  */
 export const castellatedHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
-  if (form.castellated === true || (form.halfHole && form.halfHole !== 'none')) {
+  if (form.edgePlating === true || (form.halfHole && form.halfHole !== 'none')) {
     if (area < 1) {
       extra = 100;
-      detail['castellated'] = 100;
+      detail['edgePlating/Castellated Holes'] = 100;
       notes.push('Castellated Holes: sample +100 CNY/lot');
     } else {
       const fee = 100 * area;
       extra = fee;
-      detail['castellated'] = fee;
-      notes.push(`Castellated Holes: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
+      detail['edgePlating/Castellated Holes'] = fee;
+      notes.push(`edgePlating/Castellated Holes Holes: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
     }
   }
   return {
@@ -865,14 +837,14 @@ export const testMethodHandler: PriceHandler = (form, area) => {
 
 /**
  * 产品报告加价
- * 规则：每选1项报告加5元。
+ * 规则：每选1项报告加20元。
  */
 export const productReportHandler: PriceHandler = (form) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
   if (form.productReport && Array.isArray(form.productReport)) {
-    const count = form.productReport.filter((i: string) => i !== 'none').length;
+    const count = form.productReport.filter(i => i !== ProductReport.None).length;
     if (count > 0) {
       extra = count * 20;
       detail['productReport'] = extra;

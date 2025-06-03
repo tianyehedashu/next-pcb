@@ -86,7 +86,6 @@ export interface PcbQuoteForm {
   maskCover?: MaskCover; // 阻焊覆盖
   testMethod?: TestMethod; // 测试方式
   productReport?: ProductReport[]; // 支持多选
-  rejectBoard: boolean; // 不良板（是否不接受打叉板）
   yyPin?: boolean; // 阴阳针
   customerCode?: CustomerCode; // 客户加码
   payMethod?: PayMethod; // 付款方式

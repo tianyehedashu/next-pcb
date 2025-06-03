@@ -6,7 +6,7 @@ import {
   SolderMask, SurfaceFinishEnigType, CrossOuts, IPCClass, IfDataConflicts,
   DeliveryType
 } from "./shared-types";
-import { ProductReport } from "../../../types/form";
+import { EdgeCover, ProductReport, WorkingGerber } from "../../../types/form";
 import * as formilyHelpers from "./formilyHelpers";
 
 // 🎯 简单的枚举转选项函数
@@ -418,14 +418,17 @@ export const pcbFormilySchema: ISchema = {
 
     edgePlating: {
       type: "boolean",
-      title: "Edge Plating",
+      title: "Edge Plating/Castellated Holes",
       "x-component": "BooleanTabs"
     },
 
     edgeCover: {
       type: "string",
       title: "Edge Cover",
-      "x-component": "Select",
+      "x-component": "TabSelect",
+      "x-component-props": {
+        options: enumToOptions(EdgeCover)
+      },
       "x-reactions": [
         {
           dependencies: ["edgePlating"],
@@ -455,11 +458,6 @@ export const pcbFormilySchema: ISchema = {
     },
 
 
-    castellated: {
-      type: "boolean", 
-      title: "Castellated Holes",
-      "x-component": "BooleanTabs"
-    },
 
     goldFingers: {
       type: "boolean",
@@ -534,10 +532,7 @@ export const pcbFormilySchema: ISchema = {
       title: "Working Gerber",
       "x-component": "RadioTabs",
       "x-component-props": {
-        options: [
-          { label: "Not Required", value: "not_required" },
-          { label: "Require Approval", value: "require_approval" }
-        ]
+        options: enumToOptions(WorkingGerber)
       }
     },
 
@@ -550,11 +545,7 @@ export const pcbFormilySchema: ISchema = {
         allowClear: true,
         mode: "multiple",
         isProductReport: true,
-        options: [
-          { label: "Not Required", value: "None" },
-          { label: "Production Report", value: "Production Report" },
-          { label: "Impedance Report", value: "Impedance Report" }
-        ]
+        options: enumToOptions(ProductReport)
       },
       default: [ProductReport.None]
     },
@@ -570,7 +561,10 @@ export const pcbFormilySchema: ISchema = {
       title: "Cross Outs",
       "x-component": "RadioTabs",
       "x-component-props": {
-        options: enumToOptions(CrossOuts)
+        options: enumToOptions(CrossOuts).map(option => ({
+          ...option,
+          label: option.value === 'Not Accept' ? 'Not Accept Defective Boards' : 'Accept Defective Boards'
+        }))
       }
     },
 
@@ -590,12 +584,6 @@ export const pcbFormilySchema: ISchema = {
       "x-component-props": {
         options: enumToOptions(IfDataConflicts)
       }
-    },
-
-    rejectBoard: {
-      type: "boolean",
-      title: "Reject Board",
-      "x-component": "BooleanTabs"
     },
 
     delivery: {
@@ -691,7 +679,7 @@ export const fieldGroups = [
     fields: [
       'hdi', 'castellated', 'testMethod',  'workingGerber',
       'productReport', 'ulMark', 'crossOuts', 'ipcClass', 'ifDataConflicts',
-      'rejectBoard', 'delivery', 'specialRequests'
+      'delivery', 'specialRequests'
     ]
   },
   {

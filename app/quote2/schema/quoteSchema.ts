@@ -73,7 +73,6 @@ export const quoteSchema = z.object({
   surfaceFinish: z.nativeEnum(SurfaceFinish, { required_error: "Surface finish is required" }).default(SurfaceFinish.HASL),
   surfaceFinishEnigType: z.nativeEnum(SurfaceFinishEnigType).optional().default(SurfaceFinishEnigType.Enig1u),
   impedance: z.boolean().default(false),
-  castellated: z.boolean().default(false),
   goldFingers: z.boolean().default(false),
   goldFingersBevel: z.boolean().default(false),
   edgePlating: z.boolean().default(false),
@@ -88,7 +87,6 @@ export const quoteSchema = z.object({
   // === Service Information ===
   testMethod: z.nativeEnum(TestMethod).default(TestMethod.FlyingProbe),
   productReport: z.array(z.nativeEnum(ProductReport)).optional().default([ProductReport.None]),
-  rejectBoard: z.boolean().default(false),
 
   workingGerber: z.nativeEnum(WorkingGerber).optional().default(WorkingGerber.NotRequired),
   ulMark: z.boolean().default(false),

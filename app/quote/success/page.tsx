@@ -3,9 +3,21 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { CheckCircle2, Mail, Clock, Phone } from "lucide-react";
+import { CheckCircle2, Mail, Clock, Phone, Copy, FileText } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 export default function QuoteSuccess() {
+  const searchParams = useSearchParams();
+  const quoteId = searchParams.get('id');
+
+  const copyQuoteId = () => {
+    if (quoteId) {
+      navigator.clipboard.writeText(quoteId);
+      toast.success('Quote ID copied to clipboard');
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
       <Card className="w-full max-w-lg shadow-lg">
@@ -14,6 +26,32 @@ export default function QuoteSuccess() {
           <CardTitle className="text-2xl font-bold text-center">Quote Request Submitted Successfully!</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-6">
+          {/* 报价ID显示 */}
+          {quoteId && (
+            <div className="w-full bg-green-50 p-4 rounded-lg border border-green-200">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="h-4 w-4 text-green-600" />
+                <h3 className="font-semibold text-green-900">Your Quote ID</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-white px-3 py-2 rounded border text-sm font-mono">
+                  {quoteId}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={copyQuoteId}
+                  className="border-green-300 text-green-700 hover:bg-green-100"
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+              <p className="text-xs text-green-700 mt-2">
+                Please save this ID for future reference. You can use it to inquire about your quote status.
+              </p>
+            </div>
+          )}
+
           <div className="text-center space-y-3">
             <p className="text-gray-700">
               Thank you for your PCB quote request!
@@ -57,6 +95,11 @@ export default function QuoteSuccess() {
                 <Phone className="h-4 w-4 text-gray-500" />
                 <span>Phone: +1 (555) 123-4567</span>
               </div>
+              {quoteId && (
+                <p className="text-xs text-gray-600 mt-2 bg-gray-100 p-2 rounded">
+                  <strong>Tip:</strong> When contacting us, please provide your Quote ID ({quoteId}) for faster assistance.
+                </p>
+              )}
             </div>
           </div>
 

@@ -506,17 +506,6 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     required: false,
     description: 'Only electronic reports are provided.',
   },
-  rejectBoard: {
-    label: 'Reject Board',
-    component: 'Checkbox',
-    options: [true, false],
-    default: false,
-    required: false,
-    trueLabel: 'Yes',
-    falseLabel: 'No',
-    shouldShow: (form) => (form.differentDesignsCount ?? 0) > 1,
-    shouldDisable: (form) => (form.differentDesignsCount ?? 0) <= 1,
-  },
   yyPin: {
     label: 'YY Pin',
     component: 'Checkbox',

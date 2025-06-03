@@ -32,8 +32,6 @@ const FIELD_GROUPS: { title: string; fields: { key: keyof PcbQuoteForm; label: s
       { key: "shipmentType", label: "Shipment" },
       { key: "border", label: "Border" },
       { key: "gerber", label: "Gerber" }
-      // { key: "pcb_note", label: "PCB Note" }
-
     ],
   },
   {
@@ -81,9 +79,22 @@ function renderValue(val: unknown): string {
 }
 
 interface OrderAddressCardProps {
-  address: Database["public"]["Tables"]["addresses"]["Row"] | null;
+  address: Record<string, unknown> | null; // shipping_address JSON field
 }
 function OrderAddressCard({ address }: OrderAddressCardProps) {
+  if (!address || typeof address !== 'object') {
+    return (
+      <Card className="mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-bold text-blue-700">Shipping Address</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <div className="text-base text-gray-400">No shipping address provided</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="mb-4">
       <CardHeader className="pb-2">
@@ -91,41 +102,36 @@ function OrderAddressCard({ address }: OrderAddressCardProps) {
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0">
         <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Country</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{address?.country ?? "-"}</div>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">State</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{address?.state ?? "-"}</div>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">City</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{address?.city ?? "-"}</div>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Zip</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{address?.zip ?? "-"}</div>
-        </div>
-        <div className="col-span-2">
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Address</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{address?.address ?? "-"}</div>
+          <span className="text-xs text-muted-foreground font-semibold uppercase">Contact Name</span>
+          <div className="text-base font-semibold text-gray-800 break-all">{(address?.contact_name as string) ?? "-"}</div>
         </div>
         <div>
           <span className="text-xs text-muted-foreground font-semibold uppercase">Phone</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{address?.phone ?? "-"}</div>
+          <div className="text-base font-semibold text-gray-800 break-all">{(address?.phone as string) ?? "-"}</div>
         </div>
         <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Email</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{address?.email ?? "-"}</div>
+          <span className="text-xs text-muted-foreground font-semibold uppercase">Country</span>
+          <div className="text-base font-semibold text-gray-800 break-all">{(address?.country as string) ?? "-"}</div>
         </div>
-        {/* 地址备注单独展示，风格与PCB Note一致 */}
-        <div className="col-span-2 mt-2">
-          <span className="text-sm font-semibold text-blue-700">Address Note</span>
-          {address?.note ? (
-            <div className="mt-1 text-base font-medium text-gray-800 bg-blue-50 border border-blue-100 rounded px-3 py-2">{address.note}</div>
-          ) : (
-            <div className="mt-1 text-base text-gray-400 bg-blue-50 border border-blue-100 rounded px-3 py-2">-</div>
-          )}
+        <div>
+          <span className="text-xs text-muted-foreground font-semibold uppercase">State</span>
+          <div className="text-base font-semibold text-gray-800 break-all">{(address?.state as string) ?? "-"}</div>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground font-semibold uppercase">City</span>
+          <div className="text-base font-semibold text-gray-800 break-all">{(address?.city as string) ?? "-"}</div>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground font-semibold uppercase">Zip Code</span>
+          <div className="text-base font-semibold text-gray-800 break-all">{(address?.zip_code as string) ?? "-"}</div>
+        </div>
+        <div className="col-span-2">
+          <span className="text-xs text-muted-foreground font-semibold uppercase">Address</span>
+          <div className="text-base font-semibold text-gray-800 break-all">{(address?.address as string) ?? "-"}</div>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground font-semibold uppercase">Courier</span>
+          <div className="text-base font-semibold text-gray-800 break-all">{(address?.courier as string) ?? "-"}</div>
         </div>
       </CardContent>
     </Card>
@@ -143,174 +149,138 @@ function OrderShippingCard({ order }: OrderShippingCardProps) {
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0">
         <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Carrier</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{order.courier ?? "-"}</div>
-        </div>
-        {/* tracking_no 字段如有再显示，否则注释掉 */}
-        {/* <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Tracking No.</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{order.tracking_no ?? "-"}</div>
-        </div> */}
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Shipped At</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{order.status === "shipped" || order.status === "completed" ? (order.created_at ? new Date(order.created_at).toLocaleString() : "-") : "-"}</div>
+          <span className="text-xs text-muted-foreground font-semibold uppercase">Status</span>
+          <div className="text-base font-semibold text-gray-800 break-all">{order.status ?? "pending"}</div>
         </div>
         <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Shipping Status</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{order.status ?? "-"}</div>
+          <span className="text-xs text-muted-foreground font-semibold uppercase">Estimated Delivery</span>
+          <div className="text-base font-semibold text-gray-800 break-all">
+            {order.estimated_delivery_date 
+              ? new Date(order.estimated_delivery_date).toLocaleDateString() 
+              : "-"
+            }
+          </div>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground font-semibold uppercase">Production Days</span>
+          <div className="text-base font-semibold text-gray-800 break-all">
+            {order.production_days ? `${order.production_days} days` : "-"}
+          </div>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground font-semibold uppercase">Shipping Cost</span>
+          <div className="text-base font-semibold text-gray-800 break-all">
+            {order.shipping_cost ? toUSD(order.shipping_cost) : "-"}
+          </div>
         </div>
       </CardContent>
     </Card>
   );
 }
 
-interface OrderCustomsCardProps {
-  customs: Database["public"]["Tables"]["customs_declarations"]["Row"] | null;
-}
-function OrderCustomsCard({ customs }: OrderCustomsCardProps) {
-  return (
-    <Card className="mb-4">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-bold text-blue-700">Customs/Tax Info</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0">
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Declaration Method</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{customs?.declaration_method ?? "-"}</div>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Company Name</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{customs?.company_name ?? "-"}</div>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Tax ID</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{customs?.tax_id ?? "-"}</div>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Personal ID</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{customs?.personal_id ?? "-"}</div>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Incoterm</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{customs?.incoterm ?? "-"}</div>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Purpose</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{customs?.purpose ?? "-"}</div>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Declared Value</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{customs?.declared_value != null ? toUSD(customs?.declared_value) : "-"}</div>
-        </div>
-        <div className="col-span-2">
-          <span className="text-xs text-muted-foreground font-semibold uppercase">Customs Note</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{customs?.customs_note ?? "-"}</div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-const getSizeLabel = (shipmentType: string) => shipmentType === "single" ? "Single Size (cm)" : "Panel Size (cm)";
-const getCountLabel = (shipmentType: string) => shipmentType === "single" ? "Single Count" : "Panel Count";
-const getCountUnit = (shipmentType: string) => shipmentType === "single" ? "Pcs" : "Set";
+// Helper functions for size/count labels - removed as they are not used
 
 interface OrderPcbSpecCardProps {
-  pcb_spec: PcbQuoteForm;
+  pcb_spec: Record<string, unknown> | null; // JSON field from orders table
   gerber_file_url?: string | null;
   order: Database["public"]["Tables"]["orders"]["Row"];
 }
+
 function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: OrderPcbSpecCardProps) {
-  if (!pcb_spec) return null;
-  const allKeys = FIELD_GROUPS.flatMap(g => g.fields.map(f => f.key));
-  const others = Object.entries(pcb_spec).filter(([k]) => !allKeys.includes(k));
-  let gerberName = "";
-  const realGerberUrl = gerber_file_url ? getPublicFileUrl(gerber_file_url) : "";
-  if (
-    pcb_spec.gerber &&
-    typeof pcb_spec.gerber === "object" &&
-    "name" in pcb_spec.gerber &&
-    typeof (pcb_spec.gerber as { name?: unknown }).name === "string"
-  ) {
-    gerberName = (pcb_spec.gerber as { name: string }).name;
-  } else if (gerber_file_url) {
-    const parts = gerber_file_url.split("/");
-    gerberName = parts[parts.length - 1];
+  if (!pcb_spec || typeof pcb_spec !== 'object') {
+    return (
+      <Card className="mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-bold text-blue-700">PCB Specifications</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <div className="text-base text-gray-400">No PCB specifications available</div>
+        </CardContent>
+      </Card>
+    );
   }
-  const shipmentType = pcb_spec.shipmentType as string;
+
+  let realGerberUrl = "";
+  let gerberName = "";
+  
+  if (gerber_file_url) {
+    realGerberUrl = getPublicFileUrl(gerber_file_url);
+    gerberName = gerber_file_url.split("/").pop() || "Gerber File";
+  } else if (pcb_spec.gerber && typeof pcb_spec.gerber === "string") {
+    realGerberUrl = getPublicFileUrl(pcb_spec.gerber);
+    gerberName = pcb_spec.gerber.split("/").pop() || "Gerber File";
+  }
+
   return (
-    <Card className="bg-white/95 border-blue-100 shadow-sm">
-      <CardHeader className="pb-2 border-b">
-        <CardTitle className="text-xl font-bold text-blue-700">PCB参数</CardTitle>
+    <Card className="mb-4 shadow-lg border-blue-200 bg-gradient-to-br from-blue-50/50 via-white to-gray-50/50">
+      <CardHeader className="border-b border-blue-100 pb-4">
+        <CardTitle className="text-xl font-bold text-blue-800">PCB Specifications</CardTitle>
       </CardHeader>
       <CardContent className="p-6">
-        {/* 基础参数 */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {FIELD_GROUPS[0].fields
-            .filter(f => f.key !== "gerber" && f.key !== "singleDimensions" && f.key !== "singleCount")
-            .map(f => {
-              return (
-                <div key={f.key}>
-                  <span className="text-xs text-muted-foreground font-semibold uppercase">{getSizeLabel(shipmentType)}</span>
-                  <div className="text-base font-semibold text-gray-800 break-all">
-                    {String(pcb_spec.singleDimensions?.length)} × {String(pcb_spec.singleDimensions?.width)} <span className="text-xs text-muted-foreground">cm</span>
+        {/* 按组显示规格 */}
+        {FIELD_GROUPS.map((group, groupIndex) => (
+          <div key={groupIndex} className="mb-6">
+            <h3 className="text-lg font-semibold text-blue-700 mb-3 border-b border-blue-100 pb-1">
+              {group.title}
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {group.fields.map((field) => {
+                const value = pcb_spec[field.key];
+                if (value === undefined || value === null || value === "") return null;
+                
+                return (
+                  <div key={field.key} className="space-y-1">
+                    <span className="text-xs text-muted-foreground font-semibold uppercase">
+                      {field.label}
+                    </span>
+                    <div className="text-base font-semibold text-gray-800 break-all">
+                      {renderValue(value)}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          {/* Handle singleDimensions */}
-          {pcb_spec.singleDimensions && (
-            <div>
-              <span className="text-xs text-muted-foreground font-semibold uppercase">{getSizeLabel(shipmentType)}</span>
-              <div className="text-base font-semibold text-gray-800 break-all">
-                {String(pcb_spec.singleDimensions.length)} × {String(pcb_spec.singleDimensions.width)} <span className="text-xs text-muted-foreground">cm</span>
-              </div>
+                );
+              })}
             </div>
-          )}
-          {/* Handle singleCount */}
-          {pcb_spec.singleCount !== undefined && pcb_spec.singleCount !== null && (
-            <div>
-              <span className="text-xs text-muted-foreground font-semibold uppercase">{getCountLabel(shipmentType)}</span>
-              <div className="text-base font-semibold text-gray-800 break-all">
-                {String(pcb_spec.singleCount)} <span className="text-xs text-muted-foreground">{getCountUnit(shipmentType)}</span>
-              </div>
-            </div>
-          )}
-        </div>
-        {/* Process */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {FIELD_GROUPS[1].fields.map(f => (
-            <div key={f.key}>
-              <span className="text-xs text-muted-foreground font-semibold uppercase">{f.label}</span>
-              <div className="text-base font-semibold text-gray-800 break-all">{renderValue(pcb_spec[f.key as keyof PcbQuoteForm])}</div>
-            </div>
-          ))}
-        </div>
-        <hr className="my-4 border-blue-100" />
-        {/* Service */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {FIELD_GROUPS[2].fields.map(f => (
-            <div key={f.key}>
-              <span className="text-xs text-muted-foreground font-semibold uppercase">{f.label}</span>
-              <div className="text-base font-semibold text-gray-800 break-all">{renderValue(pcb_spec[f.key as keyof PcbQuoteForm])}</div>
-            </div>
-          ))}
-        </div>
-        {others.length > 0 && <>
-          <hr className="my-4 border-blue-100" />
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {others.map(([k, v]) => (
-              <div key={String(k)}>
-                <span className="text-xs text-muted-foreground font-semibold uppercase">{String(k)}</span>
-                <div className="text-base font-semibold text-gray-800 break-all">{String(v)}</div>
-              </div>
-            ))}
           </div>
-        </>}
-        {/* Gerber文件展示区块，倒数第二 */}
+        ))}
+
+        {/* 其他非结构化字段 */}
+        {Object.keys(pcb_spec).some(key => 
+          !FIELD_GROUPS.some(group => 
+            group.fields.some(field => field.key === key)
+          )
+        ) && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-blue-700 mb-3 border-b border-blue-100 pb-1">
+              Other Specifications
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Object.entries(pcb_spec).map(([k, v]) => {
+                // 跳过已在组中显示的字段
+                if (FIELD_GROUPS.some(group => 
+                  group.fields.some(field => field.key === k)
+                )) return null;
+                
+                if (v === undefined || v === null || v === "") return null;
+                
+                return (
+                  <div key={k} className="space-y-1">
+                    <span className="text-xs text-muted-foreground font-semibold uppercase">
+                      {String(k)}
+                    </span>
+                    <div className="text-base font-semibold text-gray-800 break-all">
+                      {renderValue(v)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Gerber文件展示区块 */}
         <hr className="my-4 border-blue-100" />
         <div className="mt-4">
-          <span className="text-sm font-semibold text-blue-700">Gerber:</span>
+          <span className="text-sm font-semibold text-blue-700">Gerber File:</span>
           {(pcb_spec.gerber || gerber_file_url) ? (
             <span className="ml-2 text-base font-semibold text-blue-700 break-all">
               {gerberName || "Gerber File"}
@@ -319,24 +289,38 @@ function OrderPcbSpecCard({ pcb_spec, gerber_file_url, order }: OrderPcbSpecCard
             <span className="ml-2 text-base text-gray-400">-</span>
           )}
           {realGerberUrl && (
-            <>
-              <DownloadButton filePath={realGerberUrl || ""} bucket="next-pcb" className="ml-2">Download</DownloadButton>
-            </>
+            <DownloadButton filePath={realGerberUrl || ""} bucket="next-pcb" className="ml-2">
+              Download
+            </DownloadButton>
           )}
         </div>
-        {/* PCB Note展示区块，最底部 */}
+
+        {/* User Notes展示区块 */}
         <hr className="my-4 border-blue-100" />
-        {order.pcb_note && (
-          <div className="mt-4">
-            <span className="text-sm font-semibold text-blue-700">PCB Note</span>
-            <div className="mt-1 text-base font-medium text-gray-800 bg-blue-50 border border-blue-100 rounded px-3 py-2">{String(order.pcb_note)}</div>
-          </div>
-        )}
-        {!order.pcb_note && (
-          <div className="mt-4">
-            <span className="text-sm font-semibold text-blue-700">PCB Note</span>
-            <div className="mt-1 text-base text-gray-400 bg-blue-50 border border-blue-100 rounded px-3 py-2">-</div>
-          </div>
+        <div className="mt-4">
+          <span className="text-sm font-semibold text-blue-700">User Notes</span>
+          {order.user_notes ? (
+            <div className="mt-1 text-base font-medium text-gray-800 bg-blue-50 border border-blue-100 rounded px-3 py-2">
+              {String(order.user_notes)}
+            </div>
+          ) : (
+            <div className="mt-1 text-base text-gray-400 bg-blue-50 border border-blue-100 rounded px-3 py-2">
+              -
+            </div>
+          )}
+        </div>
+
+        {/* Admin Notes展示区块 */}
+        {order.admin_notes && (
+          <>
+            <hr className="my-4 border-blue-100" />
+            <div className="mt-4">
+              <span className="text-sm font-semibold text-blue-700">Admin Notes</span>
+              <div className="mt-1 text-base font-medium text-gray-800 bg-yellow-50 border border-yellow-100 rounded px-3 py-2">
+                {String(order.admin_notes)}
+              </div>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
@@ -352,10 +336,12 @@ interface OrderSummaryCardProps {
   status: string;
   onBack: () => void;
 }
+
 function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status, onBack }: OrderSummaryCardProps) {
   // 动态计算PCB价格
-  const pcbSpec = order.pcb_spec || {};
-  const pcbPriceResult = calcPcbPriceV2(pcbSpec);
+  const pcbSpec = order.pcb_spec && typeof order.pcb_spec === 'object' ? order.pcb_spec as Record<string, unknown> : {};
+  const pcbPriceResult = calcPcbPriceV2(pcbSpec as unknown as PcbQuoteForm);
+  
   return (
     <Card className="sticky top-24 shadow-xl border-blue-200 bg-gradient-to-br from-blue-100/80 via-white to-blue-50/80">
       <CardHeader className="border-b pb-4">
@@ -364,37 +350,62 @@ function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status
       <CardContent className="p-6 space-y-6">
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">PCB Price</span>
-            <span className="text-lg font-bold text-blue-700">{pcbPriceResult.total ? toUSD(pcbPriceResult.total) : '-'}</span>
+            <span className="text-sm text-muted-foreground">Order ID</span>
+            <span className="text-base font-semibold text-gray-700">{order.id}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Production Time</span>
-            <span className="text-base font-semibold text-gray-700">{order.production_cycle != null ? `${order.production_cycle} days` : '-'}</span>
+            <span className="text-sm text-muted-foreground">Quote ID</span>
+            <span className="text-base font-semibold text-gray-700">{order.quote_id || '-'}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Estimated Finish</span>
-            <span className="text-base font-semibold text-gray-700">{order.estimated_finish_date ? new Date(order.estimated_finish_date).toLocaleDateString() : '-'}</span>
+            <span className="text-sm text-muted-foreground">Status</span>
+            <span className="text-base font-semibold text-gray-700">{order.status || 'pending'}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Payment Status</span>
+            <span className="text-base font-semibold text-gray-700">{order.payment_status || 'pending'}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Quoted Price</span>
+            <span className="text-lg font-bold text-blue-700">
+              {order.quoted_price ? toUSD(order.quoted_price) : 
+               (pcbPriceResult.total ? toUSD(pcbPriceResult.total) : '-')}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Production Days</span>
+            <span className="text-base font-semibold text-gray-700">
+              {order.production_days != null ? `${order.production_days} days` : '-'}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Estimated Delivery</span>
+            <span className="text-base font-semibold text-gray-700">
+              {order.estimated_delivery_date 
+                ? new Date(order.estimated_delivery_date).toLocaleDateString() 
+                : '-'}
+            </span>
           </div>
           <div className="flex justify-between items-center pt-3">
             <span className="text-sm text-muted-foreground">Shipping Cost</span>
-            <span className="text-lg font-bold text-blue-700">{order.shipping_cost ? toUSD(order.shipping_cost) : '-'}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Customs Fee</span>
-            <span className="text-base font-semibold text-blue-700">{order.customs_fee ? toUSD(order.customs_fee) : '-'}</span>
+            <span className="text-lg font-bold text-blue-700">
+              {order.shipping_cost ? toUSD(order.shipping_cost) : '-'}
+            </span>
           </div>
           <div className="pt-3 border-t">
             <div className="flex justify-between items-center">
-              <span className="text-xl font-bold text-blue-900">Total</span>
-              <span className="text-2xl font-extrabold text-blue-700">{order.total ? toUSD(order.total) : '-'}</span>
+              <span className="text-xl font-bold text-blue-900">Total Amount</span>
+              <span className="text-2xl font-extrabold text-blue-700">
+                {order.total_amount ? toUSD(order.total_amount) : '-'}
+              </span>
             </div>
           </div>
           <div className="flex flex-col gap-2 pt-2">
             <Button variant="outline" onClick={onBack}>Back</Button>
-            {status === "confirm_pay" && (
+            {status === "pending" && (
               <Button variant="default" onClick={onPay} disabled={loading}>Pay Now</Button>
             )}
-            {status != "completed" && (
+            {status !== "completed" && status !== "cancelled" && (
               <Button variant="destructive" onClick={onCancel} disabled={loading}>Cancel Order</Button>
             )}
             {status === "completed" && (
@@ -411,13 +422,11 @@ interface OrderDetailClientProps {
   user: unknown;
   order: Database["public"]["Tables"]["orders"]["Row"];
 }
+
 export default function OrderDetailClient({ user, order }: OrderDetailClientProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [actionLoading, setActionLoading] = useState(false);
-  const [address, setAddress] = useState<Database["public"]["Tables"]["addresses"]["Row"] | null>(null);
-  const [customs, setCustoms] = useState<Database["public"]["Tables"]["customs_declarations"]["Row"] | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(true);
 
   useEffect(() => {
     if (user && typeof user === "object" && user !== null && "id" in user) {
@@ -425,70 +434,109 @@ export default function OrderDetailClient({ user, order }: OrderDetailClientProp
     }
   }, [user]);
 
-  useEffect(() => {
-    async function fetchDetails() {
-      setDetailsLoading(true);
-      const supabase = createClientComponentClient<Database>();
-      let addressData = null;
-      let customsData = null;
-      if (order.address_id) {
-        const { data } = await supabase.from("addresses").select("*").eq("id", order.address_id).single();
-        addressData = data;
-      }
-      if (order.customs_id) {
-        const { data } = await supabase.from("customs_declarations").select("*").eq("id", order.customs_id).single();
-        customsData = data;
-      }
-      setAddress(addressData);
-      setCustoms(customsData);
-      setDetailsLoading(false);
-    }
-    fetchDetails();
-  }, [order.address_id, order.customs_id]);
-
-  if (!order) return <div className="flex justify-center items-center min-h-[60vh] text-muted-foreground">No order found.</div>;
-  if (detailsLoading) return <div className="flex justify-center items-center min-h-[60vh] text-muted-foreground">Loading...</div>;
+  if (!order) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh] text-muted-foreground">
+        No order found.
+      </div>
+    );
+  }
 
   // 取消订单
   async function handleCancelOrder() {
     setActionLoading(true);
-    const supabase = createClientComponentClient<Database>();
-    await supabase.from("orders").update({ status: "cancelled" }).eq("id", order.id);
-    setActionLoading(false);
-    toast({ title: "Order cancelled" });
-    router.push("/quote/orders"); // 取消后跳转订单列表
+    try {
+      const supabase = createClientComponentClient<Database>();
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: "cancelled" })
+        .eq("id", order.id);
+      
+      if (error) throw error;
+      
+      toast({ title: "Order cancelled successfully" });
+      router.push("/quote/orders");
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      toast({ 
+        title: "Failed to cancel order", 
+        description: "Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setActionLoading(false);
+    }
   }
+
   // 申请售后
   async function handleAfterSale() {
     setActionLoading(true);
-    setTimeout(() => {
+    try {
+      // 这里可以添加实际的售后申请逻辑
+      setTimeout(() => {
+        setActionLoading(false);
+        toast({ title: "After-sale request submitted successfully" });
+      }, 1000);
+    } catch (error) {
+      console.error("Error submitting after-sale request:", error);
+      toast({ 
+        title: "Failed to submit after-sale request", 
+        description: "Please try again later.",
+        variant: "destructive"
+      });
       setActionLoading(false);
-      toast({ title: "After-sale request submitted" });
-    }, 1000);
+    }
+  }
+
+  // 支付处理
+  async function handlePayment() {
+    setActionLoading(true);
+    try {
+      // 这里可以添加实际的支付逻辑
+      setTimeout(() => {
+        setActionLoading(false);
+        toast({ title: "Payment initiated successfully" });
+      }, 1000);
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      toast({ 
+        title: "Failed to process payment", 
+        description: "Please try again later.",
+        variant: "destructive"
+      });
+      setActionLoading(false);
+    }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-100 font-sans">
       <div className="container max-w-7xl mx-auto py-10 px-2 md:px-6">
-        <h1 className="text-3xl md:text-4xl font-extrabold text-blue-800 mb-8 tracking-tight drop-shadow-sm">Order Detail</h1>
+        <h1 className="text-3xl md:text-4xl font-extrabold text-blue-800 mb-8 tracking-tight drop-shadow-sm">
+          Order Detail
+        </h1>
+        
         {/* 步骤条 */}
         <div className="mb-10">
-          <OrderStepBar currentStatus={order.status || "inquiry"} steps={ORDER_STEPS} />
+          <OrderStepBar currentStatus={order.status || "pending"} steps={ORDER_STEPS} />
         </div>
+        
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* 左侧主内容区 */}
           <div className="col-span-12 lg:col-span-8 space-y-8">
-            <OrderPcbSpecCard pcb_spec={order.pcb_spec} gerber_file_url={order.gerber_file_url} order={order} />
-            <OrderAddressCard address={address} />
-            <OrderCustomsCard customs={customs} />
+            <OrderPcbSpecCard 
+              pcb_spec={order.pcb_spec && typeof order.pcb_spec === 'object' ? order.pcb_spec as Record<string, unknown> : null} 
+              gerber_file_url={order.gerber_file_url} 
+              order={order} 
+            />
+            <OrderAddressCard address={order.shipping_address && typeof order.shipping_address === 'object' ? order.shipping_address as Record<string, unknown> : null} />
             <OrderShippingCard order={order} />
-        
           </div>
+          
           {/* 右侧订单摘要区 */}
           <div className="col-span-12 lg:col-span-4">
             <OrderSummaryCard
               order={order}
-              onPay={handleAfterSale}
+              onPay={handlePayment}
               onCancel={handleCancelOrder}
               onAfterSale={handleAfterSale}
               loading={actionLoading}

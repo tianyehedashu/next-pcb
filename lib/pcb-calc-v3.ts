@@ -1,6 +1,6 @@
 // PCB报价计算（严格参照线上报价单.csv）
 
-import { ShipmentType } from '@/types/form';
+import { ShipmentType, CrossOuts } from '@/types/form';
 import {
   PriceHandler,
   basePriceHandler,
@@ -138,14 +138,13 @@ export function calcPcbPriceV3(form: QuoteFormData): {
   const engFeeResult = engFeeHandler(ctxForm, area, totalCount);
   const filmFeeResult = filmFeeHandler(ctxForm);
   let addPercent = 0;
-  if (form.rejectBoard) {
+  if (form.crossOuts === CrossOuts.Accept) {
     const { percent, note } = getPanelAddPercent(form.differentDesignsCount);
     addPercent = percent;
     if (note) notes.push(note);
   }
 
   // 3. 处理"打叉板"加成（只对 subtotal 部分）
-
   subtotal = subtotal * (1 + addPercent);
 
   // 4. 计算总价

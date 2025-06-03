@@ -139,7 +139,6 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
   // Service Information
   testMethod: TestMethod.FlyingProbe,
   productReport: [ProductReport.None],
-  rejectBoard: false,
   workingGerber: WorkingGerber.RequireApproval,
   ulMark: false,
   crossOuts: CrossOuts.NotAccept,
@@ -151,6 +150,10 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
   gerberUrl: '',
 
   // Shipping & Notes
+  shippingCostEstimation: {
+    country: '',
+    courier: '',
+  },
   shippingAddress: {
     country: '',
     state: '',
@@ -159,6 +162,7 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
     zipCode: '',
     phone: '',
     contactName: '',
+    courier: '',
   },
   customs: undefined,
   customsNote: '',

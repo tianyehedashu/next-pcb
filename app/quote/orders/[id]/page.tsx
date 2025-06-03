@@ -1,26 +1,77 @@
-import { cookies } from "next/headers";
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
-import { notFound, redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "../../../../types/supabase";
 import OrderDetailClient from "./OrderDetailClient";
+import { useEnsureLogin } from "@/lib/auth";
+import { useUserStore } from "@/lib/userStore";
 
-export default async function OrderDetailPage({ params }: { params: { id: string } }) {
-  const cookieStore = cookies();
-  const supabase = createServerComponentClient<Database>({ cookies: () => cookieStore });
-  // 获取 session 和用户
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    redirect(`/auth?redirect=/quote/orders/${params.id}`);
+type Order = Database["public"]["Tables"]["orders"]["Row"];
+
+export default function OrderDetailPage() {
+  useEnsureLogin();
+  const params = useParams();
+  const router = useRouter();
+  const user = useUserStore((state) => state.user);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const supabase = createClientComponentClient<Database>();
+
+  useEffect(() => {
+    async function fetchOrder() {
+      if (!user || !params.id) return;
+
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", params.id as string)
+          .eq("user_id", user.id)
+          .single();
+
+        if (error || !data) {
+          setError("Order not found or no permission");
+          return;
+        }
+
+        setOrder(data);
+      } catch (err) {
+        console.error("Failed to fetch order:", err);
+        setError("Failed to load order");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchOrder();
+  }, [user, params.id, supabase]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <div className="text-gray-500">Loading order...</div>
+      </div>
+    );
   }
-  // 获取订单
-  const { data: order, error } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("id", params.id)
-    .eq("user_id", user.id)
-    .single();
+
   if (error || !order) {
-    notFound();
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[60vh] gap-4">
+        <div className="text-red-500">{error || "Order not found"}</div>
+        <button 
+          onClick={() => router.push("/quote/orders")}
+          className="text-blue-600 hover:underline"
+        >
+          Back to Orders
+        </button>
+      </div>
+    );
   }
+
   return <OrderDetailClient user={user} order={order} />;
 } 

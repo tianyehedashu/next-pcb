@@ -48,7 +48,6 @@ const defaultForm = {
   testMethod: TestMethod.FlyingProbe,
   prodCap: ProdCap.Auto,
   productReport: [ProductReport.None],
-  rejectBoard: false,
   yyPin: false,
   customerCode: CustomerCode.None,
   payMethod: PayMethod.Auto,

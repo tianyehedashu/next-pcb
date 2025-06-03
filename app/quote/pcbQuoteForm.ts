@@ -44,7 +44,6 @@ export const pcbQuoteFormSchema = z.object({
 
   // Service Information
   productReport: z.array(z.string()).optional().describe("Product Report"),
-  isRejectBoard: z.boolean().optional().describe("Reject Board"),
   yyPin: z.boolean().optional().describe("YY Pin"),
   customerCode: z.enum(["none", "add", "add_pos"]).optional().describe("Customer Code"),
   payMethod: z.enum(["auto", "manual"]).optional().describe("Pay Method"),

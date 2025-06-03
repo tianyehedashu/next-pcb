@@ -1,6 +1,6 @@
 // PCB报价计算（严格参照线上报价单.csv）
 
-import { ShipmentType } from '@/types/form';
+import { ShipmentType, CrossOuts } from '@/types/form';
 import {
   PriceHandler,
   basePriceHandler,
@@ -152,7 +152,7 @@ let subtotal = extra;
 const engFeeResult = engFeeHandler(ctxForm, area, totalCount);
 const filmFeeResult = filmFeeHandler(ctxForm);
 let addPercent = 0;
-if (ctxForm.rejectBoard) {
+if (ctxForm.crossOuts === CrossOuts.Accept) {
   const { percent, note } = getPanelAddPercent(ctxForm.differentDesignsCount);
   addPercent = percent;
   if (note) notes.push(note);

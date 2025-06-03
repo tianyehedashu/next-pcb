@@ -146,7 +146,7 @@ export function QuoteForm() {
             if (response.ok) {
               const result = await response.json();
               toast.success('Quote saved successfully!');
-              router.push(`/quote/${result.id}`);
+              router.push(`/quote/orders/${result.id}`);
             } else {
               throw new Error('Failed to save quote');
             }
@@ -190,7 +190,8 @@ export function QuoteForm() {
       if (response.ok) {
         const result = await response.json();
         toast.success(result.message);
-        router.push('/quote/success');
+        // 游客用户跳转到成功页面，携带报价ID作为查询参数
+        router.push(`/quote/success?id=${result.id}`);
         resetForm();
       } else {
         throw new Error('Failed to submit guest quote');

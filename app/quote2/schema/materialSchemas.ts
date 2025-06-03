@@ -29,7 +29,7 @@ export const processFields = [
 
 // 服务字段定义（通用）
 export const serviceFields = [
-  "testMethod", "productReport", "rejectBoard", "yyPin", 
+  "testMethod", "productReport", "yyPin",
   "customerCode", "payMethod", "qualityAttach", "smt", 
   "prodCap", "workingGerber", "ulMark", "crossOuts", 
   "ipcClass", "ifDataConflicts", "specialRequests"
