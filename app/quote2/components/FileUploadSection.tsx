@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useQuoteStore } from '@/lib/stores/quote-store';
+import { useQuoteStore, useQuoteFormData } from '@/lib/stores/quote-store';
 import { Upload, File, CheckCircle, XCircle, RotateCcw, Trash2 } from 'lucide-react';
 
 interface FileUploadState {
@@ -61,7 +61,14 @@ function formatFileSize(bytes: number): string {
 
 export function FileUploadSection() {
   const [uploadState, setUploadState] = useState<FileUploadState>(createInitialState());
-  const { updateFormData, formData } = useQuoteStore();
+  const [isClient, setIsClient] = useState(false);
+  const { updateFormData } = useQuoteStore();
+  const formData = useQuoteFormData();
+
+  // 确保组件只在客户端渲染后显示完整内容
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleFileSelect = useCallback(async (file: File) => {
     if (!file) return;
@@ -303,8 +310,8 @@ export function FileUploadSection() {
           </div>
         )}
 
-        {/* 当前URL显示 */}
-        {formData.gerberUrl && (
+        {/* 当前URL显示 - 只在客户端渲染后显示 */}
+        {isClient && formData.gerberUrl && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-xs font-medium text-blue-800 mb-1">Current Gerber URL:</p>
             <p className="text-xs text-blue-600 break-all font-mono">{formData.gerberUrl}</p>

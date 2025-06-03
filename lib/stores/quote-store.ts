@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { useEffect, useState } from "react";
 import { quoteSchema, type QuoteFormData } from "../../app/quote2/schema/quoteSchema";
 import { 
   PcbType, ShipmentType, BorderType, CopperWeight, InnerCopperWeight, 
@@ -124,7 +125,6 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
   surfaceFinish: SurfaceFinish.HASL,
   surfaceFinishEnigType: SurfaceFinishEnigType.Enig1u,
   impedance: false,
-  castellated: false,
   goldFingers: false,
   goldFingersBevel: false,
   edgePlating: false,
@@ -583,6 +583,27 @@ const useQuoteStore = create<QuoteStore>()(
     }
   )
 );
+
+// 水合安全的hook
+export const useQuoteStoreHydrated = () => {
+  const [isHydrated, setIsHydrated] = useState(false);
+  const store = useQuoteStore();
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  // 在水合完成前返回默认状态
+  if (!isHydrated) {
+    return {
+      ...store,
+      formData: { ...DEFAULT_FORM_DATA },
+      originalData: { ...DEFAULT_FORM_DATA },
+    };
+  }
+
+  return store;
+};
 
 // 选择器 hooks
 export const useQuoteFormData = () => useQuoteStore((state) => state.formData);
