@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, Plus, Check } from "lucide-react";
+import { Trash2, Edit, Plus, Check, Truck, Plane, Package } from "lucide-react";
 import dynamic from "next/dynamic";
 import { supabase } from '@/lib/supabaseClient';
 
@@ -14,6 +14,9 @@ const ReactSelect = dynamic(() => import("react-select"), { ssr: false });
 
 // 类型定义
 export type OptionType = { value: string; label: string };
+
+// 快递选项类型
+type CourierOptionType = { value: string; label: string; icon: React.ComponentType<{ className?: string }>; color: string };
 
 // GeoNames 省/州类型
 type GeoNamesState = {
@@ -112,13 +115,35 @@ const selectStyles = {
   control: (base: Record<string, unknown>) => ({
     ...base,
     minHeight: 40,
-    borderColor: "#cbd5e1",
+    borderColor: "#d1d5db",
+    borderRadius: "0.375rem",
     boxShadow: "none",
     '&:hover': { borderColor: "#3b82f6" },
+    '&:focus-within': { 
+      borderColor: "#3b82f6",
+      boxShadow: "0 0 0 2px rgba(59, 130, 246, 0.1)"
+    },
   }),
   menu: (base: Record<string, unknown>) => ({
     ...base,
     zIndex: 9999,
+    borderRadius: "0.375rem",
+    border: "1px solid #d1d5db",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+  }),
+  option: (base: Record<string, unknown>, state: { isSelected: boolean; isFocused: boolean }) => ({
+    ...base,
+    backgroundColor: state.isSelected 
+      ? "#3b82f6" 
+      : state.isFocused 
+        ? "#eff6ff" 
+        : "white",
+    color: state.isSelected ? "white" : "#374151",
+    cursor: "pointer",
+  }),
+  placeholder: (base: Record<string, unknown>) => ({
+    ...base,
+    color: "#9ca3af",
   }),
 };
 
@@ -639,224 +664,271 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
       )}
 
       {/* 地址表单 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6 w-full">
-        <div className="flex items-center gap-2 mb-4 sm:mb-6">
-          <span className="text-base sm:text-lg">📍</span>
-          <h4 className="text-base sm:text-lg font-semibold text-blue-600">Shipping Address</h4>
-        </div>
+      <Card className="w-full">
+        <CardContent className="pt-6 space-y-4">
+          {/* 保存消息提示 */}
+          {saveMessage && (
+            <div className={`p-3 rounded-lg text-sm ${
+              saveMessage.includes('Failed') 
+                ? 'bg-red-50 text-red-700 border border-red-200' 
+                : 'bg-green-50 text-green-700 border border-green-200'
+            }`}>
+              {saveMessage}
+            </div>
+          )}
 
-        {/* 保存消息提示 */}
-        {saveMessage && (
-          <div className={`mb-4 p-3 rounded-lg text-sm ${
-            saveMessage.includes('Failed') 
-              ? 'bg-red-50 text-red-700 border border-red-200' 
-              : 'bg-green-50 text-green-700 border border-green-200'
-          }`}>
-            {saveMessage}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            {/* Preferred Courier - 移到第一列 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Preferred Courier <span className="text-red-500">*</span>
+              </label>
+              <ReactSelect
+                options={[
+                  { 
+                    value: 'dhl', 
+                    label: 'DHL',
+                    icon: Package,
+                    color: 'bg-yellow-400 text-black'
+                  },
+                  { 
+                    value: 'fedex', 
+                    label: 'FedEx',
+                    icon: Plane,
+                    color: 'bg-purple-600 text-white'
+                  },
+                  { 
+                    value: 'ups', 
+                    label: 'UPS',
+                    icon: Truck,
+                    color: 'bg-amber-700 text-white'
+                  }
+                ]}
+                value={[
+                  { value: 'dhl', label: 'DHL', icon: Package, color: 'bg-yellow-400 text-black' },
+                  { value: 'fedex', label: 'FedEx', icon: Plane, color: 'bg-purple-600 text-white' },
+                  { value: 'ups', label: 'UPS', icon: Truck, color: 'bg-amber-700 text-white' }
+                ].find(opt => opt.value === value?.courier) || null}
+                onChange={(newValue: unknown) => handleFieldChange('courier', (newValue as CourierOptionType | null)?.value || '')}
+                placeholder="Select Courier"
+                isClearable
+                styles={{
+                  ...selectStyles,
+                  option: (base: Record<string, unknown>, state: { isSelected: boolean; isFocused: boolean }) => ({
+                    ...base,
+                    backgroundColor: state.isSelected 
+                      ? "#3b82f6" 
+                      : state.isFocused 
+                        ? "#eff6ff" 
+                        : "white",
+                    color: state.isSelected ? "white" : "#374151",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }),
+                }}
+                formatOptionLabel={(option: unknown) => {
+                  const courierOption = option as CourierOptionType;
+                  const IconComponent = courierOption.icon;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded flex items-center justify-center ${courierOption.color}`}>
+                        <IconComponent className="w-4 h-4" />
+                      </div>
+                      <span>{courierOption.label}</span>
+                    </div>
+                  );
+                }}
+              />
+            </div>
+
+            {/* Country */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Country <span className="text-red-500">*</span>
+              </label>
+              <ReactSelect
+                options={countriesOptions}
+                value={countriesOptions.find(opt => opt.value === value?.country) || null}
+                onChange={(newValue) => handleFieldChange('country', (newValue as OptionType)?.value || '')}
+                placeholder="Select country"
+                isClearable
+                styles={selectStyles}
+                filterOption={filterOptions}
+              />
+            </div>
+
+            {/* State/Province */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                State/Province <span className="text-red-500">*</span>
+              </label>
+              <ReactSelect
+                options={states}
+                value={states.find(opt => opt.value === value?.state) || null}
+                onChange={(newValue) => handleFieldChange('state', (newValue as OptionType)?.value || '')}
+                placeholder={!value?.country ? "Select Country First" : "Select state/province"}
+                isDisabled={!value?.country}
+                isClearable
+                styles={selectStyles}
+                filterOption={filterOptions}
+                isLoading={loadingStates}
+              />
+            </div>
+
+            {/* City */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                City <span className="text-red-500">*</span>
+              </label>
+              <ReactSelect
+                options={cities}
+                value={cities.find(opt => opt.value === value?.city) || null}
+                onChange={(newValue) => handleFieldChange('city', (newValue as OptionType)?.value || '')}
+                placeholder={!value?.state ? "Select State First" : "Select city"}
+                isDisabled={!value?.state}
+                isClearable
+                styles={selectStyles}
+                filterOption={filterOptions}
+                isLoading={loadingCities}
+              />
+            </div>
+
+            {/* ZIP Code */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ZIP/Postal Code <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={value?.zipCode || ''}
+                onChange={(e) => handleFieldChange('zipCode', e.target.value)}
+                placeholder="Enter ZIP/postal code"
+              />
+            </div>
+
+            {/* Contact Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Contact Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={value?.contactName || ''}
+                onChange={(e) => handleFieldChange('contactName', e.target.value)}
+                placeholder="Enter contact name"
+              />
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={value?.phone || ''}
+                onChange={(e) => handleFieldChange('phone', e.target.value)}
+                placeholder="Enter phone number"
+              />
+            </div>
+
+            {/* Detailed Address */}
+            <div className="col-span-1 sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Detailed Address <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={value?.address || ''}
+                onChange={(e) => handleFieldChange('address', e.target.value)}
+                placeholder="Enter your detailed address"
+                className="text-sm sm:text-base"
+              />
+            </div>
           </div>
-        )}
 
-        {/* 地址标签输入 */}
-        {userId && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Address Label (Optional)
-            </label>
-            <Input
-              value={addressLabel}
-              onChange={(e) => setAddressLabel(e.target.value)}
-              placeholder="e.g., Home, Office, etc."
-              className="text-sm sm:text-base"
-            />
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
-          {/* Country */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Country <span className="text-red-500">*</span>
-            </label>
-            <ReactSelect
-              options={countriesOptions}
-              value={countriesOptions.find(opt => opt.value === value?.country) || null}
-              onChange={(newValue) => handleFieldChange('country', (newValue as OptionType)?.value || '')}
-              placeholder="Select country"
-              isClearable
-              styles={selectStyles}
-              filterOption={filterOptions}
-            />
-          </div>
-
-          {/* State/Province */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              State/Province <span className="text-red-500">*</span>
-            </label>
-            <ReactSelect
-              options={states}
-              value={states.find(opt => opt.value === value?.state) || null}
-              onChange={(newValue) => handleFieldChange('state', (newValue as OptionType)?.value || '')}
-              placeholder={!value?.country ? "Select Country First" : "Select state/province"}
-              isDisabled={!value?.country}
-              isClearable
-              styles={selectStyles}
-              filterOption={filterOptions}
-              isLoading={loadingStates}
-            />
-          </div>
-
-          {/* City */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              City <span className="text-red-500">*</span>
-            </label>
-            <ReactSelect
-              options={cities}
-              value={cities.find(opt => opt.value === value?.city) || null}
-              onChange={(newValue) => handleFieldChange('city', (newValue as OptionType)?.value || '')}
-              placeholder={!value?.state ? "Select State First" : "Select city"}
-              isDisabled={!value?.state}
-              isClearable
-              styles={selectStyles}
-              filterOption={filterOptions}
-              isLoading={loadingCities}
-            />
-          </div>
-
-          {/* ZIP Code */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              ZIP/Postal Code <span className="text-red-500">*</span>
-            </label>
-            <Input
-              value={value?.zipCode || ''}
-              onChange={(e) => handleFieldChange('zipCode', e.target.value)}
-              placeholder="Enter ZIP/postal code"
-            />
-          </div>
-
-          {/* Contact Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Contact Name <span className="text-red-500">*</span>
-            </label>
-            <Input
-              value={value?.contactName || ''}
-              onChange={(e) => handleFieldChange('contactName', e.target.value)}
-              placeholder="Enter contact name"
-            />
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Phone Number <span className="text-red-500">*</span>
-            </label>
-            <Input
-              value={value?.phone || ''}
-              onChange={(e) => handleFieldChange('phone', e.target.value)}
-              placeholder="Enter phone number"
-            />
-          </div>
-
-          {/* Detailed Address */}
-          <div className="col-span-1 sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Detailed Address <span className="text-red-500">*</span>
-            </label>
-            <Input
-              value={value?.address || ''}
-              onChange={(e) => handleFieldChange('address', e.target.value)}
-              placeholder="Enter your detailed address"
-              className="text-sm sm:text-base"
-            />
-          </div>
-
-          {/* Courier Selection */}
-          <div className="col-span-1 sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Preferred Courier <span className="text-red-500">*</span>
-            </label>
-            <select 
-              className="w-full border rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-400"
-              value={value?.courier || ''}
-              onChange={(e) => handleFieldChange('courier', e.target.value)}
-            >
-              <option value="">Select Courier</option>
-              <option value="dhl">DHL Express</option>
-              <option value="fedex">FedEx International</option>
-              <option value="ups">UPS Worldwide</option>
-            </select>
-          </div>
-        </div>
-
-        {/* 地址操作按钮 */}
-        {userId && (
-          <div className="mt-4 pt-4 border-t">
-            {/* Set as Default 复选框 */}
-            <div className="flex items-start sm:items-center gap-2 mb-4">
-              <input
-                type="checkbox"
-                id="setAsDefault"
-                checked={value?.isDefault || false}
-                onChange={(e) => {
-                  if (value) {
-                    onChange?.({...value, isDefault: e.target.checked});
+          {/* 地址操作按钮 */}
+          {userId && (
+            <div className="pt-4 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+                {/* Address Label - 移到这里与 Set as default 同列 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Address Label (Optional)
+                  </label>
+                  <Input
+                    value={addressLabel}
+                    onChange={(e) => setAddressLabel(e.target.value)}
+                    placeholder="e.g., Home, Office, etc."
+                    className="text-sm sm:text-base"
+                  />
+                </div>
+                
+                {/* Set as Default 复选框 */}
+                <div className="flex items-end">
+                  <div className="flex items-center gap-2 h-10">
+                    <input
+                      type="checkbox"
+                      id="setAsDefault"
+                      checked={value?.isDefault || false}
+                      onChange={(e) => {
+                        if (value) {
+                          onChange?.({...value, isDefault: e.target.checked});
+                        }
+                      }}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="setAsDefault" className="text-sm font-medium text-gray-700">
+                      Set as default address
+                    </label>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 保存按钮 */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  if (!value) return;
+                  
+                  setIsSaving(true);
+                  setSaveMessage('');
+                  
+                  try {
+                    const addressToSave = {
+                      ...value,
+                      label: addressLabel || (value.isDefault ? 'Default Address' : 'New Address'),
+                      id: editingAddress?.id
+                    };
+                    
+                    const savedAddress = await saveAddress(addressToSave);
+                    setAddressLabel(savedAddress.label || '');
+                    setEditingAddress(null);
+                    // 更新原始地址状态
+                    setOriginalAddress({...savedAddress});
+                    // 更新当前值
+                    onChange?.(savedAddress);
+                    setSaveMessage(savedAddress.isDefault ? 'Address saved and set as default!' : 'Address saved successfully!');
+                  } catch (error) {
+                    setSaveMessage('Failed to save address. Please try again.');
+                    console.error('Error saving address:', error);
+                  } finally {
+                    setIsSaving(false);
                   }
                 }}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5 sm:mt-0"
-              />
-              <label htmlFor="setAsDefault" className="text-sm font-medium text-gray-700 leading-relaxed">
-                Set as default address
-              </label>
-            </div>
-            
-            {/* 保存按钮 */}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={async () => {
-                if (!value) return;
-                
-                setIsSaving(true);
-                setSaveMessage('');
-                
-                try {
-                  const addressToSave = {
-                    ...value,
-                    label: addressLabel || (value.isDefault ? 'Default Address' : 'New Address'),
-                    id: editingAddress?.id
-                  };
-                  
-                  const savedAddress = await saveAddress(addressToSave);
-                  setAddressLabel(savedAddress.label || '');
-                  setEditingAddress(null);
-                  // 更新原始地址状态
-                  setOriginalAddress({...savedAddress});
-                  // 更新当前值
-                  onChange?.(savedAddress);
-                  setSaveMessage(savedAddress.isDefault ? 'Address saved and set as default!' : 'Address saved successfully!');
-                } catch (error) {
-                  setSaveMessage('Failed to save address. Please try again.');
-                  console.error('Error saving address:', error);
-                } finally {
-                  setIsSaving(false);
+                disabled={
+                  !value?.country || 
+                  !value?.address || 
+                  isSaving || 
+                  (value?.id ? !hasAddressChanged() : false)
                 }
-              }}
-              disabled={
-                !value?.country || 
-                !value?.address || 
-                isSaving || 
-                (value?.id ? !hasAddressChanged() : false)
-              }
-              className="w-full sm:w-auto text-sm sm:text-base"
-            >
-              {isSaving ? 'Saving...' : (editingAddress ? 'Update Address' : 'Save Address')}
-            </Button>
-          </div>
-        )}
-      </div>
+                className="w-full sm:w-auto text-sm sm:text-base"
+              >
+                {isSaving ? 'Saving...' : (editingAddress ? 'Update Address' : 'Save Address')}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 } 
