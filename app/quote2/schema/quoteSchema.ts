@@ -153,15 +153,6 @@ export const quoteSchema = z.object({
   message: "Inner copper weight is required for layers >= 4",
   path: ["innerCopperWeight"],
 }).refine((data) => {
-  // 条件校验：如果选择了半孔，必须填写半孔数量
-  if (data.castellated && !data.halfHole) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Half hole count is required when castellated holes is selected",
-  path: ["halfHole"],
-}).refine((data) => {
   // 条件校验：如果选择了边缘镀金，必须选择边缘覆盖方式
   if (data.edgePlating && !data.edgeCover) {
     return false;

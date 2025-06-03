@@ -355,9 +355,9 @@ export enum HalfHole {
  */
 export enum EdgeCover {
   None = 'None',
-  Left = 'left',
-  Right = 'right',
-  Both = 'both'
+  Left = 'Left',
+  Right = 'Right',
+  Both = 'Both'
 }
 
 // 产品报告类型
