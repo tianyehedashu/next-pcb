@@ -2,6 +2,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
+import { ChatwootWidget } from "@/components/ChatwootWidget";
+import { FloatingCustomerServiceButton } from "@/components/FloatingCustomerServiceButton";
 
 import Providers from '@/app/components/Providers';
 
@@ -29,7 +31,10 @@ export default function RootLayout({
           {children}
         </Providers>
         <Footer />
+        <ChatwootWidget />
+        <FloatingCustomerServiceButton />
       </body>
     </html>
   );
 }
+
