@@ -4,7 +4,6 @@ import { ShipmentType, CrossOuts } from '@/types/form';
 import {
   PriceHandler,
   basePriceHandler,
-  edgePlatingHandler, // 边镀金
   castellatedHandler, // 半孔/金属包边
   edgeCoverHandler, // 边覆盖
   maskCoverHandler, // 阻焊覆盖
@@ -92,8 +91,6 @@ export function calcPcbPriceV3(form: QuoteFormData): {
   let notes: string[] = [];
   const handlers: PriceHandler[] = [
     basePriceHandler, // 基础价格
-
-    edgePlatingHandler, // 边镀金
     castellatedHandler, // 半孔/金属包边
     edgeCoverHandler, // 边覆盖
     maskCoverHandler, // 阻焊覆盖

@@ -861,11 +861,11 @@ export const productReportHandler: PriceHandler = (form) => {
 /**
  * 特殊阻焊颜色加价
  * 规则：
- * - 蓝胶（solderMask=blue）：样品（面积<1㎡）加120元/款，交期加2天；批量（面积≥1㎡）加100元/㎡，交期加3天以上。
+ * - 黄色加价（solderMask=yellow）：样品（面积<1㎡）加120元/款，交期加2天；批量（面积≥1㎡）加100元/㎡，交期加3天以上。
  * - 亚绿油墨（solderMask=MattGreen）：按60元/㎡收费，不足1㎡按1㎡计算。
  *
  * Special Mask Color Price Handler
- * - Blue mask (solderMask=blue): Sample (area < 1㎡) +120 CNY/lot, lead time +2 days; Batch (area ≥ 1㎡) +100 CNY/㎡, lead time +3 days or more
+ * - Yellow mask (solderMask=yellow): Sample (area < 1㎡) +120 CNY/lot, lead time +2 days; Batch (area ≥ 1㎡) +100 CNY/㎡, lead time +3 days or more
  * - Matt Green mask (solderMask=MattGreen): +60 CNY/㎡, minimum 1㎡ billing
  */
 export const specialMaskHandler: PriceHandler = (form, area) => {
@@ -873,29 +873,28 @@ export const specialMaskHandler: PriceHandler = (form, area) => {
   const detail: Record<string, number> = {};
   const notes: string[] = [];
   
-  const isBlue = form.solderMask === SolderMask.Blue;
+  const isYellow = form.solderMask === SolderMask.Yellow;
   const isMattGreen = form.solderMask === SolderMask.MattGreen;
   
-  if (isBlue) {
+  if (isYellow) {
     const isSample = area < 1;
     if (isSample) {
       extra = 120;
-      detail['blueMask'] = 120;
-      notes.push('Blue mask: sample +120 CNY/lot');
+      detail['Yello Mask'] = 120;
+      notes.push('Yellow mask: sample +120 CNY/lot');
       notes.push('Lead time +2 days');
     } else {
       const fee = 100 * area;
       extra = fee;
-      detail['blueMask'] = fee;
-      notes.push(`Blue mask: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
-      notes.push('Lead time +3 days or more');
+      detail['Yellow Mask'] = fee;
+      notes.push(`Yellow mask: +100 CNY/㎡ × ${area.toFixed(2)} = ${fee.toFixed(2)} CNY`);
     }
   } else if (isMattGreen) {
     // 亚绿油墨：按60元/㎡收费，不足1㎡按1㎡计算
     const billingArea = Math.max(1, area);
-    const fee = 60 * billingArea;
+    const fee = 50 * billingArea;
     extra = fee;
-    detail['mattGreenMask'] = fee;
+    detail['Matt Gree nMask'] = fee;
     notes.push(`Matt Green mask: +60 CNY/㎡ × ${billingArea.toFixed(2)} = ${fee.toFixed(2)} CNY`);
     if (area < 1) {
       notes.push('Matt Green mask: minimum billing area 1㎡');
