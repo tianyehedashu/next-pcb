@@ -580,6 +580,30 @@ const useQuoteStore = create<QuoteStore>()(
         originalData: state.originalData,
         autoSaveEnabled: state.autoSaveEnabled,
       }),
+      transform: {
+        in: (state: { state: QuoteStoreState; version: number }) => state,
+        out: (state: { state: QuoteStoreState; version: number }) => {
+          const parsedFormData = quoteSchema.safeParse(state.state.formData);
+          if (parsedFormData.success) {
+            const sanitizedFormData = {
+              ...DEFAULT_FORM_DATA,
+              ...parsedFormData.data,
+            };
+            // 针对 singleDimensions.length 和 width 进行额外检查，以防类型被破坏
+            if (typeof sanitizedFormData.singleDimensions?.length !== 'number' || !Number.isFinite(sanitizedFormData.singleDimensions.length as number) || sanitizedFormData.singleDimensions.length <= 0) {
+              sanitizedFormData.singleDimensions = { ...sanitizedFormData.singleDimensions, length: DEFAULT_FORM_DATA.singleDimensions.length };
+            }
+            if (typeof sanitizedFormData.singleDimensions?.width !== 'number' || !Number.isFinite(sanitizedFormData.singleDimensions.width as number) || sanitizedFormData.singleDimensions.width <= 0) {
+              sanitizedFormData.singleDimensions = { ...sanitizedFormData.singleDimensions, width: DEFAULT_FORM_DATA.singleDimensions.width };
+            }
+            state.state.formData = sanitizedFormData;
+          } else {
+            console.warn("Zustand persist rehydration failed schema validation. Using default form data.", parsedFormData.error);
+            state.state.formData = DEFAULT_FORM_DATA;
+          }
+          return state;
+        },
+      },
     }
   )
 );

@@ -1,0 +1,140 @@
+"use client";
+
+import React, { useCallback, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useQuoteFormData } from '@/lib/stores/quote-store';
+import { Upload } from 'lucide-react';
+import { useFileUpload } from '../hooks/useFileUpload';
+import { FileUploadStatus } from './FileUploadStatus';
+import { AnalysisResultDisplay } from './AnalysisResultDisplay';
+
+export function FileUploadSection() {
+  const { uploadState, handleFileSelect, retryUpload, clearFile } = useFileUpload();
+  const { setValue } = useQuoteFormData();
+
+  // 处理文件输入变化
+  const handleFileInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+    // 清空input值，允许重复选择同一文件
+    event.target.value = '';
+  }, [handleFileSelect]);
+
+  // 处理拖放
+  const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  }, [handleFileSelect]);
+
+  const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  }, []);
+
+  // 处理替换文件
+  const handleReplace = useCallback(() => {
+    document.getElementById('gerber-upload-replace')?.click();
+  }, []);
+
+  // 同步分析结果到表单
+  useEffect(() => {
+    if (uploadState.analysisResult) {
+      const { analysisResult } = uploadState;
+      
+      // 更新相关表单字段
+      if (analysisResult.dimensions) {
+        setValue('pcbWidth', analysisResult.dimensions.width);
+        setValue('pcbHeight', analysisResult.dimensions.height);
+        setValue('pcbSizeUnit', analysisResult.dimensions.unit);
+      }
+      
+      if (analysisResult.layers) {
+        setValue('layers', analysisResult.layers);
+      }
+      
+      if (analysisResult.drillCount) {
+        setValue('drillHoles', analysisResult.drillCount);
+      }
+    }
+  }, [uploadState.analysisResult, setValue]);
+
+  const hasFile = !!uploadState.file;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Upload Gerber Files</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!hasFile ? (
+          // 文件选择区域
+          <div
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors"
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+          >
+            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <div className="space-y-2">
+              <h3 className="text-lg font-medium text-gray-900">
+                Drop your Gerber files here
+              </h3>
+              <p className="text-sm text-gray-500">
+                Support .zip, .rar files or individual Gerber files
+              </p>
+              <p className="text-xs text-gray-400">
+                Supported formats: .gbr, .gtl, .gbl, .gts, .gbs, .gto, .gbo, .drl, etc.
+              </p>
+            </div>
+            <div className="mt-6">
+              <Button 
+                type="button" 
+                onClick={() => document.getElementById('gerber-upload')?.click()}
+                className="inline-flex items-center"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Choose Files
+              </Button>
+              <input
+                type="file"
+                accept=".zip,.rar,.gerber,.gbr,.gtl,.gbl,.gts,.gbs,.gto,.gbo,.gtp,.gbp,.gko,.drl,.drr,.txt,.nc,.tap,.xln,.ger,.art,.pho"
+                onChange={handleFileInputChange}
+                className="hidden"
+                id="gerber-upload"
+              />
+            </div>
+          </div>
+        ) : (
+          // 文件状态显示
+          <FileUploadStatus
+            uploadState={uploadState}
+            onRetry={retryUpload}
+            onClear={clearFile}
+            onReplace={handleReplace}
+          />
+        )}
+
+        {/* 分析结果显示 */}
+        {uploadState.analysisResult && !uploadState.isAnalyzing && (
+          <AnalysisResultDisplay
+            analysisResult={uploadState.analysisResult}
+            isAnalyzing={!!uploadState.isAnalyzing}
+          />
+        )}
+
+        {/* 隐藏的替换文件input */}
+        <input
+          type="file"
+          accept=".zip,.rar,.gerber,.gbr,.gtl,.gbl,.gts,.gbs,.gto,.gbo,.gtp,.gbp,.gko,.drl,.drr,.txt,.nc,.tap,.xln,.ger,.art,.pho"
+          onChange={handleFileInputChange}
+          className="hidden"
+          id="gerber-upload-replace"
+        />
+      </CardContent>
+    </Card>
+  );
+} 

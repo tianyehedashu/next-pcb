@@ -43,6 +43,16 @@ export function calculatePcbArea(lengthCm: number, widthCm: number, count: numbe
  * 单片PCB面积计算（cm² 转 m²）
  */
 export function calculateSinglePcbArea(lengthCm: number, widthCm: number): number {
+  // Ensure inputs are valid numbers
+  if (typeof lengthCm !== 'number' || !Number.isFinite(lengthCm) || lengthCm <= 0) {
+    console.warn(`Invalid lengthCm value: ${lengthCm}. Defaulting to 5.`);
+    lengthCm = 5;
+  }
+  if (typeof widthCm !== 'number' || !Number.isFinite(widthCm) || widthCm <= 0) {
+    console.warn(`Invalid widthCm value: ${widthCm}. Defaulting to 5.`);
+    widthCm = 5;
+  }
+
   // cm² 转 m²：除以 10000
   const areaM2 = (lengthCm * widthCm) / 10000;
   return roundToDecimalPlaces(areaM2, 6);

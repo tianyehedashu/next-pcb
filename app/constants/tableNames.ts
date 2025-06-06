@@ -1,0 +1,1 @@
+export const ADMIN_ORDER_TABLE = 'pcb_quotes'; 

@@ -2,8 +2,7 @@
 
 import React from "react";
 import QuoteForm from "./QuoteForm";
-import PriceSummary from "./PriceSummary";
-import { FileUploadSection } from "./FileUploadSection";
+import PriceSummary from "./PriceSummary";import { FileUploadSection } from "./FileUploadSection";
 import { FormStepNavigation } from "./FormStepNavigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield } from "lucide-react";
@@ -60,9 +59,7 @@ export function QuotePageClient() {
                 <FormStepNavigation currentStep={currentStep} onStepClick={scrollToStep} />
               </div>
 
-              {/* 文件上传区域 */}
-              <FileUploadSection />
-              
+
               {/* 表单区域 */}
               <Card className="bg-white/70 backdrop-blur-sm border-white/20 shadow-xl hover:shadow-2xl transition-all duration-500 h-fit">
                 <CardContent className="p-0">

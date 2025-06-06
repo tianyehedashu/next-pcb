@@ -3,7 +3,7 @@
 import React from "react";
 import { createForm, Form } from "@formily/core";
 import { FormProvider, FormConsumer } from "@formily/react";
-import { useQuoteStore, DEFAULT_FORM_DATA } from "@/lib/stores/quote-store";
+import { useQuoteStore, DEFAULT_FORM_DATA, useQuoteCalculated } from "@/lib/stores/quote-store";
 import { useUserStore } from "@/lib/userStore";
 import { supabase } from "@/lib/supabaseClient";
 import SchemaField from "./FormilyComponents";
@@ -17,6 +17,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { FileUploadSection } from "./FileUploadSection";
+import { Separator } from "@/components/ui/separator";
+import { useFileUpload } from "../hooks/useFileUpload";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { calcPcbPriceV3 } from "@/lib/pcb-calc-v3";
+import { calculateLeadTime } from '@/lib/stores/quote-calculations';
 
 export function QuoteForm() {
   const { updateFormData, resetForm } = useQuoteStore();
@@ -24,11 +37,15 @@ export function QuoteForm() {
   const router = useRouter();
   const [form, setForm] = React.useState<Form | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const isUpdatingFromHydrationRef = React.useRef(false);
+  const { uploadState } = useFileUpload();
+  const calculated = useQuoteCalculated();
   
   // 游客用户的联系信息
   const [guestEmail, setGuestEmail] = React.useState("");
   const [guestPhone, setGuestPhone] = React.useState("");
   const [showGuestForm, setShowGuestForm] = React.useState(false);
+  const [showLoginSuggestDialog, setShowLoginSuggestDialog] = React.useState(false);
 
   // 根据用户登录状态过滤字段分组
   const getVisibleFieldGroups = React.useMemo(() => {
@@ -41,65 +58,68 @@ export function QuoteForm() {
     }
   }, [user]);
 
-  // 等待 store 水合完成后创建表单
+  // 创建表单实例并在水合完成后设置初始值
   React.useEffect(() => {
-    const initializeForm = async () => {
-      // 如果还没有水合，先等待水合完成
-      if (!useQuoteStore.persist.hasHydrated()) {
-        await useQuoteStore.persist.rehydrate();
-      }
-      
-      // 水合完成后，使用恢复的数据创建表单
-      const newForm = createForm({
-        initialValues: useQuoteStore.getState().formData,
-      });
-      
-      // 设置 AddressInput 组件的 userId
-      newForm.setFieldState('shippingAddress', state => {
-        state.componentProps = {
-          ...state.componentProps,
-          userId: user?.id
-        };
-      });
-      
-      setForm(newForm);
-    };
+    const initialValues = useQuoteStore.getState().formData; // 获取当前 store 的数据，可能还未水合
+    const newForm = createForm({
+      initialValues: initialValues,
+    });
 
-    initializeForm();
-  }, [user?.id]); // 添加 user?.id 作为依赖
+    // 设置 AddressInput 组件的 userId
+    newForm.setFieldState('shippingAddress', (state) => {
+      state.componentProps = {
+        ...state.componentProps,
+        userId: user?.id,
+      };
+    });
+
+    setForm(newForm);
+
+    // 监听 zustand-persist 的水合完成事件
+    const unsubscribe = useQuoteStore.persist.onFinishHydration(() => {
+      // 设置标志位，暂时阻止来自表单的同步，避免循环
+      isUpdatingFromHydrationRef.current = true;
+      // 水合完成后，用最新的数据更新表单值
+      newForm.setValues(useQuoteStore.getState().formData, undefined); 
+      // 重置标志位
+      isUpdatingFromHydrationRef.current = false;
+    });
+
+    // 清理函数
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.id]);
 
   // 监听表单变化，等待联动完成后同步到 store
   React.useEffect(() => {
     if (!form) return;
-
-    // 使用防抖，等待联动完成后再同步到 store
     let timeoutId: NodeJS.Timeout;
     let isUpdating = false;
-
     const syncToStore = () => {
+      // 如果当前是由于 store 水合引起的更新，则跳过同步
+      if (isUpdatingFromHydrationRef.current) {
+        return;
+      }
       if (isUpdating) return;
       isUpdating = true;
-      
-      // 使用 requestAnimationFrame 确保在下一帧更新，让联动完全完成
       requestAnimationFrame(() => {
-        updateFormData(form.values);
+        const storeData = useQuoteStore.getState().formData;
+        if (JSON.stringify(form.values) !== JSON.stringify(storeData)) {
+          updateFormData(form.values);
+        }
         isUpdating = false;
       });
     };
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const subscriptionId = form.subscribe((payload: any) => {
       if (payload.type === 'onFormValuesChange') {
-        // 清除之前的定时器
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
-        
-        // 设置新的定时器，等待联动完成
-        timeoutId = setTimeout(syncToStore, 150); // 150ms 延迟，确保联动完成
+        timeoutId = setTimeout(syncToStore, 150);
       }
     });
-
     return () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -110,23 +130,37 @@ export function QuoteForm() {
 
   const handleSubmit = React.useCallback(async () => {
     if (!form) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await form.submit(async (values: any) => {
         console.log('Form submitted:', values);
-        updateFormData(values);
-        
+
+        const gerberFileUrl: string | null = uploadState.uploadUrl || null;
+        const analysisResult = uploadState.analysisResult;
+
         // 提取关键字段和地址信息
-        const { phone: userPhone, shippingAddress, gerberUrl, ...pcbSpecData } = values;
-        
+        const { phone: userPhone, shippingAddress, ...pcbSpecData } = values;
+
+        // 计算前端价格、面积、交期
+        const priceResult = calcPcbPriceV3(values);
+        const leadTimeResult = calculateLeadTime(values, new Date(), values.delivery);
+
         if (user) {
           // 已登录用户：保存到用户账户并跳转到确认页面
+          
+          // 确保登录用户必须先完成文件上传才能继续（如果有选择文件）
+          if (uploadState.file && (!gerberFileUrl || uploadState.uploadStatus !== 'success')) {
+            toast.error("请等待文件上传完成后再提交。");
+            setIsSubmitting(false);
+            return; // 中止提交
+          }
+          
           const { data: { session } } = await supabase.auth.getSession();
           const access_token = session?.access_token;
-          
+
           if (access_token) {
             const response = await fetch('/api/quote', {
               method: 'POST',
@@ -138,11 +172,21 @@ export function QuoteForm() {
                 email: user.email,
                 phone: userPhone || null,
                 shippingAddress,
-                gerberFileUrl: gerberUrl || null,
-                ...pcbSpecData // 所有PCB规格作为平铺字段传递，后端会合并为JSON
+                gerberFileUrl, // 直接使用 Supabase 上传后的 URL
+                analysisResult, // 包含前端解析的结果
+                ...pcbSpecData, // 所有PCB规格作为平铺字段传递，后端会合并为JSON
+                // 新增：前端计算字段
+                singlePcbArea: calculated.singlePcbArea,
+                totalArea: calculated.totalArea,
+                totalQuantity: calculated.totalQuantity,
+                price: priceResult.total,
+                priceDetail: priceResult.detail,
+                priceNotes: priceResult.notes,
+                leadTimeDays: leadTimeResult.cycleDays,
+                leadTimeReason: leadTimeResult.reason,
               })
             });
-            
+
             if (response.ok) {
               const result = await response.json();
               toast.success('Quote saved successfully!');
@@ -162,17 +206,36 @@ export function QuoteForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [form, updateFormData, user, router]);
+  }, [form, uploadState, router, user, calculated]);
 
   const handleGuestSubmit = React.useCallback(async () => {
+    console.log('handleGuestSubmit called', {
+      guestEmail,
+      guestPhone,
+      formValues: form?.values,
+      isSubmitting,
+      showGuestForm,
+      showLoginSuggestDialog
+    });
     if (!form || !guestEmail) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      // 提取关键字段和地址信息
-      const { shippingAddress, gerberUrl, ...pcbSpecData } = form.values;
-      
+      const gerberFileUrl: string | null = uploadState.uploadUrl || null;
+      const analysisResult = uploadState.analysisResult;
+
+      // 验证邮箱
+      if (!guestEmail.includes('@')) {
+        toast.error("请输入有效的邮箱地址");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 计算前端价格、面积、交期
+      const priceResult = calcPcbPriceV3(form.values);
+      const leadTimeResult = calculateLeadTime(form.values, new Date(), form.values.delivery);
+
       const response = await fetch('/api/quote/guest', {
         method: 'POST',
         headers: {
@@ -181,12 +244,22 @@ export function QuoteForm() {
         body: JSON.stringify({
           email: guestEmail,
           phone: guestPhone || null,
-          shippingAddress,
-          gerberFileUrl: gerberUrl || null,
-          ...pcbSpecData // 所有PCB规格作为平铺字段传递，后端会合并为JSON
+          shippingAddress: form.values.shippingAddress,
+          gerberFileUrl, // 直接使用 Supabase 上传后的 URL
+          analysisResult, // 包含前端解析的结果
+          ...form.values, // 所有PCB规格作为平铺字段传递，后端会合并为JSON
+          // 新增：前端计算字段
+          singlePcbArea: calculated.singlePcbArea,
+          totalArea: calculated.totalArea,
+          totalQuantity: calculated.totalQuantity,
+          price: priceResult.total,
+          priceDetail: priceResult.detail,
+          priceNotes: priceResult.notes,
+          leadTimeDays: leadTimeResult.cycleDays,
+          leadTimeReason: leadTimeResult.reason,
         })
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         toast.success(result.message);
@@ -202,21 +275,31 @@ export function QuoteForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [form, guestEmail, guestPhone, router, resetForm]);
+  }, [form, uploadState, guestEmail, guestPhone, router, resetForm, calculated]);
+
+  // 游客提交前弹窗建议登录
+  const handleGuestSubmitWithSuggest = React.useCallback(() => {
+    setShowLoginSuggestDialog(true);
+  }, []);
+
+  const handleContinueAsGuest = React.useCallback(() => {
+    console.log('handleContinueAsGuest called');
+    setShowLoginSuggestDialog(false);
+    setShowGuestForm(true);
+  }, []);
+
+  const handleLoginRedirect = React.useCallback(() => {
+    setShowLoginSuggestDialog(false);
+    router.push("/auth?redirect=/quote2");
+  }, [router]);
 
   const handleReset = React.useCallback(() => {
     if (!form) return;
-    
-    // 重置 store 到默认值
-    resetForm();
-    
-    // 使用导入的默认值，确保与 store 中的默认值一致
+    // 只重置form，不再调用resetForm，避免互相触发
     form.setValues(DEFAULT_FORM_DATA);
-    
-    // 清除表单的修改状态和错误
     form.setSubmitting(false);
     form.clearErrors();
-  }, [form, resetForm]);
+  }, [form]);
 
   // 在表单未初始化时显示加载状态
   if (!form) {
@@ -231,18 +314,33 @@ export function QuoteForm() {
 
   return (
     <FormProvider form={form}>
-      <div className="quote-form p-6 lg:p-8 space-y-8">
+     
+        {/* 文件上传区块，单独一个 Card，放在表单顶部 */}
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="text-lg font-semibold text-blue-900">Upload Gerber File</h3>
+            </div>
+            <FileUploadSection /> 
+          </CardContent>
+        </Card>
+        <Separator className="my-6" />
+
+        <div className="quote-form p-6 lg:p-8 space-y-8">
+          
+
         {/* 添加表单通知系统 */}
         <FormNotificationContainer />
-        
+
+
         {/* 表单顶部操作区域 */}
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">PCB Quote Request</h2>
             <p className="text-gray-600 mt-1">Fill out the form below to get an instant quote</p>
           </div>
-          <Button 
-            type="button" 
+          <Button
+            type="button"
             variant="outline"
             onClick={handleReset}
             className="group hover:border-red-300 hover:text-red-600 transition-colors duration-200"
@@ -251,10 +349,14 @@ export function QuoteForm() {
             Reset Form
           </Button>
         </div>
-        
+
         <FormConsumer>
           {() => (
-            <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-8">
+            <form onSubmit={(e) => { 
+              e.preventDefault(); 
+              console.log('FormConsumer form onSubmit', { user, showGuestForm, showLoginSuggestDialog });
+              handleSubmit(); 
+            }} className="space-y-8">
               {/* 使用过滤后的字段分组渲染表单 */}
               {getVisibleFieldGroups.map((group, index) => {
                 return (
@@ -268,7 +370,7 @@ export function QuoteForm() {
                         {group.title}
                       </h3>
                     </div>
-                    
+
                     {/* 表单字段内容 */}
                     <div className="pl-4">
                       <QuoteFormGroup
@@ -280,7 +382,7 @@ export function QuoteForm() {
                   </div>
                 );
               })}
-              
+
               {/* 游客联系信息表单 */}
               {showGuestForm && !user && (
                 <Card className="border-blue-200 bg-blue-50/50">
@@ -348,7 +450,7 @@ export function QuoteForm() {
                   </CardContent>
                 </Card>
               )}
-              
+
               {/* 优化的表单提交按钮区域 */}
               {!showGuestForm && (
                 <Card className="border-gray-200/60 shadow-sm bg-gradient-to-r from-gray-50/50 to-blue-50/50">
@@ -358,11 +460,12 @@ export function QuoteForm() {
                         <div className="hidden sm:block text-sm text-gray-500">
                           Ready to get your quote?
                         </div>
-                        <Button 
+                        <Button
                           type="submit"
                           size="lg"
                           disabled={isSubmitting}
                           className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
+                          onClick={user ? undefined : (e => { e.preventDefault(); handleGuestSubmitWithSuggest(); })}
                         >
                           {isSubmitting ? (
                             <>
@@ -378,7 +481,7 @@ export function QuoteForm() {
                         </Button>
                       </div>
                     </div>
-                    
+
                     {/* 用户状态提示 */}
                     <div className="mt-4 pt-4 border-t border-gray-200/50">
                       {user ? (
@@ -412,6 +515,22 @@ export function QuoteForm() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* 游客建议登录弹窗 */}
+              <Dialog open={showLoginSuggestDialog} onOpenChange={setShowLoginSuggestDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Get a Better Experience</DialogTitle>
+                    <DialogDescription>
+                      Log in to manage your quotes, track orders, and enjoy faster checkout. Would you like to log in now?
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={handleLoginRedirect}>Log In</Button>
+                    <Button onClick={handleContinueAsGuest}>Continue as Guest</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </form>
           )}
         </FormConsumer>

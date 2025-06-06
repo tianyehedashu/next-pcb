@@ -18,7 +18,7 @@ export default function Home() {
           <p className="text-lg text-slate-700 mb-4 max-w-xl">High-quality, fast-turn PCB fabrication and assembly for global innovators. From prototype to mass production, we deliver excellence every step of the way.</p>
           <div className="flex gap-4">
             <Button size="lg" asChild>
-              <Link href="/quote" prefetch>
+              <Link href="/quote2" prefetch>
                 Get a Quote
               </Link>
             </Button>

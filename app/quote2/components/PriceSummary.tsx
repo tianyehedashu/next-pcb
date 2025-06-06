@@ -245,7 +245,9 @@ export default function PriceSummary() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-blue-600 font-medium">PCB Cost</span>
-            {priceBreakdown.totalPrice === 0 ? (
+            {!isClient ? (
+              <span className="text-gray-400 text-sm italic">Loading...</span>
+            ) : priceBreakdown.totalPrice === 0 ? (
               <span className="text-gray-400 text-sm italic">Enter details to calculate</span>
             ) : (
               <span className="font-semibold text-green-600">${priceBreakdown.totalPrice.toFixed(2)}</span>
@@ -253,7 +255,9 @@ export default function PriceSummary() {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-blue-600 font-medium">Shipping</span>
-            {shippingInfo.cost === 0 ? (
+            {!isClient ? (
+              <span className="text-gray-400 text-sm italic">Loading...</span>
+            ) : shippingInfo.cost === 0 ? (
               <span className="text-gray-400 text-sm italic">Select courier to calculate</span>
             ) : (
               <span className="font-semibold text-green-600">$ {shippingInfo.cost.toFixed(2)}</span>
@@ -261,18 +265,28 @@ export default function PriceSummary() {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-blue-600 font-medium">Tax</span>
-            <span className="font-semibold">$ 0.00</span>
+            {!isClient ? (
+              <span className="text-gray-400 text-sm italic">Loading...</span>
+            ) : (
+              <span className="font-semibold">$ 0.00</span>
+            )}
           </div>
           <div className="flex justify-between items-center">
             <span className="text-blue-600 font-medium">Discount</span>
-            <span className="font-semibold text-green-600">-$0.00</span>
+            {!isClient ? (
+              <span className="text-gray-400 text-sm italic">Loading...</span>
+            ) : (
+              <span className="font-semibold text-green-600">-$0.00</span>
+            )}
           </div>
           
           {/* Total Price */}
           <div className="pt-3 border-t border-gray-200">
             <div className="flex justify-between items-center">
               <span className="text-lg font-semibold text-blue-700">Total</span>
-              {priceBreakdown.totalPrice === 0 && shippingInfo.cost === 0 ? (
+              {!isClient ? (
+                <span className="text-gray-400 text-lg italic">Loading...</span>
+              ) : priceBreakdown.totalPrice === 0 && shippingInfo.cost === 0 ? (
                 <span className="text-gray-400 text-lg italic">$0.00</span>
               ) : (
                 <span className="text-lg font-bold text-blue-700">
@@ -280,13 +294,13 @@ export default function PriceSummary() {
                 </span>
               )}
             </div>
-            {calculated.totalQuantity > 0 && priceBreakdown.totalPrice > 0 && (
+            {isClient && calculated.totalQuantity > 0 && priceBreakdown.totalPrice > 0 && (
               <div className="flex justify-between items-center mt-1">
                 <span className="text-sm text-gray-500">Unit Price</span>
                 <span className="text-sm text-gray-600">${priceBreakdown.unitPrice.toFixed(3)}/pc</span>
               </div>
             )}
-            {shippingInfo.cost > 0 && shippingInfo.courierName && (
+            {isClient && shippingInfo.cost > 0 && shippingInfo.courierName && (
               <div className="flex justify-between items-center mt-1">
                 <span className="text-sm text-gray-500">via {shippingInfo.courierName}</span>
                 <span className="text-sm text-gray-600">{shippingInfo.days} days</span>
@@ -299,7 +313,7 @@ export default function PriceSummary() {
         <div className="pt-4 border-t border-gray-200">
           <div className="flex justify-between items-center mb-3">
             <span className="text-blue-600 font-medium">Production Cycle</span>
-            {calculated.totalQuantity > 0 && (
+            {isClient && calculated.totalQuantity > 0 && (
               <button
                 type="button"
                 className="text-xs text-blue-500 hover:underline transition-colors"
@@ -310,7 +324,16 @@ export default function PriceSummary() {
             )}
           </div>
           
-          {calculated.totalQuantity === 0 ? (
+          {!isClient ? (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+              <div className="text-blue-600 text-sm font-medium mb-1">
+                Loading...
+              </div>
+              <div className="text-blue-500 text-xs">
+                Loading production cycle info
+              </div>
+            </div>
+          ) : calculated.totalQuantity === 0 ? (
             // 当数量为0时显示友好提示
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
               <div className="text-blue-600 text-sm font-medium mb-1">
@@ -434,7 +457,9 @@ export default function PriceSummary() {
             <div>
               <div className="font-medium text-gray-700 mb-2">Price Breakdown:</div>
               <div className="space-y-2">
-                {Object.entries(priceBreakdown.detail)
+                {!isClient ? (
+                  <div className="text-gray-400 text-sm italic">Loading...</div>
+                ) : Object.entries(priceBreakdown.detail)
                   .filter(([key]) => !["PCB Cost", "Shipping", "Tax", "Discount"].includes(key))
                   .map(([key, value]) => (
                     <div key={key} className="flex justify-between items-center">
@@ -448,7 +473,7 @@ export default function PriceSummary() {
             </div>
 
             {/* Price Notes */}
-            {priceBreakdown.notes.length > 0 && (
+            {isClient && priceBreakdown.notes.length > 0 && (
               <div className="pt-3 border-t border-gray-200">
                 <h4 className="font-medium text-gray-700 mb-2">Price Notes:</h4>
                 <ul className="space-y-1 text-sm text-gray-600">
@@ -493,7 +518,9 @@ export default function PriceSummary() {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">Quantity:</span>
-              {priceBreakdown.totalCount === 0 ? (
+              {!isClient ? (
+                <span className="text-gray-400 italic">Loading...</span>
+              ) : priceBreakdown.totalCount === 0 ? (
                 <span className="text-gray-400 italic">Not set</span>
               ) : (
                 <span className="font-medium">{priceBreakdown.totalCount} pcs</span>
@@ -501,13 +528,15 @@ export default function PriceSummary() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Unit Price:</span>
-              {priceBreakdown.totalCount === 0 || priceBreakdown.totalPrice === 0 ? (
+              {!isClient ? (
+                <span className="text-gray-400 italic">Loading...</span>
+              ) : priceBreakdown.totalCount === 0 || priceBreakdown.totalPrice === 0 ? (
                 <span className="text-gray-400 italic">-</span>
               ) : (
                 <span className="font-medium">${priceBreakdown.unitPrice.toFixed(3)}</span>
               )}
             </div>
-            {priceBreakdown.minOrderQty > 0 && (
+            {isClient && priceBreakdown.minOrderQty > 0 && (
               <div className="flex justify-between col-span-2">
                 <span className="text-gray-600">Min Order Qty:</span>
                 <span className="font-medium">{priceBreakdown.minOrderQty} pcs</span>
@@ -520,7 +549,9 @@ export default function PriceSummary() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Total Area:</span>
-              {calculated.totalQuantity === 0 ? (
+              {!isClient ? (
+                <span className="text-gray-400 italic">Loading...</span>
+              ) : calculated.totalQuantity === 0 ? (
                 <span className="text-gray-400 italic">-</span>
               ) : (
                 <span className="font-medium">{isClient ? `${calculated.totalArea.toFixed(2)} cm²` : 'Loading...'}</span>

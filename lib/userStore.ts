@@ -28,6 +28,7 @@ interface UserState {
   user: UserInfo | null;
   session: Session | null;
   accessToken: string | null;
+  isLoading: boolean;
   isAdmin: () => boolean;
   hasPermission: (permission: string) => boolean;
 }
@@ -36,6 +37,7 @@ export const useUserStore = create<UserState>((set, get) => ({
   user: null,
   session: null,
   accessToken: null,
+  isLoading: true,
   isAdmin: () => get().user?.role === "admin",
   hasPermission: (permission: string) => {
     const role = get().user?.role;
@@ -54,6 +56,7 @@ export function setUserFromSSR(user: UserInfo, session: Session) {
     user,
     session,
     accessToken: session.access_token,
+    isLoading: false,
   });
 }
 
@@ -63,6 +66,8 @@ export function useBridgeUser() {
 
   useEffect(() => {
     const sync = async (session: Session | null) => {
+      setUser({ isLoading: true });
+      
       if (session?.user) {
         // 只在有 user 时拉 profile，合并 user_metadata
    
@@ -77,12 +82,14 @@ export function useBridgeUser() {
           user: mergedUser,
           session,
           accessToken: session.access_token,
+          isLoading: false,
         });
       } else {
         setUser({
           user: null,
           session: null,
           accessToken: null,
+          isLoading: false,
         });
       }
     };
@@ -111,7 +118,7 @@ export function useBridgeUser() {
  */
 export async function logoutAndRedirect(redirect?: string) {
   await supabase.auth.signOut();
-  useUserStore.setState({ user: null, session: null, accessToken: null });
+  useUserStore.setState({ user: null, session: null, accessToken: null, isLoading: false });
   if (redirect) {
     window.location.replace(redirect);
   }

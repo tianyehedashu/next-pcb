@@ -74,8 +74,7 @@ export function ProfileForm() {
       if (error) throw error
       toast.success("Profile updated successfully")
       setEditMode(false)
-      // 更新全局用户信息
-      useUserStore.getState().fetchUser()
+      // 用户数据会通过Supabase认证状态自动同步，无需手动fetchUser
     } catch (error) {
       toast.error("Failed to update profile")
       console.error(error)
