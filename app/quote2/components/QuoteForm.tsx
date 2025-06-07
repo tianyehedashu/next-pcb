@@ -139,7 +139,6 @@ export function QuoteForm() {
         console.log('Form submitted:', values);
 
         const gerberFileUrl: string | null = uploadState.uploadUrl || null;
-        const analysisResult = uploadState.analysisResult;
 
         // 提取关键字段和地址信息
         const { phone: userPhone, shippingAddress, ...pcbSpecData } = values;
@@ -147,6 +146,18 @@ export function QuoteForm() {
         // 计算前端价格、面积、交期
         const priceResult = calcPcbPriceV3(values);
         const leadTimeResult = calculateLeadTime(values, new Date(), values.delivery);
+
+        // 组装cal_values
+        const cal_values = {
+          singlePcbArea: calculated.singlePcbArea,
+          totalArea: calculated.totalArea,
+          totalQuantity: calculated.totalQuantity,
+          price: priceResult.total,
+          priceDetail: priceResult.detail,
+          priceNotes: priceResult.notes,
+          leadTimeDays: leadTimeResult.cycleDays,
+          leadTimeReason: leadTimeResult.reason,
+        };
 
         if (user) {
           // 已登录用户：保存到用户账户并跳转到确认页面
@@ -173,17 +184,8 @@ export function QuoteForm() {
                 phone: userPhone || null,
                 shippingAddress,
                 gerberFileUrl, // 直接使用 Supabase 上传后的 URL
-                analysisResult, // 包含前端解析的结果
                 ...pcbSpecData, // 所有PCB规格作为平铺字段传递，后端会合并为JSON
-                // 新增：前端计算字段
-                singlePcbArea: calculated.singlePcbArea,
-                totalArea: calculated.totalArea,
-                totalQuantity: calculated.totalQuantity,
-                price: priceResult.total,
-                priceDetail: priceResult.detail,
-                priceNotes: priceResult.notes,
-                leadTimeDays: leadTimeResult.cycleDays,
-                leadTimeReason: leadTimeResult.reason,
+                cal_values, // 新增：所有计算字段统一放入cal_values
               })
             });
 
@@ -223,7 +225,6 @@ export function QuoteForm() {
 
     try {
       const gerberFileUrl: string | null = uploadState.uploadUrl || null;
-      const analysisResult = uploadState.analysisResult;
 
       // 验证邮箱
       if (!guestEmail.includes('@')) {
@@ -236,6 +237,18 @@ export function QuoteForm() {
       const priceResult = calcPcbPriceV3(form.values);
       const leadTimeResult = calculateLeadTime(form.values, new Date(), form.values.delivery);
 
+      // 组装cal_values
+      const cal_values = {
+        singlePcbArea: calculated.singlePcbArea,
+        totalArea: calculated.totalArea,
+        totalQuantity: calculated.totalQuantity,
+        price: priceResult.total,
+        priceDetail: priceResult.detail,
+        priceNotes: priceResult.notes,
+        leadTimeDays: leadTimeResult.cycleDays,
+        leadTimeReason: leadTimeResult.reason,
+      };
+
       const response = await fetch('/api/quote/guest', {
         method: 'POST',
         headers: {
@@ -246,17 +259,8 @@ export function QuoteForm() {
           phone: guestPhone || null,
           shippingAddress: form.values.shippingAddress,
           gerberFileUrl, // 直接使用 Supabase 上传后的 URL
-          analysisResult, // 包含前端解析的结果
           ...form.values, // 所有PCB规格作为平铺字段传递，后端会合并为JSON
-          // 新增：前端计算字段
-          singlePcbArea: calculated.singlePcbArea,
-          totalArea: calculated.totalArea,
-          totalQuantity: calculated.totalQuantity,
-          price: priceResult.total,
-          priceDetail: priceResult.detail,
-          priceNotes: priceResult.notes,
-          leadTimeDays: leadTimeResult.cycleDays,
-          leadTimeReason: leadTimeResult.reason,
+          cal_values, // 新增：所有计算字段统一放入cal_values
         })
       });
 

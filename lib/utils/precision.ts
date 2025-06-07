@@ -3,6 +3,8 @@
  * 提供比 Math.round(x * 1000000) / 1000000 更好的解决方案
  */
 
+import { BorderType, BreakAwayRail } from '../../types/form';
+
 /**
  * 方案1: 使用 Number.parseFloat + toFixed 组合
  * 优点：简洁、性能好、兼容性强
@@ -81,4 +83,110 @@ export function formatArea(area: number): string {
   } else {
     return area.toFixed(6); // 小于0.01平米显示6位小数
   }
+}
+
+/**
+ * 统一的PCB总面积计算函数
+ * 支持single、panel_by_custom、panel_by_speedx三种出货方式
+ * @param form 包含shipmentType、singleDimensions、singleCount、panelDimensions、panelSet、panelRow、panelColumn、border、breakAwayRail等字段
+ * @returns 总面积（单位m²，number）
+ */
+export function calculateTotalPcbArea(form: {
+  shipmentType: string;
+  singleDimensions: { length: number; width: number };
+  singleCount?: number;
+  panelDimensions?: { length?: number; width?: number; row?: number; column?: number };
+  panelSet?: number;
+  panelRow?: number;
+  panelColumn?: number;
+  border?: string;
+  breakAwayRail?: string;
+}): number {
+  const {
+    shipmentType,
+    singleDimensions,
+    singleCount = 0,
+    panelDimensions = {},
+    panelSet = 0,
+    panelRow = 1,
+    panelColumn = 1,
+    border = 'None',
+    breakAwayRail = 'None',
+  } = form;
+
+  // 工艺边宽度辅助函数
+  function getBorderWidth(border: string): number {
+    if (border === '5') return 5;
+    if (border === '10') return 10;
+    return 0;
+  }
+
+  // 计算加工艺边后的大板尺寸
+  function getPanelSizeWithBorder(panelDimensions: any, border: string, breakAwayRail: string) {
+    let length = panelDimensions.length || 0; // 单位cm
+    let width = panelDimensions.width || 0;   // 单位cm
+    const borderWidth = getBorderWidth(border) / 10; // mm转cm
+    if (breakAwayRail !== 'None') {
+      if (breakAwayRail === 'TopBottom' || breakAwayRail === 'All') {
+        length += 2 * borderWidth;
+      }
+      if (breakAwayRail === 'LeftRight' || breakAwayRail === 'All') {
+        width += 2 * borderWidth;
+      }
+    }
+    return { length, width };
+  }
+
+  if (shipmentType === 'panel_by_custom' || shipmentType === 'panel_by_speedx') {
+    const { length, width } = getPanelSizeWithBorder(panelDimensions, border, breakAwayRail);
+    const panelArea = calculateSinglePcbArea(length, width);
+    const totalCount = (panelDimensions.row || panelRow) * (panelDimensions.column || panelColumn) * (panelSet || 0);
+    return panelArea * totalCount;
+  } else {
+    return calculatePcbArea(singleDimensions.length, singleDimensions.width, singleCount);
+  }
+}
+
+/**
+ * 获取工艺边宽度（单位：cm）
+ */
+function getBorderWidth(border: BorderType | undefined): number {
+  if (!border) return 0;
+  return Number(border) / 10; // 将 mm 转换为 cm
+}
+
+/**
+ * 计算带工艺边的拼板尺寸
+ */
+export function getPanelSizeWithBorder(
+  dimensions: { length: number; width: number },
+  panelDimensions: { row: number; column: number },
+  border?: BorderType,
+  breakAwayRail?: BreakAwayRail
+): { length: number; width: number } {
+  const borderWidth = breakAwayRail !== BreakAwayRail.None ? getBorderWidth(border) : 0;
+  
+  // 计算拼板尺寸
+  const panelLength = dimensions.length * panelDimensions.row;
+  const panelWidth = dimensions.width * panelDimensions.column;
+  
+  // 根据工艺边位置添加宽度
+  if (breakAwayRail === BreakAwayRail.LeftRight) {
+    return {
+      length: panelLength,
+      width: panelWidth + borderWidth * 2, // 左右各加一个工艺边
+    };
+  } else if (breakAwayRail === BreakAwayRail.TopBottom) {
+    return {
+      length: panelLength + borderWidth * 2, // 上下各加一个工艺边
+      width: panelWidth,
+    };
+  } else if (breakAwayRail === BreakAwayRail.All) {
+    return {
+      length: panelLength + borderWidth * 2, // 上下各加一个工艺边
+      width: panelWidth + borderWidth * 2, // 左右各加一个工艺边
+    };
+  }
+  
+  return { length: panelLength, width: panelWidth };
 } 

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     
     // 提取关键字段
-    const { email, phone, shippingAddress, gerberFileUrl, ...pcbSpecData } = body;
+    const { email, phone, shippingAddress, gerberFileUrl, cal_values, ...pcbSpecData } = body;
     
     // 验证必需字段
     if (!email) {
@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
       user_id: user?.id || null, // 游客报价时为null
       email,
       phone: phone || null,
-      pcb_spec: pcbSpecData, // 所有PCB技术规格存储为JSON
+      pcb_spec: pcbSpecData, // 只存表单字段
+      cal_values: cal_values || null, // 新增：存所有计算字段
       shipping_address: shippingAddress || null,
       gerber_file_url: gerberFileUrl || null,
       status: 'pending'

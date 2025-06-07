@@ -49,7 +49,7 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
   const dimensions = form.singleDimensions || { length: 5, width: 5 };
   const singleArea = calculateSinglePcbArea(dimensions.length, dimensions.width);
   
-  if (form.shipmentType === ShipmentType.Panel) {
+  if (form.shipmentType === ShipmentType.PanelByCustom) {
     totalCount = (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
   } else if (form.shipmentType === ShipmentType.Single) {
     totalCount = form.singleCount || 0;

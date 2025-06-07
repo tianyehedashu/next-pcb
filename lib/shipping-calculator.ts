@@ -1,4 +1,5 @@
 import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
+import { calculateTotalPcbArea } from './utils/precision';
 
 interface Dimensions {
   length: number;

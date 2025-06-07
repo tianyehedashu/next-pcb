@@ -3,11 +3,12 @@
 
 export { 
   PcbType, CopperWeight, InnerCopperWeight, HdiType, TgType, 
-  ShipmentType, BorderType, PcbColor, SolderMask, Silkscreen,
+  ShipmentType, BorderType, BorderCutType, PcbColor, SolderMask, Silkscreen,
   SurfaceFinish, SurfaceFinishEnigType, MaskCover, TestMethod,
   ProductReport, PayMethod, QualityAttach, ProdCap,
   WorkingGerber, CrossOuts, IPCClass, IfDataConflicts,
-  EdgeCover, MinTrace, MinHole
+  EdgeCover, MinTrace, MinHole,
+  BreakAwayRail
 } from "../../../types/form";
 
 // 字段名称类型

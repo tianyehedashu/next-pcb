@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { ADMIN_ORDER_TABLE } from '@/app/constants/tableNames';
+import { ADMIN_ORDER, USER_ORDER } from '@/app/constants/tableNames';
 
 // 定义 pcb_quotes 查询返回类型
 interface AdminQuoteRow {
@@ -12,13 +12,13 @@ interface AdminQuoteRow {
   status: string;
   created_at: string;
   updated_at: string;
-  price?: number | null;
   admin_notes?: string | null;
   pcb_spec?: unknown; // 用 unknown 替代 any
-  orders?: {
+  cal_values?: unknown; // 新增，支持返回cal_values
+  admin_orders?: {
     id: string;
     status: string | null;
-    quoted_price: number | null;
+    admin_price: number | null;
     production_days: number | null;
   }[];
 }
@@ -34,7 +34,7 @@ interface BatchUpdateQuotesPayload extends UpdateQuotePayload {
 
 // GET /api/admin/orders
 export async function GET(request: Request) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
@@ -46,8 +46,8 @@ export async function GET(request: Request) {
   if (id) {
     // 详情
     const { data, error } = await supabase
-      .from('pcb_quotes')
-      .select('*,orders(id,status,quoted_price,production_days)')
+      .from(USER_ORDER)
+      .select('*,admin_orders(id,status,admin_price,production_days)')
       .eq('id', id)
       .single();
 
@@ -60,8 +60,8 @@ export async function GET(request: Request) {
   } else {
     // 列表+分页+筛选
     let query = supabase
-      .from('pcb_quotes')
-      .select('*,orders(id,status,quoted_price,production_days)', { count: 'exact' })
+      .from(USER_ORDER)
+      .select('*,admin_orders(id,status,admin_price,production_days)', { count: 'exact' })
       .order('created_at', { ascending: false });
 
     if (status && status !== 'all') query = query.eq('status', status);
@@ -74,7 +74,6 @@ export async function GET(request: Request) {
     query = query.range(from, to);
 
     const { data, error, count } = await query;
-    console.log('ltd data', data);
 
     if (error) {
       console.error('Error fetching quotes list:', error);
@@ -90,7 +89,7 @@ export async function GET(request: Request) {
 
 // PATCH /api/admin/orders?id=xxx
 export async function PATCH(request: Request) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
@@ -112,7 +111,7 @@ export async function PATCH(request: Request) {
   updateData.updated_at = new Date().toISOString();
 
   const { error } = await supabase
-    .from(ADMIN_ORDER_TABLE)
+    .from(USER_ORDER)
     .update(updateData)
     .eq('id', id);
 
@@ -126,7 +125,7 @@ export async function PATCH(request: Request) {
 
 // POST /api/admin/orders/batch
 export async function POST(request: Request) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   const body: BatchUpdateQuotesPayload = await request.json();
   const { orderIds, status } = body;
@@ -145,7 +144,7 @@ export async function POST(request: Request) {
   updateData.updated_at = new Date().toISOString();
 
   const { error } = await supabase
-    .from(ADMIN_ORDER_TABLE)
+    .from(USER_ORDER)
     .update(updateData)
     .in('id', orderIds);
 
@@ -157,19 +156,67 @@ export async function POST(request: Request) {
   return NextResponse.json({ message: 'Batch operation successful' });
 }
 
-// DELETE /api/admin/orders?id=xxx
+// DELETE /api/admin/orders?id=xxx 或 批量
 export async function DELETE(request: Request) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+
+  let idList: string[] = [];
+  try {
+    const body = await request.json();
+    if (Array.isArray(body.idList)) {
+      idList = body.idList;
+    }
+  } catch {
+    // body 不是 JSON 或没有 idList，继续走 query 参数逻辑
+  }
+
+  if (idList.length > 0) {
+    // 先删除 orders
+    const { error: orderError } = await supabase
+      .from(ADMIN_ORDER)
+      .delete()
+      .in('user_order_id', idList);
+
+    if (orderError) {
+      console.error('Error deleting related orders:', orderError);
+      return NextResponse.json({ error: orderError.message }, { status: 500 });
+    }
+
+    // 再删除 quotes
+    const { error } = await supabase
+      .from(USER_ORDER)
+      .delete()
+      .in('id', idList);
+
+    if (error) {
+      console.error('Error deleting quotes:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ message: 'Quotes and related orders deleted successfully', idList });
+  }
+
+  // 单个删除
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
-
   if (!id) {
     return NextResponse.json({ error: 'Quote ID is required' }, { status: 400 });
   }
 
+  // 先删除 orders
+  const { error: orderError } = await supabase
+    .from('orders')
+    .delete()
+    .eq('quote_id', id);
+
+  if (orderError) {
+    console.error('Error deleting related orders:', orderError);
+    return NextResponse.json({ error: orderError.message }, { status: 500 });
+  }
+
+  // 再删除 quotes
   const { error: deleteError } = await supabase
-    .from(ADMIN_ORDER_TABLE)
+    .from(USER_ORDER)
     .delete()
     .eq('id', id);
 
@@ -178,22 +225,30 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: deleteError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ message: 'Quote deleted successfully', id });
+  return NextResponse.json({ message: 'Quote and related orders deleted successfully', id });
 }
 
 // 工具：格式化返回给前端的报价结构
 function formatQuote(row: AdminQuoteRow) {
   // pcb_spec 可能为 json
-  let pcbPrice = null, pcbLeadTime = null, pcbStatus = null;
+  let pcbLeadTime = null, pcbStatus = null, pcbSpecData = null;
   if (row.pcb_spec) {
     try {
       const spec = typeof row.pcb_spec === 'string' ? JSON.parse(row.pcb_spec) : row.pcb_spec;
-      pcbPrice = spec.price ?? null;
       pcbLeadTime = spec.leadTimeDays ?? null;
       pcbStatus = spec.status ?? null;
+      pcbSpecData = spec; // 返回完整规格
     } catch {}
   }
-  const order = row.orders?.[0];
+  const order = row.admin_orders?.[0];
+  // 新增：从cal_values中提取price
+  let calPrice = null;
+  if (row.cal_values) {
+    try {
+      const cal = typeof row.cal_values === 'string' ? JSON.parse(row.cal_values) : row.cal_values;
+      calPrice = cal?.price ?? null;
+    } catch {}
+  }
   return {
     id: row.id,
     user_id: row.user_id,
@@ -202,13 +257,15 @@ function formatQuote(row: AdminQuoteRow) {
     created_at: row.created_at,
     updated_at: row.updated_at,
     status: row.status,
-    price: row.price,
+    price: calPrice, // 兼容性保留
     admin_notes: row.admin_notes,
-    pcb_price: pcbPrice,
+    pcb_price: calPrice, // 现在直接用cal_values.price
     pcb_lead_time: pcbLeadTime,
     pcb_status: pcbStatus,
+    pcb_spec_data: pcbSpecData, // 新增
     admin_order_status: order?.status ?? null,
-    admin_order_price: order?.quoted_price ?? null,
+    admin_order_price: order?.admin_price ?? null,
     admin_order_lead_time: order?.production_days ?? null,
+    cal_values: row.cal_values ?? null, // 新增，返回所有计算字段
   };
 } 

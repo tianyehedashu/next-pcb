@@ -2,7 +2,7 @@
 
 import { ShipmentType } from '@/types/form';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { calculateSinglePcbArea } from './utils/precision';
+import { calculateTotalPcbArea } from './utils/precision';
 
 // 节假日/周末判断与顺延用到的假期列表
 const holidays = [
@@ -49,9 +49,9 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
   // 安全检查 singleDimensions
   const dimensions = form.singleDimensions || { length: 5, width: 5 };
   // 使用新的精度处理函数
-  const singleArea = calculateSinglePcbArea(dimensions.length, dimensions.width);
+  const singleArea = calculateTotalPcbArea(dimensions.length, dimensions.width);
   
-  if (form.shipmentType === ShipmentType.Panel) {
+  if (form.shipmentType === ShipmentType.PanelByCustom) {
     totalCount = (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
   } else if (form.shipmentType === ShipmentType.Single) {
     totalCount = form.singleCount || 0;

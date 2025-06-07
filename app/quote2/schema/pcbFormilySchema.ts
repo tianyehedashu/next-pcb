@@ -1,19 +1,19 @@
 // 🎯 简化版 Formily Schema - 直接使用枚举，避免复杂提取
 import { ISchema } from "@formily/react";
-import { 
+import {
   PcbType, HdiType, TgType, ShipmentType, BorderType,
-  CopperWeight, InnerCopperWeight, 
+  CopperWeight, InnerCopperWeight,
   SolderMask, SurfaceFinishEnigType, CrossOuts, IPCClass, IfDataConflicts,
-  DeliveryType
+  DeliveryType, BreakAwayRail, BorderCutType
 } from "./shared-types";
 import { EdgeCover, ProductReport, WorkingGerber } from "../../../types/form";
 import * as formilyHelpers from "./formilyHelpers";
 
 // 🎯 简单的枚举转选项函数
 function enumToOptions<T extends Record<string, string | number>>(enumObj: T) {
-  return Object.values(enumObj).map(value => ({ 
-    label: String(value), 
-    value 
+  return Object.values(enumObj).map(value => ({
+    label: String(value),
+    value
   }));
 }
 
@@ -22,6 +22,7 @@ function fullWidth(schema: ISchema): ISchema {
   return {
     ...schema,
     "x-decorator-props": {
+      ...(schema["x-decorator-props"] || {}),
       fullWidth: true
     }
   };
@@ -44,8 +45,8 @@ export const {
   runSmartAdjustment,
   runSmartAdjustmentWithCheck,
   runSmartAdjustmentSync,
- 
- 
+
+
 } = formilyHelpers;
 
 /**
@@ -58,10 +59,10 @@ export const pcbFormilySchema: ISchema = {
   type: "object",
   properties: {
     // === 基础信息 ===
-    
+
     pcbType: {
       type: "string",
-      title: "Material Type", 
+      title: "Material Type",
       "x-component": "TabSelect",
       "x-component-props": {
         options: enumToOptions(PcbType)
@@ -93,7 +94,7 @@ export const pcbFormilySchema: ISchema = {
 
     thickness: {
       type: "number",
-      title: "Board Thickness", 
+      title: "Board Thickness",
       "x-component": "TabSelect",
       "x-reactions": [
         {
@@ -118,7 +119,8 @@ export const pcbFormilySchema: ISchema = {
       title: "HDI",
       "x-component": "TabSelect",
       "x-component-props": {
-        options: enumToOptions(HdiType)
+        options: enumToOptions(HdiType),
+        parseNumber: true
       },
       "x-reactions": {
         dependencies: ["layers"],
@@ -148,11 +150,23 @@ export const pcbFormilySchema: ISchema = {
     }),
 
     // === 尺寸信息 ===
-    
+
     singleDimensions: fullWidth({
       type: "object",
       title: "Single Size (cm)",
-      "x-component": "DimensionsInput"
+      "x-component": "DimensionsInput",
+      "x-reactions": [
+        {
+          dependencies: ["shipmentType"],
+          fulfill: {
+            state: {
+              "x-decorator-props": {
+                title: "{{$deps[0] === 'panel_by_custom' ? 'Unit Size (cm)' : 'Single Size (cm)'}}"
+              }
+            }
+          }
+        }
+      ]
     }),
 
     shipmentType: {
@@ -160,11 +174,30 @@ export const pcbFormilySchema: ISchema = {
       title: "Board Type",
       "x-component": "RadioTabs",
       "x-component-props": {
-        options: enumToOptions(ShipmentType).map(option => ({
-          ...option,
-          label: option.value === "single" ? "Single PCB" : "Panel"
-        }))
-      }
+        options: [
+          { label: "Single PCB", value: ShipmentType.Single },
+          { label: "Panel by Custom", value: ShipmentType.PanelByCustom },
+          { label: "Panel by SpeedX", value: ShipmentType.PanelBySpeedx },
+        ]
+      },
+      "x-reactions": [
+        {
+          dependencies: ["differentDesignsCount"],
+          fulfill: {
+            state: {
+              componentProps:
+                "{{$deps[0] > 1 ? { options: [ { label: 'Single PCB', value: 'single', disabled: true }, { label: 'Panel by Custom', value: 'panel_by_custom' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx' } ] } : { options: [ { label: 'Single PCB', value: 'single' }, { label: 'Panel by Custom', value: 'panel_by_custom' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx' } ] } }}"
+            }
+          }
+        },
+        {
+          dependencies: ["differentDesignsCount", "$self"],
+          when: "{{$deps[0] > 1 && $self.value === 'single'}}",
+          fulfill: {
+            run: "{{$self.setValue('panel_by_custom')}}"
+          }
+        }
+      ]
     },
 
     singleCount: {
@@ -187,14 +220,14 @@ export const pcbFormilySchema: ISchema = {
     },
 
     panelDimensions: fullWidth({
-      type: "object", 
+      type: "object",
       title: "Panel Type (pcs)",
       "x-component": "PanelDimensionsInput",
       "x-reactions": {
         dependencies: ["shipmentType"],
         fulfill: {
           state: {
-            visible: "{{$deps[0] === 'panel'}}"
+            visible: "{{$deps[0] === 'panel_by_custom' || $deps[0] === 'panel_by_speedx'}}"
           }
         }
       }
@@ -205,14 +238,14 @@ export const pcbFormilySchema: ISchema = {
       title: "Quantity(panel)",
       "x-component": "QuantityInput",
       "x-component-props": {
-        unit: "pcs",
+        unit: "set",
         placeholder: "Select"
       },
       "x-reactions": {
         dependencies: ["shipmentType"],
         fulfill: {
           state: {
-            visible: "{{$deps[0] === 'panel'}}"
+            visible: "{{$deps[0] === 'panel_by_custom' || $deps[0] === 'panel_by_speedx'}}"
           }
         }
       }
@@ -229,22 +262,76 @@ export const pcbFormilySchema: ISchema = {
     }),
 
     border: {
-      type: "string",
-      title: "Break-away Rail",
-      "x-component": "TabSelect",
-      "x-component-props": {
-        options: enumToOptions(BorderType).map(option => ({
-          ...option,
-          label: option.value === 'none' ? 'None' : 
-                 option.value === '5' ? '5mm' :
-                 option.value === '10' ? '10mm' : 
-                 option.label
-        }))
-      }
+      type: 'string',
+      title: 'Board Edge Width',
+      'x-decorator': 'FormItem',
+      'x-component': 'TabSelect',
+      'x-component-props': {
+        options: [
+          { label: '5mm', value: BorderType.Five },
+          { label: '10mm', value: BorderType.Ten },
+        ]
+      },
+      'x-reactions': {
+        dependencies: ['breakAwayRail'],
+        fulfill: {
+          state: {
+            visible: '{{$deps[0] !== undefined && $deps[0] !== "None"}}',
+          },
+          run: '{{if($deps[0] !== undefined && $deps[0] !== "None" && !$self.value) { $self.setValue("5") }}}',
+        },
+      },
+    },
+
+    borderCutType: {
+      type: 'string',
+      title: 'Board Edge Type',
+      'x-component': 'TabSelect',
+      'x-component-props': {
+        options: [
+          { label: 'V-Cut', value: BorderCutType.VCut },
+          { label: 'Tab Route', value: BorderCutType.Tab },
+          { label: 'Routing', value: BorderCutType.Routing },
+        ]
+      },
+      'x-reactions': {
+        dependencies: ['breakAwayRail'],
+        fulfill: {
+          state: {
+            visible: '{{$deps[0] !== undefined && $deps[0] !== "None"}}',
+          },
+          run: '{{if($deps[0] !== undefined && $deps[0] !== "None" && !$self.value) { $self.setValue("vcut") }}}',
+        },
+      },
+    },
+
+    // 新增 breakAwayRail 字段
+    breakAwayRail: {
+      type: 'string',
+      title: 'Break-away Rail',
+      'x-decorator': 'FormItem',
+      'x-component': 'TabSelect',
+      'x-component-props': {
+        options: [
+          { label: 'None', value: BreakAwayRail.None },
+          { label: 'Left and Right', value: BreakAwayRail.LeftRight },
+          { label: 'Top and Bottom', value: BreakAwayRail.TopBottom },
+          { label: 'All', value: BreakAwayRail.All },
+        ]
+      },
+      'x-reactions': {
+        dependencies: ['shipmentType'],
+        fulfill: {
+          state: {
+            visible: '{{$deps[0] === "panel_by_speedx"}}',
+          },
+          run: '{{if($deps[0] !== "panel_by_speedx") { $self.setValue("None") }}}',
+        },
+      },
     },
 
     // === 工艺信息 ===
-    
+
     outerCopperWeight: {
       type: "string",
       title: "Outer Copper Weight",
@@ -259,7 +346,7 @@ export const pcbFormilySchema: ISchema = {
     },
 
     innerCopperWeight: {
-      type: "string", 
+      type: "string",
       title: "Inner Copper Weight",
       "x-component": "TabSelect",
       "x-component-props": {
@@ -305,7 +392,7 @@ export const pcbFormilySchema: ISchema = {
     minHole: {
       type: "string",
       title: "Min Hole",
-      "x-component": "TabSelect", 
+      "x-component": "TabSelect",
       "x-reactions": [
         {
           dependencies: ["layers", "thickness"],
@@ -334,7 +421,7 @@ export const pcbFormilySchema: ISchema = {
     },
 
     silkscreen: {
-      type: "string", 
+      type: "string",
       title: "Silk Screen",
       "x-component": "ColorSelector",
       "x-reactions": [
@@ -379,7 +466,7 @@ export const pcbFormilySchema: ISchema = {
 
     surfaceFinishEnigType: {
       type: "string",
-      title: "ENIG Thickness", 
+      title: "ENIG Thickness",
       "x-component": "TabSelect",
       "x-component-props": {
         options: enumToOptions(SurfaceFinishEnigType)
@@ -450,7 +537,7 @@ export const pcbFormilySchema: ISchema = {
     },
 
     // === 特殊工艺 ===
-    
+
     impedance: {
       type: "boolean",
       title: "Impedance Control",
@@ -490,7 +577,7 @@ export const pcbFormilySchema: ISchema = {
     }),
 
     // === 测试与服务 ===
-    
+
     testMethod: {
       type: "string",
       title: "Electrical Test",
@@ -600,7 +687,7 @@ export const pcbFormilySchema: ISchema = {
     },
 
     // === 文件上传 ===
-    
+
     gerberUrl: fullWidth({
       type: "string",
       title: "Gerber File URL",
@@ -611,7 +698,7 @@ export const pcbFormilySchema: ISchema = {
     }),
 
     // === 运输信息 ===
-    
+
     shippingCostEstimation: fullWidth({
       type: "object",
       "x-component": "ShippingCostEstimation",
@@ -628,7 +715,7 @@ export const pcbFormilySchema: ISchema = {
         }
       }
     }),
-    
+
     shippingAddress: fullWidth({
       type: "object",
       title: "Shipping Address",
@@ -647,7 +734,7 @@ export const pcbFormilySchema: ISchema = {
         phone: "",
         courier: ""
       }
-    })
+    }),
 
   }
 };
@@ -658,14 +745,14 @@ export const fieldGroups = [
     title: "Basic Information",
     icon: "Info",
     fields: [
-      'pcbType', 'layers', 'useShengyiMaterial', 'thickness', 'tg', 
-      'differentDesignsCount', 'singleDimensions', 'shipmentType', 
-      'singleCount', 'panelDimensions', 'panelSet','border', 'pcbNote'
+      'pcbType', 'layers', 'useShengyiMaterial', 'thickness', 'tg',
+      'differentDesignsCount', 'singleDimensions', 'shipmentType',
+      'singleCount', 'panelDimensions', 'panelSet', 'breakAwayRail','borderCutType', 'border', 'pcbNote'
     ]
   },
   {
     title: "Process Information",
-    icon: "Settings", 
+    icon: "Settings",
     fields: [
       'outerCopperWeight', 'innerCopperWeight', 'minTrace', 'minHole',
       'solderMask', 'silkscreen', 'surfaceFinish', 'surfaceFinishEnigType',
@@ -677,7 +764,7 @@ export const fieldGroups = [
     title: "Service Information",
     icon: "Wrench",
     fields: [
-      'hdi', 'castellated', 'testMethod',  'workingGerber',
+      'hdi', 'castellated', 'testMethod', 'workingGerber',
       'productReport', 'ulMark', 'crossOuts', 'ipcClass', 'ifDataConflicts',
       'delivery', 'specialRequests'
     ]
@@ -691,7 +778,7 @@ export const fieldGroups = [
   },
   {
     title: "Shipping Information",
-    icon: "Truck", 
+    icon: "Truck",
     fields: [
       'shippingAddress'
     ]

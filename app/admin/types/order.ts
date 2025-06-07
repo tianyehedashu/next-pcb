@@ -21,7 +21,6 @@ export interface Order {
   created_at: string;
   updated_at: string;
   status: string;
-  price?: number | null;
   admin_notes?: string | null;
   pcb_price?: number | null;
   pcb_lead_time?: number | null;

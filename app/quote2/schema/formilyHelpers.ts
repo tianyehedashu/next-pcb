@@ -12,6 +12,7 @@ import {
   QualityAttach,
   ProductReport
 } from "../../../types/form";
+import { calculateTotalPcbArea } from '@/lib/utils/precision';
 
 // === 类型定义 ===
 type ThicknessDeps = [number, string, string]; // [layers, outerCopper, innerCopper]
@@ -113,7 +114,7 @@ export function getThicknessOptions([layers, outerCopper, innerCopper]: Thicknes
     }
   }
 
-  return filtered.map(value => ({ label: `${value}mm`, value: value.toString() }));
+  return filtered.map(value => ({ label: `${value}mm`, value }));
 }
 
 /**
@@ -310,18 +311,7 @@ export function getEdgeCoverOptions([]: EdgeCoverDeps): OptionsResult {
  *   - 面积 ≤ 5㎡：可选 FlyingProbe、Fixture
  */
 export function getTestMethodOptions([layers, singleDimensions, singleCount, shipmentType, panelDimensions, panelSet]: TestMethodDeps): OptionsResult {
-  // 计算面积（平方米）
-  let area = 0;
-  
-  if (shipmentType === 'single' && singleDimensions && singleCount) {
-    const dimensions = singleDimensions as { length?: number; width?: number };
-    const { length = 0, width = 0 } = dimensions;
-    area = (length * width * singleCount) / 10000; // 转换为平方米（cm² -> m²）
-  } else if (shipmentType === 'panel' && panelDimensions && panelSet) {
-    const dimensions = panelDimensions as { length?: number; width?: number };
-    const { length = 0, width = 0 } = dimensions;
-    area = (length * width * panelSet) / 10000; // 转换为平方米（cm² -> m²）
-  }
+  const area = calculateTotalPcbArea({ shipmentType, singleDimensions, singleCount, panelDimensions, panelSet });
 
   // 根据层数和面积确定可选项
   if (layers === 1) {

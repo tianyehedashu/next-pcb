@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- PCB 主体 -->
+  <rect x="40" y="40" width="120" height="120" fill="#4CAF50" stroke="#000" stroke-width="2"/>
+  
+  <!-- 左右工艺边 -->
+  <rect x="20" y="40" width="20" height="120" fill="#FFC107" stroke="#000" stroke-width="2"/>
+  <rect x="160" y="40" width="20" height="120" fill="#FFC107" stroke="#000" stroke-width="2"/>
+  
+  <!-- 虚线表示分板线 -->
+  <line x1="40" y1="40" x2="40" y2="160" stroke="#000" stroke-width="1" stroke-dasharray="5,5"/>
+  <line x1="160" y1="40" x2="160" y2="160" stroke="#000" stroke-width="1" stroke-dasharray="5,5"/>
+  
+  <!-- 标注 -->
+  <text x="100" y="20" text-anchor="middle" font-size="12">PCB</text>
+  <text x="30" y="100" text-anchor="middle" font-size="12" transform="rotate(-90,30,100)">工艺边</text>
+  <text x="170" y="100" text-anchor="middle" font-size="12" transform="rotate(-90,170,100)">工艺边</text>
+</svg> 

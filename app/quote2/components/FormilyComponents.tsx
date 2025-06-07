@@ -13,17 +13,25 @@ import ColorSelector from "./ColorSelector";
 import { cn } from "@/lib/utils";
 import { AddressFormComponent } from "./AddressFormComponent";
 import type { AddressFormValue } from "./AddressFormComponent";
+import { BoardEdgeInput } from './BoardEdgeInput';
+import { DimensionsInput } from "../../components/ui/DimensionsInput";
+
+interface OptionWithDisabled {
+  label: string;
+  value: string | number | boolean;
+  disabled?: boolean;
+}
 
 // 定义 Formily 组件的 props 类型
 interface FormilyFieldProps {
   value?: string | number | boolean | object | null;
   onChange?: (value: string | number | boolean | object | null) => void;
   placeholder?: string;
-  dataSource?: Array<{ label: string; value: string | number | boolean }>;
-  enum?: Array<{ label: string; value: string | number | boolean }>;
-  options?: Array<{ label: string; value: string | number | boolean }>;
+  dataSource?: OptionWithDisabled[];
+  enum?: OptionWithDisabled[];
+  options?: OptionWithDisabled[];
   componentProps?: { 
-    options?: Array<{ label: string; value: string | number | boolean }>;
+    options?: OptionWithDisabled[];
     isProductReport?: boolean;
     userId?: string;
   };
@@ -34,6 +42,7 @@ interface FormilyFieldProps {
   accept?: string;
   unit?: string;
   rows?: number;
+  title?: string;
   [key: string]: unknown;
 }
 
@@ -169,12 +178,14 @@ export const formilyComponents = {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => props.onChange?.(option.value)}
+            onClick={() => !option.disabled && props.onChange?.(option.value)}
+            disabled={option.disabled}
             className={cn(
               "px-4 py-2 min-w-[80px] h-9 rounded-md border transition-colors duration-150 text-sm font-medium",
               props.value === option.value
                 ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
-                : "bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                : "bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50",
+              option.disabled ? "opacity-50 cursor-not-allowed" : ""
             )}
           >
             {option.label}
@@ -220,33 +231,7 @@ export const formilyComponents = {
     );
   },
   DimensionsInput: (props: FormilyFieldProps) => {
-    const dimensions = (props.value as { length?: number; width?: number }) || {};
-    return (
-      <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          placeholder="Length"
-          value={String(dimensions.length || '')}
-          onChange={(e) => props.onChange?.({
-            ...dimensions,
-            length: e.target.value ? Number(e.target.value) : 0
-          })}
-          className="w-28 h-10 text-sm"
-        />
-        <span className="text-sm font-medium">×</span>
-        <Input
-          type="number"
-          placeholder="Width"
-          value={String(dimensions.width || '')}
-          onChange={(e) => props.onChange?.({
-            ...dimensions,
-            width: e.target.value ? Number(e.target.value) : 0
-          })}
-          className="w-28 h-10 text-sm"
-        />
-        <span className="text-sm text-muted-foreground font-medium">cm</span>
-      </div>
-    );
+    return <DimensionsInput {...props} label={props.title} />;
   },
   PanelDimensionsInput: (props: FormilyFieldProps) => {
     const panelDimensions = (props.value as { row?: number; column?: number }) || {};
@@ -608,6 +593,7 @@ export const formilyComponents = {
       </div>
     );
   },
+  BoardEdgeInput,
 };
 
 // 创建 SchemaField

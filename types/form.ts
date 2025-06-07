@@ -46,28 +46,58 @@ export enum TgType {
 }
 
 /**
- * 出货方式
- * 作用：决定PCB交付形态，影响下单数量、拼板方式、生产效率。
- * - single：单片出货，适合打样、小批量，灵活性高。
- * - panel：拼板出货，适合批量生产，提高生产效率，降低成本。
- * - panel_agent：代理拼板，第三方拼板服务，适合特殊需求。
+ * Shipment Type
+ * Determines the delivery form of PCB, affecting order quantity, panelization, and production efficiency.
+ * - single: Single piece delivery, suitable for prototyping and small batches, high flexibility.
+ * - panel_by_custom: Panel by custom, suitable for batch production, improves efficiency, reduces cost.
+ * - panel_by_speedx: Panel by SpeedX, third-party panelization service, for special needs.
  */
 export enum ShipmentType {
-  Single = 'single', // 灵活，适合小批量
-  Panel = 'panel', // 降低成本，适合量产
- 
+  Single = 'single', // Flexible, suitable for small batches
+  PanelByCustom = 'panel_by_custom', // Batch production, custom panel
+  PanelBySpeedx = 'panel_by_speedx', // Third-party panelization (SpeedX)
 }
+
+
+/**
+ * Break-away Rail（工艺边）
+ * 作用：用于PCB板边缘的辅助边框，便于自动化贴片、组装和分板工艺。
+ * 影响：加工艺边可提升生产效率、保护PCB主体、便于分板，适用于小尺寸或异形PCB及有贴片需求的订单。
+ * 注意：BreakAwayRail 是生产辅助用的"工艺边"，通常在分板后被去除，不属于成品PCB的一部分。
+ * 与 EdgeCover 区别：BreakAwayRail 仅用于生产过程，EdgeCover 作用于成品PCB实际边缘。
+ * true：需要Break-away Rail，适合自动化生产和特殊工艺需求。
+ * false：不需要Break-away Rail，常规订单。
+ */
+export enum BreakAwayRail {
+  None = 'None', // 无工艺边
+  LeftRight = 'Left and Right', // 左右工艺边
+  TopBottom = 'Top and Bottom', // 上下工艺边
+  All = 'All', // 四边都有工艺边
+}
+
 
 /**
  * 工艺边宽度
- * 作用：决定PCB边缘是否有工艺边，影响后续贴片、分板等工艺。
- * - none：无工艺边，适合无特殊工艺需求。
- * - 5/10：5mm/10mm工艺边，便于贴片、分板等。
+ * 作用：决定PCB边缘工艺边的宽度，影响后续贴片、分板等工艺。
+ * - 5：5mm工艺边，便于加工
+ * - 10：10mm工艺边，适合大板
  */
 export enum BorderType {
-  None = 'None', // 无工艺边，节省材料
   Five = '5', // 5mm工艺边，便于加工
   Ten = '10', // 10mm工艺边，适合大板
+}
+
+/**
+ * 工艺边切割方式
+ * 作用：决定PCB工艺边的切割方式，影响分板效果和边缘质量。
+ * - vcut：V型槽切割，适合直线分板，边缘平整
+ * - tab：邮票孔切割，适合复杂形状分板，边缘有凸起
+ * - routing：锣边切割，适合特殊形状分板，边缘较粗糙
+ */
+export enum BorderCutType {
+  VCut = 'vcut', // V型槽切割，边缘平整
+  Tab = 'tab', // 邮票孔切割，边缘有凸起
+  Routing = 'routing', // 锣边切割，边缘较粗糙
 }
 
 /**
@@ -305,21 +335,6 @@ export enum SurfaceFinishEnigType {
   Enig3u = 'ENIG 3U', // 3微英寸，最高耐腐蚀性，成本最高，适合特殊高端应用
 }
 
-/**
- * Break-away Rail（工艺边）
- * 作用：用于PCB板边缘的辅助边框，便于自动化贴片、组装和分板工艺。
- * 影响：加工艺边可提升生产效率、保护PCB主体、便于分板，适用于小尺寸或异形PCB及有贴片需求的订单。
- * 注意：BreakAwayRail 是生产辅助用的"工艺边"，通常在分板后被去除，不属于成品PCB的一部分。
- * 与 EdgeCover 区别：BreakAwayRail 仅用于生产过程，EdgeCover 作用于成品PCB实际边缘。
- * true：需要Break-away Rail，适合自动化生产和特殊工艺需求。
- * false：不需要Break-away Rail，常规订单。
- */
-export enum BreakAwayRail {
-  None = 'None', // 无工艺边
-  LeftRight = 'Left and Right', // 左右工艺边
-  TopBottom = 'Top and Bottom', // 上下工艺边
-  All = 'All', // 四边都有工艺边
-}
 
 /**
  * HalfHole

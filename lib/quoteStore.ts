@@ -40,7 +40,7 @@ const defaultForm = {
   panelDimensions: { row: 1, column: 1 },
   singleCount: 10,
   panelSet: 10,
-  border: BorderType.None,
+  border: undefined,
   maskCover: MaskCover.TentedVias,
   edgePlating: false,
   halfHole: HalfHole.None,

@@ -7,8 +7,11 @@ import {
   MinTrace, MinHole, SolderMask, Silkscreen, SurfaceFinish, 
   MaskCover, TestMethod, ProductReport, HdiType, TgType,
   SurfaceFinishEnigType, EdgeCover, WorkingGerber, CrossOuts, 
-  IPCClass, IfDataConflicts, DeliveryType
+  IPCClass, IfDataConflicts, DeliveryType,
+  BreakAwayRail,
+  BorderCutType
 } from "../../app/quote2/schema/shared-types";
+import { calculateTotalPcbArea } from '../utils/precision';
 
 // === 类型定义 ===
 type ValidationState = 'idle' | 'validating' | 'valid' | 'invalid';
@@ -108,7 +111,9 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
   panelDimensions: { row: 1, column: 1 },
   panelSet: 0,
   differentDesignsCount: 1,
-  border: BorderType.None,
+  border: BorderType.Five,
+  borderCutType: BorderCutType.VCut,
+  breakAwayRail: BreakAwayRail.None,
   useShengyiMaterial: false,
   pcbNote: '',
 
@@ -171,17 +176,16 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
 
 // === 计算属性辅助函数 ===
 const calculateProperties = (formData: QuoteFormData): CalculatedProperties => {
-  // 基础计算 - 修复totalQuantity计算逻辑
   let totalQuantity = 0;
   if (formData.shipmentType === ShipmentType.Single) {
     totalQuantity = formData.singleCount || 0;
-  } else if (formData.shipmentType === ShipmentType.Panel) {
+  } else if (formData.shipmentType === ShipmentType.PanelByCustom) {
     totalQuantity = (formData.panelDimensions?.row || 1) * (formData.panelDimensions?.column || 1) * (formData.panelSet || 0);
+  } else if (formData.shipmentType === ShipmentType.PanelBySpeedx) {
+    totalQuantity = formData.panelSet || 0;
   }
-  
   const singlePcbArea = formData.singleDimensions.length * formData.singleDimensions.width;
-  const totalArea = singlePcbArea * totalQuantity;
-  
+  const totalArea = calculateTotalPcbArea(formData);
   return {
     totalQuantity,
     singlePcbArea,

@@ -88,8 +88,8 @@ function BooleanTabs({ value, onChange }: {
 function RadioTabs({ value, onChange, options, dataSource }: {
   value?: string;
   onChange?: (val: string) => void;
-  options?: Array<{ label: string; value: string }>;
-  dataSource?: Array<{ label: string; value: string }>;
+  options?: Array<{ label: string; value: string; disabled?: boolean }>;
+  dataSource?: Array<{ label: string; value: string; disabled?: boolean }>;
 }) {
   // 🛡️ 防御性编程：优先使用dataSource（Formily动态选项），然后使用options（静态选项）
   const safeOptions = dataSource || options || [];
@@ -120,12 +120,13 @@ function RadioTabs({ value, onChange, options, dataSource }: {
         <button
           key={option.value}
           type="button"
-          onClick={() => onChange?.(option.value)}
-          className={`px-6 py-3 text-sm font-medium rounded-lg border-2 transition-all duration-200 capitalize ${
-            value === option.value
+          onClick={() => !option.disabled && onChange?.(option.value)}
+          disabled={option.disabled}
+          className={`px-6 py-3 text-sm font-medium rounded-lg border-2 transition-all duration-200 capitalize
+            ${value === option.value
               ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/25 transform scale-105"
-              : "bg-white text-gray-700 border-gray-200 hover:border-purple-300 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 hover:shadow-md"
-          }`}
+              : "bg-white text-gray-700 border-gray-200 hover:border-purple-300 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 hover:shadow-md"}
+            ${option.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           {option.label}
         </button>

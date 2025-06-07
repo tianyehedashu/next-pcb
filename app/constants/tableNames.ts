@@ -1,1 +1,2 @@
-export const ADMIN_ORDER_TABLE = 'pcb_quotes'; 
+export const USER_ORDER = 'pcb_quotes'; 
+export const ADMIN_ORDER = 'admin_orders'; 

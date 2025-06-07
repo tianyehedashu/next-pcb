@@ -344,7 +344,7 @@ export function useAutoAdjustments(form: any) {
             message: 'Switched to Single Sheet Shipment Mode, Please Configure Single Sheet Quantity',
             detail: 'Single Sheet Shipment Suitable for Small Batch or Sample Production'
           });
-        } else if (shipmentType === ShipmentType.Panel) {
+        } else if (shipmentType === ShipmentType.PanelByCustom || shipmentType === ShipmentType.PanelBySpeedx) {
           addAutoAdjustment({
             field: 'shipmentType',
             type: 'info',

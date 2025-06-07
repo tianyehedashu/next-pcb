@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { 
-  PcbType, HdiType, TgType, ShipmentType, BorderType,
+  PcbType, HdiType, TgType, ShipmentType, BorderType, BorderCutType,
   CopperWeight, InnerCopperWeight, MinTrace, MinHole, SolderMask, Silkscreen, 
   SurfaceFinish, SurfaceFinishEnigType, MaskCover, TestMethod,
   ProductReport,
   WorkingGerber, CrossOuts, IPCClass, IfDataConflicts,
-  EdgeCover, DeliveryType
+  EdgeCover, DeliveryType, BreakAwayRail
 } from "./shared-types";
 
 // 尺寸对象校验
@@ -56,7 +56,9 @@ export const quoteSchema = z.object({
   panelDimensions: panelDimensionsSchema.optional().default({ row: 1, column: 1 }),
   panelSet: z.number().int().min(0, "Panel set cannot be negative").optional().default(0),
   differentDesignsCount: z.number().int().min(1, "Must have at least 1 design").max(100).default(1),
-  border: z.nativeEnum(BorderType).default(BorderType.None),
+  border: z.nativeEnum(BorderType).optional(),
+  borderCutType: z.nativeEnum(BorderCutType).optional(),
+  breakAwayRail: z.nativeEnum(BreakAwayRail).default(BreakAwayRail.None).optional(),
   useShengyiMaterial: z.boolean().default(false),
   pcbNote: z.string().max(1000, "PCB note too long").optional().default(""),
 
@@ -118,8 +120,8 @@ export const quoteSchema = z.object({
   userNote: z.string().max(1000, "User note too long").optional().default(""),
 }).refine((data) => {
   // 条件校验：如果是拼板出货，必须有 panelDimensions 和 panelSet
-  if (data.shipmentType === ShipmentType.Panel) {
-    return data.panelDimensions && data.panelSet;
+  if ((data as any).shipmentType === ShipmentType.PanelByCustom || (data as any).shipmentType === ShipmentType.PanelBySpeedx) {
+    return (data as any).panelDimensions && (data as any).panelSet;
   }
   return true;
 }, {
@@ -127,7 +129,7 @@ export const quoteSchema = z.object({
   path: ["panelDimensions"],
 }).refine((data) => {
   // 条件校验：如果选择了金手指，且 goldFingersBevel 为 true，则必须有 goldFingers
-  if (data.goldFingersBevel && !data.goldFingers) {
+  if ((data as any).goldFingersBevel && !(data as any).goldFingers) {
     return false;
   }
   return true;
@@ -136,7 +138,7 @@ export const quoteSchema = z.object({
   path: ["goldFingersBevel"],
 }).refine((data) => {
   // 条件校验：如果表面处理是 ENIG，必须选择 ENIG 厚度
-  if (data.surfaceFinish === SurfaceFinish.Enig && !data.surfaceFinishEnigType) {
+  if ((data as any).surfaceFinish === SurfaceFinish.Enig && !(data as any).surfaceFinishEnigType) {
     return false;
   }
   return true;
@@ -145,7 +147,7 @@ export const quoteSchema = z.object({
   path: ["surfaceFinishEnigType"],
 }).refine((data) => {
   // 条件校验：如果层数>=4，内层铜厚是必须的
-  if (data.layers >= 4 && !data.innerCopperWeight) {
+  if ((data as any).layers >= 4 && !(data as any).innerCopperWeight) {
     return false;
   }
   return true;
@@ -154,19 +156,19 @@ export const quoteSchema = z.object({
   path: ["innerCopperWeight"],
 }).refine((data) => {
   // 条件校验：如果选择了边缘镀金，必须选择边缘覆盖方式
-  if (data.edgePlating && !data.edgeCover) {
+  if ((data as any).edgePlating && !(data as any).edgeCover) {
     return false;
   }
   return true;
 }, {
   message: "Edge cover is required when edge plating is selected",
   path: ["edgeCover"],
-});
+})
 
 // 提交时的严格验证 schema
 export const quoteSubmitSchema = quoteSchema.refine((data) => {
   // 提交时地址信息必须完整
-  const addr = data.shippingAddress;
+  const addr = (data as any).shippingAddress;
   return addr.country.length > 0 && addr.city.length > 0 && 
          addr.address.length > 0 && addr.zipCode.length > 0 && 
          addr.contactName.length > 0;
@@ -175,7 +177,10 @@ export const quoteSubmitSchema = quoteSchema.refine((data) => {
   path: ["shippingAddress"],
 }).refine((data) => {
   // 提交时：如果是单片出货，必须有 singleCount
-  if (data.shipmentType === ShipmentType.Single && (!data.singleCount || data.singleCount <= 0)) {
+  if ((data as any).shipmentType === ShipmentType.Single && (!(data as any).singleCount || (data as any).singleCount <= 0)) {
+    return false;
+  }
+  if (((data as any).shipmentType === ShipmentType.PanelByCustom || (data as any).shipmentType === ShipmentType.PanelBySpeedx) && (!(data as any).panelSet || (data as any).panelSet <= 0)) {
     return false;
   }
   return true;

@@ -9,6 +9,7 @@ import { useQuoteFormData, useQuoteCalculated } from "@/lib/stores/quote-store";
 import { calculateLeadTime } from '@/lib/stores/quote-calculations';
 import { useQuoteStore } from "@/lib/stores/quote-store";
 import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
+import { calculateTotalPcbArea } from '@/lib/stores/quote-calculations';
 
 interface PriceBreakdown {
   totalPrice: number;
@@ -156,7 +157,7 @@ export default function PriceSummary() {
     let manualTotalCount = 0;
     if (formData.shipmentType === 'single') {
       manualTotalCount = formData.singleCount || 0;
-    } else if (formData.shipmentType === 'panel') {
+    } else if (formData.shipmentType === 'panel_by_custom' || formData.shipmentType === 'panel_by_speedx') {
       manualTotalCount = (formData.panelDimensions?.row || 1) * (formData.panelDimensions?.column || 1) * (formData.panelSet || 0);
     }
     

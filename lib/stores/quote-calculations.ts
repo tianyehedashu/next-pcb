@@ -3,6 +3,7 @@ import {
   HdiType, SurfaceFinish, MinTrace, MinHole, CopperWeight, InnerCopperWeight 
 } from "../../app/quote2/schema/shared-types";
 import { calcProductionCycle } from "../productCycleCalc-v3";
+import { calculateTotalPcbArea } from '../utils/precision';
 
 // === 计算工具函数 ===
 

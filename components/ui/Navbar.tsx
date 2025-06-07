@@ -18,6 +18,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const user = useUserStore(state => state.user);
+  const isAdmin = user?.role === "admin";
 
   // 使用 useLayoutEffect 确保在渲染前就设置好状态
   useLayoutEffect(() => {
@@ -63,7 +64,7 @@ export default function Navbar() {
     logoutAndRedirect("/");
   };
 
-  const navigationItems = [
+  let navigationItems = [
     { href: "/", label: "Home" },
     { href: "/quote2", label: "Quote" },
     { href: "#services", label: "Services" },
@@ -71,6 +72,13 @@ export default function Navbar() {
     { href: "#testimonials", label: "Testimonials" },
     { href: "/contact", label: "Contact" },
   ];
+  if (isAdmin) {
+    navigationItems = [
+      ...navigationItems.slice(0, 1),
+      { href: "/admin", label: "Admin" },
+      ...navigationItems.slice(1)
+    ];
+  }
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 

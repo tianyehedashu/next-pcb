@@ -164,6 +164,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: Object.values(ShipmentType),
     default: 'single',
     required: true,
+    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel_by_custom' || form.shipmentType === 'panel_by_speedx',
   },
   border: {
     label: 'Break-away Rail',
@@ -446,7 +447,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: [true, false],
     default: false,
     required: false,
-    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel',
+    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel_by_custom' || form.shipmentType === 'panel_by_speedx',
     trueLabel: 'Yes',
     falseLabel: 'No',
   },
@@ -564,7 +565,7 @@ export const pcbFieldRules: Record<string, PCBFieldRule> = {
     options: [],
     default: { row: 1, column: 1 },
     required: true,
-    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel',
+    shouldShow: (form: PcbQuoteForm) => form.shipmentType === 'panel_by_custom' || form.shipmentType === 'panel_by_speedx',
   },
   goldFingersBevel: {
     label: 'Bevel Gold Fingers',

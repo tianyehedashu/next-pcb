@@ -37,26 +37,19 @@ import {
   drillAndThicknessHandler, // 内层铜厚 
 } from './priceHandlers';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
-import { calculateSinglePcbArea } from './utils/precision';
+import { calculateTotalPcbArea } from './utils/precision';
 
 // 计算总数和面积（平方米）
 function getTotalCountAndArea(form: PcbQuoteForm): { totalCount: number; area: number } {
   let totalCount = 0;
-  let area = 0;
-  
-  // 安全检查 singleDimensions
-  const dimensions = form.singleDimensions || { length: 5, width: 5 };
-  // 修复精度问题：使用 Math.round 保留6位小数精度，避免浮点数计算误差
-
-    const singleArea = calculateSinglePcbArea(dimensions.length, dimensions.width);
-    
-  if (form.shipmentType === ShipmentType.Panel) {
+  if (form.shipmentType === ShipmentType.PanelByCustom) {
     totalCount = (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
+  } else if (form.shipmentType === ShipmentType.PanelBySpeedx) {
+    totalCount = form.panelSet || 0;
   } else if (form.shipmentType === ShipmentType.Single) {
     totalCount = form.singleCount || 0;
   }
-  
-  area = singleArea * totalCount;
+  const area = calculateTotalPcbArea(form);
   return { totalCount, area };
 }
 
@@ -187,12 +180,4 @@ export function calcTotalCount(form: PcbQuoteForm): number {
     return (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
   }
   return 0;
-}
-
-// 计算板子总面积 (平方米)
-export function calcArea(form: PcbQuoteForm): number {
-  const totalCount = calcTotalCount(form);
-  // 修复精度问题：使用 Math.round 保留6位小数精度，避免浮点数计算误差
-  const area = Math.round(((form.singleDimensions?.length ?? 0) * (form.singleDimensions?.width ?? 0) * totalCount) / 10000 * 1000000) / 1000000;
-  return area;
 }
