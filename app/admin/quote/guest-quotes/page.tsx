@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabaseClient";
 import { useUserStore } from "@/lib/userStore";
-import { useRequireRole } from "@/lib/hooks/useRequireRole";
+
 import { Mail, Phone, Calendar, DollarSign, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,14 +37,8 @@ export default function AdminGuestQuotesPage() {
   const [updating, setUpdating] = useState(false);
   const user = useUserStore(state => state.user);
 
-  // 基于角色的访问控制
-  const { isAllowed, isDenied, isLoading: roleLoading } = useRequireRole(["admin"], "/quote/admin/guest-quotes");
 
-  useEffect(() => {
-    if (!user || !isAllowed) return;
-    
-    fetchGuestQuotes();
-  }, [user, isAllowed]);
+
 
   const fetchGuestQuotes = async () => {
     setLoading(true);

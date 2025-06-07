@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { createForm, Form } from "@formily/core";
+import { createForm, Form, onFieldValueChange } from "@formily/core";
 import { FormProvider, FormConsumer } from "@formily/react";
 import { useQuoteStore, DEFAULT_FORM_DATA, useQuoteCalculated } from "@/lib/stores/quote-store";
 import { useUserStore } from "@/lib/userStore";
@@ -31,6 +31,228 @@ import {
 import { calcPcbPriceV3 } from "@/lib/pcb-calc-v3";
 import { calculateLeadTime } from '@/lib/stores/quote-calculations';
 
+// 使用 React.memo 包装字段分组组件
+interface QuoteFormGroupMemoProps {
+  group: {
+    title: string;
+    fields: any[];
+  };
+  index: number;
+  schema: any;
+  SchemaField: any;
+}
+
+const QuoteFormGroupMemo = React.memo(({ group, index, schema, SchemaField }: QuoteFormGroupMemoProps) => (
+  <div className="group" id={`form-step-${index}`}>
+    <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200">
+      <div className="flex items-center justify-center w-8 h-8 bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm">
+        {index + 1}
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900">
+        {group.title}
+      </h3>
+    </div>
+    <div className="pl-4">
+      <QuoteFormGroup
+        fields={group.fields}
+        schema={schema}
+        SchemaField={SchemaField}
+      />
+    </div>
+  </div>
+));
+QuoteFormGroupMemo.displayName = 'QuoteFormGroupMemo';
+
+// 使用 React.memo 包装游客联系信息表单
+interface GuestContactFormProps {
+  guestEmail: string;
+  guestPhone: string;
+  setGuestEmail: (email: string) => void;
+  setGuestPhone: (phone: string) => void;
+  setShowGuestForm: (show: boolean) => void;
+  handleGuestSubmit: () => void;
+  isSubmitting: boolean;
+}
+
+const GuestContactForm = React.memo(({ 
+  guestEmail, 
+  guestPhone, 
+  setGuestEmail, 
+  setGuestPhone, 
+  setShowGuestForm, 
+  handleGuestSubmit, 
+  isSubmitting 
+}: GuestContactFormProps) => (
+  <Card className="border-blue-200 bg-blue-50/50">
+    <CardContent className="p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <User className="h-5 w-5 text-blue-600" />
+        <h3 className="text-lg font-semibold text-blue-900">Contact Information</h3>
+      </div>
+      <p className="text-sm text-blue-700 mb-4">
+        Please provide your contact information so we can send you the quote and follow up.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="guest-email" className="text-blue-800">Email Address *</Label>
+          <Input
+            id="guest-email"
+            type="email"
+            value={guestEmail}
+            onChange={(e) => setGuestEmail(e.target.value)}
+            placeholder="your@email.com"
+            required
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="guest-phone" className="text-blue-800">Phone Number</Label>
+          <Input
+            id="guest-phone"
+            type="tel"
+            value={guestPhone}
+            onChange={(e) => setGuestPhone(e.target.value)}
+            placeholder="+1234567890"
+            className="mt-1"
+          />
+        </div>
+      </div>
+      <div className="flex gap-3 mt-6">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setShowGuestForm(false)}
+          disabled={isSubmitting}
+        >
+          Back
+        </Button>
+        <Button
+          type="button"
+          onClick={handleGuestSubmit}
+          disabled={isSubmitting || !guestEmail}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          {isSubmitting ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              Submitting...
+            </>
+          ) : (
+            <>
+              <Mail className="h-4 w-4 mr-2" />
+              Submit Quote Request
+            </>
+          )}
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+));
+GuestContactForm.displayName = 'GuestContactForm';
+
+// 使用 React.memo 包装提交按钮区域
+interface SubmitButtonSectionProps {
+  user: any;
+  isSubmitting: boolean;
+  handleGuestSubmitWithSuggest: () => void;
+}
+
+const SubmitButtonSection = React.memo(({ user, isSubmitting, handleGuestSubmitWithSuggest }: SubmitButtonSectionProps) => (
+  <Card className="border-gray-200/60 shadow-sm bg-gradient-to-r from-gray-50/50 to-blue-50/50">
+    <CardContent className="p-6">
+      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:block text-sm text-gray-500">
+            Ready to get your quote?
+          </div>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={isSubmitting}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
+            onClick={user ? undefined : (e => { e.preventDefault(); handleGuestSubmitWithSuggest(); })}
+          >
+            {isSubmitting ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Processing...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                {user ? 'Save & Continue' : 'Get Instant Quote'}
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* 用户状态提示 */}
+      <div className="mt-4 pt-4 border-t border-gray-200/50">
+        {user ? (
+          <div className="flex flex-wrap gap-4 text-xs text-gray-500 justify-center">
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+              Logged in as {user.email}
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+              Quote will be saved to your account
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-4 text-xs text-gray-500 justify-center">
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+              Instant pricing
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+              No account required
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+              Professional support
+            </span>
+          </div>
+        )}
+      </div>
+    </CardContent>
+  </Card>
+));
+SubmitButtonSection.displayName = 'SubmitButtonSection';
+
+// 使用 React.memo 包装登录建议弹窗
+interface LoginSuggestDialogProps {
+  showLoginSuggestDialog: boolean;
+  setShowLoginSuggestDialog: (show: boolean) => void;
+  handleLoginRedirect: () => void;
+  handleContinueAsGuest: () => void;
+}
+
+const LoginSuggestDialog = React.memo(({ 
+  showLoginSuggestDialog, 
+  setShowLoginSuggestDialog, 
+  handleLoginRedirect, 
+  handleContinueAsGuest 
+}: LoginSuggestDialogProps) => (
+  <Dialog open={showLoginSuggestDialog} onOpenChange={setShowLoginSuggestDialog}>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Get a Better Experience</DialogTitle>
+        <DialogDescription>
+          Log in to manage your quotes, track orders, and enjoy faster checkout. Would you like to log in now?
+        </DialogDescription>
+      </DialogHeader>
+      <DialogFooter>
+        <Button variant="outline" onClick={handleLoginRedirect}>Log In</Button>
+        <Button onClick={handleContinueAsGuest}>Continue as Guest</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+));
+LoginSuggestDialog.displayName = 'LoginSuggestDialog';
+
 export function QuoteForm() {
   const { updateFormData, resetForm } = useQuoteStore();
   const user = useUserStore((state) => state.user);
@@ -47,22 +269,24 @@ export function QuoteForm() {
   const [showGuestForm, setShowGuestForm] = React.useState(false);
   const [showLoginSuggestDialog, setShowLoginSuggestDialog] = React.useState(false);
 
-  // 根据用户登录状态过滤字段分组
-  const getVisibleFieldGroups = React.useMemo(() => {
-    if (user) {
-      // 登录用户：显示前3个分组 + Shipping Information（跳过 Shipping Cost Estimation）
-      return fieldGroups.filter((group, index) => index < 3 || index === 4);
-    } else {
-      // 游客用户：显示前3个分组 + Shipping Cost Estimation（跳过 Shipping Information）
-      return fieldGroups.filter((group, index) => index < 4);
-    }
-  }, [user]);
-
-  // 创建表单实例并在水合完成后设置初始值
-  React.useEffect(() => {
-    const initialValues = useQuoteStore.getState().formData; // 获取当前 store 的数据，可能还未水合
+  // 使用 useMemo 缓存表单实例
+  const formInstance = React.useMemo(() => {
+    const initialValues = useQuoteStore.getState().formData;
     const newForm = createForm({
-      initialValues: initialValues,
+      initialValues,
+      validateFirst: true, // 优化验证性能
+      effects() {
+        // 使用 effects 统一管理表单副作用
+        onFieldValueChange('*', () => {
+          if (isUpdatingFromHydrationRef.current) return;
+          requestAnimationFrame(() => {
+            const storeData = useQuoteStore.getState().formData;
+            if (JSON.stringify(formInstance.values) !== JSON.stringify(storeData)) {
+              updateFormData(formInstance.values);
+            }
+          });
+        });
+      }
     });
 
     // 设置 AddressInput 组件的 userId
@@ -73,69 +297,39 @@ export function QuoteForm() {
       };
     });
 
-    setForm(newForm);
+    return newForm;
+  }, [user?.id, updateFormData]);
 
-    // 监听 zustand-persist 的水合完成事件
+  // 使用 useEffect 处理表单实例的更新
+  React.useEffect(() => {
+    setForm(formInstance);
+
     const unsubscribe = useQuoteStore.persist.onFinishHydration(() => {
-      // 设置标志位，暂时阻止来自表单的同步，避免循环
       isUpdatingFromHydrationRef.current = true;
-      // 水合完成后，用最新的数据更新表单值
-      newForm.setValues(useQuoteStore.getState().formData, undefined); 
-      // 重置标志位
+      formInstance.setValues(useQuoteStore.getState().formData, undefined);
       isUpdatingFromHydrationRef.current = false;
     });
 
-    // 清理函数
     return () => {
       unsubscribe();
     };
-  }, [user?.id]);
+  }, [formInstance]);
 
-  // 监听表单变化，等待联动完成后同步到 store
-  React.useEffect(() => {
-    if (!form) return;
-    let timeoutId: NodeJS.Timeout;
-    let isUpdating = false;
-    const syncToStore = () => {
-      // 如果当前是由于 store 水合引起的更新，则跳过同步
-      if (isUpdatingFromHydrationRef.current) {
-        return;
-      }
-      if (isUpdating) return;
-      isUpdating = true;
-      requestAnimationFrame(() => {
-        const storeData = useQuoteStore.getState().formData;
-        if (JSON.stringify(form.values) !== JSON.stringify(storeData)) {
-          updateFormData(form.values);
-        }
-        isUpdating = false;
-      });
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const subscriptionId = form.subscribe((payload: any) => {
-      if (payload.type === 'onFormValuesChange') {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        timeoutId = setTimeout(syncToStore, 150);
-      }
-    });
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      form.unsubscribe(subscriptionId);
-    };
-  }, [form, updateFormData]);
+  // 使用 useMemo 缓存字段分组
+  const getVisibleFieldGroups = React.useMemo(() => {
+    if (user) {
+      return fieldGroups.filter((group, index) => index < 3 || index === 4);
+    }
+    return fieldGroups.filter((group, index) => index < 4);
+  }, [user]);
 
+  // 使用 useCallback 优化事件处理函数
   const handleSubmit = React.useCallback(async () => {
     if (!form) return;
-
     setIsSubmitting(true);
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await form.submit(async (values: any) => {
+      await form.submit(async (values) => {
         console.log('Form submitted:', values);
 
         const gerberFileUrl: string | null = uploadState.uploadUrl || null;
@@ -183,9 +377,9 @@ export function QuoteForm() {
                 email: user.email,
                 phone: userPhone || null,
                 shippingAddress,
-                gerberFileUrl, // 直接使用 Supabase 上传后的 URL
-                ...pcbSpecData, // 所有PCB规格作为平铺字段传递，后端会合并为JSON
-                cal_values, // 新增：所有计算字段统一放入cal_values
+                gerberFileUrl,
+                ...pcbSpecData,
+                cal_values,
               })
             });
 
@@ -210,17 +404,15 @@ export function QuoteForm() {
     }
   }, [form, uploadState, router, user, calculated]);
 
-  const handleGuestSubmit = React.useCallback(async () => {
-    console.log('handleGuestSubmit called', {
-      guestEmail,
-      guestPhone,
-      formValues: form?.values,
-      isSubmitting,
-      showGuestForm,
-      showLoginSuggestDialog
-    });
-    if (!form || !guestEmail) return;
+  const handleReset = React.useCallback(() => {
+    if (!form) return;
+    form.setValues(DEFAULT_FORM_DATA);
+    form.setSubmitting(false);
+    form.clearErrors();
+  }, [form]);
 
+  const handleGuestSubmit = React.useCallback(async () => {
+    if (!form || !guestEmail) return;
     setIsSubmitting(true);
 
     try {
@@ -258,16 +450,15 @@ export function QuoteForm() {
           email: guestEmail,
           phone: guestPhone || null,
           shippingAddress: form.values.shippingAddress,
-          gerberFileUrl, // 直接使用 Supabase 上传后的 URL
-          ...form.values, // 所有PCB规格作为平铺字段传递，后端会合并为JSON
-          cal_values, // 新增：所有计算字段统一放入cal_values
+          gerberFileUrl,
+          ...form.values,
+          cal_values,
         })
       });
 
       if (response.ok) {
         const result = await response.json();
         toast.success(result.message);
-        // 游客用户跳转到成功页面，携带报价ID作为查询参数
         router.push(`/quote/success?id=${result.id}`);
         resetForm();
       } else {
@@ -281,13 +472,11 @@ export function QuoteForm() {
     }
   }, [form, uploadState, guestEmail, guestPhone, router, resetForm, calculated]);
 
-  // 游客提交前弹窗建议登录
   const handleGuestSubmitWithSuggest = React.useCallback(() => {
     setShowLoginSuggestDialog(true);
   }, []);
 
   const handleContinueAsGuest = React.useCallback(() => {
-    console.log('handleContinueAsGuest called');
     setShowLoginSuggestDialog(false);
     setShowGuestForm(true);
   }, []);
@@ -297,20 +486,15 @@ export function QuoteForm() {
     router.push("/auth?redirect=/quote2");
   }, [router]);
 
-  const handleReset = React.useCallback(() => {
-    if (!form) return;
-    // 只重置form，不再调用resetForm，避免互相触发
-    form.setValues(DEFAULT_FORM_DATA);
-    form.setSubmitting(false);
-    form.clearErrors();
-  }, [form]);
-
   // 在表单未初始化时显示加载状态
   if (!form) {
     return (
       <div className="quote-form p-6 lg:p-8 space-y-8">
         <div className="flex items-center justify-center py-12">
-          <div className="text-gray-500">Loading form...</div>
+          <div className="animate-pulse">
+            <div className="h-8 w-48 bg-gray-200 rounded mb-4"></div>
+            <div className="h-4 w-32 bg-gray-200 rounded"></div>
+          </div>
         </div>
       </div>
     );
@@ -318,24 +502,20 @@ export function QuoteForm() {
 
   return (
     <FormProvider form={form}>
-     
-        {/* 文件上传区块，单独一个 Card，放在表单顶部 */}
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <h3 className="text-lg font-semibold text-blue-900">Upload Gerber File</h3>
-            </div>
-            <FileUploadSection /> 
-          </CardContent>
-        </Card>
-        <Separator className="my-6" />
+      {/* 文件上传区块 */}
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h3 className="text-lg font-semibold text-blue-900">Upload Gerber File</h3>
+          </div>
+          <FileUploadSection /> 
+        </CardContent>
+      </Card>
+      <Separator className="my-6" />
 
-        <div className="quote-form p-6 lg:p-8 space-y-8">
-          
-
-        {/* 添加表单通知系统 */}
+      <div className="quote-form p-6 lg:p-8 space-y-8">
+        {/* 表单通知系统 */}
         <FormNotificationContainer />
-
 
         {/* 表单顶部操作区域 */}
         <div className="flex justify-between items-center">
@@ -358,183 +538,48 @@ export function QuoteForm() {
           {() => (
             <form onSubmit={(e) => { 
               e.preventDefault(); 
-              console.log('FormConsumer form onSubmit', { user, showGuestForm, showLoginSuggestDialog });
               handleSubmit(); 
             }} className="space-y-8">
-              {/* 使用过滤后的字段分组渲染表单 */}
-              {getVisibleFieldGroups.map((group, index) => {
-                return (
-                  <div key={group.title} className="group" id={`form-step-${index}`}>
-                    {/* 简洁的分组标题 */}
-                    <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200">
-                      <div className="flex items-center justify-center w-8 h-8 bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm">
-                        {index + 1}
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {group.title}
-                      </h3>
-                    </div>
-
-                    {/* 表单字段内容 */}
-                    <div className="pl-4">
-                      <QuoteFormGroup
-                        fields={group.fields}
-                        schema={pcbFormilySchema}
-                        SchemaField={SchemaField}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+              {/* 使用 React.memo 包装的字段分组组件 */}
+              {getVisibleFieldGroups.map((group, index) => (
+                <QuoteFormGroupMemo
+                  key={group.title}
+                  group={group}
+                  index={index}
+                  schema={pcbFormilySchema}
+                  SchemaField={SchemaField}
+                />
+              ))}
 
               {/* 游客联系信息表单 */}
               {showGuestForm && !user && (
-                <Card className="border-blue-200 bg-blue-50/50">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-2 mb-4">
-                      <User className="h-5 w-5 text-blue-600" />
-                      <h3 className="text-lg font-semibold text-blue-900">Contact Information</h3>
-                    </div>
-                    <p className="text-sm text-blue-700 mb-4">
-                      Please provide your contact information so we can send you the quote and follow up.
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="guest-email" className="text-blue-800">Email Address *</Label>
-                        <Input
-                          id="guest-email"
-                          type="email"
-                          value={guestEmail}
-                          onChange={(e) => setGuestEmail(e.target.value)}
-                          placeholder="your@email.com"
-                          required
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="guest-phone" className="text-blue-800">Phone Number</Label>
-                        <Input
-                          id="guest-phone"
-                          type="tel"
-                          value={guestPhone}
-                          onChange={(e) => setGuestPhone(e.target.value)}
-                          placeholder="+1234567890"
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-3 mt-6">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowGuestForm(false)}
-                        disabled={isSubmitting}
-                      >
-                        Back
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={handleGuestSubmit}
-                        disabled={isSubmitting || !guestEmail}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Submitting...
-                          </>
-                        ) : (
-                          <>
-                            <Mail className="h-4 w-4 mr-2" />
-                            Submit Quote Request
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <GuestContactForm
+                  guestEmail={guestEmail}
+                  guestPhone={guestPhone}
+                  setGuestEmail={setGuestEmail}
+                  setGuestPhone={setGuestPhone}
+                  setShowGuestForm={setShowGuestForm}
+                  handleGuestSubmit={handleGuestSubmit}
+                  isSubmitting={isSubmitting}
+                />
               )}
 
-              {/* 优化的表单提交按钮区域 */}
+              {/* 表单提交按钮区域 */}
               {!showGuestForm && (
-                <Card className="border-gray-200/60 shadow-sm bg-gradient-to-r from-gray-50/50 to-blue-50/50">
-                  <CardContent className="p-6">
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                      <div className="flex items-center gap-3">
-                        <div className="hidden sm:block text-sm text-gray-500">
-                          Ready to get your quote?
-                        </div>
-                        <Button
-                          type="submit"
-                          size="lg"
-                          disabled={isSubmitting}
-                          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
-                          onClick={user ? undefined : (e => { e.preventDefault(); handleGuestSubmitWithSuggest(); })}
-                        >
-                          {isSubmitting ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Processing...
-                            </>
-                          ) : (
-                            <>
-                              <Send className="h-4 w-4 mr-2" />
-                              {user ? 'Save & Continue' : 'Get Instant Quote'}
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* 用户状态提示 */}
-                    <div className="mt-4 pt-4 border-t border-gray-200/50">
-                      {user ? (
-                        <div className="flex flex-wrap gap-4 text-xs text-gray-500 justify-center">
-                          <span className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                            Logged in as {user.email}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                            Quote will be saved to your account
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap gap-4 text-xs text-gray-500 justify-center">
-                          <span className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                            Instant pricing
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                            No account required
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-                            Professional support
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                <SubmitButtonSection
+                  user={user}
+                  isSubmitting={isSubmitting}
+                  handleGuestSubmitWithSuggest={handleGuestSubmitWithSuggest}
+                />
               )}
 
               {/* 游客建议登录弹窗 */}
-              <Dialog open={showLoginSuggestDialog} onOpenChange={setShowLoginSuggestDialog}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Get a Better Experience</DialogTitle>
-                    <DialogDescription>
-                      Log in to manage your quotes, track orders, and enjoy faster checkout. Would you like to log in now?
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={handleLoginRedirect}>Log In</Button>
-                    <Button onClick={handleContinueAsGuest}>Continue as Guest</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <LoginSuggestDialog
+                showLoginSuggestDialog={showLoginSuggestDialog}
+                setShowLoginSuggestDialog={setShowLoginSuggestDialog}
+                handleLoginRedirect={handleLoginRedirect}
+                handleContinueAsGuest={handleContinueAsGuest}
+              />
             </form>
           )}
         </FormConsumer>
