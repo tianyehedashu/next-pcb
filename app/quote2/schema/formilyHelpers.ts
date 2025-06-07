@@ -311,7 +311,17 @@ export function getEdgeCoverOptions([]: EdgeCoverDeps): OptionsResult {
  *   - 面积 ≤ 5㎡：可选 FlyingProbe、Fixture
  */
 export function getTestMethodOptions([layers, singleDimensions, singleCount, shipmentType, panelDimensions, panelSet]: TestMethodDeps): OptionsResult {
-  const area = calculateTotalPcbArea({ shipmentType, singleDimensions, singleCount, panelDimensions, panelSet });
+  const { length = 0, width = 0 } = (singleDimensions || {}) as { length?: number; width?: number };
+  const safeSingleDimensions = { length, width };
+  const { length: pLen = 0, width: pWid = 0, row = 1, column = 1 } = (panelDimensions || {}) as { length?: number; width?: number; row?: number; column?: number };
+  const safePanelDimensions = { length: pLen, width: pWid, row, column };
+  const area = calculateTotalPcbArea({
+    shipmentType,
+    singleDimensions: safeSingleDimensions,
+    singleCount,
+    panelDimensions: safePanelDimensions,
+    panelSet,
+  });
 
   // 根据层数和面积确定可选项
   if (layers === 1) {

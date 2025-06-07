@@ -1,8 +1,8 @@
 // PCB生产周期相关通用函数
 
-import { ShipmentType } from '@/types/form';
+
 import type { QuoteFormData as PcbQuoteForm } from '@/app/quote2/schema/quoteSchema';
-import { calculateSinglePcbArea } from './utils/precision';
+import { calculateTotalPcbArea } from './utils/precision';
 // 节假日/周末判断与顺延用到的假期列表
 const holidays = [
   // 示例：2024年五一假期
@@ -43,29 +43,15 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
   const reason: string[] = [];
 
   // 2. 计算总面积（单位mm²），并转为平方米（m²），用于后续面积倍数计算
-  let area = 0;
-  let totalCount = 0;
-  // 安全检查 singleDimensions
-  const dimensions = form.singleDimensions || { length: 5, width: 5 };
-  const singleArea = calculateSinglePcbArea(dimensions.length, dimensions.width);
-  
-  if (form.shipmentType === ShipmentType.PanelByCustom) {
-    totalCount = (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
-  } else if (form.shipmentType === ShipmentType.Single) {
-    totalCount = form.singleCount || 0;
-  }
-  
-  // 检查数量是否为0，如果是则返回特殊状态
-  if(totalCount === 0) {
-    return { 
-      cycleDays: 0, 
-      reason: ['Quantity is required to calculate production cycle'] 
+  const { totalArea } = calculateTotalPcbArea(form);
+  if (totalArea === 0) {
+    return {
+      cycleDays: 0,
+      reason: ['Quantity is required to calculate production cycle']
     };
   }
-  
-  area = singleArea * totalCount;
 
-  const areaFactor = Math.max(1, Math.ceil(area));
+  const areaFactor = Math.max(1, Math.ceil(totalArea));
 
   // 3. 获取层数和铜厚，用于查表
   const layers = Number(form.layers);
@@ -81,7 +67,7 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
 
   // 4. 查表获取基础交期天数（已考虑层数、面积、铜厚）
   //    若查表结果为≥20天或评估，则reason中提示需评估确认
-  const { days: baseDays, needReview } = getBaseDeliveryDays(layers, area, copperWeightForTable);
+  const { days: baseDays, needReview } = getBaseDeliveryDays(layers, totalArea, copperWeightForTable);
   if (needReview) {
     reason.push("需要评估确认，交期≥20天");
   }
@@ -93,7 +79,7 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
   // 厚铜特殊交期规则
   const maxOz = Math.max(outerOz, innerOz);
   if (maxOz >= 3) {
-    if (area <= 1) {
+    if (totalArea <= 1) {
       // 样品
       if (maxOz === 3) {
         extraDays += 2;
@@ -164,11 +150,7 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
     extraDays += add;
     reason.push(`Edge plating: +1 day × ${areaFactor} = +${add} days`);
   }
-  if (form.castellated) {
-    const add = 1 * areaFactor;
-    extraDays += add;
-    reason.push(`Castellated holes: +1 day × ${areaFactor} = +${add} days`);
-  }
+
   if (form.productReport && form.productReport.length > 0) {
     const add = 1 * areaFactor;
     extraDays += add;

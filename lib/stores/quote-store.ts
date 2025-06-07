@@ -11,7 +11,7 @@ import {
   BreakAwayRail,
   BorderCutType
 } from "../../app/quote2/schema/shared-types";
-import { calculateTotalPcbArea } from '../utils/precision';
+import { calculateTotalPcbArea, calculateSinglePcbAreaWithBorder } from '../utils/precision';
 
 // === 类型定义 ===
 type ValidationState = 'idle' | 'validating' | 'valid' | 'invalid';
@@ -184,11 +184,10 @@ const calculateProperties = (formData: QuoteFormData): CalculatedProperties => {
   } else if (formData.shipmentType === ShipmentType.PanelBySpeedx) {
     totalQuantity = formData.panelSet || 0;
   }
-  const singlePcbArea = formData.singleDimensions.length * formData.singleDimensions.width;
-  const totalArea = calculateTotalPcbArea(formData);
+  const { singleArea, totalArea } = calculateTotalPcbArea(formData);
   return {
     totalQuantity,
-    singlePcbArea,
+    singlePcbArea: singleArea,
     totalArea,
   };
 };

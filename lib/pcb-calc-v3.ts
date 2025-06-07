@@ -7,6 +7,7 @@ import {
   castellatedHandler, // 半孔/金属包边
   edgeCoverHandler, // 边覆盖
   maskCoverHandler, // 阻焊覆盖
+  panelHandler, // 拼版加价
 
   syMaterialHandler, // 生益板材
   tgMaterialHandler, // TG板材
@@ -44,8 +45,8 @@ function getTotalCountAndArea(form: QuoteFormData): { totalCount: number; area: 
   } else if (form.shipmentType === ShipmentType.Single) {
     totalCount = form.singleCount || 0;
   }
-  const area = calculateTotalPcbArea(form);
-  return { totalCount, area };
+  const { totalArea } = calculateTotalPcbArea(form);
+  return { totalCount, area: totalArea };
 }
 
 export function initContext(form: QuoteFormData): { form: QuoteFormData; area: number; totalCount: number } {
@@ -69,7 +70,6 @@ export function calcPcbPriceV3(form: QuoteFormData): {
   total: number;
   detail: Record<string, number>;
   notes: string[];
-
 } {
   // 初始化
   const { form: ctxForm, area, totalCount } = initContext(form);
@@ -88,6 +88,7 @@ export function calcPcbPriceV3(form: QuoteFormData): {
     castellatedHandler, // 半孔/金属包边
     edgeCoverHandler, // 边覆盖
     maskCoverHandler, // 阻焊覆盖
+    panelHandler, // 拼版加价
     specialMaskHandler, // 产能确认
   
     syMaterialHandler, // 生益板材

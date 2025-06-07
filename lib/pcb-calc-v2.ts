@@ -49,8 +49,8 @@ function getTotalCountAndArea(form: PcbQuoteForm): { totalCount: number; area: n
   } else if (form.shipmentType === ShipmentType.Single) {
     totalCount = form.singleCount || 0;
   }
-  const area = calculateTotalPcbArea(form);
-  return { totalCount, area };
+  const { totalArea } = calculateTotalPcbArea(form);
+  return { totalCount, area: totalArea };
 }
 
 export function initContext(form: PcbQuoteForm): { form: PcbQuoteForm; area: number; totalCount: number } {

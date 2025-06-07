@@ -114,12 +114,12 @@ export const calculateLeadTimeWithReason = (
  * 计算PCB重量 (克)
  */
 export const calculateWeight = (formData: QuoteFormData): number => {
-  const area = formData.singleDimensions.length * formData.singleDimensions.width; // mm²
+  const { totalArea } = calculateTotalPcbArea(formData);
   const quantity = formData.singleCount;
   
   // 基材重量 (FR4密度约1.85g/cm³)
   const baseDensity = 1.85; // g/cm³
-  const baseVolume = (area / 100) * formData.thickness * quantity; // cm³
+  const baseVolume = (totalArea / 100) * formData.thickness * quantity; // cm³
   const baseWeight = baseVolume * baseDensity;
   
   // 铜重量 (铜密度8.96g/cm³，1oz铜厚约35μm)
@@ -128,12 +128,12 @@ export const calculateWeight = (formData: QuoteFormData): number => {
   const innerCopperThickness = getCopperWeightValue(formData.innerCopperWeight) * 0.035; // mm
   
   // 外层铜重量
-  const outerCopperVolume = (area / 100) * outerCopperThickness * 2 * quantity; // cm³ (两面)
+  const outerCopperVolume = (totalArea / 100) * outerCopperThickness * 2 * quantity; // cm³ (两面)
   const outerCopperWeight = outerCopperVolume * copperDensity;
   
   // 内层铜重量
   const innerLayers = Math.max(0, formData.layers - 2);
-  const innerCopperVolume = (area / 100) * innerCopperThickness * innerLayers * quantity; // cm³
+  const innerCopperVolume = (totalArea / 100) * innerCopperThickness * innerLayers * quantity; // cm³
   const innerCopperWeight = innerCopperVolume * copperDensity;
   
   return baseWeight + outerCopperWeight + innerCopperWeight;
@@ -179,13 +179,13 @@ export const getPriceCategoryDescription = (category: 'Economy' | 'Standard' | '
  * 计算材料利用率
  */
 export const calculateMaterialUtilization = (formData: QuoteFormData): number => {
-  const singleArea = formData.singleDimensions.length * formData.singleDimensions.width;
+  const { totalArea } = calculateTotalPcbArea(formData);
   
   // 假设标准板材尺寸为100x100mm
   const standardPanelArea = 100 * 100;
   
   // 计算单片PCB在标准板材上的利用率
-  const utilization = (singleArea / standardPanelArea) * 100;
+  const utilization = (totalArea / standardPanelArea) * 100;
   
   return Math.min(utilization, 100);
 };

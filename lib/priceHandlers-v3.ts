@@ -1,5 +1,5 @@
 import type { QuoteFormData as PcbQuoteForm } from '@/app/quote2/schema/quoteSchema';
-import { TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask, MaskCover, CopperWeight, EdgeCover, TgType, ProductReport } from '../types/form';
+import {ShipmentType, TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask, MaskCover, CopperWeight, EdgeCover, TgType, ProductReport } from '../types/form';
 
 // 类型定义
 /**
@@ -962,7 +962,7 @@ export const holeCu25umHandler: PriceHandler = (form, area) => {
 export const filmFeeHandler = (form: PcbQuoteForm) => {
   // 菲林面积
   let singleArea = (form.singleDimensions?.length ?? 0) * (form.singleDimensions?.width ?? 0) / 10000;
-  if (form.shipmentType === 'panel' && form.panelDimensions?.row && form.panelDimensions?.column) {
+  if (form.shipmentType === ShipmentType.PanelBySpeedx  && form.panelDimensions?.row && form.panelDimensions?.column) {
     singleArea = (singleArea * form.panelDimensions.row * form.panelDimensions.column);
   }
   // 菲林张数
@@ -1420,6 +1420,91 @@ export const urgentDeliveryHandler: PriceHandler = (form, area) => {
     notes.push('Urgent delivery: lead time reduced by 2 days (minimum 1 day)');
   }
   
+  return {
+    extra,
+    detail,
+    notes,
+  };
+};
+
+/**
+ * 拼版加价
+ * 规则：
+ * 1-2层板多拼1款+60/m2元（最多拼4款，从第五款起多一款+150/m2)
+ * 4层板多拼1款+110/m2元（从第四款起每多一款+150/m2）
+ * 6层板多拼1款+220/m2元（最多拼2款）
+ * 8层板多拼1款+350/m2元（最多拼2款）
+ * 不足1平米按1平米计算
+ */
+export const panelHandler: PriceHandler = (form, area) => {
+  let extra = 0;
+  const detail: Record<string, number> = {};
+  const notes: string[] = [];
+
+  if (form.shipmentType === ShipmentType.PanelByCustom) {
+    const differentDesignsCount = form.differentDesignsCount || 1;
+    const layers = form.layers || 2;
+    // 不足1平米按1平米计算
+    const effectiveArea = Math.max(1, area);
+
+    // 1-2层板
+    if (layers <= 2) {
+      if (differentDesignsCount > 1) {
+        if (differentDesignsCount <= 4) {
+          extra = (differentDesignsCount - 1) * 60 * effectiveArea;
+          detail['Different dsigns'] = extra;
+          notes.push(`Different designs (${layers}L): +60 CNY/㎡/design × ${differentDesignsCount - 1} × ${effectiveArea.toFixed(2)}㎡ = ${extra.toFixed(2)} CNY`);
+        } else {
+          extra = (3 * 60 + (differentDesignsCount - 4) * 150) * effectiveArea;
+          detail['Different dsigns'] = extra;
+          notes.push(`Different dsigns (${layers}L): (+60 CNY/㎡/design × 3 + 150 CNY/㎡/design × ${differentDesignsCount - 4}) × ${effectiveArea.toFixed(2)}㎡ = ${extra.toFixed(2)} CNY`);
+        }
+      }
+    }
+    // 4层板
+    else if (layers === 4) {
+      if (differentDesignsCount > 1) {
+        if (differentDesignsCount <= 3) {
+          extra = (differentDesignsCount - 1) * 110 * effectiveArea;
+          detail['Different dsigns'] = extra;
+          notes.push(`Different dsigns (${layers}L): +110 CNY/㎡/design × ${differentDesignsCount - 1} × ${effectiveArea.toFixed(2)}㎡ = ${extra.toFixed(2)} CNY`);
+        } else {
+          extra = (2 * 110 + (differentDesignsCount - 3) * 150) * effectiveArea;
+          detail['Different dsigns'] = extra;
+          notes.push(`Different dsigns (${layers}L): (+110 CNY/㎡/design × 2 + 150 CNY/㎡/design × ${differentDesignsCount - 3}) × ${effectiveArea.toFixed(2)}㎡ = ${extra.toFixed(2)} CNY`);
+        }
+      }
+    }
+    // 6层板
+    else if (layers === 6) {
+      if (differentDesignsCount > 1) {
+        if (differentDesignsCount <= 2) {
+          extra = (differentDesignsCount - 1) * 220 * effectiveArea;
+          detail['Different dsigns'] = extra;
+          notes.push(`Different dsigns (${layers}L): +220 CNY/㎡/design × ${differentDesignsCount - 1} × ${effectiveArea.toFixed(2)}㎡ = ${extra.toFixed(2)} CNY`);
+        } else {
+          notes.push(`Different dsigns (${layers}L): Maximum 2 designs allowed`);
+        }
+      }
+    }
+    // 8层板
+    else if (layers === 8) {
+      if (differentDesignsCount > 1) {
+        if (differentDesignsCount <= 2) {
+          extra = (differentDesignsCount - 1) * 350 * effectiveArea;
+          detail['Different dsigns'] = extra;
+          notes.push(`Different dsigns (${layers}L): +350 CNY/㎡/design × ${differentDesignsCount - 1} × ${effectiveArea.toFixed(2)}㎡ = ${extra.toFixed(2)} CNY`);
+        } else {
+          notes.push(`Different dsigns (${layers}L): Maximum 2 designs allowed`);
+        }
+      }
+    }
+    // 其他层数
+    else {
+      notes.push(`Different dsigns: Not supported for ${layers}L boards`);
+    }
+  }
+
   return {
     extra,
     detail,

@@ -152,21 +152,12 @@ export const pcbFormilySchema: ISchema = {
     // === 尺寸信息 ===
 
     singleDimensions: fullWidth({
-      type: "object",
-      title: "Single Size (cm)",
+      type: "object",    
       "x-component": "DimensionsInput",
-      "x-reactions": [
-        {
-          dependencies: ["shipmentType"],
-          fulfill: {
-            state: {
-              "x-decorator-props": {
-                title: "{{$deps[0] === 'panel_by_custom' ? 'Unit Size (cm)' : 'Single Size (cm)'}}"
-              }
-            }
-          }
-        }
-      ]
+      "x-reactions": (field) => {
+        const shipmentType = field.query('shipmentType').get('value');
+        field.decoratorProps.title = shipmentType === 'panel_by_custom' ? 'Unit Size (cm)' : 'Single Size (cm)';
+      },
     }),
 
     shipmentType: {
@@ -185,14 +176,15 @@ export const pcbFormilySchema: ISchema = {
           dependencies: ["differentDesignsCount"],
           fulfill: {
             state: {
-              componentProps:
-                "{{$deps[0] > 1 ? { options: [ { label: 'Single PCB', value: 'single', disabled: true }, { label: 'Panel by Custom', value: 'panel_by_custom' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx' } ] } : { options: [ { label: 'Single PCB', value: 'single' }, { label: 'Panel by Custom', value: 'panel_by_custom' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx' } ] } }}"
+              componentProps: {
+                options: "{{$deps[0] > 1 ? [ { label: 'Single PCB', value: 'single', disabled: true }, { label: 'Panel by Custom', value: 'panel_by_custom' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx', disabled: true } ] : [ { label: 'Single PCB', value: 'single' }, { label: 'Panel by Custom', value: 'panel_by_custom' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx' } ] }}"
+              }
             }
           }
         },
         {
           dependencies: ["differentDesignsCount", "$self"],
-          when: "{{$deps[0] > 1 && $self.value === 'single'}}",
+          when: "{{$deps[0] > 1 && ($self.value === 'single' || $self.value === 'panel_by_speedx')}}",
           fulfill: {
             run: "{{$self.setValue('panel_by_custom')}}"
           }

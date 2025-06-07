@@ -1,10 +1,8 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { ISchema } from '@formily/react';
+import { ISchema, useField } from '@formily/react';
 
 interface FormFieldLayoutProps {
-  label: string;
-  required?: boolean;
   children: React.ReactNode;
   className?: string;
   layout?: 'horizontal' | 'vertical' | 'inline' | 'responsive';
@@ -16,12 +14,22 @@ interface FormFieldLayoutProps {
  * 支持水平、垂直、内联和响应式四种布局模式
  */
 export const FormFieldLayout: React.FC<FormFieldLayoutProps> = ({
-  label,
-  required = false,
   children,
   className,
   layout = 'responsive'
 }) => {
+  // 动态获取 label 和 required
+  let label = '';
+  let required = false;
+  try {
+    const field = useField();
+    label = field.decoratorProps?.title || field.title || '';
+    required = typeof (field as any).required === 'boolean' ? (field as any).required : false;
+  } catch {
+    label = '';
+    required = false;
+  }
+
   // 响应式布局 - 小屏幕垂直，大屏幕水平
   if (layout === 'responsive') {
     return (
@@ -134,8 +142,6 @@ export const ResponsiveFormGroup: React.FC<ResponsiveFormGroupProps> = ({
         return (
           <FormFieldLayout
             key={fieldName}
-            label={fieldSchema.title as string || fieldName}
-            required={fieldSchema.required as boolean}
             layout={layout}
           >
             <SchemaField 

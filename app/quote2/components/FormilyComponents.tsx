@@ -15,6 +15,7 @@ import { AddressFormComponent } from "./AddressFormComponent";
 import type { AddressFormValue } from "./AddressFormComponent";
 import { BoardEdgeInput } from './BoardEdgeInput';
 import { DimensionsInput } from "../../components/ui/DimensionsInput";
+import { FormFieldLayout } from "./FormFieldLayout";
 
 interface OptionWithDisabled {
   label: string;
@@ -594,11 +595,15 @@ export const formilyComponents = {
     );
   },
   BoardEdgeInput,
+  FormFieldLayout,
 };
 
 // 创建 SchemaField
 export const SchemaField = createSchemaField({
-  components: formilyComponents,
+  components: {
+    ...formilyComponents,
+    FormFieldLayout,
+  },
   scope: formilyHelpers
 });
 

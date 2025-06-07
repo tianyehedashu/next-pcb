@@ -1,6 +1,7 @@
 // PCB 表单字段规则配置
 // 可扩展：依赖、校验、自动修正、加价等
 
+import { createForm } from '@formily/core';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
 import { TestMethod, CustomerCode, SurfaceFinish, TgType, PcbType, HdiType, ShipmentType, BorderType, CopperWeight, MaskCover, Silkscreen, ProdCap, PayMethod, QualityAttach, ProductReport, EdgeCover, InnerCopperWeight, SurfaceFinishEnigType, WorkingGerber, CrossOuts, IPCClass, IfDataConflicts, PcbColor } from '../types/form';
 

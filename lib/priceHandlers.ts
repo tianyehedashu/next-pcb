@@ -1,6 +1,7 @@
 import { pcbFieldRules } from './pcbFieldRules';
 import type { PcbQuoteForm } from '../types/pcbQuoteForm';
 import { ProdCap, TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask, MaskCover, CopperWeight } from '../types/form';
+import { calculateTotalPcbArea } from './utils/precision';
 
 // 类型定义
 /**
@@ -39,12 +40,13 @@ export const pcbTypeHandler = Object.assign(
     const priceRule = pcbFieldRules.pcbType.price as Record<string, number>;
     type PriceKey = keyof typeof priceRule;
     const unitPrice = priceRule[form.pcbType as PriceKey] || 0;
-    const extra = unitPrice * Math.max(1, area);
+    const { totalArea } = calculateTotalPcbArea(form);
+    const extra = unitPrice * Math.max(1, totalArea);
     const detail: Record<string, number> = {};
     const notes: string[] = [];
     if (unitPrice > 0) {
       detail['pcbType'] = extra;
-      notes.push(`${form.pcbType} board: +${unitPrice} × ${Math.max(1, area)}㎡ = ${extra} CNY`);
+      notes.push(`${form.pcbType} board: +${unitPrice} × ${Math.max(1, totalArea)}㎡ = ${extra} CNY`);
     }
     return {
       extra: extra,
@@ -120,7 +122,7 @@ export const edgeCoverHandler: PriceHandler = (form) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
-  if (form.edgeCover && form.edgeCover !== 'none') { extra = 20; detail['edgeCover'] = 20; notes.push('Edge cover: +20 CNY'); }
+  if (form.edgeCover && form.edgeCover !== 'None') { extra = 20; detail['edgeCover'] = 20; notes.push('Edge cover: +20 CNY'); }
   return {
     extra: extra,
     detail: detail,

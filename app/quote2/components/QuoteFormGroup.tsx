@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { FormFieldLayout } from "./FormFieldLayout";
 import { ISchema } from "@formily/react";
+
+import { FormFieldLayout } from './FormFieldLayout';
 
 interface SchemaFieldComponent {
   (props: { name: string; schema: ISchema }): React.ReactElement;
@@ -13,6 +14,7 @@ interface QuoteFormGroupProps {
   schema: ISchema;
   SchemaField: SchemaFieldComponent;
 }
+
 
 export function QuoteFormGroup({
   fields,
@@ -43,10 +45,9 @@ export function QuoteFormGroup({
         // 创建带有 decorator 的 schema
         const fieldSchemaWithDecorator = {
           ...fieldSchema,
-          "x-decorator": FormFieldLayout,
+          "x-decorator": "FormFieldLayout",
           "x-decorator-props": {
-            label: fieldSchema.title as string || fieldName,
-            required: fieldSchema.required as boolean,
+            ...(fieldSchema["x-decorator-props"] || {}),
             layout: "inline",
             className: "w-full"
           }

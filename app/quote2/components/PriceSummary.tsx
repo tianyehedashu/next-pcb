@@ -546,7 +546,7 @@ export default function PriceSummary() {
             
             <div className="flex justify-between">
               <span className="text-gray-600">PCB Area:</span>
-              <span className="font-medium">{isClient ? `${calculated.singlePcbArea.toFixed(2)} cm²` : 'Loading...'}</span>
+              <span className="font-medium">{isClient ? `${calculated.singlePcbArea.toFixed(4)} m²` : 'Loading...'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Total Area:</span>
@@ -555,7 +555,7 @@ export default function PriceSummary() {
               ) : calculated.totalQuantity === 0 ? (
                 <span className="text-gray-400 italic">-</span>
               ) : (
-                <span className="font-medium">{isClient ? `${calculated.totalArea.toFixed(2)} cm²` : 'Loading...'}</span>
+                <span className="font-medium">{isClient ? `${calculated.totalArea.toFixed(4)} m²` : 'Loading...'}</span>
               )}
             </div>
           </div>
