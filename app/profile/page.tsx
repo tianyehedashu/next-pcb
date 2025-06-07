@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { ProfileForm } from "./profile-form"
-import Sidebar from "../components/custom-ui/Sidebar"
+import { Sidebar } from "../components/custom-ui/Sidebar"
 import { useUserStore } from "@/lib/userStore"
 import { Button } from "@/components/ui/button"
 

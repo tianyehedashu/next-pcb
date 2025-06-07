@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Layers, Settings, UserCheck, FileEdit, ShoppingCart } from "lucide-react";
 import { fieldMap } from "@/lib/fieldMap";
 import { PcbQuoteForm } from "@/types/pcbQuoteForm";
+import { ShipmentType } from "@/types/form";
 
 const BASIC_FIELDS: (keyof PcbQuoteForm)[] = [
   "pcbType", "layers", "thickness", "hdi", "tg", "panelSet", "shipmentType", "border", "differentDesignsCount"
@@ -16,7 +17,7 @@ const PROCESS_FIELDS: (keyof PcbQuoteForm)[] = [
   "minTrace", "minHole", "solderMask", "silkscreen", "surfaceFinish", "surfaceFinishEnigType", "impedance", "castellated", "goldFingers", "goldFingersBevel", "edgePlating", "halfHole", "edgeCover", "maskCover", "holeCu25um", "outerCopperWeight", "innerCopperWeight"
 ];
 const SERVICE_FIELDS: (keyof PcbQuoteForm)[] = [
-  "testMethod", "prodCap", "productReport", "rejectBoard", "yyPin", "customerCode", "payMethod", "qualityAttach", "smt", "useShengyiMaterial", "holeCount", "bga", "workingGerber", "ulMark", "crossOuts", "ipcClass", "ifDataConflicts", "specialRequests", "pcbNote", "userNote"
+  "testMethod", "prodCap", "productReport", "yyPin", "customerCode", "payMethod", "qualityAttach", "smt", "useShengyiMaterial", "holeCount", "bga", "workingGerber", "ulMark", "crossOuts", "ipcClass", "ifDataConflicts", "specialRequests", "pcbNote", "userNote"
 ];
 
 // 反向映射：后端字段名 => 前端字段名
@@ -40,14 +41,14 @@ function renderField(label: string, value: any) {
   );
 }
 
-function getSizeLabel(shipmentType: string) {
-  return shipmentType === "single" ? "Single Size (cm)" : "Panel Size (cm)";
+function getSizeLabel(shipmentType: ShipmentType) {
+  return shipmentType === ShipmentType.Single ? "Single Size (cm)" : "Panel Size (cm)";
 }
-function getCountLabel(shipmentType: string) {
-  return shipmentType === "single" ? "Single Count" : "Panel Count";
+function getCountLabel(shipmentType: ShipmentType) {
+  return shipmentType === ShipmentType.Single ? "Single Count" : "Panel Count";
 }
-function getCountUnit(shipmentType: string) {
-  return shipmentType === "single" ? "Pcs" : "Set";
+function getCountUnit(shipmentType: ShipmentType) {
+  return shipmentType === ShipmentType.Single ? "Pcs" : "Set";
 }
 
 export default function QuoteDetailPage() {
@@ -125,7 +126,7 @@ export default function QuoteDetailPage() {
                   <span className="break-all text-sm flex-1">{quote.singleCount} <span className="text-xs text-muted-foreground">{getCountUnit(quote.shipmentType)}</span></span>
                 </div>
               )}
-              {quote?.panelDimensions && quote.shipmentType === 'panel' && (
+              {quote?.panelDimensions && (quote.shipmentType === ShipmentType.PanelByCustom || quote.shipmentType === ShipmentType.PanelBySpeedx) && (
                 <div>
                   <span className="font-semibold text-muted-foreground text-xs w-36 truncate">Panel Size (pcs)</span>
                   <span className="break-all text-sm flex-1">{quote.panelDimensions.row} × {quote.panelDimensions.column} <span className="text-xs text-muted-foreground">pcs</span></span>

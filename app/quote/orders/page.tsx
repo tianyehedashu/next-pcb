@@ -7,17 +7,23 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useUserStore } from "@/lib/userStore";
 import type { Database } from "../../../types/supabase";
 import { useEnsureLogin } from "@/lib/auth";
-import Sidebar from "../../components/custom-ui/Sidebar";
+import { Sidebar } from "../../components/custom-ui/Sidebar";
 import { ArrowRight, Download, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import Pagination from "../../components/ui/pagination";
+import { Pagination } from "../../components/ui/pagination";
 import { toUSD } from "@/lib/utils";
 
-type Order = Database["public"]["Tables"]["orders"]["Row"];
+interface OrderListItem {
+  id: string;
+  created_at: string | null;
+  status: string | null;
+  total_amount: number | null;
+  user_notes: string | null;
+}
 
 export default function OrdersPage() {
   useEnsureLogin();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loadingOrders, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClientComponentClient<Database>();
@@ -28,28 +34,29 @@ export default function OrdersPage() {
 
   useEffect(() => {
     const fetchOrders = async () => {
+      if (!user?.id) return;
+      
       setLoading(true);
       const { data, error } = await supabase
         .from("orders")
-        .select("id, created_at, status, total, admin_price, user_note")
-        .eq("user_id", user?.id)
+        .select("id, created_at, status, total_amount, user_notes")
+        .eq("user_id", user.id)
         .neq("status", "cancelled")
         .order("created_at", { ascending: false });
-        console.log("data", data);
+
       if (!error && data) {
-        setOrders(data as Order[]);
+        setOrders(data as OrderListItem[]);
       }
       setLoading(false);
-     
     };
     fetchOrders();
-  }, []);
+  }, [user?.id, supabase]);
 
   // 统计数据
   const totalOrders = orders.length;
   const completedOrders = orders.filter(o => o.status === "completed").length;
   const pendingOrders = orders.filter(o => o.status === "pending").length;
-  const totalAmount = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalAmount = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100/60 via-white to-blue-50/80 py-32 px-2 relative">
@@ -98,7 +105,6 @@ export default function OrdersPage() {
           <Card className="shadow-2xl border-blue-100 bg-white/95 rounded-2xl">
             <CardHeader className="border-b pb-4 flex flex-row items-center gap-4 bg-gradient-to-r from-blue-50/60 to-white rounded-t-2xl">
               <CardTitle className="text-2xl font-bold text-blue-800 tracking-wide flex-1">My Orders</CardTitle>
-              
             </CardHeader>
             <CardContent>
               {loadingOrders ? (
@@ -133,7 +139,7 @@ export default function OrdersPage() {
                         {pagedOrders.map((order) => (
                           <tr key={order.id} className="border-b hover:bg-blue-50/60 transition-all duration-150 group align-top">
                             <td className="px-4 py-2 font-mono text-blue-700 text-xs max-w-[120px] truncate align-middle">{order.id}</td>
-                            <td className="px-4 py-2 text-slate-700 align-middle">{order.created_at ? new Date(order.created_at as string).toLocaleString() : "-"}</td>
+                            <td className="px-4 py-2 text-slate-700 align-middle">{order.created_at ? new Date(order.created_at).toLocaleString() : "-"}</td>
                             <td className="px-4 py-2 align-middle min-w-[120px]">
                               <span className="inline-flex items-center gap-2">
                                 <span className={
@@ -154,11 +160,11 @@ export default function OrdersPage() {
                             </td>
                             <td className="px-4 py-2 text-right align-middle">
                               <span className="text-blue-400 text-base font-semibold align-top mr-1">¥</span>
-                              <span className="text-blue-900 text-lg font-bold">{order.total?.toFixed(2) ?? "-"}</span>
+                              <span className="text-blue-900 text-lg font-bold">{order.total_amount?.toFixed(2) ?? "-"}</span>
                             </td>
                             <td className="px-4 py-2 align-middle min-w-[120px]">
-                              {order.user_note ? (
-                                <Badge variant="secondary" className="max-w-[160px] truncate" title={order.user_note}>{order.user_note}</Badge>
+                              {order.user_notes ? (
+                                <Badge variant="secondary" className="max-w-[160px] truncate" title={order.user_notes}>{order.user_notes}</Badge>
                               ) : (
                                 <span className="text-slate-300">-</span>
                               )}
