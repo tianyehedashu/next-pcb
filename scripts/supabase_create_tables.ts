@@ -70,7 +70,7 @@ async function createTables() {
       total numeric,
       pcb_note text,
       user_note text,
-      status text default 'pending',
+      status text default 'created',
       admin_price numeric,
       admin_note text,
       created_at timestamp with time zone default timezone('utc'::text, now())

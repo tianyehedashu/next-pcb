@@ -75,7 +75,7 @@ create table if not exists public.orders (
   total_amount decimal(10,2), -- 总金额
   production_days integer, -- 生产周期（天）
   estimated_delivery_date date, -- 预计交付日期
-  status varchar(50) default 'pending', -- pending, confirmed, production, shipped, completed, cancelled
+  status varchar(50) default 'created', -- created, confirmed, production, shipped, completed, cancelled
   payment_status varchar(50) default 'unpaid', -- unpaid, paid, refunded
   admin_notes text,
   user_notes text,

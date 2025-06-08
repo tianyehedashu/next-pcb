@@ -42,7 +42,7 @@ create table if not exists public.orders (
   total numeric,
   pcb_note text,
   user_note text,
-  status text default 'pending',
+  status text default 'created',
   admin_price numeric, -- 管理员审核后可填写
   admin_note text,     -- 管理员审核备注
   admin_update_reason text[], -- 管理员多次修改原因

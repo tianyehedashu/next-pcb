@@ -6,7 +6,7 @@ import OrderStepBar from "@/components/ui/OrderStepBar";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectItem, SelectContent, SelectTrigger } from "@/components/ui/select";
+import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getPublicFileUrl } from "@/lib/supabase-file-url";
 import DownloadButton from "../../../../components/custom-ui/DownloadButton";
 import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
@@ -14,6 +14,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toUSD } from "@/lib/utils";
 import { PcbQuoteForm } from "@/types/pcbQuoteForm";
 import type { Database } from "@/types/supabase";
+import { OrderStatus } from '@/types/form';
 
 // 字段分组与友好名映射
 const FIELD_GROUPS: { title: string; fields: { key: keyof PcbQuoteForm; label: string }[] }[] = [
@@ -68,6 +69,66 @@ const FIELD_GROUPS: { title: string; fields: { key: keyof PcbQuoteForm; label: s
     ],
   },
 ];
+
+// 订单状态文本映射
+const orderStatusText: Record<OrderStatus, string> = {
+  [OrderStatus.Draft]: '草稿',
+  [OrderStatus.Created]: '待审核',
+  [OrderStatus.Reviewed]: '已审核',
+  [OrderStatus.Unpaid]: '待支付',
+  [OrderStatus.PaymentPending]: '支付中',
+  [OrderStatus.Paid]: '已支付',
+  [OrderStatus.InProduction]: '生产中',
+  [OrderStatus.QualityCheck]: '质检中',
+  [OrderStatus.ReadyForShipment]: '待发货',
+  [OrderStatus.Shipped]: '已发货',
+  [OrderStatus.Delivered]: '已送达',
+  [OrderStatus.Completed]: '已完成',
+  [OrderStatus.Cancelled]: '已取消',
+  [OrderStatus.OnHold]: '已暂停',
+  [OrderStatus.Rejected]: '已拒绝',
+  [OrderStatus.Refunded]: '已退款'
+};
+
+// 订单状态样式映射
+const orderStatusStyle: Record<OrderStatus, string> = {
+  [OrderStatus.Draft]: 'bg-gray-100 text-gray-600',
+  [OrderStatus.Created]: 'bg-yellow-100 text-yellow-600',
+  [OrderStatus.Reviewed]: 'bg-blue-100 text-blue-600',
+  [OrderStatus.Unpaid]: 'bg-orange-100 text-orange-600',
+  [OrderStatus.PaymentPending]: 'bg-purple-100 text-purple-600',
+  [OrderStatus.Paid]: 'bg-green-100 text-green-600',
+  [OrderStatus.InProduction]: 'bg-indigo-100 text-indigo-600',
+  [OrderStatus.QualityCheck]: 'bg-pink-100 text-pink-600',
+  [OrderStatus.ReadyForShipment]: 'bg-teal-100 text-teal-600',
+  [OrderStatus.Shipped]: 'bg-cyan-100 text-cyan-600',
+  [OrderStatus.Delivered]: 'bg-emerald-100 text-emerald-600',
+  [OrderStatus.Completed]: 'bg-green-100 text-green-600',
+  [OrderStatus.Cancelled]: 'bg-red-100 text-red-600',
+  [OrderStatus.OnHold]: 'bg-gray-100 text-gray-600',
+  [OrderStatus.Rejected]: 'bg-red-100 text-red-600',
+  [OrderStatus.Refunded]: 'bg-gray-100 text-gray-600'
+};
+
+// 可用的状态转换
+const availableStatusTransitions: Record<OrderStatus, OrderStatus[]> = {
+  [OrderStatus.Draft]: [OrderStatus.Created],
+  [OrderStatus.Created]: [OrderStatus.Reviewed, OrderStatus.Rejected],
+  [OrderStatus.Reviewed]: [OrderStatus.Unpaid],
+  [OrderStatus.Unpaid]: [OrderStatus.PaymentPending, OrderStatus.Cancelled],
+  [OrderStatus.PaymentPending]: [OrderStatus.Paid, OrderStatus.Cancelled],
+  [OrderStatus.Paid]: [OrderStatus.InProduction],
+  [OrderStatus.InProduction]: [OrderStatus.QualityCheck],
+  [OrderStatus.QualityCheck]: [OrderStatus.ReadyForShipment, OrderStatus.OnHold],
+  [OrderStatus.ReadyForShipment]: [OrderStatus.Shipped],
+  [OrderStatus.Shipped]: [OrderStatus.Delivered],
+  [OrderStatus.Delivered]: [OrderStatus.Completed],
+  [OrderStatus.Completed]: [],
+  [OrderStatus.Cancelled]: [],
+  [OrderStatus.OnHold]: [OrderStatus.InProduction, OrderStatus.Cancelled],
+  [OrderStatus.Rejected]: [],
+  [OrderStatus.Refunded]: []
+};
 
 function renderValue(val: unknown) {
   if (Array.isArray(val)) return val.length ? val.join(", ") : "-";
@@ -143,7 +204,9 @@ function OrderShippingCard({ order }: { order: Database["public"]["Tables"]["ord
       <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0">
         <div>
           <span className="text-xs text-muted-foreground font-semibold uppercase">Status</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{order.status ?? "pending"}</div>
+          <div className="text-base font-semibold text-gray-800 break-all">
+            {orderStatusText[order.status as OrderStatus] || order.status}
+          </div>
         </div>
         <div>
           <span className="text-xs text-muted-foreground font-semibold uppercase">Estimated Delivery</span>
@@ -334,7 +397,7 @@ interface OrderSummaryCardProps {
 
 function OrderSummaryCard({ order, onBack, onOrderUpdate }: OrderSummaryCardProps) {
   const { toast } = useToast();
-  const [status, setStatus] = useState(order.status || "pending");
+  const [status, setStatus] = useState<OrderStatus>(order.status || "pending");
   const [paymentStatus, setPaymentStatus] = useState(order.payment_status || "pending");
   const [quotedPrice, setQuotedPrice] = useState(order.quoted_price || 0);
   const [shippingCost, setShippingCost] = useState(order.shipping_cost || 0);
@@ -408,18 +471,15 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate }: OrderSummaryCardProp
           {/* Status Controls */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Status</label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
-                <span>{status}</span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-                <SelectItem value="in_production">In Production</SelectItem>
-                <SelectItem value="shipped">Shipped</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
+            <Select
+              value={status}
+              onValueChange={(value) => setStatus(value as OrderStatus)}
+            >
+              {Object.entries(orderStatusText).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
             </Select>
           </div>
 
@@ -532,12 +592,12 @@ export default function AdminOrderDetailClient({ order }: { order: Database["pub
         
         {/* 步骤条 */}
         <div className="mb-10">
-          <OrderStepBar currentStatus={order.status || "pending"} steps={[
-            { label: "Pending", key: "pending" },
-            { label: "Confirmed", key: "confirmed" },
-            { label: "In Production", key: "in_production" },
-            { label: "Shipped", key: "shipped" },
-            { label: "Completed", key: "completed" }
+          <OrderStepBar currentStatus={order.status || OrderStatus.Created} steps={[
+            { label: "Created", key: OrderStatus.Created },
+            { label: "Reviewed", key: OrderStatus.Reviewed },
+            { label: "In Production", key: OrderStatus.InProduction },
+            { label: "Shipped", key: OrderStatus.Shipped },
+            { label: "Completed", key: OrderStatus.Completed }
           ]} />
         </div>
         

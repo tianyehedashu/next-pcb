@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,10 +35,47 @@ export default function AdminGuestQuotesPage() {
   const [adminPrice, setAdminPrice] = useState("");
   const [adminNotes, setAdminNotes] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [roleLoading, setRoleLoading] = useState(true);
+  const [isAllowed, setIsAllowed] = useState(false);
+  const [isDenied, setIsDenied] = useState(false);
   const user = useUserStore(state => state.user);
 
+  useEffect(() => {
+    const checkRole = async () => {
+      if (!user) {
+        setIsDenied(true);
+        setRoleLoading(false);
+        return;
+      }
 
+      try {
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
 
+        if (roleError || !roleData) {
+          setIsDenied(true);
+        } else {
+          setIsAllowed(roleData.role === 'admin');
+          setIsDenied(roleData.role !== 'admin');
+        }
+      } catch (error) {
+        setIsDenied(true);
+      } finally {
+        setRoleLoading(false);
+      }
+    };
+
+    checkRole();
+  }, [user]);
+
+  useEffect(() => {
+    if (isAllowed) {
+      fetchGuestQuotes();
+    }
+  }, [isAllowed]);
 
   const fetchGuestQuotes = async () => {
     setLoading(true);

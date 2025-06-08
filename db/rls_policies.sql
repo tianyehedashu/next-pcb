@@ -45,3 +45,93 @@ create policy "Users can only insert their own orders"
 -- 如有管理员角色，可根据 JWT claim 或 service_role 放开权限
 -- 例：auth.role() = 'service_role' 或 auth.jwt() ->> 'role' = 'admin'
 -- 具体实现请根据你的业务需求调整 
+
+-- 启用 RLS
+ALTER TABLE admin_orders ENABLE ROW LEVEL SECURITY;
+
+
+-- 创建统一的策略，允许管理员执行所有操作
+CREATE POLICY "Enable all operations for admins" ON admin_orders
+    FOR ALL
+    TO authenticated
+    USING (
+        auth.role() = 'service_role' OR 
+        (auth.jwt() ->> 'role')::jsonb->>'role' = 'admin'
+    )
+    WITH CHECK (
+        auth.role() = 'service_role' OR 
+        (auth.jwt() ->> 'role')::jsonb->>'role' = 'admin' OR O
+        (auth.jwt() ->> 'user_metadata')::jsonb->>'role' = 'admin'
+    );
+
+
+
+
+    -- 启用 RLS
+ALTER TABLE admin_orders ENABLE ROW LEVEL SECURITY;
+
+-- 删除现有的策略
+DROP POLICY IF EXISTS "Enable view access for admins" ON admin_orders;
+DROP POLICY IF EXISTS "Enable update access for admins" ON admin_orders;
+DROP POLICY IF EXISTS "Enable insert access for admins" ON admin_orders;
+DROP POLICY IF EXISTS "Enable delete access for admins" ON admin_orders;
+
+-- 创建统一的策略，允许管理员执行所有操作
+CREATE POLICY "Enable all operations for admins" ON admin_orders
+    FOR ALL
+    TO authenticated
+    USING (
+        auth.role() = 'service_role' OR 
+        (auth.jwt() ->> 'user_metadata')::jsonb->>'role' = 'admin'
+    )
+    WITH CHECK (
+        auth.role() = 'service_role' OR 
+        (auth.jwt() ->> 'user_metadata')::jsonb->>'role' = 'admin'
+    );
+
+
+
+    -- 启用 RLS
+ALTER TABLE admin_orders ENABLE ROW LEVEL SECURITY;
+
+-- 删除现有的策略
+DROP POLICY IF EXISTS "Enable view access for admins" ON admin_orders;
+DROP POLICY IF EXISTS "Enable update access for admins" ON admin_orders;
+DROP POLICY IF EXISTS "Enable insert access for admins" ON admin_orders;
+DROP POLICY IF EXISTS "Enable delete access for admins" ON admin_orders;
+
+-- 创建统一的策略，允许管理员执行所有操作
+CREATE POLICY "Enable all operations for admins" ON admin_orders
+    FOR ALL
+    TO authenticated
+    USING (
+        auth.role() = 'service_role' OR 
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE profiles.id = auth.uid() 
+            AND profiles.role = 'admin'
+        )
+    )
+    WITH CHECK (
+        auth.role() = 'service_role' OR 
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE profiles.id = auth.uid() 
+            AND profiles.role = 'admin'
+        )
+    );
+
+
+
+
+-- 4. 允许管理员管理所有用户资料
+CREATE POLICY "Admins can manage all profiles"
+    ON profiles FOR ALL
+    USING (
+        auth.role() = 'service_role' OR 
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND auth.users.raw_user_meta_data->>'role' = 'admin'
+        )
+    );

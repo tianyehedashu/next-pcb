@@ -15,22 +15,48 @@ export function OrderDetailModal({ order, onClose }: { order: Order | null; onCl
   if (!order) return null;
   return (
     <Dialog open={!!order} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent>
+      <DialogContent className="max-w-[90vw] sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Order Detail</DialogTitle>
         </DialogHeader>
-        <div>
-          <div>ID: {order.id}</div>
-          <div>Email: {order.email}</div>
-          <div>Status: {order.status}</div>
-          <div>PCB Price: {order.pcb_price ?? '-'}</div>
-          <div>PCB Lead Time: {order.pcb_lead_time ?? '-'}</div>
-          <div>PCB Status: {order.pcb_status ?? '-'}</div>
-          <div>Admin Order Status: {order.admin_order_status ?? '-'}</div>
-          <div>Admin Order Price: {order.admin_order_price ?? '-'}</div>
-          <div>Admin Order Lead Time: {order.admin_order_lead_time ?? '-'}</div>
-          <div>Created: {order.created_at}</div>
-          <div>Admin Notes: {order.admin_notes ?? '-'}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="text-sm">
+              <span className="font-medium">ID:</span> {order.id}
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Email:</span> {order.email}
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Status:</span> {order.status}
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">PCB Price:</span> {order.pcb_price ?? '-'}
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">PCB Lead Time:</span> {order.pcb_lead_time ?? '-'}
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">PCB Status:</span> {order.pcb_status ?? '-'}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="text-sm">
+              <span className="font-medium">Admin Order Status:</span> {order.admin_order_status ?? '-'}
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Admin Order Price:</span> {order.admin_order_price ?? '-'}
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Admin Order Lead Time:</span> {order.admin_order_lead_time ?? '-'}
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Created:</span> {order.created_at}
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Admin Notes:</span> {order.admin_notes ?? '-'}
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button onClick={onClose}>Close</Button>

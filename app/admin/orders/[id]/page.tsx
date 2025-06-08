@@ -2,25 +2,61 @@
 
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Order } from '@/types/order'; // Adjust import path
 import { createForm } from '@formily/core';
-import { FormProvider, FormConsumer, Field } from '@formily/react';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { FormProvider } from '@formily/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useParams } from 'next/navigation';
-import { FormItem } from '@/components/ui/form';
+import { useParams, useRouter } from 'next/navigation';
 import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
+import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
+import { calcPcbPriceV3 } from '@/lib/pcb-calc-v3';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { OrderStatus } from '@/types/form';
+import { Order } from '@/app/admin/types/order';
+import { PlusCircle } from 'lucide-react';
+
+interface PriceDetails {
+  basePrice: number;
+  processFee: number;
+  materialFee: number;
+  specialProcessFee: number;
+  testFee: number;
+  total: number;
+}
+
+interface LeadTimeDetails {
+  baseCycleDays: number;
+  processExtraDays: number;
+  urgentExtraDays: number;
+  cycleDays: number;
+  reason: string[];
+}
 
 export default function AdminOrderDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const orderId = params?.id as string;
   const [order, setOrder] = useState<Order | null>(null);
   const [pcbFormData, setPcbFormData] = useState<QuoteFormData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form] = useState(() => createForm());
+  const [priceDetails, setPriceDetails] = useState<PriceDetails | null>(null);
+  const [leadTimeDetails, setLeadTimeDetails] = useState<LeadTimeDetails | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Fetch order data
   useEffect(() => {
@@ -44,8 +80,8 @@ export default function AdminOrderDetailPage() {
         const data: Order = await response.json();
         setOrder(data);
         // 先将pcb_spec_data转为QuoteFormData
-        if (data.pcb_spec_data && typeof data.pcb_spec_data === 'object') {
-          const result = quoteSchema.safeParse(data.pcb_spec_data);
+        if (data.pcb_spec && typeof data.pcb_spec === 'object') {
+          const result = quoteSchema.safeParse(data.pcb_spec);
           if (result.success) {
             setPcbFormData(result.data);
           } else {
@@ -71,44 +107,6 @@ export default function AdminOrderDetailPage() {
     fetchOrder();
 
   }, [orderId, form]); // Add form to dependency array
-
-  // Handle form submission (updating order)
-  const handleSubmit = async () => {
-    if (!form || !orderId) return;
-
-    try {
-      // Validate form and get values
-      await form.submit();
-      const values = form.values; // Values will be validated by the schema
-
-      console.log('Submitting updated order data:', values);
-
-      // TODO: Add actual authentication token to headers
-      const response = await fetch(`/api/admin/orders?id=${orderId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          // 'Authorization': 'Bearer YOUR_ADMIN_TOKEN', // Replace with real token
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update order');
-      }
-
-      toast.success('Order updated successfully!');
-      // Optionally refetch order data or update local state
-      // fetchOrder(); // Could refetch to show latest data including timestamps
-      // setOrder({...order, ...values}); // Or update state locally
-
-    } catch (err: unknown) {
-      console.error('Error submitting order update:', err);
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
-      toast.error(errorMessage);
-    }
-  };
 
   // PCB参数字段中文映射
   const pcbFieldLabelMap: Record<string, string> = {
@@ -209,6 +207,8 @@ export default function AdminOrderDetailPage() {
     fields: PCBFieldConfig[];
   }
 
+  const isPanel = (type?: string): boolean => !!type && type.startsWith('panel');
+
   const pcbFieldGroups: PCBFieldGroup[] = [
     {
       title: 'Basic Info',
@@ -226,10 +226,10 @@ export default function AdminOrderDetailPage() {
         { key: 'shipmentType', shouldShow: () => true },
         { key: 'singleDimensions', shouldShow: () => true },
         { key: 'singleCount', shouldShow: () => true },
-        { key: 'panelDimensions', shouldShow: data => data.shipmentType === 'panel' },
-        { key: 'panelSet', shouldShow: data => data.shipmentType === 'panel' },
-        { key: 'differentDesignsCount', shouldShow: data => data.shipmentType === 'panel' },
-        { key: 'border', shouldShow: data => data.shipmentType === 'panel' },
+        { key: 'panelDimensions', shouldShow: data => isPanel(String(data.shipmentType)) },
+        { key: 'panelSet', shouldShow: data => isPanel(String(data.shipmentType)) },
+        { key: 'differentDesignsCount', shouldShow: data => isPanel(String(data.shipmentType)) },
+        { key: 'border', shouldShow: data => isPanel(String(data.shipmentType)) },
       ],
     },
     {
@@ -290,6 +290,121 @@ export default function AdminOrderDetailPage() {
     },
   ];
 
+  const calculatePriceDetails = () => {
+    if (!pcbFormData) return;
+    try {
+      const result = calcPcbPriceV3(pcbFormData);
+      setPriceDetails({
+        basePrice: result.detail.basePrice || 0,
+        processFee: result.detail.processFee || 0,
+        materialFee: result.detail.materialFee || 0,
+        specialProcessFee: result.detail.specialProcessFee || 0,
+        testFee: result.detail.testFee || 0,
+        total: result.total
+      });
+    } catch {
+      toast.error('价格计算失败');
+    }
+  };
+
+  const calculateLeadTimeDetails = () => {
+    if (!pcbFormData) return;
+    try {
+      const result = calcProductionCycle(pcbFormData, new Date(), pcbFormData.delivery);
+      setLeadTimeDetails({
+        baseCycleDays: 5, // 基础生产周期
+        processExtraDays: result.cycleDays - 5, // 工艺加成天数
+        urgentExtraDays: pcbFormData.delivery === 'urgent' ? -2 : 0, // 加急处理
+        cycleDays: result.cycleDays,
+        reason: result.reason
+      });
+    } catch {
+      toast.error('交期计算失败');
+    }
+  };
+
+  // 删除订单
+  const handleDelete = async () => {
+    if (!orderId) return;
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/admin/orders?id=${orderId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete order');
+      }
+
+      toast.success('订单已删除');
+      router.push('/admin/orders');
+    } catch (err) {
+      console.error('Error deleting order:', err);
+      toast.error('删除订单失败');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // 更新订单状态
+  const handleStatusChange = async (newStatus: string) => {
+    if (!orderId) return;
+    setIsUpdating(true);
+    try {
+      const response = await fetch(`/api/admin/orders?id=${orderId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update order status');
+      }
+
+      const updatedOrder = await response.json();
+      setOrder(updatedOrder);
+      toast.success('订单状态已更新');
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      toast.error('更新订单状态失败');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // 创建管理员订单
+  const handleCreateAdminOrder = async () => {
+    if (!orderId) return;
+    try {
+      const response = await fetch(`/api/admin/orders/${orderId}/admin-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: OrderStatus.Created,
+          user_order_id: orderId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create admin order');
+      }
+
+      const updatedOrder = await response.json();
+      setOrder(updatedOrder);
+      toast.success('管理员订单已创建');
+    } catch (err) {
+      console.error('Error creating admin order:', err);
+      toast.error('创建管理员订单失败');
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full p-2 md:p-4">
@@ -323,19 +438,110 @@ export default function AdminOrderDetailPage() {
         <div className="flex flex-col md:flex-row gap-8">
           {/* 信息区 */}
           <div className="flex-1 space-y-6">
+            {/* 用户信息卡片 */}
             <Card className="rounded-xl shadow-lg">
               <CardHeader>
-                <CardTitle>Order Information</CardTitle>
-                <CardDescription>Details about the order and customer.</CardDescription>
+                <CardTitle>User Info</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div>Email: {order.email}</div>
+                <div>User ID: {order.user_id || 'Guest'}</div>
+                <div>User Name: {order.user_name || '-'}</div>
+                <div className="mt-2 font-medium">Shipping Address</div>
+                {order.shipping_address ? (
+                  <div>
+                    <div>{order.shipping_address.address}</div>
+                    <div>{order.shipping_address.city} {order.shipping_address.state} {order.shipping_address.country}</div>
+                    <div>Zip: {order.shipping_address.zipCode}</div>
+                    <div>Contact: {order.shipping_address.contactName}</div>
+                    <div>Phone: {order.shipping_address.phone}</div>
+                    <div>Courier: {order.shipping_address.courier}</div>
+                  </div>
+                ) : (
+                  <div className="text-gray-400">No shipping address</div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 订单状态卡片 */}
+            <Card className="rounded-xl shadow-lg">
+              <CardHeader>
+                <CardTitle>Order Status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div>Main Order Status: <span className="font-bold">{order.status}</span></div>
+                <div>
+                  Admin Order Status: {order.admin_orders && order.admin_orders.length > 0
+                    ? <span className="font-bold">{order.admin_orders[0].status}</span>
+                    : <span className="text-gray-400">Not created</span>
+                  }
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 原有订单信息卡片（去除用户、状态、地址相关内容） */}
+            <Card className="rounded-xl shadow-lg">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Order Information</CardTitle>
+                  <CardDescription>Details about the order and customer.</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={order?.status}
+                    onValueChange={handleStatusChange}
+                    disabled={isUpdating}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={OrderStatus.Draft}>草稿</SelectItem>
+                      <SelectItem value={OrderStatus.Created}>待审核</SelectItem>
+                      <SelectItem value={OrderStatus.Reviewed}>已审核</SelectItem>
+                      <SelectItem value={OrderStatus.Unpaid}>未支付</SelectItem>
+                      <SelectItem value={OrderStatus.PaymentPending}>支付中</SelectItem>
+                      <SelectItem value={OrderStatus.PartiallyPaid}>部分支付</SelectItem>
+                      <SelectItem value={OrderStatus.PaymentFailed}>支付失败</SelectItem>
+                      <SelectItem value={OrderStatus.PaymentCancelled}>支付已取消</SelectItem>
+                      <SelectItem value={OrderStatus.Paid}>已支付</SelectItem>
+                      <SelectItem value={OrderStatus.InProduction}>生产中</SelectItem>
+                      <SelectItem value={OrderStatus.QualityCheck}>质检中</SelectItem>
+                      <SelectItem value={OrderStatus.ReadyForShipment}>待发货</SelectItem>
+                      <SelectItem value={OrderStatus.Shipped}>已发货</SelectItem>
+                      <SelectItem value={OrderStatus.Delivered}>已送达</SelectItem>
+                      <SelectItem value={OrderStatus.Completed}>已完成</SelectItem>
+                      <SelectItem value={OrderStatus.Cancelled}>已取消</SelectItem>
+                      <SelectItem value={OrderStatus.OnHold}>已暂停</SelectItem>
+                      <SelectItem value={OrderStatus.Rejected}>已拒绝</SelectItem>
+                      <SelectItem value={OrderStatus.Refunded}>已退款</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" disabled={isDeleting}>
+                        {isDeleting ? '删除中...' : '删除订单'}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>确认删除订单</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          此操作将永久删除该订单，且无法恢复。是否继续？
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>取消</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete}>确认删除</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <div className="text-sm font-medium text-gray-500">订单编号</div>
                   <div>{order.id}</div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-500">用户邮箱</div>
-                  <div>{order.user_email} {order.user_id ? '' : '(访客)'}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-500">下单时间</div>
@@ -344,15 +550,15 @@ export default function AdminOrderDetailPage() {
                 {/* PCB参数展示 */}
                 <div>
                   <div className="text-sm font-medium text-gray-500 mb-1">PCB参数</div>
-                  {order.pcb_spec_data && typeof order.pcb_spec_data === 'object' ? (
+                  {order.pcb_spec && typeof order.pcb_spec === 'object' ? (
                     <div className="space-y-4">
                       {pcbFieldGroups.map(group => (
                         <div key={group.title} className="mb-2">
                           <div className="font-semibold text-gray-700 mb-1">{group.title}</div>
                           <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                             {group.fields.map(field => {
-                              if (!field.shouldShow(order.pcb_spec_data as Record<string, unknown>)) return null;
-                              const value = (order.pcb_spec_data as Record<string, unknown>)[field.key];
+                              if (!field.shouldShow(order.pcb_spec as Record<string, unknown>)) return null;
+                              const value = (order.pcb_spec as Record<string, unknown>)[field.key];
                               if (value === undefined || value === null || value === '') return null;
                               return (
                                 <React.Fragment key={field.key}>
@@ -391,43 +597,247 @@ export default function AdminOrderDetailPage() {
           </div>
           {/* 表单区 */}
           <div className="w-full md:w-[400px]">
-            <Card className="rounded-xl shadow-lg">
+            <Card className="rounded-xl shadow-lg mb-4">
               <CardHeader>
-                <CardTitle>Edit Order</CardTitle>
-                <CardDescription>Update order status, price, and notes.</CardDescription>
+                <CardTitle>管理员订单</CardTitle>
+                <CardDescription>管理订单状态和价格。</CardDescription>
               </CardHeader>
               <CardContent>
-                <FormConsumer>
-                  {() => (
-                    <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
-                      <Field
-                        name="status"
-                        title="Status"
-                        decorator={[FormItem]}
-                        component={[Select, { placeholder: 'Select status' }]}
-                        dataSource={[
-                          { label: 'Pending', value: 'pending' },
-                          { label: 'Processing', value: 'processing' },
-                          { label: 'Completed', value: 'completed' },
-                          { label: 'Cancelled', value: 'cancelled' },
-                        ]}
-                      />
-                      <Field
-                        name="price"
-                        title="Price (USD)"
-                        decorator={[FormItem]}
-                        component={[Input, { type: 'number', placeholder: 'Enter price' }]}
-                      />
-                      <Field
-                        name="admin_note"
-                        title="Admin Note"
-                        decorator={[FormItem]}
-                        component={[Input, { type: 'textarea', placeholder: 'Add internal notes' }]}
-                      />
-                      <Button type="submit" className="mt-6 w-full">Save Changes</Button>
-                    </form>
-                  )}
-                </FormConsumer>
+                {order?.admin_orders && order.admin_orders.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="text-sm text-gray-500">
+                      管理员订单已创建
+                    </div>
+                    {/* 这里可以添加管理员订单的详细信息 */}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-sm text-gray-500">
+                      管理员订单未创建
+                    </div>
+                    <Button 
+                      onClick={handleCreateAdminOrder}
+                      className="w-full"
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      新建管理员订单
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 计算值卡片 */}
+            <Card className="rounded-xl shadow-lg">
+              <CardHeader>
+                <CardTitle>Calculated Values</CardTitle>
+                <CardDescription>Automatically calculated values based on PCB specifications.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pcbFormData && (
+                  <div className="space-y-4">
+                    {/* 基础计算值 */}
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 mb-2">Basic Calculations</div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <div className="font-medium text-gray-600">单片面积</div>
+                        <div className="text-gray-900">{pcbFormData.singleDimensions?.length * pcbFormData.singleDimensions?.width} mm²</div>
+                        
+                        <div className="font-medium text-gray-600">总数量</div>
+                        <div className="text-gray-900">
+                          {pcbFormData.shipmentType === 'single' 
+                            ? pcbFormData.singleCount 
+                            : (pcbFormData.panelDimensions?.row || 1) * (pcbFormData.panelDimensions?.column || 1) * (pcbFormData.panelSet || 0)}
+                        </div>
+                        
+                        <div className="font-medium text-gray-600">总面积</div>
+                        <div className="text-gray-900">
+                          {pcbFormData.shipmentType === 'single'
+                            ? (pcbFormData.singleDimensions?.length * pcbFormData.singleDimensions?.width * pcbFormData.singleCount) / 100
+                            : (pcbFormData.singleDimensions?.length * pcbFormData.singleDimensions?.width * (pcbFormData.panelDimensions?.row || 1) * (pcbFormData.panelDimensions?.column || 1) * (pcbFormData.panelSet || 0)) / 100} cm²
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 价格计算 */}
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 mb-2">Price Calculation</div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <div className="font-medium text-gray-600">PCB成本</div>
+                        <div className="text-gray-900 flex items-center gap-2">
+                          {(() => {
+                            try {
+                              const { total } = calcPcbPriceV3(pcbFormData);
+                              return `¥${total.toFixed(2)}`;
+                            } catch {
+                              return '计算错误';
+                            }
+                          })()}
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm" onClick={calculatePriceDetails}>
+                                计算详情
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle>价格计算详情</DialogTitle>
+                              </DialogHeader>
+                              {priceDetails && (
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="font-medium">基础价格</div>
+                                    <div>¥{priceDetails.basePrice?.toFixed(2)}</div>
+                                    
+                                    <div className="font-medium">工艺加成</div>
+                                    <div>¥{priceDetails.processFee?.toFixed(2)}</div>
+                                    
+                                    <div className="font-medium">材料加成</div>
+                                    <div>¥{priceDetails.materialFee?.toFixed(2)}</div>
+                                    
+                                    <div className="font-medium">特殊工艺</div>
+                                    <div>¥{priceDetails.specialProcessFee?.toFixed(2)}</div>
+                                    
+                                    <div className="font-medium">测试费用</div>
+                                    <div>¥{priceDetails.testFee?.toFixed(2)}</div>
+                                    
+                                    <div className="font-medium">总价</div>
+                                    <div className="font-bold">¥{priceDetails.total?.toFixed(2)}</div>
+                                  </div>
+                                </div>
+                              )}
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                        <div className="font-medium text-gray-600">单价</div>
+                        <div className="text-gray-900">
+                          {(() => {
+                            try {
+                              const { total } = calcPcbPriceV3(pcbFormData);
+                              const totalCount = pcbFormData.shipmentType === 'single' 
+                                ? pcbFormData.singleCount 
+                                : (pcbFormData.panelDimensions?.row || 1) * (pcbFormData.panelDimensions?.column || 1) * (pcbFormData.panelSet || 0);
+                              return totalCount > 0 ? `¥${(total / totalCount).toFixed(2)}` : '¥0.00';
+                            } catch {
+                              return '计算错误';
+                            }
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 复杂度评分 */}
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 mb-2">Complexity Assessment</div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <div className="font-medium text-gray-600">复杂度评分</div>
+                        <div className="text-gray-900">
+                          {(() => {
+                            let score = 0;
+                            // 层数影响 (0-40分)
+                            score += Math.min(pcbFormData.layers * 2, 40);
+                            // HDI工艺 (0-20分)
+                            if (pcbFormData.hdi === '1step') score += 10;
+                            else if (pcbFormData.hdi === '2step') score += 15;
+                            else if (pcbFormData.hdi === '3step') score += 20;
+                            // 线宽线距 (0-15分)
+                            if (pcbFormData.minTrace === '3.5/3.5') score += 15;
+                            else if (pcbFormData.minTrace === '4/4') score += 10;
+                            else if (pcbFormData.minTrace === '5/5') score += 5;
+                            // 孔径 (0-10分)
+                            if (pcbFormData.minHole === '0.15') score += 10;
+                            else if (pcbFormData.minHole === '0.2') score += 7;
+                            else if (pcbFormData.minHole === '0.25') score += 5;
+                            // 特殊工艺 (0-15分)
+                            let specialFeatures = 0;
+                            if (pcbFormData.impedance) specialFeatures += 3;
+                            if (pcbFormData.goldFingers) specialFeatures += 3;
+                            if (pcbFormData.edgePlating) specialFeatures += 2;
+                            if (pcbFormData.bga) specialFeatures += 3;
+                            if (pcbFormData.holeCu25um) specialFeatures += 2;
+                            score += Math.min(specialFeatures, 15);
+                            return Math.min(score, 100);
+                          })()} / 100
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 预估交期 */}
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 mb-2">Production Timeline</div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <div className="font-medium text-gray-600">预估交期</div>
+                        <div className="text-gray-900 flex items-center gap-2">
+                          {(() => {
+                            const { cycleDays } = calcProductionCycle(pcbFormData, new Date(), pcbFormData.delivery);
+                            return `${cycleDays} 天`;
+                          })()}
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm" onClick={calculateLeadTimeDetails}>
+                                计算详情
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle>交期计算详情</DialogTitle>
+                              </DialogHeader>
+                              {leadTimeDetails && (
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="font-medium">基础生产周期</div>
+                                    <div>{leadTimeDetails.baseCycleDays} 天</div>
+                                    
+                                    <div className="font-medium">工艺加成</div>
+                                    <div>{leadTimeDetails.processExtraDays} 天</div>
+                                    
+                                    <div className="font-medium">加急处理</div>
+                                    <div>{leadTimeDetails.urgentExtraDays} 天</div>
+                                    
+                                    <div className="font-medium">总交期</div>
+                                    <div className="font-bold">{leadTimeDetails.cycleDays} 天</div>
+                                    
+                                    <div className="col-span-2 font-medium">影响因素</div>
+                                    <div className="col-span-2">
+                                      {leadTimeDetails.reason.map((r: string, index: number) => (
+                                        <div key={index} className="text-sm text-gray-600">• {r}</div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                        <div className="font-medium text-gray-600">交期详情</div>
+                        <div className="text-gray-900">
+                          {(() => {
+                            const { reason } = calcProductionCycle(pcbFormData, new Date(), pcbFormData.delivery);
+                            return reason.join('; ');
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 材料利用率 */}
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 mb-2">Material Efficiency</div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <div className="font-medium text-gray-600">材料利用率</div>
+                        <div className="text-gray-900">
+                          {(() => {
+                            const totalArea = pcbFormData.shipmentType === 'single'
+                              ? (pcbFormData.singleDimensions?.length * pcbFormData.singleDimensions?.width * pcbFormData.singleCount) / 100
+                              : (pcbFormData.singleDimensions?.length * pcbFormData.singleDimensions?.width * (pcbFormData.panelDimensions?.row || 1) * (pcbFormData.panelDimensions?.column || 1) * (pcbFormData.panelSet || 0)) / 100;
+                            const standardPanelArea = 100 * 100;
+                            const utilization = (totalArea / standardPanelArea) * 100;
+                            return `${Math.min(utilization, 100).toFixed(1)}%`;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

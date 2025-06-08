@@ -15,6 +15,7 @@ import DownloadButton from "../../../components/custom-ui/DownloadButton";
 import { toUSD } from "@/lib/utils";
 import type { UserInfo } from "@/lib/userStore";
 import { PcbQuoteForm } from "@/types/pcbQuoteForm";
+import { OrderStatus } from '@/types/form';
 
 // 字段分组与友好名映射
 const FIELD_GROUPS: { title: string; fields: { key: keyof PcbQuoteForm; label: string }[] }[] = [
@@ -150,7 +151,9 @@ function OrderShippingCard({ order }: OrderShippingCardProps) {
       <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0">
         <div>
           <span className="text-xs text-muted-foreground font-semibold uppercase">Status</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{order.status ?? "pending"}</div>
+          <div className="text-base font-semibold text-gray-800 break-all">
+            {orderStatusText[order.status as OrderStatus] || order.status}
+          </div>
         </div>
         <div>
           <span className="text-xs text-muted-foreground font-semibold uppercase">Estimated Delivery</span>
@@ -359,7 +362,7 @@ function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Status</span>
-            <span className="text-base font-semibold text-gray-700">{order.status || 'pending'}</span>
+            <span className="text-base font-semibold text-gray-700">{orderStatusText[order.status as OrderStatus] || order.status}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Payment Status</span>
@@ -417,6 +420,52 @@ function OrderSummaryCard({ order, onPay, onCancel, onAfterSale, loading, status
     </Card>
   );
 }
+
+// 订单状态显示文本映射
+const orderStatusText: Record<OrderStatus, string> = {
+  [OrderStatus.Draft]: '草稿',
+  [OrderStatus.Created]: '已创建',
+  [OrderStatus.Reviewed]: '已审核',
+  [OrderStatus.Unpaid]: '未支付',
+  [OrderStatus.PaymentPending]: '支付中',
+  [OrderStatus.PartiallyPaid]: '部分支付',
+  [OrderStatus.PaymentFailed]: '支付失败',
+  [OrderStatus.PaymentCancelled]: '支付已取消',
+  [OrderStatus.Paid]: '已支付',
+  [OrderStatus.InProduction]: '生产中',
+  [OrderStatus.QualityCheck]: '质检中',
+  [OrderStatus.ReadyForShipment]: '待发货',
+  [OrderStatus.Shipped]: '已发货',
+  [OrderStatus.Delivered]: '已送达',
+  [OrderStatus.Completed]: '已完成',
+  [OrderStatus.Cancelled]: '已取消',
+  [OrderStatus.OnHold]: '已暂停',
+  [OrderStatus.Rejected]: '已拒绝',
+  [OrderStatus.Refunded]: '已退款'
+};
+
+// 订单状态样式映射
+const orderStatusStyle: Record<OrderStatus, string> = {
+  [OrderStatus.Draft]: 'text-gray-500',
+  [OrderStatus.Created]: 'text-blue-500',
+  [OrderStatus.Reviewed]: 'text-green-500',
+  [OrderStatus.Unpaid]: 'text-yellow-500',
+  [OrderStatus.PaymentPending]: 'text-blue-500',
+  [OrderStatus.PartiallyPaid]: 'text-orange-500',
+  [OrderStatus.PaymentFailed]: 'text-red-500',
+  [OrderStatus.PaymentCancelled]: 'text-gray-500',
+  [OrderStatus.Paid]: 'text-green-500',
+  [OrderStatus.InProduction]: 'text-blue-500',
+  [OrderStatus.QualityCheck]: 'text-purple-500',
+  [OrderStatus.ReadyForShipment]: 'text-orange-500',
+  [OrderStatus.Shipped]: 'text-blue-500',
+  [OrderStatus.Delivered]: 'text-green-500',
+  [OrderStatus.Completed]: 'text-green-500',
+  [OrderStatus.Cancelled]: 'text-red-500',
+  [OrderStatus.OnHold]: 'text-yellow-500',
+  [OrderStatus.Rejected]: 'text-red-500',
+  [OrderStatus.Refunded]: 'text-gray-500'
+};
 
 interface OrderDetailClientProps {
   user: unknown;

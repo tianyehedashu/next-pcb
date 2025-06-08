@@ -10,6 +10,7 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { z } from 'zod';
+import { OrderStatus } from '@/types/form';
 
 export const orderFilterSchema = z.object({
   keyword: z.string().optional(),
@@ -22,6 +23,28 @@ interface OrderFilterFormValue {
   status?: string;
   dateRange?: [string, string];
 }
+
+const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  [OrderStatus.Draft]: 'Draft',
+  [OrderStatus.Created]: 'Created',
+  [OrderStatus.Reviewed]: 'Reviewed',
+  [OrderStatus.Unpaid]: 'Unpaid',
+  [OrderStatus.PaymentPending]: 'Payment Pending',
+  [OrderStatus.PartiallyPaid]: 'Partially Paid',
+  [OrderStatus.PaymentFailed]: 'Payment Failed',
+  [OrderStatus.PaymentCancelled]: 'Payment Cancelled',
+  [OrderStatus.Paid]: 'Paid',
+  [OrderStatus.InProduction]: 'In Production',
+  [OrderStatus.QualityCheck]: 'Quality Check',
+  [OrderStatus.ReadyForShipment]: 'Ready For Shipment',
+  [OrderStatus.Shipped]: 'Shipped',
+  [OrderStatus.Delivered]: 'Delivered',
+  [OrderStatus.Completed]: 'Completed',
+  [OrderStatus.Cancelled]: 'Cancelled',
+  [OrderStatus.OnHold]: 'On Hold',
+  [OrderStatus.Rejected]: 'Rejected',
+  [OrderStatus.Refunded]: 'Refunded',
+};
 
 export function OrderFilterForm({ value, onChange }: { value: OrderFilterFormValue; onChange: (v: OrderFilterFormValue) => void }) {
   // 这里只做受控表单示例，实际可结合 react-hook-form/zod 实现完整校验
@@ -40,37 +63,34 @@ export function OrderFilterForm({ value, onChange }: { value: OrderFilterFormVal
   };
 
   return (
-    <form onSubmit={handleChange} className="flex flex-wrap gap-4 items-end">
-      <div>
+    <form onSubmit={handleChange} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+      <div className="w-full">
         <label className="block mb-1 text-sm font-medium">Keyword</label>
-        <Input name="keyword" defaultValue={value?.keyword || ''} placeholder="Search..." />
+        <Input name="keyword" defaultValue={value?.keyword || ''} placeholder="Search..." className="w-full" />
       </div>
-      <div>
+      <div className="w-full">
         <label className="block mb-1 text-sm font-medium">Status</label>
         <Select name="status" defaultValue={value?.status || 'all'}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="All" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="reviewed">Reviewed</SelectItem>
-            <SelectItem value="in_production">In Production</SelectItem>
-            <SelectItem value="shipped">Shipped</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
+            {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
-      <div>
+      <div className="w-full">
         <label className="block mb-1 text-sm font-medium">Date Start</label>
-        <Input type="date" name="dateStart" defaultValue={value?.dateRange?.[0] || ''} />
+        <Input type="date" name="dateStart" defaultValue={value?.dateRange?.[0] || ''} className="w-full" />
       </div>
-      <div>
+      <div className="w-full">
         <label className="block mb-1 text-sm font-medium">Date End</label>
-        <Input type="date" name="dateEnd" defaultValue={value?.dateRange?.[1] || ''} />
+        <Input type="date" name="dateEnd" defaultValue={value?.dateRange?.[1] || ''} className="w-full" />
       </div>
-      <Button type="submit">Search</Button>
+      <Button type="submit" className="w-full sm:w-auto">Search</Button>
     </form>
   );
 } 

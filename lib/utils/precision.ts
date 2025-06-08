@@ -122,9 +122,9 @@ export function calculateTotalPcbArea(form: {
   }
 
   // 计算加工艺边后的大板尺寸
-  function getPanelSizeWithBorder(panelDimensions: any, border: string, breakAwayRail: string) {
-    let length = panelDimensions.length || 0; // 单位cm
-    let width = panelDimensions.width || 0;   // 单位cm
+  function getPanelSizeWithBorder(singleDimensions: { length?: number; width?: number }, border: string, breakAwayRail: string) {
+    let length = singleDimensions.length || 0; // 单位cm
+    let width = singleDimensions.width || 0;   // 单位cm
     const borderWidth = getBorderWidth(border) / 10; // mm转cm
     if (breakAwayRail !== 'None') {
       if (breakAwayRail === 'TopBottom' || breakAwayRail === 'All') {
@@ -143,7 +143,7 @@ export function calculateTotalPcbArea(form: {
   // 计算总面积
   let totalArea = 0;
   if (shipmentType === 'panel_by_speedx') {
-    const { length, width } = getPanelSizeWithBorder(panelDimensions, border, breakAwayRail);
+    const { length, width } = getPanelSizeWithBorder(singleDimensions, border, breakAwayRail);
     singleArea = calculateSinglePcbArea(length, width);
     const totalCount = (panelDimensions.row || panelRow) * (panelDimensions.column || panelColumn) * (panelSet || 0);
     totalArea = singleArea * totalCount;

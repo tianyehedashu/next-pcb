@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -12,6 +12,8 @@ import { ArrowRight, Download, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "../../components/ui/pagination";
 import { toUSD } from "@/lib/utils";
+import { OrderStatus } from '@/types/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface OrderListItem {
   id: string;
@@ -20,6 +22,72 @@ interface OrderListItem {
   total_amount: number | null;
   user_notes: string | null;
 }
+
+// 订单状态显示文本映射
+const orderStatusText: Record<OrderStatus, string> = {
+  [OrderStatus.Draft]: '草稿',
+  [OrderStatus.Created]: '已创建',
+  [OrderStatus.Reviewed]: '已审核',
+  [OrderStatus.Unpaid]: '未支付',
+  [OrderStatus.PaymentPending]: '支付中',
+  [OrderStatus.PartiallyPaid]: '部分支付',
+  [OrderStatus.PaymentFailed]: '支付失败',
+  [OrderStatus.PaymentCancelled]: '支付已取消',
+  [OrderStatus.Paid]: '已支付',
+  [OrderStatus.InProduction]: '生产中',
+  [OrderStatus.QualityCheck]: '质检中',
+  [OrderStatus.ReadyForShipment]: '待发货',
+  [OrderStatus.Shipped]: '已发货',
+  [OrderStatus.Delivered]: '已送达',
+  [OrderStatus.Completed]: '已完成',
+  [OrderStatus.Cancelled]: '已取消',
+  [OrderStatus.OnHold]: '已暂停',
+  [OrderStatus.Rejected]: '已拒绝',
+  [OrderStatus.Refunded]: '已退款'
+};
+
+// 订单状态样式映射
+const orderStatusStyle: Record<OrderStatus, string> = {
+  [OrderStatus.Draft]: 'text-gray-500',
+  [OrderStatus.Created]: 'text-blue-500',
+  [OrderStatus.Reviewed]: 'text-green-500',
+  [OrderStatus.Unpaid]: 'text-yellow-500',
+  [OrderStatus.PaymentPending]: 'text-blue-500',
+  [OrderStatus.PartiallyPaid]: 'text-orange-500',
+  [OrderStatus.PaymentFailed]: 'text-red-500',
+  [OrderStatus.PaymentCancelled]: 'text-gray-500',
+  [OrderStatus.Paid]: 'text-green-500',
+  [OrderStatus.InProduction]: 'text-blue-500',
+  [OrderStatus.QualityCheck]: 'text-purple-500',
+  [OrderStatus.ReadyForShipment]: 'text-orange-500',
+  [OrderStatus.Shipped]: 'text-blue-500',
+  [OrderStatus.Delivered]: 'text-green-500',
+  [OrderStatus.Completed]: 'text-green-500',
+  [OrderStatus.Cancelled]: 'text-red-500',
+  [OrderStatus.OnHold]: 'text-yellow-500',
+  [OrderStatus.Rejected]: 'text-red-500',
+  [OrderStatus.Refunded]: 'text-gray-500'
+};
+
+// 订单状态筛选选项
+const orderStatusFilters = [
+  { value: 'all', label: '全部状态' },
+  { value: OrderStatus.Created, label: '待审核' },
+  { value: OrderStatus.Reviewed, label: '已审核' },
+  { value: OrderStatus.Unpaid, label: '待支付' },
+  { value: OrderStatus.PaymentPending, label: '支付中' },
+  { value: OrderStatus.Paid, label: '已支付' },
+  { value: OrderStatus.InProduction, label: '生产中' },
+  { value: OrderStatus.QualityCheck, label: '质检中' },
+  { value: OrderStatus.ReadyForShipment, label: '待发货' },
+  { value: OrderStatus.Shipped, label: '已发货' },
+  { value: OrderStatus.Delivered, label: '已送达' },
+  { value: OrderStatus.Completed, label: '已完成' },
+  { value: OrderStatus.Cancelled, label: '已取消' },
+  { value: OrderStatus.OnHold, label: '已暂停' },
+  { value: OrderStatus.Rejected, label: '已拒绝' },
+  { value: OrderStatus.Refunded, label: '已退款' }
+];
 
 export default function OrdersPage() {
   useEnsureLogin();
@@ -31,6 +99,8 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const pagedOrders = orders.slice((page - 1) * pageSize, page * pageSize);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -54,9 +124,27 @@ export default function OrdersPage() {
 
   // 统计数据
   const totalOrders = orders.length;
-  const completedOrders = orders.filter(o => o.status === "completed").length;
-  const pendingOrders = orders.filter(o => o.status === "pending").length;
+  const completedOrders = orders.filter(o => o.status === OrderStatus.Completed).length;
+  const pendingOrders = orders.filter(o => o.status === OrderStatus.Created).length;
   const totalAmount = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+
+  // 根据状态筛选订单
+  const filteredOrders = orders.filter(order => {
+    if (statusFilter === 'all') return true;
+    return order.status === statusFilter;
+  });
+
+  // 更新状态筛选
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    const newParams = new URLSearchParams(searchParams);
+    if (value === 'all') {
+      newParams.delete('status');
+    } else {
+      newParams.set('status', value);
+    }
+    setSearchParams(newParams);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100/60 via-white to-blue-50/80 py-32 px-2 relative">
@@ -123,6 +211,23 @@ export default function OrdersPage() {
                 </div>
               ) : (
                 <>
+                  <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-2xl font-bold text-gray-900">我的订单</h1>
+                    <div className="flex items-center gap-4">
+                      <Select value={statusFilter} onValueChange={handleStatusChange}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="选择状态" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {orderStatusFilters.map(filter => (
+                            <SelectItem key={filter.value} value={filter.value}>
+                              {filter.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   <div className="overflow-x-auto rounded-xl border border-slate-100 bg-white">
                     <table className="min-w-full text-sm">
                       <thead>
@@ -136,25 +241,26 @@ export default function OrdersPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {pagedOrders.map((order) => (
+                        {filteredOrders.map((order) => (
                           <tr key={order.id} className="border-b hover:bg-blue-50/60 transition-all duration-150 group align-top">
                             <td className="px-4 py-2 font-mono text-blue-700 text-xs max-w-[120px] truncate align-middle">{order.id}</td>
                             <td className="px-4 py-2 text-slate-700 align-middle">{order.created_at ? new Date(order.created_at).toLocaleString() : "-"}</td>
                             <td className="px-4 py-2 align-middle min-w-[120px]">
                               <span className="inline-flex items-center gap-2">
-                                <span className={
-                                  order.status === "completed" ? "w-2.5 h-2.5 rounded-full bg-green-500" :
-                                  order.status === "cancelled" ? "w-2.5 h-2.5 rounded-full bg-red-400" :
-                                  order.status === "pending" ? "w-2.5 h-2.5 rounded-full bg-yellow-400" :
-                                  "w-2.5 h-2.5 rounded-full bg-blue-400"
-                                } />
-                                <span className={
-                                  order.status === "completed" ? "text-green-600 font-semibold" :
-                                  order.status === "cancelled" ? "text-red-500 font-semibold" :
-                                  order.status === "pending" ? "text-yellow-600 font-semibold" :
-                                  "text-blue-700 font-semibold"
-                                }>
-                                  {order.status ?? "-"}
+                                <div className={`
+                                  w-2.5 h-2.5 rounded-full
+                                  ${order.status === OrderStatus.Completed ? 'bg-green-500' :
+                                    order.status === OrderStatus.Cancelled ? 'bg-red-400' :
+                                    order.status === OrderStatus.Created ? 'bg-yellow-400' :
+                                    'bg-gray-400'}
+                                `} />
+                                <span className={`
+                                  ${order.status === OrderStatus.Completed ? 'text-green-600 font-semibold' :
+                                    order.status === OrderStatus.Cancelled ? 'text-red-500 font-semibold' :
+                                    order.status === OrderStatus.Created ? 'text-yellow-600 font-semibold' :
+                                    'text-gray-600'}
+                                `}>
+                                  {orderStatusText[order.status as OrderStatus] || order.status}
                                 </span>
                               </span>
                             </td>

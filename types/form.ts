@@ -411,4 +411,83 @@ export enum IfDataConflicts {
   FollowOrder = 'Follow Order Parameters',
   FollowFiles = 'Follow Files',
   Ask = 'Ask for Confirmation',
+}
+
+/**
+ * 订单状态
+ * 作用：定义订单在整个生命周期中的各个状态，用于跟踪订单进度和管理。
+ * 
+ * 状态流转：
+ * - Draft: 草稿状态，用户创建但未提交的订单
+ * - Created: 已创建，订单已提交，等待审核
+ * - Reviewed: 已审核，订单已通过审核，可以进入支付流程
+ * - Unpaid: 未支付，订单已确认但未支付
+ * - PaymentPending: 支付中，用户已发起支付但未完成
+ * - PartiallyPaid: 部分支付，订单支持分期付款时的中间状态
+ * - PaymentFailed: 支付失败，支付过程中出现错误
+ * - PaymentCancelled: 支付已取消
+ * - Paid: 已支付，订单已确认且支付完成，可以进入生产
+ * - InProduction: 生产中，订单正在生产线上
+ * - QualityCheck: 质检中，产品正在接受质量检查
+ * - ReadyForShipment: 待发货，产品已通过质检等待发货
+ * - Shipped: 已发货，产品已发出
+ * - Delivered: 已送达，产品已送达客户
+ * - Completed: 已完成，订单流程全部结束
+ * - Cancelled: 已取消，订单被取消
+ * - OnHold: 暂停，订单暂时搁置
+ * - Rejected: 已拒绝，订单被拒绝
+ * - Refunded: 已退款，订单已退款
+ */
+export enum OrderStatus {
+  // 初始状态
+  Draft = 'draft',
+  Created = 'created', // 修改：从 Pending 改为 Created，更准确地表示订单已创建
+  
+  // 审核状态
+  Reviewed = 'reviewed',
+  
+  // 支付相关状态
+  Unpaid = 'unpaid',
+  PaymentPending = 'payment_pending',
+  PartiallyPaid = 'partially_paid',
+  PaymentFailed = 'payment_failed',
+  PaymentCancelled = 'payment_cancelled',
+  Paid = 'paid',
+  
+  // 订单处理状态
+  InProduction = 'in_production',
+  QualityCheck = 'quality_check',
+  ReadyForShipment = 'ready_for_shipment',
+  Shipped = 'shipped',
+  Delivered = 'delivered',
+  Completed = 'completed',
+  
+  // 终止状态
+  Cancelled = 'cancelled',
+  OnHold = 'on_hold',
+  Rejected = 'rejected',
+  Refunded = 'refunded'
+}
+
+/**
+ * 支付状态
+ * 作用：定义订单支付的状态，用于跟踪支付进度和管理。
+ * 
+ * 状态流转：
+ * - Unpaid: 未支付，订单创建但未支付
+ * - Pending: 支付中，用户已发起支付但未完成
+ * - Paid: 已支付，支付已完成
+ * - PartiallyPaid: 部分支付，订单支持分期付款时的中间状态
+ * - Refunded: 已退款，订单已退款
+ * - Failed: 支付失败，支付过程中出现错误
+ * - Cancelled: 已取消，支付被取消
+ */
+export enum PaymentStatus {
+  Unpaid = 'unpaid',
+  Pending = 'pending',
+  Paid = 'paid',
+  PartiallyPaid = 'partially_paid',
+  Refunded = 'refunded',
+  Failed = 'failed',
+  Cancelled = 'cancelled'
 } 
