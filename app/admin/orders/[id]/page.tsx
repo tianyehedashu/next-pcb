@@ -44,6 +44,11 @@ interface LeadTimeDetails {
   reason: string[];
 }
 
+interface SurchargeItem {
+  amount: number;
+  reason: string;
+}
+
 // 工具函数：兼容 admin_orders 为对象或数组
 function getAdminOrders(admin_orders: unknown): AdminOrder[] {
   if (!admin_orders) return [];
@@ -51,16 +56,32 @@ function getAdminOrders(admin_orders: unknown): AdminOrder[] {
   return [admin_orders as AdminOrder];
 }
 
-// 币种对应默认汇率
-const getDefaultExchangeRate = (currency: string) => {
+// 币种符号映射
+const currencySymbolMap: Record<string, string> = {
+  CNY: '￥',
+  USD: '$',
+  EUR: '€',
+  JPY: '¥',
+};
+
+// 获取币种符号
+function getCurrencySymbol(currency: string) {
+  return currencySymbolMap[currency] || '$';
+}
+
+// 获取默认币种和汇率
+function getDefaultCurrency() {
+  return 'USD';
+}
+function getDefaultExchangeRate(currency: string) {
   switch (currency) {
     case 'CNY': return 1;
     case 'USD': return 7.2;
     case 'EUR': return 7.8;
     case 'JPY': return 0.05;
-    default: return '';
+    default: return 7.2;
   }
-};
+}
 
 export default function AdminOrderDetailPage() {
   const params = useParams();
@@ -88,15 +109,17 @@ export default function AdminOrderDetailPage() {
     setAdminOrderEdits(edits =>
       edits.map((edit: any, i: number) => {
         if (i !== idx) return edit;
+        let newEdit = { ...edit, [key]: value };
+        // 如果变动 currency 或 exchange_rate，自动 recalc
         if (key === 'currency') {
-          return {
-            ...edit,
-            currency: value,
-            exchange_rate: getDefaultExchangeRate(value),
-            notes: edit.notes,
-          };
+          newEdit.currency = value || getDefaultCurrency();
+          newEdit.exchange_rate = getDefaultExchangeRate(newEdit.currency).toString();
         }
-        return { ...edit, [key]: value, notes: edit.notes };
+        if (key === 'currency' || key === 'exchange_rate' || key === 'surcharges') {
+          // 触发一次 recalc
+          setTimeout(() => recalcAdminOrder(idx), 0);
+        }
+        return newEdit;
       })
     );
   };
@@ -150,10 +173,11 @@ export default function AdminOrderDetailPage() {
         let admin_price = edit.admin_price;
         let newProductionDays = edit.production_days;
         let notes: string[] = [];
+        let surcharges = Array.isArray(edit.surcharges) ? edit.surcharges : [];
         if (pcbFormData) {
           try {
             const result = calcPcbPriceV3(pcbFormData);
-            cny_price = String(result.total);
+            cny_price = Number(result.total);
             if (result.notes) notes = result.notes;
           } catch {}
           try {
@@ -162,24 +186,27 @@ export default function AdminOrderDetailPage() {
             if (cycle.reason) notes = notes.concat(cycle.reason);
           } catch {}
         }
-        // 计算 admin_price: 非CNY时 = cny_price * 汇率，CNY时 = cny_price
-        let exchange_rate = Number(edit.exchange_rate) || getDefaultExchangeRate(edit.currency);
-        if (edit.currency === 'CNY' || !edit.currency) {
-          admin_price = cny_price;
-        } else {
-          admin_price = exchange_rate > 0 ? String(Number(cny_price) * exchange_rate) : '';
-        }
-        const newShipPrice = '200';
-        const newCustomDuty = '100';
+        // 合计加价
+        const surchargeTotal = surcharges.reduce((sum: number, s: any) => sum + Number(s.amount || 0), 0);
+        const cny_total = Number(cny_price) + surchargeTotal;
+        // 币种和汇率
+        let currency = edit.currency || getDefaultCurrency();
+        let exchange_rate = Number(edit.exchange_rate) || getDefaultExchangeRate(currency);
+        // 计算 admin_price
+        let adminPriceNum = currency === 'CNY' ? cny_total : cny_total / exchange_rate;
+        admin_price = adminPriceNum.toFixed(2);
         return {
           ...edit,
           admin_price,
-          ship_price: newShipPrice,
-          custom_duty: newCustomDuty,
-          exchange_rate: String(exchange_rate),
+          cny_price: cny_price.toFixed(2),
+          currency,
+          exchange_rate: exchange_rate.toString(),
           production_days: newProductionDays,
           notes,
-          cny_price,
+          surcharges,
+          newSurchargeAmount: edit.newSurchargeAmount ?? '',
+          newSurchargeReason: edit.newSurchargeReason ?? '',
+          coupon: typeof edit.coupon === 'number' ? edit.coupon : 0,
         };
       })
     );
@@ -289,11 +316,14 @@ export default function AdminOrderDetailPage() {
             exchange_rate,
             payment_status: admin.payment_status ?? '',
             production_days,
-            coupon: admin.coupon ?? '',
+            coupon: typeof admin.coupon === 'number' ? admin.coupon : 0,
             ship_price: admin.ship_price ?? '',
             custom_duty: admin.custom_duty ?? '',
             notes,
             cny_price,
+            surcharges: Array.isArray(admin.surcharges) ? admin.surcharges : [],
+            newSurchargeAmount: '',
+            newSurchargeReason: '',
           };
         })
       );
@@ -637,11 +667,14 @@ export default function AdminOrderDetailPage() {
       exchange_rate: '',
       payment_status: '',
       production_days,
-      coupon: '0',
+      coupon: 0,
       ship_price: '',
       custom_duty: '',
       notes,
       cny_price,
+      surcharges: [],
+      newSurchargeAmount: '',
+      newSurchargeReason: '',
     };
   };
 
@@ -806,14 +839,19 @@ export default function AdminOrderDetailPage() {
                             <option value="cancelled">cancelled</option>
                           </select>
                         </div>
-                        <div>Admin Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.admin_price ?? ''} onChange={e => updateEdit(idx, 'admin_price', e.target.value)} /></div>
-                        <div>Currency: <input className="border rounded px-2 py-1 w-24" value={adminOrderEdits[idx]?.currency ?? ''} onChange={e => updateEdit(idx, 'currency', e.target.value)} /></div>
+                        <div>Admin Price: <input type="text" className={`border rounded px-2 py-1 w-32 bg-gray-100`} value={`${adminOrderEdits[idx]?.admin_price ?? ''} ${getCurrencySymbol(adminOrderEdits[idx]?.currency || getDefaultCurrency())}`} readOnly /></div>
+                        <div>Currency: <select className="border rounded px-2 py-1 w-24" value={adminOrderEdits[idx]?.currency || getDefaultCurrency()} onChange={e => updateEdit(idx, 'currency', e.target.value)}>
+                          <option value="USD">USD</option>
+                          <option value="CNY">CNY</option>
+                          <option value="EUR">EUR</option>
+                          <option value="JPY">JPY</option>
+                        </select></div>
                         <div>Due Date: <input type="date" className="border rounded px-2 py-1" value={adminOrderEdits[idx]?.due_date ?? ''} onChange={e => updateEdit(idx, 'due_date', e.target.value)} /></div>
                         <div>Pay Time: <input type="datetime-local" className="border rounded px-2 py-1" value={formatDateTimeLocal(adminOrderEdits[idx]?.pay_time ?? '')} onChange={e => updateEdit(idx, 'pay_time', e.target.value)} /></div>
-                        <div>Exchange Rate: <input type="number" className={`border rounded px-2 py-1 w-24 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.exchange_rate ?? ''} onChange={e => updateEdit(idx, 'exchange_rate', e.target.value)} /></div>
+                        <div>Exchange Rate: <input type="number" className="border rounded px-2 py-1 w-24" value={adminOrderEdits[idx]?.exchange_rate ?? getDefaultExchangeRate(adminOrderEdits[idx]?.currency || getDefaultCurrency())} onChange={e => updateEdit(idx, 'exchange_rate', e.target.value)} /></div>
                         <div>Payment Status: <span className="ml-2">{adminOrderEdits[idx]?.payment_status || '-'}</span></div>
                         <div>Production Days: <input type="number" className={`border rounded px-2 py-1 w-24 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.production_days ?? ''} onChange={e => updateEdit(idx, 'production_days', e.target.value)} /></div>
-                        <div>Coupon: <input type="number" className="border rounded px-2 py-1 w-32" value={adminOrderEdits[idx]?.coupon ?? ''} onChange={e => updateEdit(idx, 'coupon', e.target.value)} /></div>
+                        <div>Coupon: <input type="number" className="border rounded px-2 py-1 w-32" value={adminOrderEdits[idx]?.coupon ?? 0} onChange={e => updateEdit(idx, 'coupon', Number(e.target.value))} /></div>
                         <div>Ship Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.ship_price ?? ''} onChange={e => updateEdit(idx, 'ship_price', e.target.value)} /></div>
                         <div>Custom Duty: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.custom_duty ?? ''} onChange={e => updateEdit(idx, 'custom_duty', e.target.value)} /></div>
                         <div>CNY Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.cny_price ?? ''} onChange={e => updateEdit(idx, 'cny_price', e.target.value)} /></div>
@@ -838,6 +876,34 @@ export default function AdminOrderDetailPage() {
                             <Button size="sm" type="button" onClick={() => addNote(idx)}>添加</Button>
                           </div>
                         </div>
+                        {adminOrderEdits[idx] && (
+                          <div className="mt-2">
+                            <div className="font-semibold text-sm mb-1">Surcharges</div>
+                            <ul className="space-y-1 mb-2">
+                              {adminOrderEdits[idx].surcharges.map((item: SurchargeItem, i: number) => (
+                                <li key={i} className="flex items-center gap-2 text-xs">
+                                  <span className="inline-block w-16">+￥{Number(item.amount).toFixed(2)}</span>
+                                  <span className="flex-1">{item.reason}</span>
+                                  <button type="button" className="text-red-500" onClick={() => {
+                                    setAdminOrderEdits(edits => edits.map((edit, edi) => edi === idx ? { ...edit, surcharges: edit.surcharges.filter((_: any, si: number) => si !== i) } : edit));
+                                  }}>删除</button>
+                                </li>
+                              ))}
+                            </ul>
+                            <div className="flex gap-2 items-center">
+                              <input type="number" className="border rounded px-2 py-1 w-20" placeholder="Amount" value={adminOrderEdits[idx].newSurchargeAmount ?? ''} onChange={e => updateEdit(idx, 'newSurchargeAmount', e.target.value)} />
+                              <span>￥</span>
+                              <input type="text" className="border rounded px-2 py-1 flex-1" placeholder="Reason" value={adminOrderEdits[idx].newSurchargeReason ?? ''} onChange={e => updateEdit(idx, 'newSurchargeReason', e.target.value)} />
+                              <Button size="sm" type="button" onClick={() => {
+                                const amount = Number(adminOrderEdits[idx].newSurchargeAmount);
+                                const reason = adminOrderEdits[idx].newSurchargeReason?.trim();
+                                if (!amount || !reason) return;
+                                setAdminOrderEdits(edits => edits.map((edit, edi) => edi === idx ? { ...edit, surcharges: [...(edit.surcharges || []), { amount, reason }], newSurchargeAmount: '', newSurchargeReason: '' } : edit));
+                                setTimeout(() => recalcAdminOrder(idx), 0);
+                              }}>添加</Button>
+                            </div>
+                          </div>
+                        )}
                         <Button size="sm" className="mt-2" onClick={() => save(idx)}>保存修改</Button>
                         <Button size="sm" variant="outline" className="mt-2 mr-2" onClick={() => recalcAdminOrder(idx)}>重新计算</Button>
                         {recalcStatus[idx] && (
@@ -875,14 +941,19 @@ export default function AdminOrderDetailPage() {
                       return (
                         <div className="space-y-2 border rounded-lg p-3 mb-2">
                           <div>Status: <span className="ml-2">created</span></div>
-                          <div>Admin Price: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.admin_price || ''} readOnly /></div>
-                          <div>Currency: <input className="border rounded px-2 py-1 w-24" value={edit.currency || ''} readOnly /></div>
+                          <div>Admin Price: <input type="text" className={`border rounded px-2 py-1 w-32 bg-gray-100`} value={`${edit.admin_price ?? ''} ${getCurrencySymbol(edit.currency || getDefaultCurrency())}`} readOnly /></div>
+                          <div>Currency: <select className="border rounded px-2 py-1 w-24" value={edit.currency || getDefaultCurrency()} onChange={e => updateEdit(0, 'currency', e.target.value)}>
+                            <option value="USD">USD</option>
+                            <option value="CNY">CNY</option>
+                            <option value="EUR">EUR</option>
+                            <option value="JPY">JPY</option>
+                          </select></div>
                           <div>Due Date: <input type="date" className="border rounded px-2 py-1" value={edit.due_date || ''} readOnly /></div>
                           <div>Pay Time: <input type="datetime-local" className="border rounded px-2 py-1" value={formatDateTimeLocal(edit.pay_time || '')} readOnly /></div>
-                          <div>Exchange Rate: <input type="number" className="border rounded px-2 py-1 w-24" value={edit.exchange_rate || ''} readOnly /></div>
+                          <div>Exchange Rate: <input type="number" className="border rounded px-2 py-1 w-24" value={edit.exchange_rate || getDefaultExchangeRate(edit.currency || getDefaultCurrency())} onChange={e => updateEdit(0, 'exchange_rate', e.target.value)} /></div>
                           <div>Payment Status: <span className="ml-2">-</span></div>
                           <div>Production Days: <input type="number" className="border rounded px-2 py-1 w-24" value={edit.production_days || ''} readOnly /></div>
-                          <div>Coupon: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.coupon || ''} readOnly /></div>
+                          <div>Coupon: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.coupon || 0} readOnly /></div>
                           <div>Ship Price: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.ship_price || ''} readOnly /></div>
                           <div>Custom Duty: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.custom_duty || ''} readOnly /></div>
                           <div>CNY Price: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.cny_price || ''} readOnly /></div>

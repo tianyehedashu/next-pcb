@@ -103,6 +103,7 @@ export async function PATCH(
       ship_price: body.ship_price,
       custom_duty: body.custom_duty,
       cny_price: body.cny_price,
+      surcharges: body.surcharges,
       updated_at: new Date().toISOString(),
     };
     const { error: updateError } = await supabase
