@@ -18,6 +18,17 @@ export interface AdminOrder {
     quantity: number;
     unit_price: number;
   };
+  admin_price?: number | string | null;
+  admin_note?: string | string[] | null;
+  currency?: string | null;
+  due_date?: string | null;
+  pay_time?: string | null;
+  exchange_rate?: number | string | null;
+  payment_status?: string | null;
+  production_days?: number | string | null;
+  coupon?: string | null;
+  ship_price?: number | string | null;
+  custom_duty?: number | string | null;
 }
 
 export interface Order {

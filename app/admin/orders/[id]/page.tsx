@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { createForm } from '@formily/core';
 import { FormProvider } from '@formily/react';
@@ -24,8 +24,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OrderStatus } from '@/types/form';
-import { Order } from '@/app/admin/types/order';
+import {  AdminOrder, Order } from '@/app/admin/types/order';
 import { PlusCircle } from 'lucide-react';
+import { useState as useLocalState } from 'react';
 
 interface PriceDetails {
   basePrice: number;
@@ -44,6 +45,24 @@ interface LeadTimeDetails {
   reason: string[];
 }
 
+// 工具函数：兼容 admin_orders 为对象或数组
+function getAdminOrders(admin_orders: unknown): AdminOrder[] {
+  if (!admin_orders) return [];
+  if (Array.isArray(admin_orders)) return admin_orders as AdminOrder[];
+  return [admin_orders as AdminOrder];
+}
+
+// 币种对应默认汇率
+const getDefaultExchangeRate = (currency: string) => {
+  switch (currency) {
+    case 'CNY': return 1;
+    case 'USD': return 7.2;
+    case 'EUR': return 7.8;
+    case 'JPY': return 0.05;
+    default: return '';
+  }
+};
+
 export default function AdminOrderDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -57,56 +76,232 @@ export default function AdminOrderDetailPage() {
   const [leadTimeDetails, setLeadTimeDetails] = useState<LeadTimeDetails | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [highlightedIdx, setHighlightedIdx] = useState<number[]>([]);
+  const [recalcStatus, setRecalcStatus] = useState<boolean[]>([]);
+  const [adminOrderEdits, setAdminOrderEdits] = useState<any[]>([]);
+  const hasInitAdminOrderEdits = useRef(false);
 
-  // Fetch order data
-  useEffect(() => {
-    if (!orderId) return;
+  // 管理员订单本地编辑状态
+  const adminOrders = getAdminOrders(order?.admin_orders);
 
-    const fetchOrder = async () => {
-      try {
-        setLoading(true);
-        // TODO: Add actual authentication token to headers
-        const response = await fetch(`/api/admin/orders?id=${orderId}`, {
-          headers: {
-            // 'Authorization': 'Bearer YOUR_ADMIN_TOKEN', // Replace with real token
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch order');
+  // 编辑项变更
+  const updateEdit = (idx: number, key: string, value: any) => {
+    setAdminOrderEdits(edits =>
+      edits.map((edit: any, i: number) => {
+        if (i !== idx) return edit;
+        if (key === 'currency') {
+          return {
+            ...edit,
+            currency: value,
+            exchange_rate: getDefaultExchangeRate(value),
+            notes: edit.notes,
+          };
         }
+        return { ...edit, [key]: value, notes: edit.notes };
+      })
+    );
+  };
+  // 添加/删除备注
+  const addNote = (idx: number) => {
+    setAdminOrderEdits(edits =>
+      edits.map((edit: any, i: number) =>
+        i === idx && edit.newNote.trim()
+          ? { ...edit, admin_note: [...edit.admin_note, edit.newNote.trim()], newNote: '' }
+          : edit
+      )
+    );
+  };
+  const removeNote = (idx: number, noteIdx: number) => {
+    setAdminOrderEdits(edits =>
+      edits.map((edit: any, i: number) =>
+        i === idx
+          ? { ...edit, admin_note: edit.admin_note.filter((_: any, j: number) => j !== noteIdx) }
+          : edit
+      )
+    );
+  };
+  // 保存
+  const save = async (idx: number) => {
+    // 调用API保存 adminOrderEdits[idx]
+    try {
+      const adminOrder = adminOrderEdits[idx];
+      const response = await fetch(`/api/admin/orders/${orderId}/admin-order`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(adminOrder),
+      });
+      if (!response.ok) {
+        throw new Error('保存失败');
+      }
+      toast.success('保存成功');
+      fetchOrder();
+    } catch (err) {
+      toast.error('保存失败');
+    }
+  };
 
-        const data: Order = await response.json();
-        setOrder(data);
-        // 先将pcb_spec_data转为QuoteFormData
-        if (data.pcb_spec && typeof data.pcb_spec === 'object') {
-          const result = quoteSchema.safeParse(data.pcb_spec);
-          if (result.success) {
-            setPcbFormData(result.data);
-          } else {
-            setPcbFormData(null);
-            console.error('PCB参数校验失败', result.error);
-          }
+  // 重新计算逻辑
+  const recalcAdminOrder = (idx: number) => {
+    setAdminOrderEdits(edits =>
+      edits.map((edit: any, i: number) => {
+        if (i !== idx) return edit;
+        let newPrice = edit.admin_price;
+        let newProductionDays = edit.production_days;
+        let notes: string[] = [];
+        let cny_price = edit.cny_price;
+        if (pcbFormData) {
+          try {
+            const result = calcPcbPriceV3(pcbFormData);
+            newPrice = String(result.total);
+            if (result.notes) notes = result.notes;
+          } catch {}
+          try {
+            const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+            newProductionDays = String(cycle.cycleDays);
+            if (cycle.reason) notes = notes.concat(cycle.reason);
+          } catch {}
+        }
+        // 重新计算cny_price
+        if (edit.currency === 'CNY' || !edit.currency) {
+          cny_price = newPrice;
+        } else {
+          const rate = Number(edit.exchange_rate);
+          cny_price = rate > 0 ? String(Number(newPrice) * rate) : '';
+        }
+        const newShipPrice = '200';
+        const newCustomDuty = '100';
+        const newExchangeRate = String(getDefaultExchangeRate(edit.currency));
+        return {
+          ...edit,
+          admin_price: newPrice,
+          ship_price: newShipPrice,
+          custom_duty: newCustomDuty,
+          exchange_rate: newExchangeRate,
+          production_days: newProductionDays,
+          notes,
+          cny_price,
+        };
+      })
+    );
+    // 设置高亮和已重新计算状态
+    setHighlightedIdx(arr => [...arr, idx]);
+    setRecalcStatus(arr => {
+      const newArr = [...arr];
+      newArr[idx] = true;
+      return newArr;
+    });
+    setTimeout(() => {
+      setHighlightedIdx(arr => arr.filter((_: number, i: number) => i !== idx));
+      setRecalcStatus(arr => {
+        const newArr = [...arr];
+        newArr[idx] = false;
+        return newArr;
+      });
+    }, 1500);
+  };
+
+  // 1. 让fetchOrder变为组件内可复用函数
+  const fetchOrder = async () => {
+    if (!orderId) return;
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/admin/orders?id=${orderId}`, {
+        headers: {},
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch order');
+      }
+      const data: Order = await response.json();
+      setOrder(data);
+      if (data.pcb_spec && typeof data.pcb_spec === 'object') {
+        const result = quoteSchema.safeParse(data.pcb_spec);
+        if (result.success) {
+          setPcbFormData(result.data);
         } else {
           setPcbFormData(null);
+          console.error('PCB参数校验失败', result.error);
         }
-        // Set form initial values after fetching data
-        form.setValues({ ...data });
-
-      } catch (err: unknown) {
-        console.error('Error fetching order:', err);
-        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
-        setError(errorMessage);
-        toast.error(errorMessage);
-      } finally {
-        setLoading(false);
+      } else {
+        setPcbFormData(null);
       }
-    };
+      form.setValues({ ...data });
+    } catch (err: unknown) {
+      console.error('Error fetching order:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // 2. useEffect里只调用fetchOrder
+  useEffect(() => {
     fetchOrder();
+  }, [orderId, form]);
 
-  }, [orderId, form]); // Add form to dependency array
+  useEffect(() => {
+    if (!hasInitAdminOrderEdits.current && order?.admin_orders) {
+      const adminOrders = getAdminOrders(order.admin_orders);
+      setAdminOrderEdits(
+        adminOrders.map(admin => {
+          const currency = admin.currency ?? '';
+          const exchange_rate = admin.exchange_rate ?? (currency ? getDefaultExchangeRate(currency) : '');
+          let admin_price = '';
+          let production_days = '';
+          let notes: string[] = [];
+          let cny_price = '';
+          if (pcbFormData) {
+            try {
+              const result = calcPcbPriceV3(pcbFormData);
+              admin_price = String(result.total);
+              if (result.notes) notes = result.notes;
+            } catch {}
+            try {
+              const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+              production_days = String(cycle.cycleDays);
+              if (cycle.reason) notes = notes.concat(cycle.reason);
+            } catch {}
+          } else {
+            admin_price = String(admin.admin_price ?? '');
+            production_days = String(admin.production_days ?? '');
+          }
+          // cny_price初始化
+          if (currency === 'CNY' || !currency) {
+            cny_price = admin_price;
+          } else {
+            const rate = Number(exchange_rate);
+            cny_price = rate > 0 ? String(Number(admin_price) * rate) : '';
+          }
+          return {
+            status: admin.status,
+            admin_price,
+            admin_note: admin.admin_note
+              ? Array.isArray(admin.admin_note)
+                ? admin.admin_note
+                : [admin.admin_note]
+              : [],
+            newNote: '',
+            currency,
+            due_date: admin.due_date ?? '',
+            pay_time: admin.pay_time ?? '',
+            exchange_rate,
+            payment_status: admin.payment_status ?? '',
+            production_days,
+            coupon: admin.coupon ?? '',
+            ship_price: admin.ship_price ?? '',
+            custom_duty: admin.custom_duty ?? '',
+            notes,
+            cny_price,
+          };
+        })
+      );
+      hasInitAdminOrderEdits.current = true;
+    }
+  }, [order?.admin_orders, pcbFormData]);
 
   // PCB参数字段中文映射
   const pcbFieldLabelMap: Record<string, string> = {
@@ -391,18 +586,65 @@ export default function AdminOrderDetailPage() {
           user_order_id: orderId,
         }),
       });
-
       if (!response.ok) {
         throw new Error('Failed to create admin order');
       }
-
       const updatedOrder = await response.json();
       setOrder(updatedOrder);
       toast.success('管理员订单已创建');
+      fetchOrder();
     } catch (err) {
       console.error('Error creating admin order:', err);
       toast.error('创建管理员订单失败');
     }
+  };
+
+  // 在组件内添加格式化函数
+  function formatDateTimeLocal(val: string) {
+    if (!val) return '';
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // 在组件内，adminOrders.length === 0 时，构造默认编辑数据
+  const getDefaultAdminOrderEdit = () => {
+    let admin_price = '';
+    let production_days = '';
+    let notes: string[] = [];
+    let cny_price = '';
+    if (pcbFormData) {
+      try {
+        const result = calcPcbPriceV3(pcbFormData);
+        admin_price = String(result.total);
+        if (result.notes) notes = result.notes;
+      } catch {}
+      try {
+        const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+        production_days = String(cycle.cycleDays);
+        if (cycle.reason) notes = notes.concat(cycle.reason);
+      } catch {}
+    }
+    // 默认币种USD，汇率空
+    cny_price = '';
+    return {
+      status: 'created',
+      admin_price,
+      admin_note: [],
+      newNote: '',
+      currency: 'USD',
+      due_date: '',
+      pay_time: '',
+      exchange_rate: '',
+      payment_status: '',
+      production_days,
+      coupon: '0',
+      ship_price: '',
+      custom_duty: '',
+      notes,
+      cny_price,
+    };
   };
 
   if (loading) {
@@ -469,84 +711,25 @@ export default function AdminOrderDetailPage() {
                 <CardTitle>Order Status</CardTitle>
               </CardHeader>
               <CardContent>
+                <div>Order ID: <span className="font-bold">{order.id}</span></div>
+                <div>Created At: <span className="font-bold">{new Date(order.created_at).toLocaleString()}</span></div>
                 <div>Main Order Status: <span className="font-bold">{order.status}</span></div>
                 <div>
-                  Admin Order Status: {order.admin_orders && order.admin_orders.length > 0
-                    ? <span className="font-bold">{order.admin_orders[0].status}</span>
+                  Admin Order Status: {Array.isArray(order.admin_orders) && (order.admin_orders as AdminOrder[]).length > 0
+                    ? <span className="font-bold">{(order.admin_orders as AdminOrder[])[0].status}</span>
                     : <span className="text-gray-400">Not created</span>
                   }
                 </div>
               </CardContent>
             </Card>
 
-            {/* 原有订单信息卡片（去除用户、状态、地址相关内容） */}
+            {/* 原有订单信息卡片（只显示PCB相关信息） */}
             <Card className="rounded-xl shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Order Information</CardTitle>
-                  <CardDescription>Details about the order and customer.</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={order?.status}
-                    onValueChange={handleStatusChange}
-                    disabled={isUpdating}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={OrderStatus.Draft}>草稿</SelectItem>
-                      <SelectItem value={OrderStatus.Created}>待审核</SelectItem>
-                      <SelectItem value={OrderStatus.Reviewed}>已审核</SelectItem>
-                      <SelectItem value={OrderStatus.Unpaid}>未支付</SelectItem>
-                      <SelectItem value={OrderStatus.PaymentPending}>支付中</SelectItem>
-                      <SelectItem value={OrderStatus.PartiallyPaid}>部分支付</SelectItem>
-                      <SelectItem value={OrderStatus.PaymentFailed}>支付失败</SelectItem>
-                      <SelectItem value={OrderStatus.PaymentCancelled}>支付已取消</SelectItem>
-                      <SelectItem value={OrderStatus.Paid}>已支付</SelectItem>
-                      <SelectItem value={OrderStatus.InProduction}>生产中</SelectItem>
-                      <SelectItem value={OrderStatus.QualityCheck}>质检中</SelectItem>
-                      <SelectItem value={OrderStatus.ReadyForShipment}>待发货</SelectItem>
-                      <SelectItem value={OrderStatus.Shipped}>已发货</SelectItem>
-                      <SelectItem value={OrderStatus.Delivered}>已送达</SelectItem>
-                      <SelectItem value={OrderStatus.Completed}>已完成</SelectItem>
-                      <SelectItem value={OrderStatus.Cancelled}>已取消</SelectItem>
-                      <SelectItem value={OrderStatus.OnHold}>已暂停</SelectItem>
-                      <SelectItem value={OrderStatus.Rejected}>已拒绝</SelectItem>
-                      <SelectItem value={OrderStatus.Refunded}>已退款</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" disabled={isDeleting}>
-                        {isDeleting ? '删除中...' : '删除订单'}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>确认删除订单</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          此操作将永久删除该订单，且无法恢复。是否继续？
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>取消</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete}>确认删除</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
+              <CardHeader>
+                <CardTitle>pcb Information</CardTitle>
+                <CardDescription>Details about the PCB and Gerber file.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <div className="text-sm font-medium text-gray-500">订单编号</div>
-                  <div>{order.id}</div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-500">下单时间</div>
-                  <div>{new Date(order.created_at).toLocaleString()}</div>
-                </div>
                 {/* PCB参数展示 */}
                 <div>
                   <div className="text-sm font-medium text-gray-500 mb-1">PCB参数</div>
@@ -578,9 +761,9 @@ export default function AdminOrderDetailPage() {
                   )}
                 </div>
                 {/* Gerber文件下载 */}
-                {order.gerber_file_url && (
-                  <div>
-                    <div className="text-sm font-medium text-gray-500 mb-1">Gerber文件</div>
+                <div>
+                  <div className="text-sm font-medium text-gray-500 mb-1">Gerber文件</div>
+                  {order.gerber_file_url ? (
                     <a
                       href={order.gerber_file_url}
                       target="_blank"
@@ -590,8 +773,10 @@ export default function AdminOrderDetailPage() {
                     >
                       下载Gerber文件
                     </a>
-                  </div>
-                )}
+                  ) : (
+                    <span className="text-gray-400">没有Gerber文件</span>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -603,25 +788,113 @@ export default function AdminOrderDetailPage() {
                 <CardDescription>管理订单状态和价格。</CardDescription>
               </CardHeader>
               <CardContent>
-                {order?.admin_orders && order.admin_orders.length > 0 ? (
+                {adminOrders.length > 0 ? (
                   <div className="space-y-4">
-                    <div className="text-sm text-gray-500">
-                      管理员订单已创建
-                    </div>
-                    {/* 这里可以添加管理员订单的详细信息 */}
+                    <div className="text-sm text-gray-500">管理员订单已创建</div>
+                    {adminOrders.map((admin, idx) => (
+                      <div key={admin.id || idx} className="space-y-2 border rounded-lg p-3 mb-2">
+                        <div>
+                          Status:
+                          <select
+                            className="border rounded px-2 py-1 ml-2"
+                            value={adminOrderEdits[idx]?.status}
+                            onChange={e => updateEdit(idx, 'status', e.target.value)}
+                          >
+                            <option value="created">created</option>
+                            <option value="reviewed">reviewed</option>
+                            <option value="unpaid">unpaid</option>
+                            <option value="paid">paid</option>
+                            <option value="completed">completed</option>
+                            <option value="cancelled">cancelled</option>
+                          </select>
+                        </div>
+                        <div>Admin Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.admin_price ?? ''} onChange={e => updateEdit(idx, 'admin_price', e.target.value)} /></div>
+                        <div>Currency: <input className="border rounded px-2 py-1 w-24" value={adminOrderEdits[idx]?.currency ?? ''} onChange={e => updateEdit(idx, 'currency', e.target.value)} /></div>
+                        <div>Due Date: <input type="date" className="border rounded px-2 py-1" value={adminOrderEdits[idx]?.due_date ?? ''} onChange={e => updateEdit(idx, 'due_date', e.target.value)} /></div>
+                        <div>Pay Time: <input type="datetime-local" className="border rounded px-2 py-1" value={formatDateTimeLocal(adminOrderEdits[idx]?.pay_time ?? '')} onChange={e => updateEdit(idx, 'pay_time', e.target.value)} /></div>
+                        <div>Exchange Rate: <input type="number" className={`border rounded px-2 py-1 w-24 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.exchange_rate ?? ''} onChange={e => updateEdit(idx, 'exchange_rate', e.target.value)} /></div>
+                        <div>Payment Status: <span className="ml-2">{adminOrderEdits[idx]?.payment_status || '-'}</span></div>
+                        <div>Production Days: <input type="number" className={`border rounded px-2 py-1 w-24 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.production_days ?? ''} onChange={e => updateEdit(idx, 'production_days', e.target.value)} /></div>
+                        <div>Coupon: <input type="number" className="border rounded px-2 py-1 w-32" value={adminOrderEdits[idx]?.coupon ?? ''} onChange={e => updateEdit(idx, 'coupon', e.target.value)} /></div>
+                        <div>Ship Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.ship_price ?? ''} onChange={e => updateEdit(idx, 'ship_price', e.target.value)} /></div>
+                        <div>Custom Duty: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.custom_duty ?? ''} onChange={e => updateEdit(idx, 'custom_duty', e.target.value)} /></div>
+                        <div>CNY Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.cny_price ?? ''} onChange={e => updateEdit(idx, 'cny_price', e.target.value)} /></div>
+                        <div>
+                          Admin Notes:
+                          <ul className="list-disc pl-5 mt-1">
+                            {adminOrderEdits[idx]?.admin_note.map((note: string, i: number) => (
+                              <li key={i} className="flex items-center justify-between">
+                                <span>{note}</span>
+                                <button className="ml-2 text-red-500" onClick={() => removeNote(idx, i)}>删除</button>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="flex mt-2 gap-2">
+                            <input
+                              type="text"
+                              className="border rounded px-2 py-1 flex-1"
+                              value={adminOrderEdits[idx]?.newNote ?? ''}
+                              onChange={e => updateEdit(idx, 'newNote', e.target.value)}
+                              placeholder="添加新备注"
+                            />
+                            <Button size="sm" type="button" onClick={() => addNote(idx)}>添加</Button>
+                          </div>
+                        </div>
+                        <Button size="sm" className="mt-2" onClick={() => save(idx)}>保存修改</Button>
+                        <Button size="sm" variant="outline" className="mt-2 mr-2" onClick={() => recalcAdminOrder(idx)}>重新计算</Button>
+                        {recalcStatus[idx] && (
+                          <div className="text-green-600 text-xs mt-1">已重新计算</div>
+                        )}
+                        {adminOrderEdits[idx]?.notes && adminOrderEdits[idx].notes.length > 0 && (
+                          <div className="mt-2 text-xs text-gray-500 space-y-1">
+                            {adminOrderEdits[idx].notes.map((n: string, i: number) => (
+                              <div key={i}>• {n}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="text-sm text-gray-500">
-                      管理员订单未创建
-                    </div>
-                    <Button 
-                      onClick={handleCreateAdminOrder}
-                      className="w-full"
-                    >
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      新建管理员订单
-                    </Button>
+                    <div className="text-sm text-gray-500">管理员订单未创建</div>
+                    {/* 默认编辑表单 */}
+                    {(() => {
+                      const edit = getDefaultAdminOrderEdit();
+                      return (
+                        <div className="space-y-2 border rounded-lg p-3 mb-2">
+                          <div>Status: <span className="ml-2">created</span></div>
+                          <div>Admin Price: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.admin_price || ''} readOnly /></div>
+                          <div>Currency: <input className="border rounded px-2 py-1 w-24" value={edit.currency || ''} readOnly /></div>
+                          <div>Due Date: <input type="date" className="border rounded px-2 py-1" value={edit.due_date || ''} readOnly /></div>
+                          <div>Pay Time: <input type="datetime-local" className="border rounded px-2 py-1" value={formatDateTimeLocal(edit.pay_time || '')} readOnly /></div>
+                          <div>Exchange Rate: <input type="number" className="border rounded px-2 py-1 w-24" value={edit.exchange_rate || ''} readOnly /></div>
+                          <div>Payment Status: <span className="ml-2">-</span></div>
+                          <div>Production Days: <input type="number" className="border rounded px-2 py-1 w-24" value={edit.production_days || ''} readOnly /></div>
+                          <div>Coupon: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.coupon || ''} readOnly /></div>
+                          <div>Ship Price: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.ship_price || ''} readOnly /></div>
+                          <div>Custom Duty: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.custom_duty || ''} readOnly /></div>
+                          <div>CNY Price: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.cny_price || ''} readOnly /></div>
+                          <div>Admin Notes:
+                            <ul className="list-disc pl-5 mt-1">
+                              {edit.admin_note.map((note: string, i: number) => (
+                                <li key={i} className="flex items-center justify-between">
+                                  <span>{note}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          {edit.notes && edit.notes.length > 0 && (
+                            <div className="mt-2 text-xs text-gray-500 space-y-1">
+                              {edit.notes.map((n: string, i: number) => (
+                                <div key={i}>• {n}</div>
+                              ))}
+                            </div>
+                          )}
+                          <Button onClick={handleCreateAdminOrder} className="w-full">创建管理员订单</Button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </CardContent>
@@ -641,13 +914,13 @@ export default function AdminOrderDetailPage() {
                       <div className="text-sm font-medium text-gray-500 mb-2">Basic Calculations</div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                         <div className="font-medium text-gray-600">单片面积</div>
-                        <div className="text-gray-900">{pcbFormData.singleDimensions?.length * pcbFormData.singleDimensions?.width} mm²</div>
+                        <div className="text-gray-900">{`${Number(pcbFormData.singleDimensions?.length ?? 0) * Number(pcbFormData.singleDimensions?.width ?? 0)} mm²`}</div>
                         
                         <div className="font-medium text-gray-600">总数量</div>
                         <div className="text-gray-900">
-                          {pcbFormData.shipmentType === 'single' 
-                            ? pcbFormData.singleCount 
-                            : (pcbFormData.panelDimensions?.row || 1) * (pcbFormData.panelDimensions?.column || 1) * (pcbFormData.panelSet || 0)}
+                          {pcbFormData.shipmentType === 'single'
+                            ? `${pcbFormData.singleCount ?? ''}`
+                            : `${Number(pcbFormData.panelDimensions?.row || 1) * Number(pcbFormData.panelDimensions?.column || 1) * Number(pcbFormData.panelSet || 0)}`}
                         </div>
                         
                         <div className="font-medium text-gray-600">总面积</div>

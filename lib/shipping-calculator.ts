@@ -1,4 +1,4 @@
-import type { PcbQuoteForm } from "@/types/pcbQuoteForm";
+import type { QuoteFormData as PcbQuoteForm } from '@/app/quote2/schema/quoteSchema';
 import { calculateTotalPcbArea } from './utils/precision';
 
 interface Dimensions {
@@ -136,13 +136,16 @@ const OZ_TO_MM = 0.035;
 function calculateSinglePCBWeight(specs: PCBSpecs | PcbQuoteForm): number {
   // 兼容 PcbQuoteForm
   const s = specs as PcbQuoteForm;
-  const singleLength = typeof s.singleDimensions.length === 'number' ? s.singleDimensions.length : parseFloat(String(s.singleDimensions.length)) || 0;
-  const singleWidth = typeof s.singleDimensions.width === 'number' ? s.singleDimensions.width : parseFloat(String(s.singleDimensions.width)) || 0;
+  // 使用 calculateTotalPcbArea 计算面积（单位m²）
+  const { singleArea } = calculateTotalPcbArea(s);
+  // singleArea 单位为 m²，需转为 cm² 参与后续体积/重量计算
+  const areaM2 = singleArea; // m²
+  const area = areaM2 * 10000; // cm²
   const thickness = typeof s.thickness === 'number' ? s.thickness : parseFloat(String(s.thickness)) || 0;
-  const area = singleLength * singleWidth; // 面积(cm²)
 
   // 1. 计算基材重量
   const density = materialDensity[s.pcbType.toLowerCase() as keyof typeof materialDensity] ?? 1.85;
+  // baseVolume 单位：cm³ = 面积(cm²) * 厚度(cm)
   const baseVolume = area * (thickness / 10);
   const baseWeight = baseVolume * density;
 
@@ -210,14 +213,23 @@ export function calculateShippingCost(
   finalCost: number;
 } {
   // 计算实际重量（千克）
+  // 计算总数量
+  let totalCount = 1;
+  if ( specs.shipmentType === 'panel_by_speedx') {
+    totalCount = (specs.panelDimensions?.row || 1) * (specs.panelDimensions?.column || 1) * (specs.panelSet || 0);
+  } else if (specs.shipmentType === 'single') {
+    totalCount = specs.singleCount || 1;
+  } else if (specs.shipmentType === 'panel_by_custom') {
+    totalCount   = specs.panelSet || 1;
+  }
   const singleWeight = calculateSinglePCBWeight(specs);
-  const totalWeight = (singleWeight * (specs.panelRow && specs.panelColumn && specs.panelSet ? specs.panelRow * specs.panelColumn * specs.panelSet : specs.singleCount || 1) * (specs.panelRow && specs.panelColumn ? specs.panelRow * specs.panelColumn : 1)) / 1000;
+  const totalWeight = (singleWeight * totalCount) / 1000;
 
   const dimensions = {
     length: Number(specs.singleDimensions.length),
     width: Number(specs.singleDimensions.width),
     height: Number(specs.thickness),
-    quantity: (specs.panelRow && specs.panelColumn && specs.panelSet ? specs.panelRow * specs.panelColumn * specs.panelSet : specs.singleCount || 1) * (specs.panelRow && specs.panelColumn ? specs.panelRow * specs.panelColumn : 1)
+    quantity: totalCount
   };
 
   const volumetricWeight = calculateVolumetricWeight(dimensions);
