@@ -10,7 +10,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
 import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
 import { calcPcbPriceV3 } from '@/lib/pcb-calc-v3';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -147,14 +146,14 @@ export default function AdminOrderDetailPage() {
     setAdminOrderEdits(edits =>
       edits.map((edit: any, i: number) => {
         if (i !== idx) return edit;
-        let newPrice = edit.admin_price;
+        let cny_price = edit.cny_price;
+        let admin_price = edit.admin_price;
         let newProductionDays = edit.production_days;
         let notes: string[] = [];
-        let cny_price = edit.cny_price;
         if (pcbFormData) {
           try {
             const result = calcPcbPriceV3(pcbFormData);
-            newPrice = String(result.total);
+            cny_price = String(result.total);
             if (result.notes) notes = result.notes;
           } catch {}
           try {
@@ -163,22 +162,21 @@ export default function AdminOrderDetailPage() {
             if (cycle.reason) notes = notes.concat(cycle.reason);
           } catch {}
         }
-        // 重新计算cny_price
+        // 计算 admin_price: 非CNY时 = cny_price * 汇率，CNY时 = cny_price
+        let exchange_rate = Number(edit.exchange_rate) || getDefaultExchangeRate(edit.currency);
         if (edit.currency === 'CNY' || !edit.currency) {
-          cny_price = newPrice;
+          admin_price = cny_price;
         } else {
-          const rate = Number(edit.exchange_rate);
-          cny_price = rate > 0 ? String(Number(newPrice) * rate) : '';
+          admin_price = exchange_rate > 0 ? String(Number(cny_price) * exchange_rate) : '';
         }
         const newShipPrice = '200';
         const newCustomDuty = '100';
-        const newExchangeRate = String(getDefaultExchangeRate(edit.currency));
         return {
           ...edit,
-          admin_price: newPrice,
+          admin_price,
           ship_price: newShipPrice,
           custom_duty: newCustomDuty,
-          exchange_rate: newExchangeRate,
+          exchange_rate: String(exchange_rate),
           production_days: newProductionDays,
           notes,
           cny_price,
@@ -852,6 +850,19 @@ export default function AdminOrderDetailPage() {
                             ))}
                           </div>
                         )}
+                        {(() => {
+                          if (!pcbFormData) return null;
+                          const { reason } = calcProductionCycle(pcbFormData, new Date(), pcbFormData.delivery);
+                          if (!reason || reason.length === 0) return null;
+                          return (
+                            <div className="mt-2 text-xs text-blue-600 space-y-1">
+                              <div className="font-semibold">Production Timeline Notes:</div>
+                              {reason.map((r: string, i: number) => (
+                                <div key={i}>• {r}</div>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>
@@ -895,220 +906,6 @@ export default function AdminOrderDetailPage() {
                         </div>
                       );
                     })()}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 计算值卡片 */}
-            <Card className="rounded-xl shadow-lg">
-              <CardHeader>
-                <CardTitle>Calculated Values</CardTitle>
-                <CardDescription>Automatically calculated values based on PCB specifications.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {pcbFormData && (
-                  <div className="space-y-4">
-                    {/* 基础计算值 */}
-                    <div>
-                      <div className="text-sm font-medium text-gray-500 mb-2">Basic Calculations</div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        <div className="font-medium text-gray-600">单片面积</div>
-                        <div className="text-gray-900">{`${Number(pcbFormData.singleDimensions?.length ?? 0) * Number(pcbFormData.singleDimensions?.width ?? 0)} mm²`}</div>
-                        
-                        <div className="font-medium text-gray-600">总数量</div>
-                        <div className="text-gray-900">
-                          {pcbFormData.shipmentType === 'single'
-                            ? `${pcbFormData.singleCount ?? ''}`
-                            : `${Number(pcbFormData.panelDimensions?.row || 1) * Number(pcbFormData.panelDimensions?.column || 1) * Number(pcbFormData.panelSet || 0)}`}
-                        </div>
-                        
-                        <div className="font-medium text-gray-600">总面积</div>
-                        <div className="text-gray-900">
-                          {pcbFormData.shipmentType === 'single'
-                            ? (pcbFormData.singleDimensions?.length * pcbFormData.singleDimensions?.width * pcbFormData.singleCount) / 100
-                            : (pcbFormData.singleDimensions?.length * pcbFormData.singleDimensions?.width * (pcbFormData.panelDimensions?.row || 1) * (pcbFormData.panelDimensions?.column || 1) * (pcbFormData.panelSet || 0)) / 100} cm²
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 价格计算 */}
-                    <div>
-                      <div className="text-sm font-medium text-gray-500 mb-2">Price Calculation</div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        <div className="font-medium text-gray-600">PCB成本</div>
-                        <div className="text-gray-900 flex items-center gap-2">
-                          {(() => {
-                            try {
-                              const { total } = calcPcbPriceV3(pcbFormData);
-                              return `¥${total.toFixed(2)}`;
-                            } catch {
-                              return '计算错误';
-                            }
-                          })()}
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm" onClick={calculatePriceDetails}>
-                                计算详情
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
-                              <DialogHeader>
-                                <DialogTitle>价格计算详情</DialogTitle>
-                              </DialogHeader>
-                              {priceDetails && (
-                                <div className="space-y-4">
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div className="font-medium">基础价格</div>
-                                    <div>¥{priceDetails.basePrice?.toFixed(2)}</div>
-                                    
-                                    <div className="font-medium">工艺加成</div>
-                                    <div>¥{priceDetails.processFee?.toFixed(2)}</div>
-                                    
-                                    <div className="font-medium">材料加成</div>
-                                    <div>¥{priceDetails.materialFee?.toFixed(2)}</div>
-                                    
-                                    <div className="font-medium">特殊工艺</div>
-                                    <div>¥{priceDetails.specialProcessFee?.toFixed(2)}</div>
-                                    
-                                    <div className="font-medium">测试费用</div>
-                                    <div>¥{priceDetails.testFee?.toFixed(2)}</div>
-                                    
-                                    <div className="font-medium">总价</div>
-                                    <div className="font-bold">¥{priceDetails.total?.toFixed(2)}</div>
-                                  </div>
-                                </div>
-                              )}
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                        <div className="font-medium text-gray-600">单价</div>
-                        <div className="text-gray-900">
-                          {(() => {
-                            try {
-                              const { total } = calcPcbPriceV3(pcbFormData);
-                              const totalCount = pcbFormData.shipmentType === 'single' 
-                                ? pcbFormData.singleCount 
-                                : (pcbFormData.panelDimensions?.row || 1) * (pcbFormData.panelDimensions?.column || 1) * (pcbFormData.panelSet || 0);
-                              return totalCount > 0 ? `¥${(total / totalCount).toFixed(2)}` : '¥0.00';
-                            } catch {
-                              return '计算错误';
-                            }
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 复杂度评分 */}
-                    <div>
-                      <div className="text-sm font-medium text-gray-500 mb-2">Complexity Assessment</div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        <div className="font-medium text-gray-600">复杂度评分</div>
-                        <div className="text-gray-900">
-                          {(() => {
-                            let score = 0;
-                            // 层数影响 (0-40分)
-                            score += Math.min(pcbFormData.layers * 2, 40);
-                            // HDI工艺 (0-20分)
-                            if (pcbFormData.hdi === '1step') score += 10;
-                            else if (pcbFormData.hdi === '2step') score += 15;
-                            else if (pcbFormData.hdi === '3step') score += 20;
-                            // 线宽线距 (0-15分)
-                            if (pcbFormData.minTrace === '3.5/3.5') score += 15;
-                            else if (pcbFormData.minTrace === '4/4') score += 10;
-                            else if (pcbFormData.minTrace === '5/5') score += 5;
-                            // 孔径 (0-10分)
-                            if (pcbFormData.minHole === '0.15') score += 10;
-                            else if (pcbFormData.minHole === '0.2') score += 7;
-                            else if (pcbFormData.minHole === '0.25') score += 5;
-                            // 特殊工艺 (0-15分)
-                            let specialFeatures = 0;
-                            if (pcbFormData.impedance) specialFeatures += 3;
-                            if (pcbFormData.goldFingers) specialFeatures += 3;
-                            if (pcbFormData.edgePlating) specialFeatures += 2;
-                            if (pcbFormData.bga) specialFeatures += 3;
-                            if (pcbFormData.holeCu25um) specialFeatures += 2;
-                            score += Math.min(specialFeatures, 15);
-                            return Math.min(score, 100);
-                          })()} / 100
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 预估交期 */}
-                    <div>
-                      <div className="text-sm font-medium text-gray-500 mb-2">Production Timeline</div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        <div className="font-medium text-gray-600">预估交期</div>
-                        <div className="text-gray-900 flex items-center gap-2">
-                          {(() => {
-                            const { cycleDays } = calcProductionCycle(pcbFormData, new Date(), pcbFormData.delivery);
-                            return `${cycleDays} 天`;
-                          })()}
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm" onClick={calculateLeadTimeDetails}>
-                                计算详情
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
-                              <DialogHeader>
-                                <DialogTitle>交期计算详情</DialogTitle>
-                              </DialogHeader>
-                              {leadTimeDetails && (
-                                <div className="space-y-4">
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div className="font-medium">基础生产周期</div>
-                                    <div>{leadTimeDetails.baseCycleDays} 天</div>
-                                    
-                                    <div className="font-medium">工艺加成</div>
-                                    <div>{leadTimeDetails.processExtraDays} 天</div>
-                                    
-                                    <div className="font-medium">加急处理</div>
-                                    <div>{leadTimeDetails.urgentExtraDays} 天</div>
-                                    
-                                    <div className="font-medium">总交期</div>
-                                    <div className="font-bold">{leadTimeDetails.cycleDays} 天</div>
-                                    
-                                    <div className="col-span-2 font-medium">影响因素</div>
-                                    <div className="col-span-2">
-                                      {leadTimeDetails.reason.map((r: string, index: number) => (
-                                        <div key={index} className="text-sm text-gray-600">• {r}</div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                        <div className="font-medium text-gray-600">交期详情</div>
-                        <div className="text-gray-900">
-                          {(() => {
-                            const { reason } = calcProductionCycle(pcbFormData, new Date(), pcbFormData.delivery);
-                            return reason.join('; ');
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 材料利用率 */}
-                    <div>
-                      <div className="text-sm font-medium text-gray-500 mb-2">Material Efficiency</div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        <div className="font-medium text-gray-600">材料利用率</div>
-                        <div className="text-gray-900">
-                          {(() => {
-                            const totalArea = pcbFormData.shipmentType === 'single'
-                              ? (pcbFormData.singleDimensions?.length * pcbFormData.singleDimensions?.width * pcbFormData.singleCount) / 100
-                              : (pcbFormData.singleDimensions?.length * pcbFormData.singleDimensions?.width * (pcbFormData.panelDimensions?.row || 1) * (pcbFormData.panelDimensions?.column || 1) * (pcbFormData.panelSet || 0)) / 100;
-                            const standardPanelArea = 100 * 100;
-                            const utilization = (totalArea / standardPanelArea) * 100;
-                            return `${Math.min(utilization, 100).toFixed(1)}%`;
-                          })()}
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 )}
               </CardContent>
