@@ -10,8 +10,9 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   const cookieStore = await cookies();
+  const { id: userOrderId } = await params;
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-  const userOrderId = params.id;
+
 
   try {
     // 1. 获取用户订单信息
@@ -27,7 +28,7 @@ export async function POST(
     }
 
 
-    const { data: adminOrder, error: createError } = await supabase
+    const { error: createError } = await supabase
       .from(ADMIN_ORDER)
       .insert({
         user_order_id: userOrderId,
@@ -47,7 +48,6 @@ export async function POST(
     const { data: updatedUserOrder, error: updateError } = await supabase
       .from(USER_ORDER)
       .update({
-        admin_orders: [adminOrder],
         updated_at: new Date().toISOString(),
       })
       .eq('id', userOrderId)
@@ -74,8 +74,9 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   const cookieStore = await cookies();
+  const { id: userOrderId } = await params;
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-  const userOrderId = params.id;
+
   try {
     const body = await request.json();
     // 1. 查找管理员订单
@@ -104,7 +105,7 @@ export async function PATCH(
       cny_price: body.cny_price,
       updated_at: new Date().toISOString(),
     };
-    const { data: updatedAdminOrder, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from(ADMIN_ORDER)
       .update(updateFields)
       .eq('id', adminOrder.id)
@@ -117,7 +118,6 @@ export async function PATCH(
     const { data: updatedUserOrder, error: userOrderUpdateError } = await supabase
       .from(USER_ORDER)
       .update({
-        admin_orders: [updatedAdminOrder],
         updated_at: new Date().toISOString(),
       })
       .eq('id', userOrderId)
