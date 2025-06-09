@@ -604,14 +604,12 @@ export const basePriceHandler = Object.assign(
         if (area <= maxArea) {
           calculatedBasePrice = unitPrice * area;
           detail['basePrice'] = calculatedBasePrice;
-          notes.push(`Base price: ${unitPrice} CNY/㎡ × ${area.toFixed(2)} = ${calculatedBasePrice.toFixed(2)} CNY`);
+          notes.push(`PCB Base price: ${unitPrice} CNY/㎡ × ${area.toFixed(2)} = ${calculatedBasePrice.toFixed(2)} CNY`);
           found = true;
           break;
         }
       }
-      if (calculatedBasePrice > 0) {
-        notes.push(`PCB Basic Price: ¥${calculatedBasePrice}`);
-      }
+
     }
 
     // 板厚加价逻辑
