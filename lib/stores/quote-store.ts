@@ -179,7 +179,7 @@ const calculateProperties = (formData: QuoteFormData): CalculatedProperties => {
   let totalQuantity = 0;
   if (formData.shipmentType === ShipmentType.Single) {
     totalQuantity = formData.singleCount || 0;
-  } else if (formData.shipmentType === ShipmentType.PanelByCustom||formData.shipmentType === ShipmentType.PanelBySpeedx) {
+  } else if (formData.shipmentType === ShipmentType.PanelByGerber || formData.shipmentType === ShipmentType.PanelBySpeedx) {
     totalQuantity = (formData.panelDimensions?.row || 1) * (formData.panelDimensions?.column || 1) * (formData.panelSet || 0);
   }
   const { singleArea, totalArea } = calculateTotalPcbArea(formData);

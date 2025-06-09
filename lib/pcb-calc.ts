@@ -47,11 +47,11 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
   let area = 0;
   
   // 安全检查 singleDimensions
-  const dimensions = form.singleDimensions || { length: 5, width: 5 };
+  const dimensions = form.singleDimensions || { length: 50, width: 50 };
   // 使用新的精度处理函数
   const { totalArea } = calculateTotalPcbArea(form);
   
-  if (form.shipmentType === ShipmentType.PanelByCustom) {
+  if (form.shipmentType === ShipmentType.PanelByGerber) {
     totalCount = (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
   } else if (form.shipmentType === ShipmentType.Single) {
     totalCount = form.singleCount || 0;

@@ -156,7 +156,7 @@ export const pcbFormilySchema: ISchema = {
       "x-component": "DimensionsInput",
       "x-reactions": (field) => {
         const shipmentType = field.query('shipmentType').get('value');
-        field.decoratorProps.title = shipmentType === 'panel_by_gerber' ? 'panel Size (mm)' : 'Single Size (mm)';
+        field.decoratorProps.title = shipmentType === 'panel_by_gerber' ? 'Panel Size (mm)' : 'Single Size (mm)';
       },
     }),
 

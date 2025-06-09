@@ -38,7 +38,7 @@ import { calculateTotalPcbArea } from './utils/precision';
 // 计算总数和面积（平方米）
 function getTotalCountAndArea(form: QuoteFormData): { totalCount: number; area: number } {
   let totalCount = 0;
-  if (form.shipmentType === ShipmentType.PanelByCustom) {
+  if (form.shipmentType === ShipmentType.PanelByGerber) {
     totalCount = (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
   } else if (form.shipmentType === ShipmentType.PanelBySpeedx) {
     totalCount = form.panelSet || 0;

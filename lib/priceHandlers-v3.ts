@@ -1441,7 +1441,7 @@ export const panelHandler: PriceHandler = (form, area) => {
   const detail: Record<string, number> = {};
   const notes: string[] = [];
 
-  if (form.shipmentType === ShipmentType.PanelByCustom) {
+  if (form.shipmentType === ShipmentType.PanelByGerber) {
     const differentDesignsCount = form.differentDesignsCount || 1;
     const layers = form.layers || 2;
     // 不足1平米按1平米计算

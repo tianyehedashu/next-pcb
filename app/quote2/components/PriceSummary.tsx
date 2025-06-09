@@ -9,7 +9,6 @@ import { useQuoteFormData, useQuoteCalculated } from "@/lib/stores/quote-store";
 import { calculateLeadTime } from '@/lib/stores/quote-calculations';
 import { useQuoteStore } from "@/lib/stores/quote-store";
 import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
-import { calculateTotalPcbArea } from '@/lib/stores/quote-calculations';
 
 interface PriceBreakdown {
   totalPrice: number;

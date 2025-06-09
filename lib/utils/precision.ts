@@ -3,7 +3,7 @@
  * 提供比 Math.round(x * 10000) / 10000 更好的解决方案
  */
 
-import { BorderType, BreakAwayRail } from '../../types/form';
+import { BorderType, BreakAwayRail, ShipmentType } from '../../types/form';
 
 /**
  * 方案1: 使用 Number.parseFloat + toFixed 组合
@@ -136,15 +136,15 @@ export function calculateTotalPcbArea(form: {
 
   // 计算总面积
   let totalArea = 0;
-  if (shipmentType === 'panel_by_speedx') {
+  if (shipmentType === ShipmentType.PanelBySpeedx) {
     const { length, width } = getPanelSizeWithBorder(singleDimensions, border, breakAwayRail);
     singleArea = calculateSinglePcbArea(length, width);
     const totalCount = (panelDimensions.row || panelRow) * (panelDimensions.column || panelColumn) * (panelSet || 0);
     totalArea = singleArea * totalCount;
-  } else if(shipmentType === 'single'){
+  } else if(shipmentType === ShipmentType.Single){
     singleArea = calculateSinglePcbArea(singleDimensions.length, singleDimensions.width);
     totalArea = singleArea * singleCount;
-  } else if(shipmentType === 'panel_by_gerber'){
+  } else if(shipmentType === ShipmentType.PanelByGerber){
     const { length, width } = getPanelSizeWithBorder(singleDimensions, border, breakAwayRail);
     singleArea = calculateSinglePcbArea(length, width);
     totalArea = singleArea * panelSet;
