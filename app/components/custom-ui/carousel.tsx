@@ -12,7 +12,7 @@ const slides = [
     image: "/pcb-bg.png",
     title: "Professional PCB Manufacturing",
     description: "High-quality PCB fabrication with fast turnaround time",
-    link: "/quote",
+    link: "/quote2",
     buttonText: "Get a Quote"
   },
   {
