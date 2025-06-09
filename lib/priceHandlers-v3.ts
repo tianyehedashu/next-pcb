@@ -959,12 +959,8 @@ export const holeCu25umHandler: PriceHandler = (form, area) => {
  * 菲林费加价
  * 规则：只有单个成品面积超过0.06平方米才收费，按200元/平方米计费（1-2L按6张，4L按8张，6层按11张，8层按13张,10层按15张计费）
  */
-export const filmFeeHandler = (form: PcbQuoteForm) => {
-  // 菲林面积
-  let singleArea = (form.singleDimensions?.length ?? 0) * (form.singleDimensions?.width ?? 0) / 10000;
-  if (form.shipmentType === ShipmentType.PanelBySpeedx  && form.panelDimensions?.row && form.panelDimensions?.column) {
-    singleArea = (singleArea * form.panelDimensions.row * form.panelDimensions.column);
-  }
+export const filmFeeHandler = (form: PcbQuoteForm,singleArea: number) => {
+
   // 菲林张数
   let filmCount = 0;
   if (form.layers === 1 || form.layers === 2) filmCount = 6;
