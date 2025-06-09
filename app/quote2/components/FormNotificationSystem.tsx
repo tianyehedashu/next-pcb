@@ -207,6 +207,24 @@ export const useFormNotifications = () => {
       });
     };
 
+    // 处理验证错误
+    const handleValidationError = (field: Field) => {
+      if (field.errors?.length > 0) {
+        const fieldDisplayName = field.title || field.path?.toString() || '';
+        const errorText = String(field.errors[0]);
+        
+        addNotification({
+          type: 'validation-error',
+          title: fieldDisplayName,
+          message: errorText,
+          fieldPath: field.path?.toString() || '',
+          fieldTitle: field.title,
+          duration: 5000,
+          autoHide: true
+        });
+      }
+    };
+
     // 延迟初始化，确保表单完全加载
     const timer = setTimeout(initializeFieldStates, 1000);
 
@@ -233,12 +251,18 @@ export const useFormNotifications = () => {
           handleValueChange(field, fieldPath, previousState);
         }
 
+        // 处理验证错误
+        handleValidationError(field);
+
         // 更新状态
         fieldChangeMap.set(fieldPath, {
           value: currentValue,
           options: currentOptions,
           visible: currentVisible
         });
+      } else if (type === 'onFieldValidateStart') {
+        const field = payload as Field;
+        handleValidationError(field);
       }
     });
 

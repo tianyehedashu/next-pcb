@@ -87,13 +87,11 @@ export function FileUploadSection() {
       if (analysisResult.hasGoldFingers !== undefined) {
         parsedFields.goldFingers = analysisResult.hasGoldFingers;
       }
-      // 钻孔信息
- 
-      // 最小线宽
 
-      // 最小孔径
-
-      // 如果userNote有变化，写入
+      // 同步文件上传URL
+      if (uploadState.uploadUrl) {
+        parsedFields.gerberFileUrl = uploadState.uploadUrl;
+      }
 
       if (parsedFields.singleDimensions) {
         const { length, width } = parsedFields.singleDimensions as { length?: unknown, width?: unknown };
@@ -114,13 +112,13 @@ export function FileUploadSection() {
           state.value = Boolean(parsedFields.goldFingers);
         });
       }
-      if (parsedFields.userNote !== undefined) {
-        form.setFieldState('userNote', state => {
-          state.value = String(parsedFields.userNote || '');
+      if (parsedFields.gerberFileUrl !== undefined) {
+        form.setFieldState('gerberFileUrl', state => {
+          state.value = String(parsedFields.gerberFileUrl || '');
         });
       }
     }
-  }, [uploadState.analysisResult, form]);
+  }, [uploadState.analysisResult, uploadState.uploadUrl, form]);
 
   const hasFile = !!uploadState.file;
 

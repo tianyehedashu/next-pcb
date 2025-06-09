@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { createForm, Form, onFieldValueChange } from "@formily/core";
-import { FormProvider, FormConsumer } from "@formily/react";
+import { createForm, Form, onFieldValueChange, Field } from "@formily/core";
+import { FormProvider, FormConsumer, useForm } from "@formily/react";
 import { useQuoteStore, DEFAULT_FORM_DATA, useQuoteCalculated } from "@/lib/stores/quote-store";
 import { useUserStore } from "@/lib/userStore";
 import { supabase } from "@/lib/supabaseClient";
@@ -11,7 +11,7 @@ import { pcbFormilySchema, fieldGroups } from "../schema/pcbFormilySchema";
 import { QuoteFormGroup } from "./QuoteFormGroup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { RotateCcw, Send, User, Mail } from "lucide-react";
+import { RotateCcw, Send, User, Mail, AlertCircle } from "lucide-react";
 import { FormNotificationContainer } from "./FormNotificationSystem";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +35,7 @@ import { calculateLeadTime } from '@/lib/stores/quote-calculations';
 interface QuoteFormGroupMemoProps {
   group: {
     title: string;
-    fields: any[];
+    fields: string[];
   };
   index: number;
   schema: any;
@@ -152,74 +152,143 @@ GuestContactForm.displayName = 'GuestContactForm';
 
 // 使用 React.memo 包装提交按钮区域
 interface SubmitButtonSectionProps {
-  user: any;
+  user: {
+    id: string;
+    email?: string;
+  } | null;
   isSubmitting: boolean;
   handleGuestSubmitWithSuggest: () => void;
+  submitError: string | null;
+  setSubmitError: (msg: string | null) => void;
 }
 
-const SubmitButtonSection = React.memo(({ user, isSubmitting, handleGuestSubmitWithSuggest }: SubmitButtonSectionProps) => (
-  <Card className="border-gray-200/60 shadow-sm bg-gradient-to-r from-gray-50/50 to-blue-50/50">
-    <CardContent className="p-6">
-      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:block text-sm text-gray-500">
-            Ready to get your quote?
-          </div>
-          <Button
-            type="submit"
-            size="lg"
-            disabled={isSubmitting}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
-            onClick={user ? undefined : (e => { e.preventDefault(); handleGuestSubmitWithSuggest(); })}
-          >
-            {isSubmitting ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Processing...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4 mr-2" />
-                {user ? 'Save & Continue' : 'Get Instant Quote'}
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+const SubmitButtonSection = React.memo(({ user, isSubmitting, handleGuestSubmitWithSuggest, submitError, setSubmitError }: SubmitButtonSectionProps) => {
+  const form = useForm();
 
-      {/* 用户状态提示 */}
-      <div className="mt-4 pt-4 border-t border-gray-200/50">
-        {user ? (
-          <div className="flex flex-wrap gap-4 text-xs text-gray-500 justify-center">
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-              Logged in as {user.email}
-            </span>
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-              Quote will be saved to your account
-            </span>
+  // 监听表单验证状态
+  React.useEffect(() => {
+    if (!form) return;
+
+    type FormEvent = {
+      type: string;
+      payload: Field;
+    };
+
+    const subscription = form.subscribe((event: FormEvent) => {
+      if (event.type === 'onFieldValidateStart') {
+        setSubmitError(null);
+      } else if (event.type === 'onFieldValidateEnd') {
+        if (event.payload.errors?.length > 0) {
+          const err = event.payload.errors[0];
+          // 获取字段 title
+          const fieldTitle =
+            event.payload.title ||
+            (event.payload.decoratorProps && event.payload.decoratorProps.title) ||
+            event.payload.address ||
+            event.payload.path ||
+            'Field';
+          let msg = '';
+          if (err && typeof err === 'object') {
+            if (Array.isArray((err as any).issues) && (err as any).issues.length > 0) {
+              msg = (err as any).issues[0].message;
+            } else if (Array.isArray((err as any).messages) && (err as any).messages.length > 0) {
+              msg = (err as any).messages[0];
+            } else if ('message' in err) {
+              msg = String((err as any).message);
+            } else {
+              msg = JSON.stringify(err);
+            }
+          } else if (typeof err === 'string') {
+            msg = err;
+          } else {
+            msg = JSON.stringify(err);
+          }
+          setSubmitError(`${fieldTitle}: ${msg}`);
+        }
+      }
+    });
+
+    return () => {
+      form.unsubscribe(subscription);
+    };
+  }, [form, setSubmitError]);
+
+  return (
+    <Card className="border-gray-200/60 shadow-sm bg-gradient-to-r from-gray-50/50 to-blue-50/50">
+      <CardContent className="p-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:block text-sm text-gray-500">
+                Ready to get your quote?
+              </div>
+              <Button
+                type="submit"
+                size="lg"
+                disabled={isSubmitting}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
+                onClick={user ? undefined : (e => { e.preventDefault(); handleGuestSubmitWithSuggest(); })}
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    {user ? 'Save & Continue' : 'Get Instant Quote'}
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-        ) : (
-          <div className="flex flex-wrap gap-4 text-xs text-gray-500 justify-center">
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-              Instant pricing
-            </span>
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-              No account required
-            </span>
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-              Professional support
-            </span>
+
+          {/* 错误提示 */}
+          {submitError && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg animate-fade-in">
+              <div className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">{submitError}</span>
+              </div>
+            </div>
+          )}
+
+          {/* 用户状态提示 */}
+          <div className="mt-4 pt-4 border-t border-gray-200/50">
+            {user ? (
+              <div className="flex flex-wrap gap-4 text-xs text-gray-500 justify-center">
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Logged in as {user.email}
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  Quote will be saved to your account
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-4 text-xs text-gray-500 justify-center">
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Instant pricing
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  No account required
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  Professional support
+                </span>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </CardContent>
-  </Card>
-));
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
 SubmitButtonSection.displayName = 'SubmitButtonSection';
 
 // 使用 React.memo 包装登录建议弹窗
@@ -268,6 +337,7 @@ export function QuoteForm() {
   const [guestPhone, setGuestPhone] = React.useState("");
   const [showGuestForm, setShowGuestForm] = React.useState(false);
   const [showLoginSuggestDialog, setShowLoginSuggestDialog] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   // 使用 useMemo 缓存表单实例
   const formInstance = React.useMemo(() => {
@@ -329,6 +399,8 @@ export function QuoteForm() {
     setIsSubmitting(true);
 
     try {
+      await form.validate(); // 校验通过不抛异常
+      setSubmitError(null); // 校验通过清空错误
       await form.submit(async (values) => {
         console.log('Form submitted:', values);
 
@@ -396,13 +468,30 @@ export function QuoteForm() {
           setShowGuestForm(true);
         }
       });
-    } catch (error) {
-      console.error('Submit error:', error);
-      toast.error('Failed to submit quote. Please try again.');
-    } finally {
+    } catch (err: any) {
+      // 校验失败，优雅处理错误提示
+      let msg = 'Please check the form fields';
+      if (err && typeof err === 'object') {
+        const fieldTitle =
+          err.title ||
+          (err.decoratorProps && err.decoratorProps.title) ||
+          err.address ||
+          err.path ||
+          'Field';
+        if (Array.isArray(err.issues) && err.issues.length > 0) {
+          msg = `${fieldTitle}: ${err.issues[0].message}`;
+        } else if (Array.isArray(err.messages) && err.messages.length > 0) {
+          msg = `${fieldTitle}: ${err.messages[0]}`;
+        } else if ('message' in err) {
+          msg = `${fieldTitle}: ${String(err.message)}`;
+        }
+      }
+      setSubmitError(msg);
       setIsSubmitting(false);
+      return;
     }
-  }, [form, uploadState, router, user, calculated]);
+    setIsSubmitting(false);
+  }, [form, uploadState, router, user, calculated, setSubmitError]);
 
   const handleReset = React.useCallback(() => {
     if (!form) return;
@@ -570,6 +659,8 @@ export function QuoteForm() {
                   user={user}
                   isSubmitting={isSubmitting}
                   handleGuestSubmitWithSuggest={handleGuestSubmitWithSuggest}
+                  submitError={submitError}
+                  setSubmitError={setSubmitError}
                 />
               )}
 
