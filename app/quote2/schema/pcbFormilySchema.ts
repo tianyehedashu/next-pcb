@@ -177,14 +177,14 @@ export const pcbFormilySchema: ISchema = {
           fulfill: {
             state: {
               componentProps: {
-                options: "{{$deps[0] > 1 ? [ { label: 'Single PCB', value: 'single', disabled: true }, { label: 'Panel by Gerber', value: 'panel_by_gerber' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx', disabled: true } ] : [ { label: 'Single PCB', value: 'single' }, { label: 'Panel by Gerber', value: 'panel_by_gerber' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx' } ] }}"
+                options: "{{$deps[0] > 1 ? [ { label: 'Single PCB', value: 'single', disabled: true }, { label: 'Panel by Gerber', value: 'panel_by_gerber' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx' } ] : [ { label: 'Single PCB', value: 'single' }, { label: 'Panel by Gerber', value: 'panel_by_gerber' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx' } ] }}"
               }
             }
           }
         },
         {
           dependencies: ["differentDesignsCount", "$self"],
-          when: "{{$deps[0] > 1 && ($self.value === 'single' || $self.value === 'panel_by_speedx')}}",
+          when: "{{$deps[0] > 1 && $self.value === 'single'}}",
           fulfill: {
             run: "{{$self.setValue('panel_by_gerber')}}"
           }
@@ -233,14 +233,30 @@ export const pcbFormilySchema: ISchema = {
         unit: "set",
         placeholder: "Select"
       },
-      "x-reactions": {
-        dependencies: ["shipmentType"],
-        fulfill: {
-          state: {
-            visible: "{{$deps[0] === 'panel_by_gerber' || $deps[0] === 'panel_by_speedx'}}"
+      "x-reactions": [
+        (field) => {
+          const form = field.form;
+          const panelSet = field.value;
+          const panelDimensions = form.values.panelDimensions;
+          let displayValue = '';
+          if (panelSet) {
+            if (panelDimensions?.row && panelDimensions?.column) {
+              displayValue = `= ${panelSet * panelDimensions.row * panelDimensions.column} pcs`;
+            } else {
+              displayValue = `= ${panelSet} pcs`;
+            }
+          }
+          field.componentProps.displayValue = displayValue;
+        },
+        {
+          dependencies: ["shipmentType"],
+          fulfill: {
+            state: {
+              visible: "{{$deps[0] === 'panel_by_gerber' || $deps[0] === 'panel_by_speedx'}}"
+            }
           }
         }
-      }
+      ]
     },
 
     pcbNote: fullWidth({

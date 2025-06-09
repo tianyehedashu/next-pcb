@@ -12,6 +12,7 @@ interface QuantityInputProps {
   placeholder?: string;
   unit?: string;
   className?: string;
+  displayValue?: React.ReactNode;
 }
 
 // 预设的数量选项
@@ -29,7 +30,8 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   onChange, 
   placeholder = "Select quantity",
   unit = "pcs",
-  className
+  className,
+  displayValue
 }) => {
   const [customValue, setCustomValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -37,6 +39,7 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
   // 转换数值
   const numericValue = value ? Number(value) : undefined;
 
+console.log('displayValue', displayValue);
   // 处理预设选项选择
   const handlePresetSelect = useCallback((selectedValue: string) => {
     const numValue = Number(selectedValue);
@@ -141,6 +144,9 @@ const QuantityInput: React.FC<QuantityInputProps> = ({
         <span className="text-sm font-medium text-gray-600 bg-gray-50 px-3 py-2 rounded-md border border-gray-200">
           {unit}
         </span>
+      )}
+      {displayValue && (
+        <span className="text-sm text-blue-600 ml-2">{displayValue}</span>
       )}
     </div>
   );

@@ -10,18 +10,20 @@ interface PanelDimensionsInputProps {
 }
 
 export function PanelDimensionsInput({
-  value = { row: 1, column: 1 },
+  value,
   onChange,
   className,
   disabled,
 }: PanelDimensionsInputProps) {
   const handleRowChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const row = parseInt(e.target.value) || 1;
+    const val = e.target.value;
+    const row = val === '' ? undefined : parseInt(val);
     onChange?.({ ...value, row });
   };
 
   const handleColumnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const column = parseInt(e.target.value) || 1;
+    const val = e.target.value;
+    const column = val === '' ? undefined : parseInt(val);
     onChange?.({ ...value, column });
   };
 
@@ -29,7 +31,7 @@ export function PanelDimensionsInput({
     <div className={`flex items-center gap-2 ${className}`}>
       <Input
         type="number"
-        value={value.row || ''}
+        value={value?.row === undefined ? '' : value.row}
         onChange={handleRowChange}
         placeholder="Row"
         min={1}
@@ -39,7 +41,7 @@ export function PanelDimensionsInput({
       <span className="text-gray-500">×</span>
       <Input
         type="number"
-        value={value.column || ''}
+        value={value?.column === undefined ? '' : value.column}
         onChange={handleColumnChange}
         placeholder="Column"
         min={1}

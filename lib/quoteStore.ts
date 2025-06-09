@@ -36,7 +36,7 @@ const defaultForm = {
   tg: TgType.TG135,
   panelCount: 1,
   shipmentType: ShipmentType.Single,
-  singleDimensions: { length: 5, width: 5 },
+  singleDimensions: { length: 50, width: 50 },
   panelDimensions: { row: 1, column: 1 },
   singleCount: 10,
   panelSet: 10,

@@ -16,8 +16,8 @@ const dimensionsSchema = z.object({
 
 // 拼板尺寸校验
 const panelDimensionsSchema = z.object({
-  row: z.number().int().min(1, "Row must be at least 1").max(20, "Row too large").default(1),
-  column: z.number().int().min(1, "Column must be at least 1").max(20, "Column too large").default(1),
+  row: z.number().int().max(20, "Row too large").optional(),
+  column: z.number().int().max(20, "Column too large").optional(),
 });
 
 // 地址校验 - 允许初始为空，提交时验证
@@ -118,52 +118,61 @@ export const quoteSchema = z.object({
   customs: customsDeclarationSchema.optional(),
   customsNote: z.string().max(500, "Customs note too long").optional().default(""),
   userNote: z.string().max(1000, "User note too long").optional().default(""),
-}).refine((data) => {
+}).refine((data: Record<string, any>) => {
   // 条件校验：如果是拼板出货，必须有 panelDimensions 和 panelSet
-  if ((data as any).shipmentType === ShipmentType.PanelByCustom || (data as any).shipmentType === ShipmentType.PanelBySpeedx) {
-    return (data as any).panelDimensions && (data as any).panelSet;
+  if (data.shipmentType === ShipmentType.PanelByGerber || data.shipmentType === ShipmentType.PanelBySpeedx) {
+    return data.panelDimensions && data.panelSet;
   }
   return true;
 }, {
   message: "Panel dimensions and panel set are required when shipment type is panel",
   path: ["panelDimensions"],
-}).refine((data) => {
+}).refine((data: Record<string, any>) => {
   // 条件校验：如果选择了金手指，且 goldFingersBevel 为 true，则必须有 goldFingers
-  if ((data as any).goldFingersBevel && !(data as any).goldFingers) {
+  if (data.goldFingersBevel && !data.goldFingers) {
     return false;
   }
   return true;
 }, {
   message: "Gold fingers must be enabled when gold fingers bevel is selected",
   path: ["goldFingersBevel"],
-}).refine((data) => {
+}).refine((data: Record<string, any>) => {
   // 条件校验：如果表面处理是 ENIG，必须选择 ENIG 厚度
-  if ((data as any).surfaceFinish === SurfaceFinish.Enig && !(data as any).surfaceFinishEnigType) {
+  if (data.surfaceFinish === SurfaceFinish.Enig && !data.surfaceFinishEnigType) {
     return false;
   }
   return true;
 }, {
   message: "ENIG thickness is required when surface finish is ENIG",
   path: ["surfaceFinishEnigType"],
-}).refine((data) => {
+}).refine((data: Record<string, any>) => {
   // 条件校验：如果层数>=4，内层铜厚是必须的
-  if ((data as any).layers >= 4 && !(data as any).innerCopperWeight) {
+  if (data.layers >= 4 && !data.innerCopperWeight) {
     return false;
   }
   return true;
 }, {
   message: "Inner copper weight is required for layers >= 4",
   path: ["innerCopperWeight"],
-}).refine((data) => {
+}).refine((data: Record<string, any>) => {
   // 条件校验：如果选择了边缘镀金，必须选择边缘覆盖方式
-  if ((data as any).edgePlating && !(data as any).edgeCover) {
+  if (data.edgePlating && !data.edgeCover) {
     return false;
   }
   return true;
 }, {
   message: "Edge cover is required when edge plating is selected",
   path: ["edgeCover"],
-})
+}).refine((data: Record<string, any>) => {
+  // 条件校验：如果是拼板出货，panelSet 必须大于0
+  if ((data.shipmentType === ShipmentType.PanelByGerber || data.shipmentType === ShipmentType.PanelBySpeedx) && (!data.panelSet || data.panelSet <= 0)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Panel set must be greater than 0 when shipment type is panel",
+  path: ["panelSet"],
+});
 
 // 提交时的严格验证 schema
 export const quoteSubmitSchema = quoteSchema.refine((data) => {
@@ -178,9 +187,6 @@ export const quoteSubmitSchema = quoteSchema.refine((data) => {
 }).refine((data) => {
   // 提交时：如果是单片出货，必须有 singleCount
   if ((data as any).shipmentType === ShipmentType.Single && (!(data as any).singleCount || (data as any).singleCount <= 0)) {
-    return false;
-  }
-  if (((data as any).shipmentType === ShipmentType.PanelByCustom || (data as any).shipmentType === ShipmentType.PanelBySpeedx) && (!(data as any).panelSet || (data as any).panelSet <= 0)) {
     return false;
   }
   return true;

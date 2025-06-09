@@ -44,6 +44,7 @@ interface FormilyFieldProps {
   unit?: string;
   rows?: number;
   title?: string;
+  displayValue?: string;
   [key: string]: unknown;
 }
 
@@ -241,10 +242,10 @@ export const formilyComponents = {
         <Input
           type="number"
           placeholder="Rows"
-          value={String(panelDimensions.row || '')}
+          value={panelDimensions.row === undefined ? '' : String(panelDimensions.row)}
           onChange={(e) => props.onChange?.({
             ...panelDimensions,
-            row: e.target.value ? Number(e.target.value) : 1
+            row: e.target.value === '' ? undefined : Number(e.target.value)
           })}
           className="w-24 h-10 text-sm"
         />
@@ -252,10 +253,10 @@ export const formilyComponents = {
         <Input
           type="number"
           placeholder="Columns"
-          value={String(panelDimensions.column || '')}
+          value={panelDimensions.column === undefined ? '' : String(panelDimensions.column)}
           onChange={(e) => props.onChange?.({
             ...panelDimensions,
-            column: e.target.value ? Number(e.target.value) : 1
+            column: e.target.value === '' ? undefined : Number(e.target.value)
           })}
           className="w-24 h-10 text-sm"
         />
@@ -269,6 +270,7 @@ export const formilyComponents = {
       onChange={(value) => props.onChange?.(value)}
       placeholder={props.placeholder}
       unit={props.unit}
+      displayValue={props.displayValue}
     />
   ),
   FileUpload: (props: FormilyFieldProps) => (
