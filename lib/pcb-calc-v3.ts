@@ -36,7 +36,7 @@ import { QuoteFormData } from '@/app/quote2/schema/quoteSchema';
 import { calculateTotalPcbArea } from './utils/precision';
 
 // 计算总数和面积（平方米）
-function getTotalCountAndArea(form: QuoteFormData): { totalCount: number; area: number } {
+function getTotalCountAndArea(form: QuoteFormData): { totalCount: number; singleArea: number; totalArea: number } {
   let totalCount = 0;
   if (form.shipmentType === ShipmentType.PanelByGerber) {
     totalCount = (form.panelDimensions?.row || 1) * (form.panelDimensions?.column || 1) * (form.panelSet || 0);
@@ -45,14 +45,14 @@ function getTotalCountAndArea(form: QuoteFormData): { totalCount: number; area: 
   } else if (form.shipmentType === ShipmentType.Single) {
     totalCount = form.singleCount || 0;
   }
-  const { totalArea } = calculateTotalPcbArea(form);
-  return { totalCount, area: totalArea };
+  const { singleArea,totalArea } = calculateTotalPcbArea(form);
+  return { totalCount, singleArea,totalArea: totalArea };
 }
 
-export function initContext(form: QuoteFormData): { form: QuoteFormData; area: number; totalCount: number } {
-  const { totalCount, area } = getTotalCountAndArea(form);
+export function initContext(form: QuoteFormData): { form: QuoteFormData; singleArea: number; totalCount: number,totalArea: number } {
+  const { totalCount, singleArea,totalArea } = getTotalCountAndArea(form);
 
-  return { form: form, area, totalCount };
+  return { form: form, singleArea, totalCount,totalArea };
 }
 
 // =================== 主流程 ===================
@@ -72,7 +72,7 @@ export function calcPcbPriceV3(form: QuoteFormData): {
   notes: string[];
 } {
   // 初始化
-  const { form: ctxForm, area, totalCount } = initContext(form);
+  const { form: ctxForm, singleArea, totalCount,totalArea } = initContext(form);
   if (!totalCount || totalCount <= 0) {
     return {
       total: 0,
@@ -114,7 +114,7 @@ export function calcPcbPriceV3(form: QuoteFormData): {
     // ...如有其它handler继续补充...
   ];
   for (const handler of handlers) {
-    const result = handler(ctxForm, area, totalCount);
+    const result = handler(ctxForm, totalArea, totalCount);
     extra += result.extra || 0;
     detail = { ...detail, ...(result.detail || {}) };
     notes = [...notes, ...(result.notes || [])];
@@ -127,8 +127,8 @@ export function calcPcbPriceV3(form: QuoteFormData): {
 
 
   // 2. 单独计算工程费和菲林费
-  const engFeeResult = engFeeHandler(ctxForm, area, totalCount);
-  const filmFeeResult = filmFeeHandler(ctxForm);
+  const engFeeResult = engFeeHandler(ctxForm, totalArea, totalCount);
+  const filmFeeResult = filmFeeHandler(ctxForm,singleArea);
   let addPercent = 0;
   if (form.crossOuts === CrossOuts.Accept) {
     const { percent, note } = getPanelAddPercent(form.differentDesignsCount);

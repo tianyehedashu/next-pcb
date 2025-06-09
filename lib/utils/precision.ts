@@ -104,21 +104,22 @@ export function calculateTotalPcbArea(form: {
     singleCount = 0,
     panelDimensions = {},
     panelSet = 0,
-    panelRow = 1,
-    panelColumn = 1,
     border = 'None',
     breakAwayRail = 'None',
   } = form;
 
   // 工艺边宽度辅助函数
   function getBorderWidth(border: string): number {
+    if (!border) return 0;
     return Number(border); // 直接返回mm值
   }
 
   // 计算加工艺边后的大板尺寸
-  function getPanelSizeWithBorder(singleDimensions: { length?: number; width?: number }, border: string, breakAwayRail: string) {
+  function getPanelSizeWithBorder(singleDimensions: { length?: number; width?: number }, panelDimensions: { row?: number; column?: number }, border: string, breakAwayRail: string) {
     let length = singleDimensions.length || 0; // 单位mm
     let width = singleDimensions.width || 0;   // 单位mm
+    length = length * (panelDimensions.row || 1); 
+    width = width * (panelDimensions.column || 1);
     const borderWidth = getBorderWidth(border); // 已经是mm单位
     if (breakAwayRail !== 'None') {
       if (breakAwayRail === 'TopBottom' || breakAwayRail === 'All') {
@@ -137,16 +138,17 @@ export function calculateTotalPcbArea(form: {
   // 计算总面积
   let totalArea = 0;
   if (shipmentType === ShipmentType.PanelBySpeedx) {
-    const { length, width } = getPanelSizeWithBorder(singleDimensions, border, breakAwayRail);
+    const { length, width } = getPanelSizeWithBorder(singleDimensions,panelDimensions, border, breakAwayRail);
+
     singleArea = calculateSinglePcbArea(length, width);
-    const totalCount = (panelDimensions.row || panelRow) * (panelDimensions.column || panelColumn) * (panelSet || 0);
+    const totalCount =  panelSet;
     totalArea = singleArea * totalCount;
   } else if(shipmentType === ShipmentType.Single){
     singleArea = calculateSinglePcbArea(singleDimensions.length, singleDimensions.width);
     totalArea = singleArea * singleCount;
   } else if(shipmentType === ShipmentType.PanelByGerber){
-    const { length, width } = getPanelSizeWithBorder(singleDimensions, border, breakAwayRail);
-    singleArea = calculateSinglePcbArea(length, width);
+    const { length, width } = singleDimensions;
+     singleArea = calculateSinglePcbArea(length, width);
     totalArea = singleArea * panelSet;
   } else{
     throw new Error('Invalid shipment type');
