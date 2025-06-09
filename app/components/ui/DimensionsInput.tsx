@@ -16,12 +16,12 @@ export function DimensionsInput({
   disabled,
 }: DimensionsInputProps) {
   const handleLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const length = parseFloat(e.target.value) || 0;
+    const length = Number((parseFloat(e.target.value) || 0).toFixed(2));
     onChange?.({ ...value, length });
   };
 
   const handleWidthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const width = parseFloat(e.target.value) || 0;
+    const width = Number((parseFloat(e.target.value) || 0).toFixed(2));
     onChange?.({ ...value, width });
   };
 
@@ -29,26 +29,26 @@ export function DimensionsInput({
     <div className={`flex items-center gap-2 ${className}`}>
       <Input
         type="number"
-        value={value.length || ''}
+        value={value.length ? value.length.toFixed(2) : ''}
         onChange={handleLengthChange}
         placeholder="Length"
         min={0}
-        step={0.1}
+        step={0.01}
         className="flex-1"
         disabled={disabled}
       />
       <span className="text-gray-500">×</span>
       <Input
         type="number"
-        value={value.width || ''}
+        value={value.width ? value.width.toFixed(2) : ''}
         onChange={handleWidthChange}
         placeholder="Width"
         min={0}
-        step={0.1}
+        step={0.01}
         className="flex-1"
         disabled={disabled}
       />
-      <span className="text-sm text-gray-500">cm</span>
+      <span className="text-sm text-gray-500">mm</span>
     </div>
   );
 } 

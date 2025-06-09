@@ -156,7 +156,7 @@ export const pcbFormilySchema: ISchema = {
       "x-component": "DimensionsInput",
       "x-reactions": (field) => {
         const shipmentType = field.query('shipmentType').get('value');
-        field.decoratorProps.title = shipmentType === 'panel_by_custom' ? 'Unit Size (cm)' : 'Single Size (cm)';
+        field.decoratorProps.title = shipmentType === 'panel_by_gerber' ? 'panel Size (mm)' : 'Single Size (mm)';
       },
     }),
 
@@ -167,7 +167,7 @@ export const pcbFormilySchema: ISchema = {
       "x-component-props": {
         options: [
           { label: "Single PCB", value: ShipmentType.Single },
-          { label: "Panel by Custom", value: ShipmentType.PanelByCustom },
+          { label: "Panel by Gerber", value: ShipmentType.PanelByGerber },
           { label: "Panel by SpeedX", value: ShipmentType.PanelBySpeedx },
         ]
       },
@@ -177,7 +177,7 @@ export const pcbFormilySchema: ISchema = {
           fulfill: {
             state: {
               componentProps: {
-                options: "{{$deps[0] > 1 ? [ { label: 'Single PCB', value: 'single', disabled: true }, { label: 'Panel by Custom', value: 'panel_by_custom' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx', disabled: true } ] : [ { label: 'Single PCB', value: 'single' }, { label: 'Panel by Custom', value: 'panel_by_custom' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx' } ] }}"
+                options: "{{$deps[0] > 1 ? [ { label: 'Single PCB', value: 'single', disabled: true }, { label: 'Panel by Gerber', value: 'panel_by_gerber' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx', disabled: true } ] : [ { label: 'Single PCB', value: 'single' }, { label: 'Panel by Gerber', value: 'panel_by_gerber' }, { label: 'Panel by SpeedX', value: 'panel_by_speedx' } ] }}"
               }
             }
           }
@@ -186,7 +186,7 @@ export const pcbFormilySchema: ISchema = {
           dependencies: ["differentDesignsCount", "$self"],
           when: "{{$deps[0] > 1 && ($self.value === 'single' || $self.value === 'panel_by_speedx')}}",
           fulfill: {
-            run: "{{$self.setValue('panel_by_custom')}}"
+            run: "{{$self.setValue('panel_by_gerber')}}"
           }
         }
       ]
@@ -219,7 +219,7 @@ export const pcbFormilySchema: ISchema = {
         dependencies: ["shipmentType"],
         fulfill: {
           state: {
-            visible: "{{$deps[0] === 'panel_by_custom' || $deps[0] === 'panel_by_speedx'}}"
+            visible: "{{$deps[0] === 'panel_by_gerber' || $deps[0] === 'panel_by_speedx'}}"
           }
         }
       }
@@ -237,7 +237,7 @@ export const pcbFormilySchema: ISchema = {
         dependencies: ["shipmentType"],
         fulfill: {
           state: {
-            visible: "{{$deps[0] === 'panel_by_custom' || $deps[0] === 'panel_by_speedx'}}"
+            visible: "{{$deps[0] === 'panel_by_gerber' || $deps[0] === 'panel_by_speedx'}}"
           }
         }
       }
@@ -245,12 +245,13 @@ export const pcbFormilySchema: ISchema = {
 
     pcbNote: fullWidth({
       type: "string",
-      title: "PCB Note",
+      title: "Panel Note",
       "x-component": "TextArea",
       "x-component-props": {
-        placeholder: "Additional notes for PCB manufacturing...",
+        placeholder: "Note for layout only ;example: 2up，routed panel with 4x10mm waste edges.",
         rows: 4
-      }
+      },
+      required: true
     }),
 
     border: {
@@ -277,13 +278,13 @@ export const pcbFormilySchema: ISchema = {
 
     borderCutType: {
       type: 'string',
-      title: 'Board Edge Type',
+      title: 'Board PCB Separation',
       'x-component': 'TabSelect',
       'x-component-props': {
         options: [
           { label: 'V-Cut', value: BorderCutType.VCut },
           { label: 'Tab Route', value: BorderCutType.Tab },
-          { label: 'Routing', value: BorderCutType.Routing },
+          { label: 'V-Cut Routing', value: BorderCutType.Routing },
         ]
       },
       'x-reactions': {

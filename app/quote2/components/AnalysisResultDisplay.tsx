@@ -72,7 +72,9 @@ export function AnalysisResultDisplay({ analysisResult, isAnalyzing }: AnalysisR
             <div className="bg-blue-50 p-2 rounded">
               <div className="text-xs text-blue-600 font-medium">Dimensions</div>
               <div className="font-semibold text-gray-900">
-                {analysisResult.dimensions.width} × {analysisResult.dimensions.height} mm
+                {typeof analysisResult.dimensions.width === 'number' && typeof analysisResult.dimensions.height === 'number'
+                  ? `${analysisResult.dimensions.width.toFixed(2)} × ${analysisResult.dimensions.height.toFixed(2)} mm`
+                  : ''}
               </div>
             </div>
           )}

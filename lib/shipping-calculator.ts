@@ -219,7 +219,7 @@ export function calculateShippingCost(
     totalCount = (specs.panelDimensions?.row || 1) * (specs.panelDimensions?.column || 1) * (specs.panelSet || 0);
   } else if (specs.shipmentType === 'single') {
     totalCount = specs.singleCount || 1;
-  } else if (specs.shipmentType === 'panel_by_custom') {
+  } else if (specs.shipmentType === 'panel_by_gerber') {
     totalCount   = specs.panelSet || 1;
   }
   const singleWeight = calculateSinglePCBWeight(specs);

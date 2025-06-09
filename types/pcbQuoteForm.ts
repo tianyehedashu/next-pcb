@@ -32,8 +32,8 @@ import {
 import { Address } from './address';
 
 export interface PcbDimensions {
-  length: number; // 单片长(cm)
-  width: number; // 单片宽(cm)
+  length: number; // 单片长(mm)
+  width: number; // 单片宽(mm)
 }
 
 /**

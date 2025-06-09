@@ -521,7 +521,7 @@ export function QuoteForm() {
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">PCB Quote Request</h2>
-            <p className="text-gray-600 mt-1">Fill out the form below to get an instant quote</p>
+            <p className="text-blue-600 font-medium mt-2 text-base">For reference only, final price is subject to review.</p>
           </div>
           <Button
             type="button"

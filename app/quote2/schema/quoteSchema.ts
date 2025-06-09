@@ -60,7 +60,7 @@ export const quoteSchema = z.object({
   borderCutType: z.nativeEnum(BorderCutType).optional(),
   breakAwayRail: z.nativeEnum(BreakAwayRail).default(BreakAwayRail.None).optional(),
   useShengyiMaterial: z.boolean().default(false),
-  pcbNote: z.string().max(1000, "PCB note too long").optional().default(""),
+  pcbNote: z.string().max(1000, "PCB note too long").default(""),
 
   // === Delivery Information ===
   delivery: z.nativeEnum(DeliveryType).default(DeliveryType.Standard),

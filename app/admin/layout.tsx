@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { Menu, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -105,7 +105,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main Content */}
       <main className="flex-1 min-w-0 p-4 md:p-6 overflow-y-auto">
-        {children}
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]">加载中...</div>}>
+          {children}
+        </Suspense>
       </main>
     </div>
   );

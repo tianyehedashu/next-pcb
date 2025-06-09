@@ -49,12 +49,12 @@ export enum TgType {
  * Shipment Type
  * Determines the delivery form of PCB, affecting order quantity, panelization, and production efficiency.
  * - single: Single piece delivery, suitable for prototyping and small batches, high flexibility.
- * - panel_by_custom: Panel by custom, suitable for batch production, improves efficiency, reduces cost.
+ * - panel_by_gerber: Panel by gerber, suitable for batch production, improves efficiency, reduces cost.
  * - panel_by_speedx: Panel by SpeedX, third-party panelization service, for special needs.
  */
 export enum ShipmentType {
   Single = 'single', // Flexible, suitable for small batches
-  PanelByCustom = 'panel_by_custom', // Batch production, custom panel
+  PanelByGerber = 'panel_by_gerber', // Batch production, gerber panel
   PanelBySpeedx = 'panel_by_speedx', // Third-party panelization (SpeedX)
 }
 
@@ -97,7 +97,7 @@ export enum BorderType {
 export enum BorderCutType {
   VCut = 'vcut', // V型槽切割，边缘平整
   Tab = 'tab', // 邮票孔切割，边缘有凸起
-  Routing = 'routing', // 锣边切割，边缘较粗糙
+  Routing = 'V-Cut Routing', // 锣边切割，边缘较粗糙
 }
 
 /**

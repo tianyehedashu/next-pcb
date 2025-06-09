@@ -74,7 +74,10 @@ export function FileUploadSection() {
       // PCB尺寸
       if (analysisResult.dimensions) {
         const { width, height } = analysisResult.dimensions;
-        parsedFields.singleDimensions = { length: width ? width / 10 : 0, width: height ? height / 10 : 0 };
+        // 保留2位小数
+        const fixedWidth = typeof width === 'number' ? Number(width.toFixed(2)) : 0;
+        const fixedHeight = typeof height === 'number' ? Number(height.toFixed(2)) : 0;
+        parsedFields.singleDimensions = { length: fixedWidth, width: fixedHeight };
       }
       // 层数
       if (analysisResult.layers && Array.isArray(analysisResult.layers)) {

@@ -106,7 +106,7 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
   hdi: HdiType.None,
   tg: TgType.TG135,
   shipmentType: ShipmentType.Single,
-  singleDimensions: { length: 5, width: 5 },
+  singleDimensions: { length: 50, width: 50 },
   singleCount: 0,
   panelDimensions: { row: 1, column: 1 },
   panelSet: 0,

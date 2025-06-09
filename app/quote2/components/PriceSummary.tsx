@@ -157,7 +157,7 @@ export default function PriceSummary() {
     let manualTotalCount = 0;
     if (formData.shipmentType === 'single') {
       manualTotalCount = formData.singleCount || 0;
-    } else if (formData.shipmentType === 'panel_by_custom' || formData.shipmentType === 'panel_by_speedx') {
+    } else if (formData.shipmentType === 'panel_by_gerber' || formData.shipmentType === 'panel_by_speedx') {
       manualTotalCount = (formData.panelDimensions?.row || 1) * (formData.panelDimensions?.column || 1) * (formData.panelSet || 0);
     }
     

@@ -32,44 +32,40 @@ export function preciseRound(num: number, precision: number = 4): number {
 }
 
 /**
- * PCB面积计算专用函数
- * 将 cm² 转换为 m²，保持4位小数精度
+ * 将 mm² 转换为 m²，保持4位小数精度
  */
-export function calculatePcbArea(lengthCm: number, widthCm: number, count: number = 1): number {
-  // cm² 转 m²：除以 10000
-  const areaM2 = (lengthCm * widthCm * count) / 10000;
-  return roundToDecimalPlaces(areaM2, 4);
+export function calculatePcbArea(lengthMm: number, widthMm: number, count: number = 1): number {
+  // mm² 转 m²：除以 1000000
+  const areaM2 = (lengthMm * widthMm * count) / 1000000;
+  return Number(areaM2.toFixed(4));
 }
 
 /**
- * 单片PCB面积计算（cm² 转 m²）
+ * 单片PCB面积计算（mm² 转 m²）
  */
-export function calculateSinglePcbArea(lengthCm: number, widthCm: number): number {
-  // Ensure inputs are valid numbers
-  if (typeof lengthCm !== 'number' || !Number.isFinite(lengthCm) || lengthCm <= 0) {
-    console.warn(`Invalid lengthCm value: ${lengthCm}. Defaulting to 5.`);
-    lengthCm = 5;
+export function calculateSinglePcbArea(lengthMm: number, widthMm: number): number {
+  // 参数验证
+  if (typeof lengthMm !== 'number' || !Number.isFinite(lengthMm) || lengthMm <= 0) {
+    console.warn(`Invalid lengthMm value: ${lengthMm}. Defaulting to 50.`);
+    lengthMm = 50;
   }
-  if (typeof widthCm !== 'number' || !Number.isFinite(widthCm) || widthCm <= 0) {
-    console.warn(`Invalid widthCm value: ${widthCm}. Defaulting to 5.`);
-    widthCm = 5;
+  if (typeof widthMm !== 'number' || !Number.isFinite(widthMm) || widthMm <= 0) {
+    console.warn(`Invalid widthMm value: ${widthMm}. Defaulting to 50.`);
+    widthMm = 50;
   }
 
-  // cm² 转 m²：除以 10000
-  const areaM2 = (lengthCm * widthCm) / 10000;
-  return roundToDecimalPlaces(areaM2, 4);
+  // mm² 转 m²：除以 1000000
+  const areaM2 = (lengthMm * widthMm) / 1000000;
+  return Number(areaM2.toFixed(4));
 }
 
 /**
  * 如果需要更高精度，可以使用 Decimal.js 的包装函数
  * 但保持对外接口为 number 类型
  */
-export function calculatePcbAreaHighPrecision(lengthCm: number, widthCm: number, count: number = 1): number {
-  // 可以在这里引入 Decimal.js 进行高精度计算
-  // 但最终返回 number 类型，保持兼容性
-  
-  // 暂时使用改进的原生方法
-  return calculatePcbArea(lengthCm, widthCm, count);
+export function calculatePcbAreaHighPrecision(lengthMm: number, widthMm: number, count: number = 1): number {
+  // 使用高精度计算
+  return calculatePcbArea(lengthMm, widthMm, count);
 }
 
 /**
@@ -87,7 +83,7 @@ export function formatArea(area: number): string {
 
 /**
  * 统一的PCB总面积计算函数
- * 支持single、panel_by_custom、panel_by_speedx三种出货方式
+ * 支持single、panel_by_gerber、panel_by_speedx三种出货方式
  * @param form 包含shipmentType、singleDimensions、singleCount、panelDimensions、panelSet、panelRow、panelColumn、border、breakAwayRail等字段
  * @returns { singleArea: number; totalArea: number } 单片面积和总面积（单位m²）
  */
@@ -116,16 +112,14 @@ export function calculateTotalPcbArea(form: {
 
   // 工艺边宽度辅助函数
   function getBorderWidth(border: string): number {
-    if (border === '5') return 5;
-    if (border === '10') return 10;
-    return 0;
+    return Number(border); // 直接返回mm值
   }
 
   // 计算加工艺边后的大板尺寸
   function getPanelSizeWithBorder(singleDimensions: { length?: number; width?: number }, border: string, breakAwayRail: string) {
-    let length = singleDimensions.length || 0; // 单位cm
-    let width = singleDimensions.width || 0;   // 单位cm
-    const borderWidth = getBorderWidth(border) / 10; // mm转cm
+    let length = singleDimensions.length || 0; // 单位mm
+    let width = singleDimensions.width || 0;   // 单位mm
+    const borderWidth = getBorderWidth(border); // 已经是mm单位
     if (breakAwayRail !== 'None') {
       if (breakAwayRail === 'TopBottom' || breakAwayRail === 'All') {
         length += 2 * borderWidth;
@@ -150,8 +144,8 @@ export function calculateTotalPcbArea(form: {
   } else if(shipmentType === 'single'){
     singleArea = calculateSinglePcbArea(singleDimensions.length, singleDimensions.width);
     totalArea = singleArea * singleCount;
-  } else if(shipmentType === 'panel_by_custom'){
-    const { length, width } = getPanelSizeWithBorder(panelDimensions, border, breakAwayRail);
+  } else if(shipmentType === 'panel_by_gerber'){
+    const { length, width } = getPanelSizeWithBorder(singleDimensions, border, breakAwayRail);
     singleArea = calculateSinglePcbArea(length, width);
     totalArea = singleArea * panelSet;
   } else{
@@ -162,11 +156,11 @@ export function calculateTotalPcbArea(form: {
 }
 
 /**
- * 获取工艺边宽度（单位：cm）
+ * 获取工艺边宽度（单位：mm）
  */
-function getBorderWidth(border: BorderType | undefined): number {
+export function getBorderWidth(border: BorderType | undefined): number {
   if (!border) return 0;
-  return Number(border) / 10; // 将 mm 转换为 cm
+  return Number(border); // 直接返回mm值
 }
 
 /**
@@ -206,46 +200,41 @@ export function getPanelSizeWithBorder(
 }
 
 /**
- * 计算带工艺边的单个PCB面积（cm² 转 m²）
- * @param lengthCm PCB长度（cm）
- * @param widthCm PCB宽度（cm）
- * @param border 工艺边宽度（mm）
- * @param breakAwayRail 工艺边位置
- * @returns 面积（m²）
+ * 计算带工艺边的单个PCB面积（mm² 转 m²）
+ * @param lengthMm PCB长度（mm）
+ * @param widthMm PCB宽度（mm）
  */
-export function calculateSinglePcbAreaWithBorder(
-  lengthCm: number,
-  widthCm: number,
-  border: BorderType = BorderType.Five,
-  breakAwayRail: BreakAwayRail = BreakAwayRail.None
+export function calculatePcbAreaWithBorder(
+  lengthMm: number,
+  widthMm: number,
+  border: BorderType,
+  breakAwayRail?: BreakAwayRail
 ): number {
-  // 确保输入有效
-  if (typeof lengthCm !== 'number' || !Number.isFinite(lengthCm) || lengthCm <= 0) {
-    console.warn(`Invalid lengthCm value: ${lengthCm}. Defaulting to 5.`);
-    lengthCm = 5;
+  // 参数验证
+  if (typeof lengthMm !== 'number' || !Number.isFinite(lengthMm) || lengthMm <= 0) {
+    console.warn(`Invalid lengthMm value: ${lengthMm}. Defaulting to 50.`);
+    lengthMm = 50;
   }
-  if (typeof widthCm !== 'number' || !Number.isFinite(widthCm) || widthCm <= 0) {
-    console.warn(`Invalid widthCm value: ${widthCm}. Defaulting to 5.`);
-    widthCm = 5;
+  if (typeof widthMm !== 'number' || !Number.isFinite(widthMm) || widthMm <= 0) {
+    console.warn(`Invalid widthMm value: ${widthMm}. Defaulting to 50.`);
+    widthMm = 50;
   }
 
-  // 获取工艺边宽度（mm转cm）
+  // 获取工艺边宽度（mm）
   const borderWidth = getBorderWidth(border);
 
-  // 根据工艺边位置计算实际尺寸
-  let finalLength = lengthCm;
-  let finalWidth = widthCm;
+  let finalLength = lengthMm;
+  let finalWidth = widthMm;
 
-  if (breakAwayRail !== BreakAwayRail.None) {
-    if (breakAwayRail === BreakAwayRail.TopBottom || breakAwayRail === BreakAwayRail.All) {
-      finalLength += 2 * borderWidth;
-    }
-    if (breakAwayRail === BreakAwayRail.LeftRight || breakAwayRail === BreakAwayRail.All) {
-      finalWidth += 2 * borderWidth;
-    }
+  // 根据工艺边类型添加宽度
+  if (breakAwayRail === BreakAwayRail.LeftRight || breakAwayRail === BreakAwayRail.All) {
+    finalLength += borderWidth * 2;
+  }
+  if (breakAwayRail === BreakAwayRail.TopBottom || breakAwayRail === BreakAwayRail.All) {
+    finalWidth += borderWidth * 2;
   }
 
-  // 计算面积（cm² 转 m²）
-  const areaM2 = (finalLength * finalWidth) / 10000;
-  return roundToDecimalPlaces(areaM2, 4);
+  // 计算面积（mm² 转 m²）
+  const areaM2 = (finalLength * finalWidth) / 1000000;
+  return Number(areaM2.toFixed(4));
 } 

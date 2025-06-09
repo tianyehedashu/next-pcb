@@ -1,7 +1,23 @@
+"use client";
+
+import React from 'react';
 import { OrderStatus } from '@/types/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { toUSD } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
-// ... existing code ...
+interface Order {
+  id: string;
+  status: OrderStatus;
+  created_at: string;
+  total_amount: number;
+  user: {
+    name: string;
+    email: string;
+  };
+}
 
 // 订单状态筛选选项
 const orderStatusFilters = [
@@ -20,7 +36,10 @@ const orderStatusFilters = [
   { value: OrderStatus.Cancelled, label: '已取消' },
   { value: OrderStatus.OnHold, label: '已暂停' },
   { value: OrderStatus.Rejected, label: '已拒绝' },
-  { value: OrderStatus.Refunded, label: '已退款' }
+  { value: OrderStatus.Refunded, label: '已退款' },
+  { value: OrderStatus.PartiallyPaid, label: '部分支付' },
+  { value: OrderStatus.PaymentFailed, label: '支付失败' },
+  { value: OrderStatus.PaymentCancelled, label: '支付取消' }
 ];
 
 // 订单状态文本映射
@@ -40,7 +59,10 @@ const orderStatusText: Record<OrderStatus, string> = {
   [OrderStatus.Cancelled]: '已取消',
   [OrderStatus.OnHold]: '已暂停',
   [OrderStatus.Rejected]: '已拒绝',
-  [OrderStatus.Refunded]: '已退款'
+  [OrderStatus.Refunded]: '已退款',
+  [OrderStatus.PartiallyPaid]: '部分支付',
+  [OrderStatus.PaymentFailed]: '支付失败',
+  [OrderStatus.PaymentCancelled]: '支付取消'
 };
 
 // 订单状态样式映射
@@ -60,14 +82,36 @@ const orderStatusStyle: Record<OrderStatus, string> = {
   [OrderStatus.Cancelled]: 'bg-red-100 text-red-600',
   [OrderStatus.OnHold]: 'bg-gray-100 text-gray-600',
   [OrderStatus.Rejected]: 'bg-red-100 text-red-600',
-  [OrderStatus.Refunded]: 'bg-gray-100 text-gray-600'
+  [OrderStatus.Refunded]: 'bg-gray-100 text-gray-600',
+  [OrderStatus.PartiallyPaid]: 'bg-yellow-100 text-yellow-600',
+  [OrderStatus.PaymentFailed]: 'bg-red-100 text-red-600',
+  [OrderStatus.PaymentCancelled]: 'bg-red-100 text-red-600'
 };
 
-export default function AdminOrdersPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
+export default function AdminOrdersPage({
+  searchParams = {},
+}: {
+  searchParams?: { status?: string }
+}): React.ReactElement {
+  const router = useRouter();
+  const [statusFilter, setStatusFilter] = useState(searchParams?.status || 'all');
+  const [page, setPage] = useState(1);
+  const [orders, setOrders] = useState<Order[]>([]);
   
-  // ... existing code ...
+  // 获取订单数据
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const response = await fetch(`/api/orders?page=${page}&status=${statusFilter}`);
+        const data = await response.json();
+        setOrders(data.orders);
+      } catch (error) {
+        console.error('Failed to fetch orders:', error);
+      }
+    };
+
+    fetchOrders();
+  }, [page, statusFilter]);
 
   // 根据状态筛选订单
   const filteredOrders = orders.filter(order => {
@@ -78,13 +122,16 @@ export default function AdminOrdersPage() {
   // 更新状态筛选
   const handleStatusChange = (value: string) => {
     setStatusFilter(value);
-    const newParams = new URLSearchParams(searchParams);
-    if (value === 'all') {
-      newParams.delete('status');
-    } else {
+    const newParams = new URLSearchParams();
+    if (value !== 'all') {
       newParams.set('status', value);
     }
-    setSearchParams(newParams);
+    const newUrl = `${window.location.pathname}${newParams.toString() ? `?${newParams.toString()}` : ''}`;
+    router.push(newUrl);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
   };
 
   return (
@@ -154,13 +201,24 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* 分页 */}
-      <div className="mt-4">
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          total={totalOrders}
-          onPageChange={handlePageChange}
-        />
+      <div className="mt-4 flex justify-center">
+        <div className="flex gap-2">
+          <button
+            onClick={() => handlePageChange(page - 1)}
+            disabled={page === 1}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            上一页
+          </button>
+          <span className="px-3 py-1">第 {page} 页</span>
+          <button
+            onClick={() => handlePageChange(page + 1)}
+            disabled={orders.length < 10}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            下一页
+          </button>
+        </div>
       </div>
     </div>
   );
