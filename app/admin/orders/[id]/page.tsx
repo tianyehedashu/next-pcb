@@ -1,313 +1,70 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { toast } from 'sonner';
-import { createForm } from '@formily/core';
-import { FormProvider } from '@formily/react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
 import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
 import { calcPcbPriceV3 } from '@/lib/pcb-calc-v3';
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogAction,
-  AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { OrderStatus } from '@/types/form';
-import {  AdminOrder, Order } from '@/app/admin/types/order';
-import { PlusCircle } from 'lucide-react';
-import { useState as useLocalState } from 'react';
+import { OrderOverviewTabs } from '@/app/admin/components/OrderOverviewTabs';
+import { AdminOrderForm } from '@/app/admin/components/AdminOrderForm';
+import { Order, AdminOrder } from '@/app/admin/types/order';
 
-interface PriceDetails {
-  basePrice: number;
-  processFee: number;
-  materialFee: number;
-  specialProcessFee: number;
-  testFee: number;
-  total: number;
-}
-
-interface LeadTimeDetails {
-  baseCycleDays: number;
-  processExtraDays: number;
-  urgentExtraDays: number;
-  cycleDays: number;
-  reason: string[];
-}
-
-interface SurchargeItem {
-  amount: number;
-  reason: string;
-}
-
-// 工具函数：兼容 admin_orders 为对象或数组
 function getAdminOrders(admin_orders: unknown): AdminOrder[] {
   if (!admin_orders) return [];
   if (Array.isArray(admin_orders)) return admin_orders as AdminOrder[];
   return [admin_orders as AdminOrder];
 }
 
-// 币种符号映射
-const currencySymbolMap: Record<string, string> = {
-  CNY: '￥',
-  USD: '$',
-  EUR: '€',
-  JPY: '¥',
-};
-
-// 获取币种符号
-function getCurrencySymbol(currency: string) {
-  return currencySymbolMap[currency] || '$';
-}
-
-// 获取默认币种和汇率
-function getDefaultCurrency() {
-  return 'USD';
-}
-function getDefaultExchangeRate(currency: string) {
-  switch (currency) {
-    case 'CNY': return 1;
-    case 'USD': return 7.2;
-    case 'EUR': return 7.8;
-    case 'JPY': return 0.05;
-    default: return 7.2;
-  }
-}
-
-// 自定义 debounce 工具
-function debounce<T extends (...args: any[]) => void>(fn: T, delay = 500) {
-  let timer: NodeJS.Timeout | null;
-  return (...args: Parameters<T>) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), delay);
-  };
-}
-
-// 创建管理员订单
-const handleCreateAdminOrder = async () => {
-  setCreatingAdminOrder(true);
-  if (!orderId) return;
-  try {
-    const response = await fetch(`/api/admin/orders/${orderId}/admin-order`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        status: OrderStatus.Created,
-        user_order_id: orderId,
-      }),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to create admin order');
-    }
-    const updatedOrder = await response.json();
-    setOrder(updatedOrder);
-    toast.success('管理员订单已创建');
-    fetchOrder();
-  } catch (err) {
-    toast.error('创建管理员订单失败');
-  } finally {
-    setCreatingAdminOrder(false);
-  }
-};
-
 export default function AdminOrderDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const orderId = params?.id as string;
   const [order, setOrder] = useState<Order | null>(null);
   const [pcbFormData, setPcbFormData] = useState<QuoteFormData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [form] = useState(() => createForm());
-  const [priceDetails, setPriceDetails] = useState<PriceDetails | null>(null);
-  const [leadTimeDetails, setLeadTimeDetails] = useState<LeadTimeDetails | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [highlightedIdx, setHighlightedIdx] = useState<number[]>([]);
-  const [recalcStatus, setRecalcStatus] = useState<boolean[]>([]);
-  const [adminOrderEdits, setAdminOrderEdits] = useState<any[]>([]);
+  const [adminOrderEdits, setAdminOrderEdits] = useState<Record<string, unknown>[]>([]);
+  const [calculationNotes, setCalculationNotes] = useState<string[]>([]);
+  const [deliveryNotes, setDeliveryNotes] = useState<string[]>([]);
+  const [shippingNotes, setShippingNotes] = useState<{
+    basicInfo: string;
+    weightInfo: string;
+    costBreakdown: string[];
+  }>({
+    basicInfo: '',
+    weightInfo: '',
+    costBreakdown: []
+  });
   const hasInitAdminOrderEdits = useRef(false);
-  const [savingIdx, setSavingIdx] = useState<number | null>(null);
-  const [recalcIdx, setRecalcIdx] = useState<number | null>(null);
-  const [noteIdx, setNoteIdx] = useState<number | null>(null);
-  const [surchargeIdx, setSurchargeIdx] = useState<number | null>(null);
-  const [creatingAdminOrder, setCreatingAdminOrder] = useState(false);
 
-  // 管理员订单本地编辑状态
-  const adminOrders = getAdminOrders(order?.admin_orders);
-
-  // 编辑项变更
-  const updateEdit = (idx: number, key: string, value: any) => {
-    setAdminOrderEdits(edits =>
-      edits.map((edit: any, i: number) => {
-        if (i !== idx) return edit;
-        let newEdit = { ...edit, [key]: value };
-        // 如果变动 currency 或 exchange_rate，自动 recalc
-        if (key === 'currency') {
-          newEdit.currency = value || getDefaultCurrency();
-          newEdit.exchange_rate = getDefaultExchangeRate(newEdit.currency).toString();
-        }
-        if (key === 'currency' || key === 'exchange_rate' || key === 'surcharges') {
-          // 触发一次 recalc
-          setTimeout(() => recalcAdminOrder(idx), 0);
-        }
-        return newEdit;
-      })
-    );
+  // 1. 定义默认值
+  const adminOrderDefaultValues = {
+    status: 'created',
+    payment_status: 'unpaid',
+    pcb_price: '',
+    admin_price: '',
+    cny_price: '',
+    due_date: '',
+    pay_time: '',
+    production_days: '',
+    delivery_date: '',
+    currency: 'USD',
+    exchange_rate: 7.2,
+    ship_price: '',
+    custom_duty: '',
+    coupon: 0,
+    admin_note: '',
+    surcharges: [], // 现在是空数组，不是空字符串
+    // 可根据实际表单字段补充更多默认值
   };
-  // 添加/删除备注
-  const addNote = (idx: number) => {
-    setNoteIdx(idx);
-    setAdminOrderEdits(edits =>
-      edits.map((edit: any, i: number) =>
-        i === idx && edit.newNote.trim()
-          ? { ...edit, admin_note: [...edit.admin_note, edit.newNote.trim()], newNote: '' }
-          : edit
-      )
-    );
-    setTimeout(() => setNoteIdx(null), 800);
-  };
-  const removeNote = (idx: number, noteIdx: number) => {
-    setAdminOrderEdits(edits =>
-      edits.map((edit: any, i: number) =>
-        i === idx
-          ? { ...edit, admin_note: edit.admin_note.filter((_: any, j: number) => j !== noteIdx) }
-          : edit
-      )
-    );
-  };
-  // 保存
-  const save = async (idx: number) => {
-    setSavingIdx(idx);
-    try {
-      const adminOrder = adminOrderEdits[idx];
-      const response = await fetch(`/api/admin/orders/${orderId}/admin-order`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(adminOrder),
-      });
-      if (!response.ok) {
-        throw new Error('保存失败');
-      }
-      toast.success('保存成功');
-      fetchOrder();
-    } catch (err) {
-      toast.error('保存失败');
-    } finally {
-      setSavingIdx(null);
-    }
-  };
-  // 防抖保存
-  const debouncedSave = useCallback(debounce(save, 800), [adminOrderEdits, orderId]);
 
-  // 重新计算逻辑
-  const recalcAdminOrder = (idx: number) => {
-    setRecalcIdx(idx);
-    setAdminOrderEdits(edits =>
-      edits.map((edit: any, i: number) => {
-        if (i !== idx) return edit;
-        let cny_price = edit.cny_price;
-        let admin_price = edit.admin_price;
-        let newProductionDays = edit.production_days;
-        let notes: string[] = [];
-        const surcharges = Array.isArray(edit.surcharges) ? edit.surcharges : [];
-        if (pcbFormData) {
-          try {
-            const result = calcPcbPriceV3(pcbFormData);
-            cny_price = Number(result.total);
-            if (result.notes) notes = result.notes;
-          } catch {}
-          try {
-            const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
-            newProductionDays = String(cycle.cycleDays);
-            if (cycle.reason) notes = notes.concat(cycle.reason);
-          } catch {}
-        }
-        // 合计加价
-        const surchargeTotal = surcharges.reduce((sum: number, s: any) => sum + Number(s.amount || 0), 0);
-        const cny_total = Number(cny_price) + surchargeTotal;
-        const currency = edit.currency || getDefaultCurrency();
-        const exchange_rate = Number(edit.exchange_rate) || getDefaultExchangeRate(currency);
-        const adminPriceNum = currency === 'CNY' ? cny_total : cny_total / exchange_rate;
-        admin_price = adminPriceNum.toFixed(2);
-        return {
-          ...edit,
-          admin_price,
-          cny_price: cny_price.toFixed(2),
-          currency,
-          exchange_rate: exchange_rate.toString(),
-          production_days: newProductionDays,
-          notes,
-          surcharges,
-          newSurchargeAmount: edit.newSurchargeAmount ?? '',
-          newSurchargeReason: edit.newSurchargeReason ?? '',
-          coupon: typeof edit.coupon === 'number' ? edit.coupon : 0,
-        };
-      })
-    );
-    setHighlightedIdx(arr => [...arr, idx]);
-    setRecalcStatus(arr => {
-      const newArr = [...arr];
-      newArr[idx] = true;
-      return newArr;
-    });
-    setTimeout(() => {
-      setHighlightedIdx(arr => arr.filter((_: number, i: number) => i !== idx));
-      setRecalcStatus(arr => {
-        const newArr = [...arr];
-        newArr[idx] = false;
-        return newArr;
-      });
-      setRecalcIdx(null);
-    }, 1500);
-  };
-  // 防抖重新计算
-  const debouncedRecalc = useCallback(debounce(recalcAdminOrder, 800), [pcbFormData, adminOrderEdits]);
-
-  // 防抖添加备注
-  const debouncedAddNote = useCallback(debounce(addNote, 800), [adminOrderEdits]);
-
-  // 防抖添加加价项
-  const addSurcharge = (idx: number) => {
-    setSurchargeIdx(idx);
-    const amount = Number(adminOrderEdits[idx].newSurchargeAmount);
-    const reason = adminOrderEdits[idx].newSurchargeReason?.trim();
-    if (!amount || !reason) {
-      setSurchargeIdx(null);
-      return;
-    }
-    setAdminOrderEdits(edits => edits.map((edit, edi) => edi === idx ? { ...edit, surcharges: [...(edit.surcharges || []), { amount, reason }], newSurchargeAmount: '', newSurchargeReason: '' } : edit));
-    setTimeout(() => {
-      recalcAdminOrder(idx);
-      setSurchargeIdx(null);
-    }, 0);
-  };
-  const debouncedAddSurcharge = useCallback(debounce(addSurcharge, 800), [adminOrderEdits]);
-
-  // 防抖创建管理员订单
-  const debouncedCreateAdminOrder = useCallback(debounce(handleCreateAdminOrder, 800), [orderId]);
-
-  // 1. 让fetchOrder变为组件内可复用函数
-  const fetchOrder = async () => {
+  // 获取订单数据
+  const fetchOrder = async (): Promise<Order | undefined> => {
     if (!orderId) return;
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/orders?id=${orderId}`, {
-        headers: {},
-      });
+      const response = await fetch(`/api/admin/orders?id=${orderId}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch order');
@@ -320,89 +77,525 @@ export default function AdminOrderDetailPage() {
           setPcbFormData(result.data);
         } else {
           setPcbFormData(null);
-          console.error('PCB参数校验失败', result.error);
         }
       } else {
         setPcbFormData(null);
       }
-      form.setValues({ ...data });
+      return data;
     } catch (err: unknown) {
-      console.error('Error fetching order:', err);
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
-      setError(errorMessage);
-      toast.error(errorMessage);
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
+      toast.error(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. useEffect里只调用fetchOrder
   useEffect(() => {
     fetchOrder();
-  }, [orderId, form]);
+  }, [orderId]);
 
   useEffect(() => {
-    if (!hasInitAdminOrderEdits.current && order?.admin_orders) {
-      const adminOrders = getAdminOrders(order.admin_orders);
-      setAdminOrderEdits(
-        adminOrders.map(admin => {
-          const currency = admin.currency ?? '';
-          const exchange_rate = admin.exchange_rate ?? (currency ? getDefaultExchangeRate(currency) : '');
-          let admin_price = '';
-          let production_days = '';
-          let notes: string[] = [];
-          let cny_price = '';
-          if (pcbFormData) {
-            try {
-              const result = calcPcbPriceV3(pcbFormData);
-              admin_price = String(result.total);
-              if (result.notes) notes = result.notes;
-            } catch {}
-            try {
-              const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
-              production_days = String(cycle.cycleDays);
-              if (cycle.reason) notes = notes.concat(cycle.reason);
-            } catch {}
-          } else {
-            admin_price = String(admin.admin_price ?? '');
-            production_days = String(admin.production_days ?? '');
-          }
-          // cny_price初始化
-          if (currency === 'CNY' || !currency) {
-            cny_price = admin_price;
-          } else {
-            const rate = Number(exchange_rate);
-            cny_price = rate > 0 ? String(Number(admin_price) * rate) : '';
-          }
-          return {
-            status: admin.status,
-            admin_price,
-            admin_note: admin.admin_note
-              ? Array.isArray(admin.admin_note)
-                ? admin.admin_note
-                : [admin.admin_note]
-              : [],
-            newNote: '',
-            currency,
-            due_date: admin.due_date ?? '',
-            pay_time: admin.pay_time ?? '',
-            exchange_rate,
-            payment_status: admin.payment_status ?? '',
-            production_days,
-            coupon: typeof admin.coupon === 'number' ? admin.coupon : 0,
-            ship_price: admin.ship_price ?? '',
-            custom_duty: admin.custom_duty ?? '',
-            notes,
-            cny_price,
-            surcharges: Array.isArray(admin.surcharges) ? admin.surcharges : [],
-            newSurchargeAmount: '',
-            newSurchargeReason: '',
-          };
-        })
-      );
+    if (!hasInitAdminOrderEdits.current) {
+      if (order?.admin_orders) {
+        const adminOrders = getAdminOrders(order.admin_orders);
+        setAdminOrderEdits(
+          adminOrders.map(admin => ({ ...admin }))
+        );
+      } else {
+        setAdminOrderEdits([adminOrderDefaultValues]);
+      }
       hasInitAdminOrderEdits.current = true;
     }
-  }, [order?.admin_orders, pcbFormData]);
+  }, [order?.admin_orders]);
+
+  // 计算是否已创建管理员订单
+  const isAdminOrderCreated = !!order?.admin_orders;
+
+  // 保存
+  const handleSave = async (values: Record<string, unknown>) => {
+    if (!orderId) return;
+    try {
+      const method = isAdminOrderCreated ? 'PATCH' : 'POST';
+      const response = await fetch(`/api/admin/orders/${orderId}/admin-order`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+      if (!response.ok) throw new Error(isAdminOrderCreated ? '保存失败' : '创建失败');
+      toast.success(isAdminOrderCreated ? '保存成功' : '创建成功');
+      await fetchOrder(); // 等待后端返回最新数据
+      hasInitAdminOrderEdits.current = false; // 让 useEffect 用新 order 初始化表单
+    } catch {
+      toast.error(isAdminOrderCreated ? '保存失败' : '创建失败');
+    }
+  };
+
+  // 重新计算
+  const handleRecalc = (values: Record<string, unknown>) => {
+    if (!pcbFormData) return;
+    let pcb_price = values.pcb_price as string || '';
+    let cny_price = values.cny_price as string || '';
+    let admin_price = values.admin_price as string || '';
+    let newProductionDays = values.production_days as string || '';
+    let priceNotes: string[] = [];
+    const deliveryNotes: string[] = [];
+    
+    // 处理加价项：现在是数组格式
+    let surcharges: Array<{name: string, amount: number}> = [];
+    if (Array.isArray(values.surcharges)) {
+      surcharges = values.surcharges;
+    } else if (typeof values.surcharges === 'string') {
+      // 兼容旧的JSON字符串格式
+      try {
+        surcharges = JSON.parse(values.surcharges);
+      } catch {
+        surcharges = [];
+      }
+    }
+    
+    // 1. 计算纯PCB价格
+    try {
+      const result = calcPcbPriceV3(pcbFormData);
+      pcb_price = Number(result.total).toFixed(2);
+      priceNotes = result.notes || [];
+      // 注意：这里先不设置 cny_price，等所有费用计算完成后再设置
+    } catch {}
+    
+    // 2. 计算生产天数和交期
+    let deliveryDate = '';
+    try {
+      const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+      newProductionDays = String(cycle.cycleDays);
+      
+      // 保存交期计算备注
+      setDeliveryNotes(cycle.reason || []);
+      
+      // 计算预计交期（当前日期 + 生产天数）
+      const today = new Date();
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + cycle.cycleDays);
+      deliveryDate = targetDate.toISOString().split('T')[0]; // 格式化为 YYYY-MM-DD
+    } catch {}
+    
+    // 3. 计算运费（如果有收货地址信息）
+    const estimatedShippingCost = Number(values.ship_price) || 0;
+    if (pcbFormData.shippingAddress?.country && pcbFormData.shippingAddress?.courier) {
+      try {
+        import('@/lib/shipping-calculator').then(({ calculateShippingCost }) => {
+          const shippingResult = calculateShippingCost(pcbFormData);
+          const finalShippingCost = Math.round(shippingResult.finalCost * 7.2);
+          
+          // 保存详细运费备注
+          setShippingNotes({
+            basicInfo: `${pcbFormData.shippingAddress.courier.toUpperCase()} 到 ${pcbFormData.shippingAddress.country}`,
+            weightInfo: `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg，计费重量：${shippingResult.chargeableWeight}kg`,
+            costBreakdown: [
+              `基础运费：$${shippingResult.baseCost.toFixed(2)}`,
+              `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}`,
+              `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`,
+              `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`
+            ]
+          });
+          
+          // 重新计算总价（包含新的运费）
+          const pcb_price = Number(values.pcb_price) || 0;
+          const custom_duty = Number(values.custom_duty) || 0;
+          const coupon = Number(values.coupon) || 0;
+          
+          // 处理加价项
+          let surcharges: Array<{name: string, amount: number}> = [];
+          if (Array.isArray(values.surcharges)) {
+            surcharges = values.surcharges;
+          } else if (typeof values.surcharges === 'string') {
+            try {
+              surcharges = JSON.parse(values.surcharges);
+            } catch {
+              surcharges = [];
+            }
+          }
+          const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
+          
+          // 计算CNY总价 = PCB价格 + 运费 + 关税 + 加价项 - 优惠券
+          const cny_price = (pcb_price + finalShippingCost + custom_duty + surchargeTotal - coupon).toFixed(2);
+          
+          // 重新计算admin_price（考虑汇率）
+          const currency = values.currency as string || 'USD';
+          const exchange_rate = Number(values.exchange_rate) || 7.2;
+          const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
+          
+          setAdminOrderEdits([
+            {
+              ...values,
+              ship_price: finalShippingCost,
+              cny_price,
+              admin_price,
+            },
+          ]);
+        }).catch(() => {
+          // 运费计算失败，使用简单估算
+          const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000;
+          const isUrgent = pcbFormData.delivery === 'urgent';
+          const simpleShippingCost = totalArea <= 0.1 ? (isUrgent ? 150 : 80) : totalArea <= 0.5 ? (isUrgent ? 250 : 120) : (isUrgent ? 350 : 180);
+          
+          setShippingNotes({
+            basicInfo: '简单估算（缺少详细收货信息）',
+            weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
+            costBreakdown: [
+              `包裹类型：${totalArea <= 0.1 ? '小件' : totalArea <= 0.5 ? '中件' : '大件'}包裹${isUrgent ? '（加急）' : '（标准）'}`,
+              `估算运费：¥${simpleShippingCost}`
+            ]
+          });
+        });
+      } catch {}
+    } else {
+      // 没有收货地址信息，清空运费备注
+      setShippingNotes({
+        basicInfo: '',
+        weightInfo: '',
+        costBreakdown: []
+      });
+    }
+    
+    // 4. 计算管理员价格 = PCB价格 + 运费 + 关税 + 加价项（考虑汇率）
+    const currency = values.currency as string || 'USD';
+    const exchange_rate = Number(values.exchange_rate) || 7.2;
+    const ship_price = estimatedShippingCost;
+    const custom_duty = Number(values.custom_duty) || 0;
+    const coupon = Number(values.coupon) || 0;
+    const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
+    
+    // 所有费用都以CNY计算
+    const totalCnyPrice = Number(pcb_price) + ship_price + custom_duty + surchargeTotal - coupon;
+    
+    // 根据币种转换最终价格
+    const adminPriceNum = currency === 'CNY' ? totalCnyPrice : totalCnyPrice / exchange_rate;
+    admin_price = adminPriceNum.toFixed(2);
+    
+    // 更新CNY价格为最终的人民币总价
+    cny_price = totalCnyPrice.toFixed(2);
+    
+    // 处理管理员备注
+    const admin_note = values.admin_note as string || '';
+    
+    // 保存所有计算备注
+    setCalculationNotes(priceNotes);
+    
+    setAdminOrderEdits([
+      {
+        ...values,
+        pcb_price,
+        admin_price,
+        cny_price,
+        production_days: newProductionDays,
+        delivery_date: deliveryDate,
+        ship_price,
+        admin_note,
+        surcharges, // 现在直接使用数组，不需要转换为JSON字符串
+      },
+    ]);
+    toast.success('已重新计算，所有明细已更新');
+  };
+
+  // 单独计算PCB价格
+  const handleCalcPCB = (values: Record<string, unknown>) => {
+    if (!pcbFormData) {
+      toast.error('PCB规格数据不完整，无法计算价格');
+      return;
+    }
+    
+    let pcb_price = values.pcb_price as string || '';
+    let priceNotes: string[] = [];
+    
+    try {
+      // 1. 只计算纯PCB价格
+      const result = calcPcbPriceV3(pcbFormData);
+      pcb_price = Number(result.total).toFixed(2);
+      priceNotes = result.notes || [];
+      
+      // 2. 重新计算cny_price（基于当前的其他费用）
+      const ship_price = Number(values.ship_price) || 0;
+      const custom_duty = Number(values.custom_duty) || 0;
+      const coupon = Number(values.coupon) || 0;
+      
+      // 处理加价项
+      let surcharges: Array<{name: string, amount: number}> = [];
+      if (Array.isArray(values.surcharges)) {
+        surcharges = values.surcharges;
+      } else if (typeof values.surcharges === 'string') {
+        try {
+          surcharges = JSON.parse(values.surcharges);
+        } catch {
+          surcharges = [];
+        }
+      }
+      const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
+      
+      // 计算CNY总价 = PCB价格 + 运费 + 关税 + 加价项 - 优惠券
+      const cny_price = (Number(pcb_price) + ship_price + custom_duty + surchargeTotal - coupon).toFixed(2);
+      
+      // 重新计算admin_price（考虑汇率）
+      const currency = values.currency as string || 'USD';
+      const exchange_rate = Number(values.exchange_rate) || 7.2;
+      const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
+      
+      // 3. 更新状态
+      setAdminOrderEdits([
+        {
+          ...values,
+          pcb_price,
+          cny_price,
+          admin_price,
+        },
+      ]);
+      
+      // 4. 单独保存计算备注
+      setCalculationNotes(priceNotes);
+      
+      toast.success(`PCB价格计算完成：¥${pcb_price}，总价已更新：¥${cny_price}`);
+      
+    } catch (error) {
+      console.error('PCB价格计算失败:', error);
+      toast.error('PCB价格计算失败，请检查PCB规格');
+    }
+  };
+
+  // 计算交期和运费
+  const handleCalcDelivery = (values: Record<string, unknown>) => {
+    if (!pcbFormData) return;
+    
+    let newProductionDays = values.production_days as string || '';
+    let deliveryDate = '';
+    let estimatedShippingCost = 0;
+    let shippingDetails = '';
+    
+    try {
+      // 计算生产周期
+      const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+      newProductionDays = String(cycle.cycleDays);
+      
+      // 保存交期计算备注
+      setDeliveryNotes(cycle.reason || []);
+      
+      // 计算预计交期（当前日期 + 生产天数）
+      const today = new Date();
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + cycle.cycleDays);
+      deliveryDate = targetDate.toISOString().split('T')[0];
+      
+      // 使用完整的运费计算逻辑
+      if (pcbFormData.shippingAddress?.country && pcbFormData.shippingAddress?.courier) {
+        try {
+          // 动态导入运费计算模块
+          import('@/lib/shipping-calculator').then(({ calculateShippingCost }) => {
+            const shippingResult = calculateShippingCost(pcbFormData);
+            const finalShippingCost = Math.round(shippingResult.finalCost * 7.2); // 转换为人民币，假设汇率7.2
+            
+            // 保存详细运费备注
+            setShippingNotes({
+              basicInfo: `${pcbFormData.shippingAddress.courier.toUpperCase()} 到 ${pcbFormData.shippingAddress.country}`,
+              weightInfo: `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg，计费重量：${shippingResult.chargeableWeight}kg`,
+              costBreakdown: [
+                `基础运费：$${shippingResult.baseCost.toFixed(2)}`,
+                `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}`,
+                `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`,
+                `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`
+              ]
+            });
+            
+            setAdminOrderEdits([
+              {
+                ...values,
+                production_days: newProductionDays,
+                delivery_date: deliveryDate,
+                ship_price: finalShippingCost,
+              },
+            ]);
+            
+            toast.success(
+              `交期计算完成：${newProductionDays}天（${deliveryDate}）\n` +
+              `运费详情：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})\n` +
+              `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg\n` +
+              `计费重量：${shippingResult.chargeableWeight}kg，快递：${pcbFormData.shippingAddress.courier.toUpperCase()}`
+            );
+          }).catch(() => {
+            // 如果运费计算失败，使用简单估算
+            throw new Error('运费计算模块加载失败');
+          });
+          return; // 异步处理，提前返回
+        } catch (shippingError) {
+          console.warn('运费计算失败，使用简单估算:', shippingError);
+        }
+      }
+      
+      // 简单运费估算（备用方案）
+      const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000; // 转换为平方米
+      const isUrgent = pcbFormData.delivery === 'urgent';
+      
+      // 运费估算逻辑
+      if (totalArea <= 0.1) {
+        estimatedShippingCost = isUrgent ? 150 : 80; // 小件
+        shippingDetails = '小件包裹';
+      } else if (totalArea <= 0.5) {
+        estimatedShippingCost = isUrgent ? 250 : 120; // 中件
+        shippingDetails = '中等包裹';
+      } else {
+        estimatedShippingCost = isUrgent ? 350 : 180; // 大件
+        shippingDetails = '大件包裹';
+      }
+      
+      shippingDetails += isUrgent ? '（加急）' : '（标准）';
+      
+      // 保存简单估算备注
+      setShippingNotes({
+        basicInfo: '简单估算（缺少详细收货信息）',
+        weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
+        costBreakdown: [
+          `包裹类型：${shippingDetails}`,
+          `估算运费：¥${estimatedShippingCost}`
+        ]
+      });
+      
+    } catch (error) {
+      console.error('计算交期失败:', error);
+      toast.error('计算交期失败，请检查PCB规格');
+      return;
+    }
+    
+    // 重新计算总价（包含新的运费）
+    const pcb_price = Number(values.pcb_price) || 0;
+    const custom_duty = Number(values.custom_duty) || 0;
+    const coupon = Number(values.coupon) || 0;
+    
+    // 处理加价项
+    let surcharges: Array<{name: string, amount: number}> = [];
+    if (Array.isArray(values.surcharges)) {
+      surcharges = values.surcharges;
+    } else if (typeof values.surcharges === 'string') {
+      try {
+        surcharges = JSON.parse(values.surcharges);
+      } catch {
+        surcharges = [];
+      }
+    }
+    const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
+    
+    // 计算CNY总价 = PCB价格 + 运费 + 关税 + 加价项 - 优惠券
+    const cny_price = (pcb_price + estimatedShippingCost + custom_duty + surchargeTotal - coupon).toFixed(2);
+    
+    // 重新计算admin_price（考虑汇率）
+    const currency = values.currency as string || 'USD';
+    const exchange_rate = Number(values.exchange_rate) || 7.2;
+    const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
+    
+    setAdminOrderEdits([
+      {
+        ...values,
+        production_days: newProductionDays,
+        delivery_date: deliveryDate,
+        ship_price: estimatedShippingCost,
+        cny_price,
+        admin_price,
+      },
+    ]);
+    
+    toast.success(`交期计算完成：${newProductionDays}天（${deliveryDate}），运费估算：¥${estimatedShippingCost}${shippingDetails ? ` (${shippingDetails})` : ''}`);
+  };
+
+  // 单独计算运费
+  const handleCalcShipping = (values: Record<string, unknown>) => {
+    if (!pcbFormData) {
+      toast.error('PCB规格数据不完整，无法计算运费');
+      return;
+    }
+    
+    let estimatedShippingCost = 0;
+    let shippingDetails = '';
+    
+    try {
+      // 优先使用完整的运费计算逻辑
+      if (pcbFormData.shippingAddress?.country && pcbFormData.shippingAddress?.courier) {
+        import('@/lib/shipping-calculator').then(({ calculateShippingCost }) => {
+          const shippingResult = calculateShippingCost(pcbFormData);
+          const finalShippingCost = Math.round(shippingResult.finalCost * 7.2); // 转换为人民币
+          
+          // 保存详细运费备注
+          setShippingNotes({
+            basicInfo: `${pcbFormData.shippingAddress.courier.toUpperCase()} 到 ${pcbFormData.shippingAddress.country}`,
+            weightInfo: `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg，计费重量：${shippingResult.chargeableWeight}kg`,
+            costBreakdown: [
+              `基础运费：$${shippingResult.baseCost.toFixed(2)}`,
+              `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}`,
+              `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`,
+              `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`
+            ]
+          });
+          
+          setAdminOrderEdits([
+            {
+              ...values,
+              ship_price: finalShippingCost,
+            },
+          ]);
+          
+          toast.success(
+            `运费计算完成：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})\n` +
+            `快递公司：${pcbFormData.shippingAddress.courier.toUpperCase()}\n` +
+            `目的地：${pcbFormData.shippingAddress.country}\n` +
+            `实际重量：${shippingResult.actualWeight}kg\n` +
+            `体积重量：${shippingResult.volumetricWeight}kg\n` +
+            `计费重量：${shippingResult.chargeableWeight}kg\n` +
+            `基础运费：$${shippingResult.baseCost.toFixed(2)}\n` +
+            `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}\n` +
+            `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`
+          );
+        }).catch((error) => {
+          console.error('运费计算失败:', error);
+          toast.error('运费计算失败：' + error.message);
+        });
+        return;
+      }
+      
+      // 简单估算（备用方案）
+      const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000;
+      const isUrgent = pcbFormData.delivery === 'urgent';
+      
+      if (totalArea <= 0.1) {
+        estimatedShippingCost = isUrgent ? 150 : 80;
+        shippingDetails = '小件包裹';
+      } else if (totalArea <= 0.5) {
+        estimatedShippingCost = isUrgent ? 250 : 120;
+        shippingDetails = '中等包裹';
+      } else {
+        estimatedShippingCost = isUrgent ? 350 : 180;
+        shippingDetails = '大件包裹';
+      }
+      
+      shippingDetails += isUrgent ? '（加急）' : '（标准）';
+      
+      // 保存简单估算备注
+      setShippingNotes({
+        basicInfo: '简单估算（缺少详细收货信息）',
+        weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
+        costBreakdown: [
+          `包裹类型：${shippingDetails}`,
+          `估算运费：¥${estimatedShippingCost}`
+        ]
+      });
+      
+      setAdminOrderEdits([
+        {
+          ...values,
+          ship_price: estimatedShippingCost,
+        },
+      ]);
+      
+      toast.success(`运费估算完成：¥${estimatedShippingCost} (${shippingDetails})\n面积：${totalArea.toFixed(4)}㎡`);
+      
+    } catch (error) {
+      console.error('运费计算失败:', error);
+      toast.error('运费计算失败，请检查PCB规格和收货地址');
+    }
+  };
 
   // PCB参数字段中文映射
   const pcbFieldLabelMap: Record<string, string> = {
@@ -586,475 +779,365 @@ export default function AdminOrderDetailPage() {
     },
   ];
 
-  const calculatePriceDetails = () => {
-    if (!pcbFormData) return;
-    try {
-      const result = calcPcbPriceV3(pcbFormData);
-      setPriceDetails({
-        basePrice: result.detail.basePrice || 0,
-        processFee: result.detail.processFee || 0,
-        materialFee: result.detail.materialFee || 0,
-        specialProcessFee: result.detail.specialProcessFee || 0,
-        testFee: result.detail.testFee || 0,
-        total: result.total
-      });
-    } catch {
-      toast.error('价格计算失败');
-    }
-  };
-
-  const calculateLeadTimeDetails = () => {
-    if (!pcbFormData) return;
-    try {
-      const result = calcProductionCycle(pcbFormData, new Date(), pcbFormData.delivery);
-      setLeadTimeDetails({
-        baseCycleDays: 5, // 基础生产周期
-        processExtraDays: result.cycleDays - 5, // 工艺加成天数
-        urgentExtraDays: pcbFormData.delivery === 'urgent' ? -2 : 0, // 加急处理
-        cycleDays: result.cycleDays,
-        reason: result.reason
-      });
-    } catch {
-      toast.error('交期计算失败');
-    }
-  };
-
-  // 删除订单
-  const handleDelete = async () => {
-    if (!orderId) return;
-    setIsDeleting(true);
-    try {
-      const response = await fetch(`/api/admin/orders?id=${orderId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete order');
-      }
-
-      toast.success('订单已删除');
-      router.push('/admin/orders');
-    } catch (err) {
-      console.error('Error deleting order:', err);
-      toast.error('删除订单失败');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // 更新订单状态
-  const handleStatusChange = async (newStatus: string) => {
-    if (!orderId) return;
-    setIsUpdating(true);
-    try {
-      const response = await fetch(`/api/admin/orders?id=${orderId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update order status');
-      }
-
-      const updatedOrder = await response.json();
-      setOrder(updatedOrder);
-      toast.success('订单状态已更新');
-    } catch (err) {
-      console.error('Error updating order status:', err);
-      toast.error('更新订单状态失败');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  // 在组件内添加格式化函数
-  function formatDateTimeLocal(val: string) {
-    if (!val) return '';
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return '';
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-
-  // 在组件内，adminOrders.length === 0 时，构造默认编辑数据
-  const getDefaultAdminOrderEdit = () => {
-    let admin_price = '';
-    let production_days = '';
-    let notes: string[] = [];
-    let cny_price = '';
-    if (pcbFormData) {
-      try {
-        const result = calcPcbPriceV3(pcbFormData);
-        admin_price = String(result.total);
-        if (result.notes) notes = result.notes;
-      } catch {}
-      try {
-        const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
-        production_days = String(cycle.cycleDays);
-        if (cycle.reason) notes = notes.concat(cycle.reason);
-      } catch {}
-    }
-    // 默认币种USD，汇率空
-    cny_price = '';
-    return {
-      status: 'created',
-      admin_price,
-      admin_note: [],
-      newNote: '',
-      currency: 'USD',
-      due_date: '',
-      pay_time: '',
-      exchange_rate: '',
-      payment_status: '',
-      production_days,
-      coupon: 0,
-      ship_price: '',
-      custom_duty: '',
-      notes,
-      cny_price,
-      surcharges: [],
-      newSurchargeAmount: '',
-      newSurchargeReason: '',
-    };
-  };
-
   if (loading) {
-    return (
-      <div className="w-full p-2 md:p-4">
-        <h2 className="text-2xl md:text-3xl font-bold mb-6 text-gray-900">Order Details</h2>
-        <div className="bg-white rounded-xl shadow-lg p-6 text-gray-500 text-center">Loading order details...</div>
-      </div>
-    );
+    return <div className="w-full p-2 md:p-4">Loading...</div>;
   }
-
   if (error) {
-    return (
-      <div className="w-full p-2 md:p-4">
-        <h2 className="text-2xl md:text-3xl font-bold mb-6 text-gray-900">Order Details</h2>
-        <div className="bg-white rounded-xl shadow-lg p-6 text-red-600 text-center">Error loading order: {error}</div>
-      </div>
-    );
+    return <div className="w-full p-2 md:p-4 text-red-600">Error: {error}</div>;
   }
-
   if (!order) {
-    return (
-      <div className="w-full p-2 md:p-4">
-        <h2 className="text-2xl md:text-3xl font-bold mb-6 text-gray-900">Order Details</h2>
-        <div className="bg-white rounded-xl shadow-lg p-6 text-gray-500 text-center">Order not found.</div>
-      </div>
-    );
+    return <div className="w-full p-2 md:p-4">Order not found.</div>;
   }
 
   return (
-    <FormProvider form={form}>
-      <div className="w-full p-2 md:p-4">
-        <div className="flex flex-col md:flex-row gap-8">
-          {/* 信息区 */}
-          <div className="flex-1 space-y-6">
-            {/* 用户信息卡片 */}
-            <Card className="rounded-xl shadow-lg">
-              <CardHeader>
-                <CardTitle>User Info</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div>Email: {order.email}</div>
-                <div>User ID: {order.user_id || 'Guest'}</div>
-                <div>User Name: {order.user_name || '-'}</div>
-                <div className="mt-2 font-medium">Shipping Address</div>
-                {order.shipping_address ? (
-                  <div>
-                    <div>{order.shipping_address.address}</div>
-                    <div>{order.shipping_address.city} {order.shipping_address.state} {order.shipping_address.country}</div>
-                    <div>Zip: {order.shipping_address.zipCode}</div>
-                    <div>Contact: {order.shipping_address.contactName}</div>
-                    <div>Phone: {order.shipping_address.phone}</div>
-                    <div>Courier: {order.shipping_address.courier}</div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      <div className="container mx-auto px-4 py-6">
+        {/* 页面标题区 */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">📋</span>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">订单详情</h1>
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+              order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+              order.status === 'completed' ? 'bg-green-100 text-green-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              {order.status}
+            </div>
+          </div>
+          <p className="text-gray-600">订单编号: {order.id}</p>
+        </div>
+
+        {/* 主内容区 */}
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+          {/* 左侧管理员表单 */}
+          <div className="xl:col-span-3">
+            {!isAdminOrderCreated && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="flex items-center gap-2 text-amber-800">
+                  <span className="text-lg">⚠️</span>
+                  <span className="font-medium">还未创建管理员订单</span>
+                </div>
+                <p className="text-sm text-amber-700 mt-1">请填写并创建管理员订单信息</p>
+              </div>
+            )}
+            <div className="sticky top-6">
+              <AdminOrderForm
+                initialValues={adminOrderEdits[0] || {}}
+                onSave={handleSave}
+                onRecalc={handleRecalc}
+                onCalcPCB={handleCalcPCB}
+                onCalcDelivery={handleCalcDelivery}
+                onCalcShipping={handleCalcShipping}
+                readOnly={false}
+                submitButtonText={isAdminOrderCreated ? '保存' : '创建'}
+              />
+            </div>
+          </div>
+
+          {/* 右侧信息区 */}
+          <div className="xl:col-span-2 space-y-6">
+            {/* 价格明细卡片 - 重新设计 */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  💰 价格明细
+                </h3>
+              </div>
+              <div className="p-6">
+                {order.cal_values ? (
+                  <div className="space-y-6">
+                    {/* 基础价格信息 */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
+                        <div className="text-sm text-emerald-600 font-medium mb-1">总价</div>
+                        <div className="text-2xl font-bold text-emerald-700">
+                          ¥{(order.cal_values as any)?.totalPrice || order.cal_values.price || '0'}
+                        </div>
+                      </div>
+                      
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        <div className="text-sm text-blue-600 font-medium mb-1">PCB价格</div>
+                        <div className="text-xl font-bold text-blue-700">
+                          ¥{(order.cal_values as any)?.pcbPrice || order.cal_values.price || '0'}
+                        </div>
+                      </div>
+                      
+                      <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                        <div className="text-sm text-purple-600 font-medium mb-1">单价</div>
+                        <div className="text-xl font-bold text-purple-700">
+                          ¥{(order.cal_values as any)?.unitPrice || (order.cal_values.price && order.cal_values.totalQuantity ? (order.cal_values.price / order.cal_values.totalQuantity).toFixed(2) : '0')}
+                        </div>
+                      </div>
+                      
+                      <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
+                        <div className="text-sm text-orange-600 font-medium mb-1">数量</div>
+                        <div className="text-xl font-bold text-orange-700">
+                          {(order.cal_values as any)?.totalCount || order.cal_values.totalQuantity || '0'} 片
+                        </div>
+                      </div>
+                      
+                      <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-100">
+                        <div className="text-sm text-cyan-600 font-medium mb-1">面积</div>
+                        <div className="text-xl font-bold text-cyan-700">
+                          {order.cal_values.totalArea || '0'} ㎡
+                        </div>
+                      </div>
+                      
+                      <div className="bg-pink-50 p-4 rounded-lg border border-pink-100">
+                        <div className="text-sm text-pink-600 font-medium mb-1">交期</div>
+                        <div className="text-xl font-bold text-pink-700">
+                          {order.cal_values.leadTimeDays || '0'} 天
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 费用分解 */}
+                    {order.cal_values.priceDetail && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                          📊 费用分解
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <span className="text-gray-600">基础价格</span>
+                            <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.basePrice || '0'}</span>
+                          </div>
+                          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <span className="text-gray-600">测试费用</span>
+                            <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.testMethod || '0'}</span>
+                          </div>
+                          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <span className="text-gray-600">多层铜厚</span>
+                            <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.multilayerCopperWeight || '0'}</span>
+                          </div>
+                          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <span className="text-gray-600">工程费用</span>
+                            <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.engFee || '0'}</span>
+                          </div>
+                          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <span className="text-gray-600">板厚费用</span>
+                            <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.thickness || '0'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 其他费用 - 使用默认值或显示暂无 */}
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        💳 其他费用
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <span className="text-gray-600">运费</span>
+                          <span className="font-semibold text-gray-900">¥{(order.cal_values as any)?.shippingCost || '0'}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <span className="text-gray-600">税费</span>
+                          <span className="font-semibold text-gray-900">¥{(order.cal_values as any)?.tax || '0'}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <span className="text-gray-600">折扣</span>
+                          <span className="font-semibold text-gray-900">-¥{(order.cal_values as any)?.discount || '0'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 时间信息 */}
+                    {((order.cal_values as any)?.estimatedFinishDate || (order.cal_values as any)?.courierDays) && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                          ⏰ 时间信息
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {(order.cal_values as any)?.estimatedFinishDate && (
+                            <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                              <span className="text-indigo-600">预计完成</span>
+                              <span className="font-semibold text-indigo-800">{(order.cal_values as any).estimatedFinishDate}</span>
+                            </div>
+                          )}
+                          {(order.cal_values as any)?.courierDays && (
+                            <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                              <span className="text-indigo-600">快递天数</span>
+                              <span className="font-semibold text-indigo-800">{(order.cal_values as any).courierDays} 天</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 订单限制 */}
+                    {(order.cal_values as any)?.courier && (
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                          📋 订单信息
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                            <span className="text-yellow-600">快递方式</span>
+                            <span className="font-semibold text-yellow-800">{(order.cal_values as any).courier}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="text-gray-400">No shipping address</div>
+                  <div className="text-center py-8 text-gray-500">
+                    <span className="text-4xl mb-2 block">📊</span>
+                    <p>暂无价格信息</p>
+                  </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            {/* 订单状态卡片 */}
-            <Card className="rounded-xl shadow-lg">
-              <CardHeader>
-                <CardTitle>Order Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div>Order ID: <span className="font-bold">{order.id}</span></div>
-                <div>Created At: <span className="font-bold">{new Date(order.created_at).toLocaleString()}</span></div>
-                <div>Main Order Status: <span className="font-bold">{order.status}</span></div>
-                <div>
-                  Admin Order Status: {Array.isArray(order.admin_orders) && (order.admin_orders as AdminOrder[]).length > 0
-                    ? <span className="font-bold">{(order.admin_orders as AdminOrder[])[0].status}</span>
-                    : <span className="text-gray-400">Not created</span>
-                  }
+            {/* 计算备注卡片 */}
+            {calculationNotes.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-500 to-cyan-600 px-6 py-4">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    📋 价格计算明细
+                    <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
+                      {calculationNotes.length} 项
+                    </span>
+                  </h3>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="p-6">
+                  <div className="space-y-3">
+                    {calculationNotes.map((note: string, i: number) => (
+                      <div key={i} className="flex items-start gap-3 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                        <div className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
+                          {i + 1}
+                        </div>
+                        <span className="text-gray-800 text-sm leading-relaxed">{note}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-amber-800">
+                      <span className="text-sm">ℹ️</span>
+                      <span className="text-sm font-medium">审核提示</span>
+                    </div>
+                    <p className="text-xs text-amber-700 mt-1">
+                      以上是系统根据PCB规格自动计算的价格明细，请仔细审核各项费用是否合理
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-            {/* 原有订单信息卡片（只显示PCB相关信息） */}
-            <Card className="rounded-xl shadow-lg">
-              <CardHeader>
-                <CardTitle>pcb Information</CardTitle>
-                <CardDescription>Details about the PCB and Gerber file.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* PCB参数展示 */}
-                <div>
-                  <div className="text-sm font-medium text-gray-500 mb-1">PCB参数</div>
-                  {order.pcb_spec && typeof order.pcb_spec === 'object' ? (
-                    <div className="space-y-4">
-                      {pcbFieldGroups.map(group => (
-                        <div key={group.title} className="mb-2">
-                          <div className="font-semibold text-gray-700 mb-1">{group.title}</div>
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                            {group.fields.map(field => {
-                              if (!field.shouldShow(order.pcb_spec as Record<string, unknown>)) return null;
-                              const value = (order.pcb_spec as Record<string, unknown>)[field.key];
-                              if (value === undefined || value === null || value === '') return null;
-                              return (
-                                <React.Fragment key={field.key}>
-                                  <div className="font-medium text-gray-600">{pcbFieldLabelMap[field.key] || field.key}</div>
-                                  <div className="text-gray-900">
-                                    {pcbFieldValueMap[field.key] ? pcbFieldValueMap[field.key](value) : String(value)}
-                                  </div>
-                                </React.Fragment>
-                              );
-                            })}
+            {/* 交期计算备注卡片 */}
+            {deliveryNotes.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-4">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    📅 交期计算明细
+                    <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
+                      {deliveryNotes.length} 项
+                    </span>
+                  </h3>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-3">
+                    {deliveryNotes.map((note: string, i: number) => (
+                      <div key={i} className="flex items-start gap-3 p-3 bg-violet-50/50 rounded-lg border border-violet-100">
+                        <div className="w-6 h-6 bg-violet-100 text-violet-700 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
+                          {i + 1}
+                        </div>
+                        <span className="text-gray-800 text-sm leading-relaxed">{note}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-indigo-800">
+                      <span className="text-sm">⏰</span>
+                      <span className="text-sm font-medium">生产提示</span>
+                    </div>
+                    <p className="text-xs text-indigo-700 mt-1">
+                      交期计算基于PCB规格、特殊工艺、面积等因素，实际生产时间可能因工厂排期而调整
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 运费计算备注卡片 */}
+            {(shippingNotes.basicInfo || shippingNotes.costBreakdown.length > 0) && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-orange-500 to-red-600 px-6 py-4">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    🚚 运费计算明细
+                    <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
+                      详细
+                    </span>
+                  </h3>
+                </div>
+                <div className="p-6">
+                  {/* 基础信息 */}
+                  {shippingNotes.basicInfo && (
+                    <div className="mb-4 p-3 bg-orange-50/50 rounded-lg border border-orange-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-medium text-orange-800">📦 运输方式</span>
+                      </div>
+                      <p className="text-sm text-gray-700">{shippingNotes.basicInfo}</p>
+                    </div>
+                  )}
+                  
+                  {/* 重量信息 */}
+                  {shippingNotes.weightInfo && (
+                    <div className="mb-4 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-medium text-blue-800">⚖️ 重量信息</span>
+                      </div>
+                      <p className="text-sm text-gray-700">{shippingNotes.weightInfo}</p>
+                    </div>
+                  )}
+                  
+                  {/* 费用明细 */}
+                  {shippingNotes.costBreakdown.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-green-800">💰 费用明细</span>
+                      </div>
+                      {shippingNotes.costBreakdown.map((item: string, i: number) => (
+                        <div key={i} className="flex items-start gap-3 p-3 bg-green-50/50 rounded-lg border border-green-100">
+                          <div className="w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
+                            {i + 1}
                           </div>
+                          <span className="text-gray-800 text-sm leading-relaxed">{item}</span>
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <div className="text-gray-400">无PCB参数</div>
                   )}
-                </div>
-                {/* Gerber文件下载 */}
-                <div>
-                  <div className="text-sm font-medium text-gray-500 mb-1">Gerber文件</div>
-                  {order.gerber_file_url ? (
-                    <a
-                      href={order.gerber_file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline"
-                      download
-                    >
-                      下载Gerber文件
-                    </a>
-                  ) : (
-                    <span className="text-gray-400">没有Gerber文件</span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Calculation Result 卡片 */}
-            {order.cal_values && (
-              <Card className="rounded-xl shadow-lg">
-                <CardHeader>
-                  <CardTitle>Calculation Result</CardTitle>
-                  <CardDescription>Front-end submitted calculation details.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <div className="font-medium text-gray-600">Total Price</div>
-                    <div className="text-gray-900">{order.cal_values.totalPrice} CNY</div>
-                    <div className="font-medium text-gray-600">Unit Price</div>
-                    <div className="text-gray-900">{order.cal_values.unitPrice} CNY</div>
-                    <div className="font-medium text-gray-600">Total Count</div>
-                    <div className="text-gray-900">{order.cal_values.totalCount}</div>
-                    <div className="font-medium text-gray-600">Min Order Qty</div>
-                    <div className="text-gray-900">{order.cal_values.minOrderQty}</div>
-                    <div className="font-medium text-gray-600">Lead Time (days)</div>
-                    <div className="text-gray-900">{order.cal_values.leadTimeDays}</div>
-                    <div className="font-medium text-gray-600">Estimated Finish Date</div>
-                    <div className="text-gray-900">{order.cal_values.estimatedFinishDate}</div>
-                    <div className="font-medium text-gray-600">Shipping Cost</div>
-                    <div className="text-gray-900">{order.cal_values.shippingCost} CNY</div>
-                    <div className="font-medium text-gray-600">Tax</div>
-                    <div className="text-gray-900">{order.cal_values.tax}</div>
-                    <div className="font-medium text-gray-600">Discount</div>
-                    <div className="text-gray-900">{order.cal_values.discount}</div>
+                  
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-yellow-800">
+                      <span className="text-sm">🚛</span>
+                      <span className="text-sm font-medium">物流提示</span>
+                    </div>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      运费计算基于包裹重量、体积、目的地等因素，实际费用可能因汇率波动、燃油附加费调整而有所变动
+                    </p>
                   </div>
-                  {/* Breakdown */}
-                  {order.cal_values.breakdown && (
-                    <div className="mt-2">
-                      <div className="font-semibold text-gray-700 mb-1">Breakdown</div>
-                      <ul className="list-disc pl-5 text-sm text-gray-900">
-                        {Object.entries(order.cal_values.breakdown).map(([k, v]) => (
-                          <li key={k}><span className="font-medium text-gray-600">{k}:</span> {v}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {/* Price Notes */}
-                  {order.cal_values.priceNotes && order.cal_values.priceNotes.length > 0 && (
-                    <div className="mt-2">
-                      <div className="font-semibold text-gray-700 mb-1">Price Notes</div>
-                      <ul className="list-disc pl-5 text-sm text-gray-900">
-                        {order.cal_values.priceNotes.map((note: string, i: number) => (
-                          <li key={i}>{note}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {/* Lead Time Result */}
-                  {order.cal_values.leadTimeResult && (
-                    <div className="mt-2">
-                      <div className="font-semibold text-gray-700 mb-1">Lead Time Details</div>
-                      <div className="text-sm text-gray-900">Cycle Days: {order.cal_values.leadTimeResult.cycleDays}</div>
-                      {order.cal_values.leadTimeResult.reason && order.cal_values.leadTimeResult.reason.length > 0 && (
-                        <ul className="list-disc pl-5 text-sm text-gray-900 mt-1">
-                          {order.cal_values.leadTimeResult.reason.map((r: string, i: number) => (
-                            <li key={i}>{r}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
-          </div>
-          {/* 表单区 */}
-          <div className="w-full md:w-[400px]">
-            <Card className="rounded-xl shadow-lg mb-4">
-              <CardHeader>
-                <CardTitle>管理员订单</CardTitle>
-                <CardDescription>管理订单状态和价格。</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {/* 统一显示表单区，无论是否已创建 */}
-                {(adminOrders.length > 0 ? adminOrders : [getDefaultAdminOrderEdit()]).map((admin, idx) => {
-                  const isCreated = adminOrders.length > 0;
-                  return (
-                    <div key={isCreated ? (admin as AdminOrder).id : idx} className="space-y-2 border rounded-lg p-3 mb-2">
-                      <div>
-                        Status:
-                        {isCreated ? (
-                          <select
-                            className="border rounded px-2 py-1 ml-2"
-                            value={adminOrderEdits[idx]?.status}
-                            onChange={e => updateEdit(idx, 'status', e.target.value)}
-                          >
-                            <option value="created">created</option>
-                            <option value="reviewed">reviewed</option>
-                            <option value="unpaid">unpaid</option>
-                            <option value="paid">paid</option>
-                            <option value="completed">completed</option>
-                            <option value="cancelled">cancelled</option>
-                          </select>
-                        ) : (
-                          <span className="ml-2">created</span>
-                        )}
-                      </div>
-                      <div>Admin Price: <input type="text" className={`border rounded px-2 py-1 w-32 bg-gray-100`} value={`${adminOrderEdits[idx]?.admin_price ?? ''} ${getCurrencySymbol(adminOrderEdits[idx]?.currency || getDefaultCurrency())}`} readOnly /></div>
-                      <div>Currency: <select className="border rounded px-2 py-1 w-24" value={adminOrderEdits[idx]?.currency || getDefaultCurrency()} onChange={e => updateEdit(idx, 'currency', e.target.value)} disabled={!isCreated}>
-                        <option value="USD">USD</option>
-                        <option value="CNY">CNY</option>
-                        <option value="EUR">EUR</option>
-                        <option value="JPY">JPY</option>
-                      </select></div>
-                      <div>Due Date: <input type="date" className="border rounded px-2 py-1" value={adminOrderEdits[idx]?.due_date ?? ''} onChange={e => updateEdit(idx, 'due_date', e.target.value)} readOnly={!isCreated} /></div>
-                      <div>Pay Time: <input type="datetime-local" className="border rounded px-2 py-1" value={formatDateTimeLocal(adminOrderEdits[idx]?.pay_time ?? '')} onChange={e => updateEdit(idx, 'pay_time', e.target.value)} readOnly={!isCreated} /></div>
-                      <div>Exchange Rate: <input type="number" className="border rounded px-2 py-1 w-24" value={adminOrderEdits[idx]?.exchange_rate ?? getDefaultExchangeRate(adminOrderEdits[idx]?.currency || getDefaultCurrency())} onChange={e => updateEdit(idx, 'exchange_rate', e.target.value)} readOnly={!isCreated} /></div>
-                      <div>Payment Status: <span className="ml-2">{adminOrderEdits[idx]?.payment_status || '-'}</span></div>
-                      <div>Production Days: <input type="number" className={`border rounded px-2 py-1 w-24 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.production_days ?? ''} onChange={e => updateEdit(idx, 'production_days', e.target.value)} readOnly={!isCreated} /></div>
-                      <div>Coupon: <input type="number" className="border rounded px-2 py-1 w-32" value={adminOrderEdits[idx]?.coupon ?? 0} onChange={e => updateEdit(idx, 'coupon', Number(e.target.value))} readOnly={!isCreated} /></div>
-                      <div>Ship Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.ship_price ?? ''} onChange={e => updateEdit(idx, 'ship_price', e.target.value)} readOnly={!isCreated} /></div>
-                      <div>Custom Duty: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.custom_duty ?? ''} onChange={e => updateEdit(idx, 'custom_duty', e.target.value)} readOnly={!isCreated} /></div>
-                      <div>CNY Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.cny_price ?? ''} onChange={e => updateEdit(idx, 'cny_price', e.target.value)} readOnly={!isCreated} /></div>
-                      <div>
-                        Admin Notes:
-                        <ul className="list-disc pl-5 mt-1">
-                          {adminOrderEdits[idx]?.admin_note.map((note: string, i: number) => (
-                            <li key={i} className="flex items-center justify-between">
-                              <span>{note}</span>
-                              {isCreated && <button className="ml-2 text-red-500" onClick={() => removeNote(idx, i)}>删除</button>}
-                            </li>
-                          ))}
-                        </ul>
-                        <div className="flex mt-2 gap-2">
-                          <input
-                            type="text"
-                            className="border rounded px-2 py-1 flex-1"
-                            value={adminOrderEdits[idx]?.newNote ?? ''}
-                            onChange={e => updateEdit(idx, 'newNote', e.target.value)}
-                            placeholder="添加新备注"
-                            readOnly={!isCreated}
-                          />
-                          <Button size="sm" type="button" onClick={() => debouncedAddNote(idx)} disabled={noteIdx === idx || !isCreated}>添加</Button>
-                        </div>
-                      </div>
-                      {adminOrderEdits[idx] && (
-                        <div className="mt-2">
-                          <div className="font-semibold text-sm mb-1">Surcharges</div>
-                          <ul className="space-y-1 mb-2">
-                            {adminOrderEdits[idx].surcharges.map((item: SurchargeItem, i: number) => (
-                              <li key={i} className="flex items-center gap-2 text-xs">
-                                <span className="inline-block w-16">+￥{Number(item.amount).toFixed(2)}</span>
-                                <span className="flex-1">{item.reason}</span>
-                                {isCreated && <button type="button" className="text-red-500" onClick={() => {
-                                  setAdminOrderEdits(edits => edits.map((edit, edi) => edi === idx ? { ...edit, surcharges: edit.surcharges.filter((_: any, si: number) => si !== i) } : edit));
-                                }}>删除</button>}
-                              </li>
-                            ))}
-                          </ul>
-                          <div className="flex gap-2 items-center">
-                            <input type="number" className="border rounded px-2 py-1 w-20" placeholder="Amount" value={adminOrderEdits[idx].newSurchargeAmount ?? ''} onChange={e => updateEdit(idx, 'newSurchargeAmount', e.target.value)} readOnly={!isCreated} />
-                            <span>￥</span>
-                            <input type="text" className="border rounded px-2 py-1 flex-1" placeholder="Reason" value={adminOrderEdits[idx].newSurchargeReason ?? ''} onChange={e => updateEdit(idx, 'newSurchargeReason', e.target.value)} readOnly={!isCreated} />
-                            <Button size="sm" type="button" onClick={() => debouncedAddSurcharge(idx)} disabled={surchargeIdx === idx || !isCreated}>添加</Button>
-                          </div>
-                        </div>
-                      )}
-                      {/* 重新计算、保存按钮区 */}
-                      <div className="flex gap-2 mt-2">
-                        <Button size="sm" className="" onClick={() => debouncedSave(idx)} disabled={!isCreated || savingIdx === idx}>保存修改</Button>
-                        <Button size="sm" variant="outline" className="mr-2" onClick={() => debouncedRecalc(idx)}>重新计算</Button>
-                      </div>
-                      {recalcStatus[idx] && (
-                        <div className="text-green-600 text-xs mt-1">已重新计算</div>
-                      )}
-                      {adminOrderEdits[idx]?.notes && adminOrderEdits[idx].notes.length > 0 && (
-                        <div className="mt-2 text-xs text-gray-500 space-y-1">
-                          {adminOrderEdits[idx].notes.map((n: string, i: number) => (
-                            <div key={i}>• {n}</div>
-                          ))}
-                        </div>
-                      )}
-                      {(() => {
-                        if (!pcbFormData) return null;
-                        const { reason } = calcProductionCycle(pcbFormData, new Date(), pcbFormData.delivery);
-                        if (!reason || reason.length === 0) return null;
-                        return (
-                          <div className="mt-2 text-xs text-blue-600 space-y-1">
-                            <div className="font-semibold">Production Timeline Notes:</div>
-                            {reason.map((r: string, i: number) => (
-                              <div key={i}>• {r}</div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                      {/* 仅未创建时显示创建按钮 */}
-                      {!isCreated && <Button onClick={debouncedCreateAdminOrder} className="w-full" disabled={creatingAdminOrder}>创建管理员订单</Button>}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
+
+            {/* 订单信息卡片 */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <OrderOverviewTabs
+                order={order as unknown as Record<string, unknown>}
+                pcbFieldGroups={pcbFieldGroups}
+                pcbFieldLabelMap={pcbFieldLabelMap}
+                pcbFieldValueMap={pcbFieldValueMap}
+                hidePriceDetailsTab={true}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </FormProvider>
+    </div>
   );
 } 
