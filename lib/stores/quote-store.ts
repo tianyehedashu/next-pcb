@@ -31,6 +31,29 @@ interface CalculatedProperties {
   totalArea: number;
 }
 
+// === 新增 计算值类型 ===
+interface LeadTimeResult {
+  cycleDays: number;
+  reason: string[];
+}
+interface CalValues {
+  totalPrice: number;
+  pcbPrice: number;
+  shippingCost: number;
+  tax: number;
+  discount: number;
+  unitPrice: number;
+  minOrderQty: number;
+  totalCount: number;
+  leadTimeResult: LeadTimeResult | null;
+  leadTimeDays: number;
+  estimatedFinishDate: string;
+  priceNotes: string[];
+  breakdown: Record<string, number>;
+  courier: string;
+  courierDays: string;
+}
+
 // === Store 状态类型 ===
 interface QuoteStoreState {
   // 表单数据
@@ -54,6 +77,9 @@ interface QuoteStoreState {
   isValid: boolean;
   hasChanges: boolean;
   calculated: CalculatedProperties;
+  
+  // 新增 计算值
+  calValues: CalValues;
 }
 
 // === Store Actions 类型 ===
@@ -92,6 +118,9 @@ interface QuoteStoreActions {
   updateCalculatedProperties: () => void;
   getCalculatedProperty: <K extends keyof CalculatedProperties>(key: K) => CalculatedProperties[K];
   getAllCalculatedProperties: () => CalculatedProperties;
+  
+  // 新增 计算值相关方法
+  setCalValues: (values: Partial<CalValues>) => void;
 }
 
 type QuoteStore = QuoteStoreState & QuoteStoreActions;
@@ -174,6 +203,24 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
   userNote: '',
 };
 
+const DEFAULT_CAL_VALUES: CalValues = {
+  totalPrice: 0,
+  pcbPrice: 0,
+  shippingCost: 0,
+  tax: 0,
+  discount: 0,
+  unitPrice: 0,
+  minOrderQty: 0,
+  totalCount: 0,
+  leadTimeResult: null,
+  leadTimeDays: 0,
+  estimatedFinishDate: "",
+  priceNotes: [],
+  breakdown: {},
+  courier: "",
+  courierDays: "",
+};
+
 // === 计算属性辅助函数 ===
 const calculateProperties = (formData: QuoteFormData): CalculatedProperties => {
   let totalQuantity = 0;
@@ -212,6 +259,7 @@ const useQuoteStore = create<QuoteStore>()(
       isValid: false,
       hasChanges: false,
       calculated: calculateProperties(DEFAULT_FORM_DATA),
+      calValues: { ...DEFAULT_CAL_VALUES },
 
       // === 基础操作 ===
       updateFormData: (updates) => {
@@ -573,6 +621,14 @@ const useQuoteStore = create<QuoteStore>()(
       getAllCalculatedProperties: () => {
         return get().calculated;
       },
+
+      // 新增 计算值相关方法
+      setCalValues: (values) => {
+        set((state) => ({
+          ...state,
+          calValues: { ...state.calValues, ...values },
+        }));
+      },
     }),
     {
       name: 'quote-form-storage',
@@ -651,6 +707,8 @@ export const useQuoteSummary = () => useQuoteStore((state) => ({
   hasChanges: state.hasChanges,
   errors: state.errors
 }));
+
+export const useQuoteCalValues = () => useQuoteStore((state) => state.calValues);
 
 export { useQuoteStore, DEFAULT_FORM_DATA, calculateProperties };
 export type { QuoteStore, QuoteStoreState, QuoteStoreActions, CalculatedProperties };

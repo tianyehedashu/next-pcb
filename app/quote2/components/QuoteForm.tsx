@@ -3,7 +3,7 @@
 import React from "react";
 import { createForm, Form, onFieldValueChange, Field } from "@formily/core";
 import { FormProvider, FormConsumer, useForm } from "@formily/react";
-import { useQuoteStore, DEFAULT_FORM_DATA, useQuoteCalculated } from "@/lib/stores/quote-store";
+import { useQuoteStore, DEFAULT_FORM_DATA, useQuoteCalculated, useQuoteCalValues } from "@/lib/stores/quote-store";
 import { useUserStore } from "@/lib/userStore";
 import { supabase } from "@/lib/supabaseClient";
 import SchemaField from "./FormilyComponents";
@@ -28,8 +28,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { calcPcbPriceV3 } from "@/lib/pcb-calc-v3";
-import { calculateLeadTime } from '@/lib/stores/quote-calculations';
 
 // 使用 React.memo 包装字段分组组件
 interface QuoteFormGroupMemoProps {
@@ -331,6 +329,7 @@ export function QuoteForm() {
   const isUpdatingFromHydrationRef = React.useRef(false);
   const { uploadState } = useFileUpload();
   const calculated = useQuoteCalculated();
+  const calValues = useQuoteCalValues();
   
   // 游客用户的联系信息
   const [guestEmail, setGuestEmail] = React.useState("");
@@ -409,21 +408,8 @@ export function QuoteForm() {
         // 提取关键字段和地址信息
         const { phone: userPhone, shippingAddress, ...pcbSpecData } = values;
 
-        // 计算前端价格、面积、交期
-        const priceResult = calcPcbPriceV3(values);
-        const leadTimeResult = calculateLeadTime(values, new Date(), values.delivery);
-
-        // 组装cal_values
-        const cal_values = {
-          singlePcbArea: calculated.singlePcbArea,
-          totalArea: calculated.totalArea,
-          totalQuantity: calculated.totalQuantity,
-          price: priceResult.total,
-          priceDetail: priceResult.detail,
-          priceNotes: priceResult.notes,
-          leadTimeDays: leadTimeResult.cycleDays,
-          leadTimeReason: leadTimeResult.reason,
-        };
+        // 直接使用 store 中的 calValues
+        const cal_values = calValues;
 
         if (user) {
           // 已登录用户：保存到用户账户并跳转到确认页面
@@ -458,7 +444,7 @@ export function QuoteForm() {
             if (response.ok) {
               const result = await response.json();
               toast.success('Quote saved successfully!');
-              router.push(`/quote/orders/${result.id}`);
+              router.push(`/profile/orders/${result.id}`);
             } else {
               throw new Error('Failed to save quote');
             }
@@ -491,7 +477,7 @@ export function QuoteForm() {
       return;
     }
     setIsSubmitting(false);
-  }, [form, uploadState, router, user, calculated, setSubmitError]);
+  }, [form, uploadState, router, user, calculated, setSubmitError, calValues]);
 
   const handleReset = React.useCallback(() => {
     if (!form) return;
@@ -514,21 +500,8 @@ export function QuoteForm() {
         return;
       }
 
-      // 计算前端价格、面积、交期
-      const priceResult = calcPcbPriceV3(form.values);
-      const leadTimeResult = calculateLeadTime(form.values, new Date(), form.values.delivery);
-
-      // 组装cal_values
-      const cal_values = {
-        singlePcbArea: calculated.singlePcbArea,
-        totalArea: calculated.totalArea,
-        totalQuantity: calculated.totalQuantity,
-        price: priceResult.total,
-        priceDetail: priceResult.detail,
-        priceNotes: priceResult.notes,
-        leadTimeDays: leadTimeResult.cycleDays,
-        leadTimeReason: leadTimeResult.reason,
-      };
+      // 直接使用 store 中的 calValues
+      const cal_values = calValues;
 
       const response = await fetch('/api/quote/guest', {
         method: 'POST',
@@ -548,7 +521,7 @@ export function QuoteForm() {
       if (response.ok) {
         const result = await response.json();
         toast.success(result.message);
-        router.push(`/quote/success?id=${result.id}`);
+        router.push(`/profile/quotes/success?id=${result.id}`);
         resetForm();
       } else {
         throw new Error('Failed to submit guest quote');
@@ -559,7 +532,7 @@ export function QuoteForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [form, uploadState, guestEmail, guestPhone, router, resetForm, calculated]);
+  }, [form, uploadState, guestEmail, guestPhone, router, resetForm, calValues]);
 
   const handleGuestSubmitWithSuggest = React.useCallback(() => {
     setShowLoginSuggestDialog(true);

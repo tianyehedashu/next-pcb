@@ -10,8 +10,8 @@ import {
 
 // 尺寸对象校验
 const dimensionsSchema = z.object({
-  length: z.number().positive("Length must be positive").max(100, "Length too large").default(5),
-  width: z.number().positive("Width must be positive").max(100, "Width too large").default(5),
+  length: z.number().positive("Length must be positive").default(50),
+  width: z.number().positive("Width must be positive").default(50),
 });
 
 // 拼板尺寸校验
@@ -46,12 +46,12 @@ const customsDeclarationSchema = z.object({
 export const quoteSchema = z.object({
   // === Basic Information ===
   pcbType: z.nativeEnum(PcbType, { required_error: "Material type is required" }).default(PcbType.FR4),
-  layers: z.number().int().min(1, "Layers must be at least 1").max(20, "Max 20 layers").default(2),
+  layers: z.number().int().min(1, "Layers must be at least 1").max(34, "Max 34 layers").default(2),
   thickness: z.number().positive("Thickness must be positive").min(0.1).max(10).default(1.6),
   hdi: z.nativeEnum(HdiType).optional().default(HdiType.None),
   tg: z.nativeEnum(TgType, { required_error: "TG rating is required" }).default(TgType.TG135),
   shipmentType: z.nativeEnum(ShipmentType, { required_error: "Board type is required" }).default(ShipmentType.Single),
-  singleDimensions: dimensionsSchema.default({ length: 5, width: 5 }),
+  singleDimensions: dimensionsSchema.default({ length: 50, width: 50 }),
   singleCount: z.number().int().min(0,"Single count  cannot be negative").default(0),
   panelDimensions: panelDimensionsSchema.optional().default({ row: 1, column: 1 }),
   panelSet: z.number().int().min(0, "Panel set cannot be negative").optional().default(0),
@@ -60,7 +60,7 @@ export const quoteSchema = z.object({
   borderCutType: z.nativeEnum(BorderCutType).optional(),
   breakAwayRail: z.nativeEnum(BreakAwayRail).default(BreakAwayRail.None).optional(),
   useShengyiMaterial: z.boolean().default(false),
-  pcbNote: z.string().min(1, "Panel Note is required").max(1000, "PCB note too long"),
+  pcbNote: z.string().min(1, "Panel Note is required").max(1000, "Panel note too long"),
 
   // === Delivery Information ===
   delivery: z.nativeEnum(DeliveryType).default(DeliveryType.Standard),

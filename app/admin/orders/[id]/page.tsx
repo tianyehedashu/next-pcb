@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { createForm } from '@formily/core';
 import { FormProvider } from '@formily/react';
@@ -83,6 +83,44 @@ function getDefaultExchangeRate(currency: string) {
   }
 }
 
+// 自定义 debounce 工具
+function debounce<T extends (...args: any[]) => void>(fn: T, delay = 500) {
+  let timer: NodeJS.Timeout | null;
+  return (...args: Parameters<T>) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
+// 创建管理员订单
+const handleCreateAdminOrder = async () => {
+  setCreatingAdminOrder(true);
+  if (!orderId) return;
+  try {
+    const response = await fetch(`/api/admin/orders/${orderId}/admin-order`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        status: OrderStatus.Created,
+        user_order_id: orderId,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to create admin order');
+    }
+    const updatedOrder = await response.json();
+    setOrder(updatedOrder);
+    toast.success('管理员订单已创建');
+    fetchOrder();
+  } catch (err) {
+    toast.error('创建管理员订单失败');
+  } finally {
+    setCreatingAdminOrder(false);
+  }
+};
+
 export default function AdminOrderDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -100,6 +138,11 @@ export default function AdminOrderDetailPage() {
   const [recalcStatus, setRecalcStatus] = useState<boolean[]>([]);
   const [adminOrderEdits, setAdminOrderEdits] = useState<any[]>([]);
   const hasInitAdminOrderEdits = useRef(false);
+  const [savingIdx, setSavingIdx] = useState<number | null>(null);
+  const [recalcIdx, setRecalcIdx] = useState<number | null>(null);
+  const [noteIdx, setNoteIdx] = useState<number | null>(null);
+  const [surchargeIdx, setSurchargeIdx] = useState<number | null>(null);
+  const [creatingAdminOrder, setCreatingAdminOrder] = useState(false);
 
   // 管理员订单本地编辑状态
   const adminOrders = getAdminOrders(order?.admin_orders);
@@ -125,6 +168,7 @@ export default function AdminOrderDetailPage() {
   };
   // 添加/删除备注
   const addNote = (idx: number) => {
+    setNoteIdx(idx);
     setAdminOrderEdits(edits =>
       edits.map((edit: any, i: number) =>
         i === idx && edit.newNote.trim()
@@ -132,6 +176,7 @@ export default function AdminOrderDetailPage() {
           : edit
       )
     );
+    setTimeout(() => setNoteIdx(null), 800);
   };
   const removeNote = (idx: number, noteIdx: number) => {
     setAdminOrderEdits(edits =>
@@ -144,7 +189,7 @@ export default function AdminOrderDetailPage() {
   };
   // 保存
   const save = async (idx: number) => {
-    // 调用API保存 adminOrderEdits[idx]
+    setSavingIdx(idx);
     try {
       const adminOrder = adminOrderEdits[idx];
       const response = await fetch(`/api/admin/orders/${orderId}/admin-order`, {
@@ -161,11 +206,16 @@ export default function AdminOrderDetailPage() {
       fetchOrder();
     } catch (err) {
       toast.error('保存失败');
+    } finally {
+      setSavingIdx(null);
     }
   };
+  // 防抖保存
+  const debouncedSave = useCallback(debounce(save, 800), [adminOrderEdits, orderId]);
 
   // 重新计算逻辑
   const recalcAdminOrder = (idx: number) => {
+    setRecalcIdx(idx);
     setAdminOrderEdits(edits =>
       edits.map((edit: any, i: number) => {
         if (i !== idx) return edit;
@@ -173,7 +223,7 @@ export default function AdminOrderDetailPage() {
         let admin_price = edit.admin_price;
         let newProductionDays = edit.production_days;
         let notes: string[] = [];
-        let surcharges = Array.isArray(edit.surcharges) ? edit.surcharges : [];
+        const surcharges = Array.isArray(edit.surcharges) ? edit.surcharges : [];
         if (pcbFormData) {
           try {
             const result = calcPcbPriceV3(pcbFormData);
@@ -189,11 +239,9 @@ export default function AdminOrderDetailPage() {
         // 合计加价
         const surchargeTotal = surcharges.reduce((sum: number, s: any) => sum + Number(s.amount || 0), 0);
         const cny_total = Number(cny_price) + surchargeTotal;
-        // 币种和汇率
-        let currency = edit.currency || getDefaultCurrency();
-        let exchange_rate = Number(edit.exchange_rate) || getDefaultExchangeRate(currency);
-        // 计算 admin_price
-        let adminPriceNum = currency === 'CNY' ? cny_total : cny_total / exchange_rate;
+        const currency = edit.currency || getDefaultCurrency();
+        const exchange_rate = Number(edit.exchange_rate) || getDefaultExchangeRate(currency);
+        const adminPriceNum = currency === 'CNY' ? cny_total : cny_total / exchange_rate;
         admin_price = adminPriceNum.toFixed(2);
         return {
           ...edit,
@@ -210,7 +258,6 @@ export default function AdminOrderDetailPage() {
         };
       })
     );
-    // 设置高亮和已重新计算状态
     setHighlightedIdx(arr => [...arr, idx]);
     setRecalcStatus(arr => {
       const newArr = [...arr];
@@ -224,8 +271,34 @@ export default function AdminOrderDetailPage() {
         newArr[idx] = false;
         return newArr;
       });
+      setRecalcIdx(null);
     }, 1500);
   };
+  // 防抖重新计算
+  const debouncedRecalc = useCallback(debounce(recalcAdminOrder, 800), [pcbFormData, adminOrderEdits]);
+
+  // 防抖添加备注
+  const debouncedAddNote = useCallback(debounce(addNote, 800), [adminOrderEdits]);
+
+  // 防抖添加加价项
+  const addSurcharge = (idx: number) => {
+    setSurchargeIdx(idx);
+    const amount = Number(adminOrderEdits[idx].newSurchargeAmount);
+    const reason = adminOrderEdits[idx].newSurchargeReason?.trim();
+    if (!amount || !reason) {
+      setSurchargeIdx(null);
+      return;
+    }
+    setAdminOrderEdits(edits => edits.map((edit, edi) => edi === idx ? { ...edit, surcharges: [...(edit.surcharges || []), { amount, reason }], newSurchargeAmount: '', newSurchargeReason: '' } : edit));
+    setTimeout(() => {
+      recalcAdminOrder(idx);
+      setSurchargeIdx(null);
+    }, 0);
+  };
+  const debouncedAddSurcharge = useCallback(debounce(addSurcharge, 800), [adminOrderEdits]);
+
+  // 防抖创建管理员订单
+  const debouncedCreateAdminOrder = useCallback(debounce(handleCreateAdminOrder, 800), [orderId]);
 
   // 1. 让fetchOrder变为组件内可复用函数
   const fetchOrder = async () => {
@@ -600,33 +673,6 @@ export default function AdminOrderDetailPage() {
     }
   };
 
-  // 创建管理员订单
-  const handleCreateAdminOrder = async () => {
-    if (!orderId) return;
-    try {
-      const response = await fetch(`/api/admin/orders/${orderId}/admin-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: OrderStatus.Created,
-          user_order_id: orderId,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to create admin order');
-      }
-      const updatedOrder = await response.json();
-      setOrder(updatedOrder);
-      toast.success('管理员订单已创建');
-      fetchOrder();
-    } catch (err) {
-      console.error('Error creating admin order:', err);
-      toast.error('创建管理员订单失败');
-    }
-  };
-
   // 在组件内添加格式化函数
   function formatDateTimeLocal(val: string) {
     if (!val) return '';
@@ -810,6 +856,74 @@ export default function AdminOrderDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Calculation Result 卡片 */}
+            {order.cal_values && (
+              <Card className="rounded-xl shadow-lg">
+                <CardHeader>
+                  <CardTitle>Calculation Result</CardTitle>
+                  <CardDescription>Front-end submitted calculation details.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div className="font-medium text-gray-600">Total Price</div>
+                    <div className="text-gray-900">{order.cal_values.totalPrice} CNY</div>
+                    <div className="font-medium text-gray-600">Unit Price</div>
+                    <div className="text-gray-900">{order.cal_values.unitPrice} CNY</div>
+                    <div className="font-medium text-gray-600">Total Count</div>
+                    <div className="text-gray-900">{order.cal_values.totalCount}</div>
+                    <div className="font-medium text-gray-600">Min Order Qty</div>
+                    <div className="text-gray-900">{order.cal_values.minOrderQty}</div>
+                    <div className="font-medium text-gray-600">Lead Time (days)</div>
+                    <div className="text-gray-900">{order.cal_values.leadTimeDays}</div>
+                    <div className="font-medium text-gray-600">Estimated Finish Date</div>
+                    <div className="text-gray-900">{order.cal_values.estimatedFinishDate}</div>
+                    <div className="font-medium text-gray-600">Shipping Cost</div>
+                    <div className="text-gray-900">{order.cal_values.shippingCost} CNY</div>
+                    <div className="font-medium text-gray-600">Tax</div>
+                    <div className="text-gray-900">{order.cal_values.tax}</div>
+                    <div className="font-medium text-gray-600">Discount</div>
+                    <div className="text-gray-900">{order.cal_values.discount}</div>
+                  </div>
+                  {/* Breakdown */}
+                  {order.cal_values.breakdown && (
+                    <div className="mt-2">
+                      <div className="font-semibold text-gray-700 mb-1">Breakdown</div>
+                      <ul className="list-disc pl-5 text-sm text-gray-900">
+                        {Object.entries(order.cal_values.breakdown).map(([k, v]) => (
+                          <li key={k}><span className="font-medium text-gray-600">{k}:</span> {v}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {/* Price Notes */}
+                  {order.cal_values.priceNotes && order.cal_values.priceNotes.length > 0 && (
+                    <div className="mt-2">
+                      <div className="font-semibold text-gray-700 mb-1">Price Notes</div>
+                      <ul className="list-disc pl-5 text-sm text-gray-900">
+                        {order.cal_values.priceNotes.map((note: string, i: number) => (
+                          <li key={i}>{note}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {/* Lead Time Result */}
+                  {order.cal_values.leadTimeResult && (
+                    <div className="mt-2">
+                      <div className="font-semibold text-gray-700 mb-1">Lead Time Details</div>
+                      <div className="text-sm text-gray-900">Cycle Days: {order.cal_values.leadTimeResult.cycleDays}</div>
+                      {order.cal_values.leadTimeResult.reason && order.cal_values.leadTimeResult.reason.length > 0 && (
+                        <ul className="list-disc pl-5 text-sm text-gray-900 mt-1">
+                          {order.cal_values.leadTimeResult.reason.map((r: string, i: number) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
           {/* 表单区 */}
           <div className="w-full md:w-[400px]">
@@ -819,13 +933,14 @@ export default function AdminOrderDetailPage() {
                 <CardDescription>管理订单状态和价格。</CardDescription>
               </CardHeader>
               <CardContent>
-                {adminOrders.length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="text-sm text-gray-500">管理员订单已创建</div>
-                    {adminOrders.map((admin, idx) => (
-                      <div key={admin.id || idx} className="space-y-2 border rounded-lg p-3 mb-2">
-                        <div>
-                          Status:
+                {/* 统一显示表单区，无论是否已创建 */}
+                {(adminOrders.length > 0 ? adminOrders : [getDefaultAdminOrderEdit()]).map((admin, idx) => {
+                  const isCreated = adminOrders.length > 0;
+                  return (
+                    <div key={isCreated ? (admin as AdminOrder).id : idx} className="space-y-2 border rounded-lg p-3 mb-2">
+                      <div>
+                        Status:
+                        {isCreated ? (
                           <select
                             className="border rounded px-2 py-1 ml-2"
                             value={adminOrderEdits[idx]?.status}
@@ -838,147 +953,103 @@ export default function AdminOrderDetailPage() {
                             <option value="completed">completed</option>
                             <option value="cancelled">cancelled</option>
                           </select>
+                        ) : (
+                          <span className="ml-2">created</span>
+                        )}
+                      </div>
+                      <div>Admin Price: <input type="text" className={`border rounded px-2 py-1 w-32 bg-gray-100`} value={`${adminOrderEdits[idx]?.admin_price ?? ''} ${getCurrencySymbol(adminOrderEdits[idx]?.currency || getDefaultCurrency())}`} readOnly /></div>
+                      <div>Currency: <select className="border rounded px-2 py-1 w-24" value={adminOrderEdits[idx]?.currency || getDefaultCurrency()} onChange={e => updateEdit(idx, 'currency', e.target.value)} disabled={!isCreated}>
+                        <option value="USD">USD</option>
+                        <option value="CNY">CNY</option>
+                        <option value="EUR">EUR</option>
+                        <option value="JPY">JPY</option>
+                      </select></div>
+                      <div>Due Date: <input type="date" className="border rounded px-2 py-1" value={adminOrderEdits[idx]?.due_date ?? ''} onChange={e => updateEdit(idx, 'due_date', e.target.value)} readOnly={!isCreated} /></div>
+                      <div>Pay Time: <input type="datetime-local" className="border rounded px-2 py-1" value={formatDateTimeLocal(adminOrderEdits[idx]?.pay_time ?? '')} onChange={e => updateEdit(idx, 'pay_time', e.target.value)} readOnly={!isCreated} /></div>
+                      <div>Exchange Rate: <input type="number" className="border rounded px-2 py-1 w-24" value={adminOrderEdits[idx]?.exchange_rate ?? getDefaultExchangeRate(adminOrderEdits[idx]?.currency || getDefaultCurrency())} onChange={e => updateEdit(idx, 'exchange_rate', e.target.value)} readOnly={!isCreated} /></div>
+                      <div>Payment Status: <span className="ml-2">{adminOrderEdits[idx]?.payment_status || '-'}</span></div>
+                      <div>Production Days: <input type="number" className={`border rounded px-2 py-1 w-24 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.production_days ?? ''} onChange={e => updateEdit(idx, 'production_days', e.target.value)} readOnly={!isCreated} /></div>
+                      <div>Coupon: <input type="number" className="border rounded px-2 py-1 w-32" value={adminOrderEdits[idx]?.coupon ?? 0} onChange={e => updateEdit(idx, 'coupon', Number(e.target.value))} readOnly={!isCreated} /></div>
+                      <div>Ship Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.ship_price ?? ''} onChange={e => updateEdit(idx, 'ship_price', e.target.value)} readOnly={!isCreated} /></div>
+                      <div>Custom Duty: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.custom_duty ?? ''} onChange={e => updateEdit(idx, 'custom_duty', e.target.value)} readOnly={!isCreated} /></div>
+                      <div>CNY Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.cny_price ?? ''} onChange={e => updateEdit(idx, 'cny_price', e.target.value)} readOnly={!isCreated} /></div>
+                      <div>
+                        Admin Notes:
+                        <ul className="list-disc pl-5 mt-1">
+                          {adminOrderEdits[idx]?.admin_note.map((note: string, i: number) => (
+                            <li key={i} className="flex items-center justify-between">
+                              <span>{note}</span>
+                              {isCreated && <button className="ml-2 text-red-500" onClick={() => removeNote(idx, i)}>删除</button>}
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="flex mt-2 gap-2">
+                          <input
+                            type="text"
+                            className="border rounded px-2 py-1 flex-1"
+                            value={adminOrderEdits[idx]?.newNote ?? ''}
+                            onChange={e => updateEdit(idx, 'newNote', e.target.value)}
+                            placeholder="添加新备注"
+                            readOnly={!isCreated}
+                          />
+                          <Button size="sm" type="button" onClick={() => debouncedAddNote(idx)} disabled={noteIdx === idx || !isCreated}>添加</Button>
                         </div>
-                        <div>Admin Price: <input type="text" className={`border rounded px-2 py-1 w-32 bg-gray-100`} value={`${adminOrderEdits[idx]?.admin_price ?? ''} ${getCurrencySymbol(adminOrderEdits[idx]?.currency || getDefaultCurrency())}`} readOnly /></div>
-                        <div>Currency: <select className="border rounded px-2 py-1 w-24" value={adminOrderEdits[idx]?.currency || getDefaultCurrency()} onChange={e => updateEdit(idx, 'currency', e.target.value)}>
-                          <option value="USD">USD</option>
-                          <option value="CNY">CNY</option>
-                          <option value="EUR">EUR</option>
-                          <option value="JPY">JPY</option>
-                        </select></div>
-                        <div>Due Date: <input type="date" className="border rounded px-2 py-1" value={adminOrderEdits[idx]?.due_date ?? ''} onChange={e => updateEdit(idx, 'due_date', e.target.value)} /></div>
-                        <div>Pay Time: <input type="datetime-local" className="border rounded px-2 py-1" value={formatDateTimeLocal(adminOrderEdits[idx]?.pay_time ?? '')} onChange={e => updateEdit(idx, 'pay_time', e.target.value)} /></div>
-                        <div>Exchange Rate: <input type="number" className="border rounded px-2 py-1 w-24" value={adminOrderEdits[idx]?.exchange_rate ?? getDefaultExchangeRate(adminOrderEdits[idx]?.currency || getDefaultCurrency())} onChange={e => updateEdit(idx, 'exchange_rate', e.target.value)} /></div>
-                        <div>Payment Status: <span className="ml-2">{adminOrderEdits[idx]?.payment_status || '-'}</span></div>
-                        <div>Production Days: <input type="number" className={`border rounded px-2 py-1 w-24 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.production_days ?? ''} onChange={e => updateEdit(idx, 'production_days', e.target.value)} /></div>
-                        <div>Coupon: <input type="number" className="border rounded px-2 py-1 w-32" value={adminOrderEdits[idx]?.coupon ?? 0} onChange={e => updateEdit(idx, 'coupon', Number(e.target.value))} /></div>
-                        <div>Ship Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.ship_price ?? ''} onChange={e => updateEdit(idx, 'ship_price', e.target.value)} /></div>
-                        <div>Custom Duty: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.custom_duty ?? ''} onChange={e => updateEdit(idx, 'custom_duty', e.target.value)} /></div>
-                        <div>CNY Price: <input type="number" className={`border rounded px-2 py-1 w-32 ${highlightedIdx.includes(idx) ? 'ring-2 ring-yellow-400 transition-all duration-300' : ''}`} value={adminOrderEdits[idx]?.cny_price ?? ''} onChange={e => updateEdit(idx, 'cny_price', e.target.value)} /></div>
-                        <div>
-                          Admin Notes:
-                          <ul className="list-disc pl-5 mt-1">
-                            {adminOrderEdits[idx]?.admin_note.map((note: string, i: number) => (
-                              <li key={i} className="flex items-center justify-between">
-                                <span>{note}</span>
-                                <button className="ml-2 text-red-500" onClick={() => removeNote(idx, i)}>删除</button>
+                      </div>
+                      {adminOrderEdits[idx] && (
+                        <div className="mt-2">
+                          <div className="font-semibold text-sm mb-1">Surcharges</div>
+                          <ul className="space-y-1 mb-2">
+                            {adminOrderEdits[idx].surcharges.map((item: SurchargeItem, i: number) => (
+                              <li key={i} className="flex items-center gap-2 text-xs">
+                                <span className="inline-block w-16">+￥{Number(item.amount).toFixed(2)}</span>
+                                <span className="flex-1">{item.reason}</span>
+                                {isCreated && <button type="button" className="text-red-500" onClick={() => {
+                                  setAdminOrderEdits(edits => edits.map((edit, edi) => edi === idx ? { ...edit, surcharges: edit.surcharges.filter((_: any, si: number) => si !== i) } : edit));
+                                }}>删除</button>}
                               </li>
                             ))}
                           </ul>
-                          <div className="flex mt-2 gap-2">
-                            <input
-                              type="text"
-                              className="border rounded px-2 py-1 flex-1"
-                              value={adminOrderEdits[idx]?.newNote ?? ''}
-                              onChange={e => updateEdit(idx, 'newNote', e.target.value)}
-                              placeholder="添加新备注"
-                            />
-                            <Button size="sm" type="button" onClick={() => addNote(idx)}>添加</Button>
+                          <div className="flex gap-2 items-center">
+                            <input type="number" className="border rounded px-2 py-1 w-20" placeholder="Amount" value={adminOrderEdits[idx].newSurchargeAmount ?? ''} onChange={e => updateEdit(idx, 'newSurchargeAmount', e.target.value)} readOnly={!isCreated} />
+                            <span>￥</span>
+                            <input type="text" className="border rounded px-2 py-1 flex-1" placeholder="Reason" value={adminOrderEdits[idx].newSurchargeReason ?? ''} onChange={e => updateEdit(idx, 'newSurchargeReason', e.target.value)} readOnly={!isCreated} />
+                            <Button size="sm" type="button" onClick={() => debouncedAddSurcharge(idx)} disabled={surchargeIdx === idx || !isCreated}>添加</Button>
                           </div>
                         </div>
-                        {adminOrderEdits[idx] && (
-                          <div className="mt-2">
-                            <div className="font-semibold text-sm mb-1">Surcharges</div>
-                            <ul className="space-y-1 mb-2">
-                              {adminOrderEdits[idx].surcharges.map((item: SurchargeItem, i: number) => (
-                                <li key={i} className="flex items-center gap-2 text-xs">
-                                  <span className="inline-block w-16">+￥{Number(item.amount).toFixed(2)}</span>
-                                  <span className="flex-1">{item.reason}</span>
-                                  <button type="button" className="text-red-500" onClick={() => {
-                                    setAdminOrderEdits(edits => edits.map((edit, edi) => edi === idx ? { ...edit, surcharges: edit.surcharges.filter((_: any, si: number) => si !== i) } : edit));
-                                  }}>删除</button>
-                                </li>
-                              ))}
-                            </ul>
-                            <div className="flex gap-2 items-center">
-                              <input type="number" className="border rounded px-2 py-1 w-20" placeholder="Amount" value={adminOrderEdits[idx].newSurchargeAmount ?? ''} onChange={e => updateEdit(idx, 'newSurchargeAmount', e.target.value)} />
-                              <span>￥</span>
-                              <input type="text" className="border rounded px-2 py-1 flex-1" placeholder="Reason" value={adminOrderEdits[idx].newSurchargeReason ?? ''} onChange={e => updateEdit(idx, 'newSurchargeReason', e.target.value)} />
-                              <Button size="sm" type="button" onClick={() => {
-                                const amount = Number(adminOrderEdits[idx].newSurchargeAmount);
-                                const reason = adminOrderEdits[idx].newSurchargeReason?.trim();
-                                if (!amount || !reason) return;
-                                setAdminOrderEdits(edits => edits.map((edit, edi) => edi === idx ? { ...edit, surcharges: [...(edit.surcharges || []), { amount, reason }], newSurchargeAmount: '', newSurchargeReason: '' } : edit));
-                                setTimeout(() => recalcAdminOrder(idx), 0);
-                              }}>添加</Button>
-                            </div>
-                          </div>
-                        )}
-                        <Button size="sm" className="mt-2" onClick={() => save(idx)}>保存修改</Button>
-                        <Button size="sm" variant="outline" className="mt-2 mr-2" onClick={() => recalcAdminOrder(idx)}>重新计算</Button>
-                        {recalcStatus[idx] && (
-                          <div className="text-green-600 text-xs mt-1">已重新计算</div>
-                        )}
-                        {adminOrderEdits[idx]?.notes && adminOrderEdits[idx].notes.length > 0 && (
-                          <div className="mt-2 text-xs text-gray-500 space-y-1">
-                            {adminOrderEdits[idx].notes.map((n: string, i: number) => (
-                              <div key={i}>• {n}</div>
+                      )}
+                      {/* 重新计算、保存按钮区 */}
+                      <div className="flex gap-2 mt-2">
+                        <Button size="sm" className="" onClick={() => debouncedSave(idx)} disabled={!isCreated || savingIdx === idx}>保存修改</Button>
+                        <Button size="sm" variant="outline" className="mr-2" onClick={() => debouncedRecalc(idx)}>重新计算</Button>
+                      </div>
+                      {recalcStatus[idx] && (
+                        <div className="text-green-600 text-xs mt-1">已重新计算</div>
+                      )}
+                      {adminOrderEdits[idx]?.notes && adminOrderEdits[idx].notes.length > 0 && (
+                        <div className="mt-2 text-xs text-gray-500 space-y-1">
+                          {adminOrderEdits[idx].notes.map((n: string, i: number) => (
+                            <div key={i}>• {n}</div>
+                          ))}
+                        </div>
+                      )}
+                      {(() => {
+                        if (!pcbFormData) return null;
+                        const { reason } = calcProductionCycle(pcbFormData, new Date(), pcbFormData.delivery);
+                        if (!reason || reason.length === 0) return null;
+                        return (
+                          <div className="mt-2 text-xs text-blue-600 space-y-1">
+                            <div className="font-semibold">Production Timeline Notes:</div>
+                            {reason.map((r: string, i: number) => (
+                              <div key={i}>• {r}</div>
                             ))}
                           </div>
-                        )}
-                        {(() => {
-                          if (!pcbFormData) return null;
-                          const { reason } = calcProductionCycle(pcbFormData, new Date(), pcbFormData.delivery);
-                          if (!reason || reason.length === 0) return null;
-                          return (
-                            <div className="mt-2 text-xs text-blue-600 space-y-1">
-                              <div className="font-semibold">Production Timeline Notes:</div>
-                              {reason.map((r: string, i: number) => (
-                                <div key={i}>• {r}</div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="text-sm text-gray-500">管理员订单未创建</div>
-                    {/* 默认编辑表单 */}
-                    {(() => {
-                      const edit = getDefaultAdminOrderEdit();
-                      return (
-                        <div className="space-y-2 border rounded-lg p-3 mb-2">
-                          <div>Status: <span className="ml-2">created</span></div>
-                          <div>Admin Price: <input type="text" className={`border rounded px-2 py-1 w-32 bg-gray-100`} value={`${edit.admin_price ?? ''} ${getCurrencySymbol(edit.currency || getDefaultCurrency())}`} readOnly /></div>
-                          <div>Currency: <select className="border rounded px-2 py-1 w-24" value={edit.currency || getDefaultCurrency()} onChange={e => updateEdit(0, 'currency', e.target.value)}>
-                            <option value="USD">USD</option>
-                            <option value="CNY">CNY</option>
-                            <option value="EUR">EUR</option>
-                            <option value="JPY">JPY</option>
-                          </select></div>
-                          <div>Due Date: <input type="date" className="border rounded px-2 py-1" value={edit.due_date || ''} readOnly /></div>
-                          <div>Pay Time: <input type="datetime-local" className="border rounded px-2 py-1" value={formatDateTimeLocal(edit.pay_time || '')} readOnly /></div>
-                          <div>Exchange Rate: <input type="number" className="border rounded px-2 py-1 w-24" value={edit.exchange_rate || getDefaultExchangeRate(edit.currency || getDefaultCurrency())} onChange={e => updateEdit(0, 'exchange_rate', e.target.value)} /></div>
-                          <div>Payment Status: <span className="ml-2">-</span></div>
-                          <div>Production Days: <input type="number" className="border rounded px-2 py-1 w-24" value={edit.production_days || ''} readOnly /></div>
-                          <div>Coupon: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.coupon || 0} readOnly /></div>
-                          <div>Ship Price: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.ship_price || ''} readOnly /></div>
-                          <div>Custom Duty: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.custom_duty || ''} readOnly /></div>
-                          <div>CNY Price: <input type="number" className="border rounded px-2 py-1 w-32" value={edit.cny_price || ''} readOnly /></div>
-                          <div>Admin Notes:
-                            <ul className="list-disc pl-5 mt-1">
-                              {edit.admin_note.map((note: string, i: number) => (
-                                <li key={i} className="flex items-center justify-between">
-                                  <span>{note}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          {edit.notes && edit.notes.length > 0 && (
-                            <div className="mt-2 text-xs text-gray-500 space-y-1">
-                              {edit.notes.map((n: string, i: number) => (
-                                <div key={i}>• {n}</div>
-                              ))}
-                            </div>
-                          )}
-                          <Button onClick={handleCreateAdminOrder} className="w-full">创建管理员订单</Button>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                        );
+                      })()}
+                      {/* 仅未创建时显示创建按钮 */}
+                      {!isCreated && <Button onClick={debouncedCreateAdminOrder} className="w-full" disabled={creatingAdminOrder}>创建管理员订单</Button>}
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
           </div>

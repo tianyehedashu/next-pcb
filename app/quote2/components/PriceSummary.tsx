@@ -29,6 +29,7 @@ export default function PriceSummary() {
   // 从 quote-store 获取数据
   const formData = useQuoteFormData();
   const calculated = useQuoteCalculated();
+  const setCalValues = useQuoteStore((state) => state.setCalValues);
 
   // 确保只在客户端渲染
   useEffect(() => {
@@ -72,7 +73,7 @@ export default function PriceSummary() {
     return courierInfo[courier] || { cost: 0, days: "", courierName: "" };
   };
 
-  // 使用 calcPcbPriceV3 进行价格计算
+  // 使用 calcPcbPriceV3 进行价格计算（只做纯计算，不做副作用）
   const priceBreakdown = useMemo((): PriceBreakdown => {
     if (!isClient) {
       return {
@@ -93,19 +94,10 @@ export default function PriceSummary() {
 
     try {
       const { total, detail, notes } = calcPcbPriceV3(formData);
-      
-      // 使用 store 中的计算属性获取总数量
       const totalCount = calculated.totalQuantity;
-      
-      // 计算单价
       const unitPrice = totalCount > 0 ? total / totalCount : 0;
-      
-      // 直接计算交期
       const leadTimeResult = calculateLeadTime(formData, new Date(), formData.delivery);
-      
-      // 计算运费
       const shippingCost = getShippingCost(formData.shippingCostEstimation?.courier);
-      
       return {
         totalPrice: total,
         unitPrice,
@@ -121,8 +113,8 @@ export default function PriceSummary() {
         leadTime: `${leadTimeResult.cycleDays} days`,
         totalCount
       };
-    } catch (error) {
-      console.error("Price calculation error:", error);
+    } catch {
+      // 可选：错误处理
       return {
         totalPrice: 0,
         unitPrice: 0,
@@ -137,6 +129,44 @@ export default function PriceSummary() {
         leadTime: "TBD",
         totalCount: 0
       };
+    }
+  }, [formData, calculated.totalQuantity, isClient]);
+
+  // 计算 calValues 并写入 store（副作用）
+  useEffect(() => {
+    if (!isClient) return;
+    try {
+      const { total, detail, notes } = calcPcbPriceV3(formData);
+      const totalCount = calculated.totalQuantity;
+      const unitPrice = totalCount > 0 ? total / totalCount : 0;
+      const leadTimeResult = calculateLeadTime(formData, new Date(), formData.delivery);
+      const shippingCost = getShippingCost(formData.shippingCostEstimation?.courier);
+      const courier = formData.shippingCostEstimation?.courier || "";
+      const courierDays = getShippingInfo().days || "";
+      const estimatedFinishDate = getRealDeliveryDate(new Date(), leadTimeResult.cycleDays).toISOString().slice(0, 10);
+
+      setCalValues({
+        totalPrice: total + shippingCost,
+        pcbPrice: detail["PCB Cost"] ?? total,
+        shippingCost,
+        tax: 0,
+        discount: 0,
+        unitPrice,
+        minOrderQty: 5,
+        totalCount,
+        leadTimeResult: {
+          cycleDays: leadTimeResult.cycleDays,
+          reason: leadTimeResult.reason || [],
+        },
+        leadTimeDays: leadTimeResult.cycleDays,
+        estimatedFinishDate,
+        priceNotes: notes,
+        breakdown: detail,
+        courier,
+        courierDays,
+      });
+    } catch {
+      // 可选：错误处理
     }
   }, [formData, calculated.totalQuantity, isClient]);
 

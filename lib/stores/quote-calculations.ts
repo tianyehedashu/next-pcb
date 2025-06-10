@@ -41,7 +41,6 @@ export const calculateComplexityScore = (formData: QuoteFormData): number => {
   // 特殊工艺 (0-15分)
   let specialFeatures = 0;
   if (formData.impedance) specialFeatures += 3;
-  if (formData.castellated) specialFeatures += 2;
   if (formData.goldFingers) specialFeatures += 3;
   if (formData.edgePlating) specialFeatures += 2;
   if (formData.bga) specialFeatures += 3;

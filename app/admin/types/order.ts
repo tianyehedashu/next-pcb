@@ -1,5 +1,10 @@
 import { OrderStatus } from '@/types/form';
 
+export interface SurchargeItem {
+  amount: number;
+  reason: string;
+}
+
 export interface AdminOrder {
   id: string;
   user_id: string;
@@ -29,6 +34,7 @@ export interface AdminOrder {
   coupon?: string | null;
   ship_price?: number | string | null;
   custom_duty?: number | string | null;
+  surcharges?: SurchargeItem[];
 }
 
 export interface Order {
