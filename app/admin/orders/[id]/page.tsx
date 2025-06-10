@@ -118,25 +118,77 @@ export default function AdminOrderDetailPage() {
   const handleSave = async (values: Record<string, unknown>) => {
     if (!orderId) return;
     try {
+      // 清理和验证数据
+      const cleanedValues = { ...values };
+      
+      // 确保 surcharges 是一个有效的数组
+      if (cleanedValues.surcharges) {
+        if (typeof cleanedValues.surcharges === 'string') {
+          try {
+            cleanedValues.surcharges = JSON.parse(cleanedValues.surcharges);
+          } catch {
+            cleanedValues.surcharges = [];
+          }
+        } else if (!Array.isArray(cleanedValues.surcharges)) {
+          cleanedValues.surcharges = [];
+        }
+      } else {
+        cleanedValues.surcharges = [];
+      }
+      
       const method = isAdminOrderCreated ? 'PATCH' : 'POST';
       const response = await fetch(`/api/admin/orders/${orderId}/admin-order`, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(cleanedValues),
       });
-      if (!response.ok) throw new Error(isAdminOrderCreated ? '保存失败' : '创建失败');
-      toast.success(isAdminOrderCreated ? '保存成功' : '创建成功');
-      await fetchOrder();
-      hasInitAdminOrderEdits.current = false;
-    } catch {
-      toast.error(isAdminOrderCreated ? '保存失败' : '创建失败');
+      
+      if (!response.ok) {
+        let errorMessage = isAdminOrderCreated ? '保存失败' : '创建失败';
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage += `：${errorData.error}`;
+          }
+        } catch {
+          // 如果无法解析错误响应，使用HTTP状态信息
+          errorMessage += `：HTTP ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      toast.success(isAdminOrderCreated ? '✅ 管理员订单保存成功' : '✅ 管理员订单创建成功');
+      
+      // 重新获取订单数据
+      const updatedOrder = await fetchOrder();
+      
+      // 强制重新初始化表单数据
+      if (updatedOrder?.admin_orders) {
+        const adminOrders = getAdminOrders(updatedOrder.admin_orders);
+        setAdminOrderEdits(adminOrders.map(admin => ({ ...admin })));
+      }
+      
+      hasInitAdminOrderEdits.current = true;
+    } catch (error) {
+      console.error('操作失败:', error);
+      const errorMessage = error instanceof Error ? error.message : (isAdminOrderCreated ? '保存失败，请重试' : '创建失败，请重试');
+      toast.error(errorMessage, {
+        duration: 5000, // 显示5秒，让用户有时间阅读错误信息
+        action: {
+          label: '关闭',
+          onClick: () => {}
+        }
+      });
     }
   };
 
   // 单独计算PCB价格
   const handleCalcPCB = (values: Record<string, unknown>) => {
     if (!pcbFormData) {
-      toast.error('PCB规格数据不完整，无法计算价格');
+      toast.error('❌ PCB规格数据不完整，无法计算价格', {
+        description: '请确保订单包含完整的PCB技术参数',
+        duration: 4000
+      });
       return;
     }
     
@@ -182,11 +234,21 @@ export default function AdminOrderDetailPage() {
       setCalculationNotes(priceNotes);
       setShowCalculationNotes(true);
       
-      toast.success(`PCB价格计算完成：¥${pcb_price}，总价已更新：¥${cny_price}`);
+      toast.success(`🔧 PCB价格计算完成`, {
+        description: `PCB价格：¥${pcb_price}，总价已更新：¥${cny_price}`,
+        duration: 3000
+      });
       
     } catch (error) {
       console.error('PCB价格计算失败:', error);
-      toast.error('PCB价格计算失败，请检查PCB规格');
+      const errorMessage = error instanceof Error ? `PCB价格计算失败：${error.message}` : 'PCB价格计算失败，请检查PCB规格参数';
+      toast.error(errorMessage, {
+        duration: 4000,
+        action: {
+          label: '关闭',
+          onClick: () => {}
+        }
+      });
     }
   };
 
@@ -236,10 +298,10 @@ export default function AdminOrderDetailPage() {
               },
             ]);
             
-            toast.success(
-              `交期计算完成：${newProductionDays}天（${deliveryDate}）\n` +
-              `运费详情：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`
-            );
+            toast.success(`📅 交期和运费计算完成`, {
+              description: `交期：${newProductionDays}天（${deliveryDate}）\n运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`,
+              duration: 3000
+            });
           }).catch(() => {
             throw new Error('运费计算模块加载失败');
           });
@@ -276,7 +338,14 @@ export default function AdminOrderDetailPage() {
       
     } catch (error) {
       console.error('计算交期失败:', error);
-      toast.error('计算交期失败，请检查PCB规格');
+      const errorMessage = error instanceof Error ? `计算交期失败：${error.message}` : '计算交期失败，请检查PCB规格参数';
+      toast.error(errorMessage, {
+        duration: 4000,
+        action: {
+          label: '关闭',
+          onClick: () => {}
+        }
+      });
       return;
     }
     
@@ -313,7 +382,10 @@ export default function AdminOrderDetailPage() {
       },
     ]);
     
-    toast.success(`交期计算完成：${newProductionDays}天（${deliveryDate}），运费估算：¥${estimatedShippingCost}${shippingDetails ? ` (${shippingDetails})` : ''}`);
+    toast.success(`📅 交期和运费估算完成`, {
+      description: `交期：${newProductionDays}天（${deliveryDate}）\n运费估算：¥${estimatedShippingCost}${shippingDetails ? ` (${shippingDetails})` : ''}`,
+      duration: 3000
+    });
     setShowDeliveryNotes(true);
     setShowShippingNotes(true);
   };
@@ -321,7 +393,10 @@ export default function AdminOrderDetailPage() {
   // 单独计算运费
   const handleCalcShipping = (values: Record<string, unknown>) => {
     if (!pcbFormData) {
-      toast.error('PCB规格数据不完整，无法计算运费');
+      toast.error('❌ PCB规格数据不完整，无法计算运费', {
+        description: '请确保订单包含完整的PCB技术参数和收货地址',
+        duration: 4000
+      });
       return;
     }
     
@@ -356,14 +431,20 @@ export default function AdminOrderDetailPage() {
             },
           ]);
           
-          toast.success(
-            `运费计算完成：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})\n` +
-            `快递公司：${courierDisplay?.toUpperCase()}\n` +
-            `目的地：${countryDisplay}`
-          );
+          toast.success(`🚚 运费计算完成`, {
+            description: `运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})\n快递：${courierDisplay?.toUpperCase()} → ${countryDisplay}`,
+            duration: 3000
+          });
         }).catch((error) => {
           console.error('运费计算失败:', error);
-          toast.error('运费计算失败：' + error.message);
+          const errorMessage = error instanceof Error ? `运费计算失败：${error.message}` : '运费计算失败，请检查运输信息';
+          toast.error(errorMessage, {
+            duration: 4000,
+            action: {
+              label: '关闭',
+              onClick: () => {}
+            }
+          });
         });
         return;
       }
@@ -401,11 +482,21 @@ export default function AdminOrderDetailPage() {
         },
       ]);
       
-      toast.success(`运费估算完成：¥${estimatedShippingCost} (${shippingDetails})\n面积：${totalArea.toFixed(4)}㎡`);
+      toast.success(`🚚 运费估算完成`, {
+        description: `运费：¥${estimatedShippingCost} (${shippingDetails})\nPCB面积：${totalArea.toFixed(4)}㎡`,
+        duration: 3000
+      });
       
     } catch (error) {
       console.error('运费计算失败:', error);
-      toast.error('运费计算失败，请检查PCB规格和收货地址');
+      const errorMessage = error instanceof Error ? `运费计算失败：${error.message}` : '运费计算失败，请检查PCB规格和收货地址';
+      toast.error(errorMessage, {
+        duration: 4000,
+        action: {
+          label: '关闭',
+          onClick: () => {}
+        }
+      });
     }
   };
 
@@ -466,11 +557,21 @@ export default function AdminOrderDetailPage() {
       // 然后计算交期，使用更新后的values
       setTimeout(() => handleCalcDelivery(updatedValues), 100);
       
-      toast.success('已重新计算，所有明细已更新');
+      toast.success('🔄 重新计算完成', {
+        description: '所有价格、交期、运费明细已更新',
+        duration: 3000
+      });
       
     } catch (error) {
       console.error('重新计算失败:', error);
-      toast.error('重新计算失败，请检查PCB规格');
+      const errorMessage = error instanceof Error ? `重新计算失败：${error.message}` : '重新计算失败，请检查PCB规格参数';
+      toast.error(errorMessage, {
+        duration: 4000,
+        action: {
+          label: '关闭',
+          onClick: () => {}
+        }
+      });
     }
   };
 
@@ -832,14 +933,14 @@ export default function AdminOrderDetailPage() {
                       <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
                         <div className="text-sm text-emerald-600 font-medium mb-1">总价</div>
                         <div className="text-2xl font-bold text-emerald-700">
-                          ¥{(order.cal_values as any)?.totalPrice || order.cal_values.price || '0'}
+                          ${(order.cal_values as any)?.totalPrice || order.cal_values.price || '0'}
                         </div>
                       </div>
                       
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                         <div className="text-sm text-blue-600 font-medium mb-1">PCB价格</div>
                         <div className="text-xl font-bold text-blue-700">
-                          ¥{(order.cal_values as any)?.pcbPrice || order.cal_values.price || '0'}
+                          ${(order.cal_values as any)?.pcbPrice || order.cal_values.price || '0'}
                         </div>
                       </div>
                       

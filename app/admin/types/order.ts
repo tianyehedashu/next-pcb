@@ -1,8 +1,8 @@
 import { OrderStatus } from '@/types/form';
 
 export interface SurchargeItem {
+  name: string;
   amount: number;
-  reason: string;
 }
 
 export interface AdminOrder {
@@ -23,7 +23,9 @@ export interface AdminOrder {
     quantity: number;
     unit_price: number;
   };
+  pcb_price?: number | string | null;
   admin_price?: number | string | null;
+  cny_price?: number | string | null;
   admin_note?: string | string[] | null;
   currency?: string | null;
   due_date?: string | null;
@@ -31,6 +33,7 @@ export interface AdminOrder {
   exchange_rate?: number | string | null;
   payment_status?: string | null;
   production_days?: number | string | null;
+  delivery_date?: string | null;
   coupon?: string | null;
   ship_price?: number | string | null;
   custom_duty?: number | string | null;

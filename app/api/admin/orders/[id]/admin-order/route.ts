@@ -5,8 +5,24 @@ import { ADMIN_ORDER, USER_ORDER } from '@/app/constants/tableNames';
 
 // 清理和验证管理员订单字段
 function sanitizeAdminOrderFields(body: Record<string, unknown>) {
+  // 确保 surcharges 是一个有效的数组
+  let surcharges = [];
+  if (body.surcharges) {
+    if (Array.isArray(body.surcharges)) {
+      surcharges = body.surcharges;
+    } else if (typeof body.surcharges === 'string') {
+      try {
+        const parsed = JSON.parse(body.surcharges);
+        surcharges = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        surcharges = [];
+      }
+    }
+  }
+
   return {
     status: body.status || 'created',
+    pcb_price: body.pcb_price || null,
     admin_price: body.admin_price || null,
     admin_note: body.admin_note || [],
     currency: body.currency || 'CNY',
@@ -15,11 +31,13 @@ function sanitizeAdminOrderFields(body: Record<string, unknown>) {
     exchange_rate: body.exchange_rate || 7.2,
     payment_status: body.payment_status || null,
     production_days: body.production_days || null,
+    delivery_date: body.delivery_date || null,
     coupon: body.coupon || 0,
     ship_price: body.ship_price || null,
     custom_duty: body.custom_duty || null,
     cny_price: body.cny_price || null,
-    surcharges: body.surcharges || [],
+    surcharges: surcharges,
+    updated_at: body.updated_at || new Date().toISOString(),
   };
 }
 
@@ -27,9 +45,8 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // Note: cookies() 在某些 Next.js 版本中需要 await
-  const cookieStore = (await cookies()) as any;
+  const cookieStore = await cookies();
   const { id: userOrderId } = await params;
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
@@ -109,9 +126,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // Note: cookies() 在某些 Next.js 版本中需要 await
-  const cookieStore = (await cookies()) as any;
+  const cookieStore = await cookies();
   const { id: userOrderId } = await params;
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
@@ -127,23 +143,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Admin order not found' }, { status: 404 });
     }
     // 2. 更新管理员订单
-    const updateFields = {
-      status: body.status,
-      admin_price: body.admin_price,
-      admin_note: body.admin_note,
-      currency: body.currency,
-      due_date: body.due_date,
-      pay_time: body.pay_time,
-      exchange_rate: body.exchange_rate,
-      payment_status: body.payment_status,
-      production_days: body.production_days,
-      coupon: body.coupon,
-      ship_price: body.ship_price,
-      custom_duty: body.custom_duty,
-      cny_price: body.cny_price,
-      surcharges: body.surcharges,
+    const updateFields = sanitizeAdminOrderFields({
+      ...body,
       updated_at: new Date().toISOString(),
-    };
+    });
     const { error: updateError } = await supabase
       .from(ADMIN_ORDER)
       .update(updateFields)

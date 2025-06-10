@@ -45,18 +45,28 @@ interface FormilyFieldProps {
   rows?: number;
   title?: string;
   displayValue?: string;
+  type?: string;
+  readonly?: boolean;
+  disabled?: boolean;
   [key: string]: unknown;
 }
 
 // Formily 组件映射配置
 export const formilyComponents = {
   Input: (props: FormilyFieldProps) => {
+    const isReadOnly = props.readonly || props.disabled;
     return (
       <Input
+        type={props.type || 'text'}
         value={String(props.value || '')}
         onChange={(e) => props.onChange?.(e.target.value)}
         placeholder={props.placeholder}
-        className="transition-colors duration-150 text-sm h-10"
+        readOnly={props.readonly}
+        disabled={props.disabled}
+        className={cn(
+          "transition-colors duration-150 text-sm h-10",
+          isReadOnly && "bg-gray-50 text-gray-600 cursor-not-allowed border-gray-200"
+        )}
       />
     );
   },
@@ -233,7 +243,7 @@ export const formilyComponents = {
     );
   },
   DimensionsInput: (props: FormilyFieldProps) => {
-    return <DimensionsInput {...props} label={props.title} />;
+    return <DimensionsInput value={props.value} onChange={props.onChange} label={props.title} />;
   },
   PanelDimensionsInput: (props: FormilyFieldProps) => {
     const panelDimensions = (props.value as { row?: number; column?: number }) || {};

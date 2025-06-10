@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -447,14 +447,18 @@ const adminOrderSchema = {
     due_date: {
       type: "string",
       title: "到期日",
-      "x-component-props": { type: "datetime-local" },
+      "x-component-props": { type: "date" },
       "x-decorator": "FormFieldLayout",
       "x-component": "Input"
     },
     pay_time: {
       type: "string",
-      title: "支付时间",
-      "x-component-props": { type: "datetime-local", readonly: true },
+      title: "支付时间 🔒",
+      "x-component-props": { 
+        type: "datetime-local", 
+        readonly: true,
+        placeholder: "系统自动记录"
+      },
       "x-decorator": "FormFieldLayout",
       "x-component": "Input"
     },
@@ -467,8 +471,12 @@ const adminOrderSchema = {
     },
     admin_price: {
       type: "number",
-      title: "管理员价格",
-      "x-component-props": { step: 0.01, readonly: true },
+      title: "管理员价格 📊",
+      "x-component-props": { 
+        step: 0.01, 
+        readonly: true,
+        placeholder: "自动计算"
+      },
       "x-decorator": "FormFieldLayout",
       "x-component": "Input"
     },
@@ -514,8 +522,13 @@ const adminOrderSchema = {
     },
     cny_price: {
       type: "number",
-      title: "CNY价格",
-      "x-component-props": { step: 0.01, min: 0, readonly: true },
+      title: "CNY价格 💴",
+      "x-component-props": { 
+        step: 0.01, 
+        min: 0, 
+        readonly: true,
+        placeholder: "自动计算"
+      },
       "x-decorator": "FormFieldLayout",
       "x-component": "Input"
     },
@@ -528,8 +541,12 @@ const adminOrderSchema = {
     },
     delivery_date: {
       type: "string",
-      title: "预计交期",
-      "x-component-props": { type: "date", readonly: true },
+      title: "预计交期 📅",
+      "x-component-props": { 
+        type: "date", 
+        readonly: true,
+        placeholder: "计算后自动填入"
+      },
       "x-decorator": "FormFieldLayout",
       "x-component": "Input"
     },
@@ -546,7 +563,8 @@ const adminOrderSchema = {
     surcharges: {
       type: "array",
       title: "加价项",
-      "x-component": "SurchargesInput"
+      "x-component": "SurchargesInput",
+      "x-decorator": "FormFieldLayout"
     }
   }
 };
@@ -748,6 +766,13 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
       });
     }
   });
+
+  // 监听 initialValues 变化，更新表单数据
+  useEffect(() => {
+    if (initialValues && Object.keys(initialValues).length > 0) {
+      form.setValues(initialValues);
+    }
+  }, [initialValues, form]);
 
   return (
     <Card className="sticky top-4">
