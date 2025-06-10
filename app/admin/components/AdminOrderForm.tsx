@@ -454,7 +454,7 @@ const adminOrderSchema = {
     pay_time: {
       type: "string",
       title: "支付时间",
-      "x-component-props": { type: "datetime-local" },
+      "x-component-props": { type: "datetime-local", readonly: true },
       "x-decorator": "FormFieldLayout",
       "x-component": "Input"
     },

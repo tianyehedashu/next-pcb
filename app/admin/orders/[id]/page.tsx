@@ -645,7 +645,20 @@ export default function AdminOrderDetailPage() {
               {order.status}
             </div>
           </div>
-          <p className="text-gray-600">订单编号: {order.id}</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-1">
+            <p className="text-gray-600">订单编号: {order.id}</p>
+            {order.created_at && (
+              <p className="text-gray-500 text-sm">
+                创建时间: {new Date(order.created_at as string).toLocaleDateString('zh-CN', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            )}
+          </div>
         </div>
 
                 {/* Gerber文件下载区域 */}
