@@ -98,16 +98,18 @@ export default function AdminOrderDetailPage() {
   }, [orderId]);
 
   useEffect(() => {
-    if (!hasInitAdminOrderEdits.current) {
-      if (order?.admin_orders) {
-        const adminOrders = getAdminOrders(order.admin_orders);
-        setAdminOrderEdits(
-          adminOrders.map(admin => ({ ...admin }))
-        );
-      } else {
-        setAdminOrderEdits([adminOrderDefaultValues]);
-      }
-      hasInitAdminOrderEdits.current = true;
+    if (order?.admin_orders) {
+      const adminOrders = getAdminOrders(order.admin_orders);
+      setAdminOrderEdits(
+        adminOrders.map(admin => ({
+          ...admin,
+          due_date: admin.due_date ? String(admin.due_date).split('T')[0] : '',
+          delivery_date: admin.delivery_date ? String(admin.delivery_date).split('T')[0] : '',
+          surcharges: Array.isArray(admin.surcharges) ? admin.surcharges : [],
+        }))
+      );
+    } else {
+      setAdminOrderEdits([adminOrderDefaultValues]);
     }
   }, [order?.admin_orders]);
 

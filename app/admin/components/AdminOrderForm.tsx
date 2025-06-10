@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -252,6 +252,11 @@ const SurchargesInput = ({ value, onChange }: {
   };
 
   const [surcharges, setSurcharges] = useState<SurchargeItem[]>(getSurcharges);
+
+  // 关键：同步外部 value 变化
+  useEffect(() => {
+    setSurcharges(getSurcharges());
+  }, [value]);
 
   // 更新数据
   const updateSurcharges = (newSurcharges: SurchargeItem[]) => {
@@ -544,8 +549,7 @@ const adminOrderSchema = {
       title: "预计交期 📅",
       "x-component-props": { 
         type: "date", 
-        readonly: true,
-        placeholder: "计算后自动填入"
+        placeholder: "可手动输入或自动联动"
       },
       "x-decorator": "FormFieldLayout",
       "x-component": "Input"
@@ -706,6 +710,7 @@ interface AdminOrderFormProps {
 
 export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onCalcDelivery, onCalcShipping, readOnly, submitButtonText }: AdminOrderFormProps) {
   const [isEdit, setIsEdit] = useState(!readOnly);
+  const deliveryDateManuallySet = useRef(false);
   
   // 价格联动计算函数
   const calculatePrices = (values: Record<string, unknown>) => {
@@ -755,6 +760,24 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
             form.setValuesIn('admin_price', calculatedPrices.admin_price);
           }
         });
+      });
+
+      // 监听生产天数变化，自动推算预计交期（仅当未手动设置时）
+      onFieldValueChange('production_days', () => {
+        const days = Number(form.values.production_days);
+        if (!isNaN(days) && days > 0 && !deliveryDateManuallySet.current) {
+          const today = new Date();
+          today.setHours(0,0,0,0);
+          const targetDate = new Date(today);
+          targetDate.setDate(today.getDate() + days);
+          const dateStr = targetDate.toISOString().split('T')[0];
+          form.setValuesIn('delivery_date', dateStr);
+        }
+      });
+
+      // 监听预计交期变化，标记为手动设置
+      onFieldValueChange('delivery_date', () => {
+        deliveryDateManuallySet.current = true;
       });
 
       // 监听币种变化，自动更新汇率
