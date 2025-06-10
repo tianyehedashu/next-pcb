@@ -762,16 +762,18 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
         });
       });
 
-      // 监听生产天数变化，自动推算预计交期（仅当未手动设置时）
+      // 监听生产天数变化，自动推算预计交期（每次都允许自动联动）
       onFieldValueChange('production_days', () => {
         const days = Number(form.values.production_days);
-        if (!isNaN(days) && days > 0 && !deliveryDateManuallySet.current) {
+        if (!isNaN(days) && days > 0) {
           const today = new Date();
           today.setHours(0,0,0,0);
           const targetDate = new Date(today);
           targetDate.setDate(today.getDate() + days);
           const dateStr = targetDate.toISOString().split('T')[0];
           form.setValuesIn('delivery_date', dateStr);
+          // 只要生产天数变动，允许再次自动联动
+          deliveryDateManuallySet.current = false;
         }
       });
 
