@@ -751,11 +751,29 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
 
   return (
     <Card className="sticky top-4">
-      <CardHeader className="flex flex-row justify-between items-center">
-        <CardTitle>管理员订单</CardTitle>
-        <Button variant="outline" onClick={() => setIsEdit(e => !e)}>
-          {isEdit ? "只读" : "编辑"}
-        </Button>
+      <CardHeader className="space-y-3">
+        <div className="flex flex-row justify-between items-center">
+          <CardTitle>管理员订单</CardTitle>
+          <Button variant="outline" onClick={() => setIsEdit(e => !e)}>
+            {isEdit ? "只读" : "编辑"}
+          </Button>
+        </div>
+        
+        {/* 计算按钮组 */}
+        <div className="flex gap-2 justify-center flex-wrap">
+          <Button type="button" variant="outline" size="sm" onClick={() => onCalcPCB?.(form.values)} disabled={!isEdit}>
+            🔧 PCB计算
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => onCalcDelivery?.(form.values)} disabled={!isEdit}>
+            📅 交期计算
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => onCalcShipping?.(form.values)} disabled={!isEdit}>
+            🚚 运费计算
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={() => onRecalc(form.values)} disabled={!isEdit}>
+            🔄 全部重算
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <FormProvider form={form}>
@@ -796,22 +814,7 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
             </div>
           ))}
 
-          <div className="space-y-3 sticky bottom-0 bg-white py-2 z-10">
-            {/* 计算按钮组 */}
-            <div className="flex gap-2 justify-center flex-wrap">
-              <Button type="button" variant="outline" size="sm" onClick={() => onCalcPCB?.(form.values)} disabled={!isEdit}>
-                🔧 PCB计算
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => onCalcDelivery?.(form.values)} disabled={!isEdit}>
-                📅 交期计算
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => onCalcShipping?.(form.values)} disabled={!isEdit}>
-                🚚 运费计算
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={() => onRecalc(form.values)} disabled={!isEdit}>
-                🔄 全部重算
-              </Button>
-            </div>
+          <div className="sticky bottom-0 bg-white py-2 z-10">
             {/* 主要操作按钮 */}
             <div className="flex gap-2 justify-end">
               <Button type="button" onClick={() => onSave(form.values)} disabled={!isEdit}>

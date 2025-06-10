@@ -413,10 +413,65 @@ export default function AdminOrderDetailPage() {
   const handleRecalc = (values: Record<string, unknown>) => {
     if (!pcbFormData) return;
     
-    handleCalcPCB(values);
-    setTimeout(() => handleCalcDelivery(values), 100);
+    // 先计算PCB价格
+    let pcb_price = values.pcb_price as string || '';
+    let priceNotes: string[] = [];
     
-    toast.success('已重新计算，所有明细已更新');
+    try {
+      const result = calcPcbPriceV3(pcbFormData);
+      pcb_price = Number(result.total).toFixed(2);
+      priceNotes = result.notes || [];
+      
+      // 创建包含更新后PCB价格的values对象
+      const updatedValues = {
+        ...values,
+        pcb_price,
+      };
+      
+      // 计算其他价格信息
+      const ship_price = Number(values.ship_price) || 0;
+      const custom_duty = Number(values.custom_duty) || 0;
+      const coupon = Number(values.coupon) || 0;
+      
+      let surcharges: Array<{name: string, amount: number}> = [];
+      if (Array.isArray(values.surcharges)) {
+        surcharges = values.surcharges;
+      } else if (typeof values.surcharges === 'string') {
+        try {
+          surcharges = JSON.parse(values.surcharges);
+        } catch {
+          surcharges = [];
+        }
+      }
+      const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
+      
+      const cny_price = (Number(pcb_price) + ship_price + custom_duty + surchargeTotal - coupon).toFixed(2);
+      
+      const currency = values.currency as string || 'USD';
+      const exchange_rate = Number(values.exchange_rate) || 7.2;
+      const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
+      
+      // 先更新PCB相关计算结果
+      setAdminOrderEdits([
+        {
+          ...updatedValues,
+          cny_price,
+          admin_price,
+        },
+      ]);
+      
+      setCalculationNotes(priceNotes);
+      setShowCalculationNotes(true);
+      
+      // 然后计算交期，使用更新后的values
+      setTimeout(() => handleCalcDelivery(updatedValues), 100);
+      
+      toast.success('已重新计算，所有明细已更新');
+      
+    } catch (error) {
+      console.error('重新计算失败:', error);
+      toast.error('重新计算失败，请检查PCB规格');
+    }
   };
 
   // PCB参数字段中文映射
