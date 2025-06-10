@@ -10,6 +10,7 @@ import { calcPcbPriceV3 } from '@/lib/pcb-calc-v3';
 import { OrderOverviewTabs } from '@/app/admin/components/OrderOverviewTabs';
 import { AdminOrderForm } from '@/app/admin/components/AdminOrderForm';
 import { Order, AdminOrder } from '@/app/admin/types/order';
+import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 
 function getAdminOrders(admin_orders: unknown): AdminOrder[] {
   if (!admin_orders) return [];
@@ -646,6 +647,78 @@ export default function AdminOrderDetailPage() {
           </div>
           <p className="text-gray-600">订单编号: {order.id}</p>
         </div>
+
+                {/* Gerber文件下载区域 */}
+        {(() => {
+          // 检查多个可能的Gerber文件来源
+          const gerberUrl = pcbFormData?.gerberUrl || 
+                           order.gerber_file_url || 
+                           (pcbFormData as any)?.gerber ||
+                           (order.pcb_spec as any)?.gerber ||
+                           (order.pcb_spec as any)?.gerberUrl;
+          
+          const hasGerberFile = gerberUrl && typeof gerberUrl === 'string';
+          const fileName = hasGerberFile ? (gerberUrl.split('/').pop() || 'Gerber File') : 'No Gerber file';
+          
+          return (
+            <div className="mb-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3">
+                  <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                    📄 Gerber Files
+                  </h3>
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        hasGerberFile ? 'bg-indigo-100' : 'bg-gray-100'
+                      }`}>
+                        <span className={`text-lg ${
+                          hasGerberFile ? 'text-indigo-600' : 'text-gray-400'
+                        }`}>🔧</span>
+                      </div>
+                      <div>
+                        <div className={`font-medium ${
+                          hasGerberFile ? 'text-gray-900' : 'text-gray-500'
+                        }`}>{fileName}</div>
+                        <div className="text-sm text-gray-500">
+                          {hasGerberFile ? 'PCB manufacturing files' : 'No manufacturing files uploaded'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        {hasGerberFile ? (
+                          <>
+                            <div className="text-xs text-green-600 font-medium mb-1">✓ Available</div>
+                            <DownloadButton 
+                              filePath={gerberUrl}
+                              bucket="next-pcb"
+                              className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 border-indigo-200"
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              Download
+                            </DownloadButton>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-xs text-red-600 font-medium mb-1">✗ Not Available</div>
+                            <div className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-sm font-medium">
+                              No File
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 主内容区 */}
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
