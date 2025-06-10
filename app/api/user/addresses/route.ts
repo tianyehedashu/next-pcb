@@ -41,13 +41,17 @@ export async function GET(request: NextRequest) {
       id: addr.id.toString(),
       label: addr.label || '',
       country: addr.country,
+      countryName: addr.country_name || '',
       state: addr.state || '',
+      stateName: addr.state_name || '',
       city: addr.city || '',
+      cityName: addr.city_name || '',
       address: addr.address,
       zipCode: addr.zip_code || '',
       contactName: addr.contact_name,
       phone: addr.phone,
       courier: addr.courier || '',
+      courierName: addr.courier_name || '',
       isDefault: addr.is_default
     }));
 
@@ -98,11 +102,15 @@ export async function POST(request: NextRequest) {
       contact_name: address.contactName,
       phone: address.phone,
       country: address.country,
+      country_name: address.countryName || null,
       state: address.state || null,
+      state_name: address.stateName || null,
       city: address.city || null,
+      city_name: address.cityName || null,
       address: address.address,
       zip_code: address.zipCode || null,
       courier: address.courier || null,
+      courier_name: address.courierName || null,
       is_default: address.isDefault || false
     };
     
@@ -142,13 +150,17 @@ export async function POST(request: NextRequest) {
       id: result.id.toString(),
       label: result.label || '',
       country: result.country,
+      countryName: result.country_name || '',
       state: result.state || '',
+      stateName: result.state_name || '',
       city: result.city || '',
+      cityName: result.city_name || '',
       address: result.address,
       zipCode: result.zip_code || '',
       contactName: result.contact_name,
       phone: result.phone,
       courier: result.courier || '',
+      courierName: result.courier_name || '',
       isDefault: result.is_default
     };
     

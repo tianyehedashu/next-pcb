@@ -36,9 +36,12 @@ export default function AdminOrderDetailPage() {
     weightInfo: '',
     costBreakdown: []
   });
+  const [showCalculationNotes, setShowCalculationNotes] = useState(true);
+  const [showDeliveryNotes, setShowDeliveryNotes] = useState(true);
+  const [showShippingNotes, setShowShippingNotes] = useState(true);
   const hasInitAdminOrderEdits = useRef(false);
-
-  // 1. 定义默认值
+  
+  // 定义默认值
   const adminOrderDefaultValues = {
     status: 'created',
     payment_status: 'unpaid',
@@ -55,8 +58,7 @@ export default function AdminOrderDetailPage() {
     custom_duty: '',
     coupon: 0,
     admin_note: '',
-    surcharges: [], // 现在是空数组，不是空字符串
-    // 可根据实际表单字段补充更多默认值
+    surcharges: [],
   };
 
   // 获取订单数据
@@ -123,177 +125,11 @@ export default function AdminOrderDetailPage() {
       });
       if (!response.ok) throw new Error(isAdminOrderCreated ? '保存失败' : '创建失败');
       toast.success(isAdminOrderCreated ? '保存成功' : '创建成功');
-      await fetchOrder(); // 等待后端返回最新数据
-      hasInitAdminOrderEdits.current = false; // 让 useEffect 用新 order 初始化表单
+      await fetchOrder();
+      hasInitAdminOrderEdits.current = false;
     } catch {
       toast.error(isAdminOrderCreated ? '保存失败' : '创建失败');
     }
-  };
-
-  // 重新计算
-  const handleRecalc = (values: Record<string, unknown>) => {
-    if (!pcbFormData) return;
-    let pcb_price = values.pcb_price as string || '';
-    let cny_price = values.cny_price as string || '';
-    let admin_price = values.admin_price as string || '';
-    let newProductionDays = values.production_days as string || '';
-    let priceNotes: string[] = [];
-    const deliveryNotes: string[] = [];
-    
-    // 处理加价项：现在是数组格式
-    let surcharges: Array<{name: string, amount: number}> = [];
-    if (Array.isArray(values.surcharges)) {
-      surcharges = values.surcharges;
-    } else if (typeof values.surcharges === 'string') {
-      // 兼容旧的JSON字符串格式
-      try {
-        surcharges = JSON.parse(values.surcharges);
-      } catch {
-        surcharges = [];
-      }
-    }
-    
-    // 1. 计算纯PCB价格
-    try {
-      const result = calcPcbPriceV3(pcbFormData);
-      pcb_price = Number(result.total).toFixed(2);
-      priceNotes = result.notes || [];
-      // 注意：这里先不设置 cny_price，等所有费用计算完成后再设置
-    } catch {}
-    
-    // 2. 计算生产天数和交期
-    let deliveryDate = '';
-    try {
-      const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
-      newProductionDays = String(cycle.cycleDays);
-      
-      // 保存交期计算备注
-      setDeliveryNotes(cycle.reason || []);
-      
-      // 计算预计交期（当前日期 + 生产天数）
-      const today = new Date();
-      const targetDate = new Date(today);
-      targetDate.setDate(today.getDate() + cycle.cycleDays);
-      deliveryDate = targetDate.toISOString().split('T')[0]; // 格式化为 YYYY-MM-DD
-    } catch {}
-    
-    // 3. 计算运费（如果有收货地址信息）
-    const estimatedShippingCost = Number(values.ship_price) || 0;
-    if (pcbFormData.shippingAddress?.country && pcbFormData.shippingAddress?.courier) {
-      try {
-        import('@/lib/shipping-calculator').then(({ calculateShippingCost }) => {
-          const shippingResult = calculateShippingCost(pcbFormData);
-          const finalShippingCost = Math.round(shippingResult.finalCost * 7.2);
-          
-          // 保存详细运费备注
-          setShippingNotes({
-            basicInfo: `${pcbFormData.shippingAddress.courier.toUpperCase()} 到 ${pcbFormData.shippingAddress.country}`,
-            weightInfo: `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg，计费重量：${shippingResult.chargeableWeight}kg`,
-            costBreakdown: [
-              `基础运费：$${shippingResult.baseCost.toFixed(2)}`,
-              `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}`,
-              `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`,
-              `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`
-            ]
-          });
-          
-          // 重新计算总价（包含新的运费）
-          const pcb_price = Number(values.pcb_price) || 0;
-          const custom_duty = Number(values.custom_duty) || 0;
-          const coupon = Number(values.coupon) || 0;
-          
-          // 处理加价项
-          let surcharges: Array<{name: string, amount: number}> = [];
-          if (Array.isArray(values.surcharges)) {
-            surcharges = values.surcharges;
-          } else if (typeof values.surcharges === 'string') {
-            try {
-              surcharges = JSON.parse(values.surcharges);
-            } catch {
-              surcharges = [];
-            }
-          }
-          const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
-          
-          // 计算CNY总价 = PCB价格 + 运费 + 关税 + 加价项 - 优惠券
-          const cny_price = (pcb_price + finalShippingCost + custom_duty + surchargeTotal - coupon).toFixed(2);
-          
-          // 重新计算admin_price（考虑汇率）
-          const currency = values.currency as string || 'USD';
-          const exchange_rate = Number(values.exchange_rate) || 7.2;
-          const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
-          
-          setAdminOrderEdits([
-            {
-              ...values,
-              ship_price: finalShippingCost,
-              cny_price,
-              admin_price,
-            },
-          ]);
-        }).catch(() => {
-          // 运费计算失败，使用简单估算
-          const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000;
-          const isUrgent = pcbFormData.delivery === 'urgent';
-          const simpleShippingCost = totalArea <= 0.1 ? (isUrgent ? 150 : 80) : totalArea <= 0.5 ? (isUrgent ? 250 : 120) : (isUrgent ? 350 : 180);
-          
-          setShippingNotes({
-            basicInfo: '简单估算（缺少详细收货信息）',
-            weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
-            costBreakdown: [
-              `包裹类型：${totalArea <= 0.1 ? '小件' : totalArea <= 0.5 ? '中件' : '大件'}包裹${isUrgent ? '（加急）' : '（标准）'}`,
-              `估算运费：¥${simpleShippingCost}`
-            ]
-          });
-        });
-      } catch {}
-    } else {
-      // 没有收货地址信息，清空运费备注
-      setShippingNotes({
-        basicInfo: '',
-        weightInfo: '',
-        costBreakdown: []
-      });
-    }
-    
-    // 4. 计算管理员价格 = PCB价格 + 运费 + 关税 + 加价项（考虑汇率）
-    const currency = values.currency as string || 'USD';
-    const exchange_rate = Number(values.exchange_rate) || 7.2;
-    const ship_price = estimatedShippingCost;
-    const custom_duty = Number(values.custom_duty) || 0;
-    const coupon = Number(values.coupon) || 0;
-    const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
-    
-    // 所有费用都以CNY计算
-    const totalCnyPrice = Number(pcb_price) + ship_price + custom_duty + surchargeTotal - coupon;
-    
-    // 根据币种转换最终价格
-    const adminPriceNum = currency === 'CNY' ? totalCnyPrice : totalCnyPrice / exchange_rate;
-    admin_price = adminPriceNum.toFixed(2);
-    
-    // 更新CNY价格为最终的人民币总价
-    cny_price = totalCnyPrice.toFixed(2);
-    
-    // 处理管理员备注
-    const admin_note = values.admin_note as string || '';
-    
-    // 保存所有计算备注
-    setCalculationNotes(priceNotes);
-    
-    setAdminOrderEdits([
-      {
-        ...values,
-        pcb_price,
-        admin_price,
-        cny_price,
-        production_days: newProductionDays,
-        delivery_date: deliveryDate,
-        ship_price,
-        admin_note,
-        surcharges, // 现在直接使用数组，不需要转换为JSON字符串
-      },
-    ]);
-    toast.success('已重新计算，所有明细已更新');
   };
 
   // 单独计算PCB价格
@@ -307,17 +143,14 @@ export default function AdminOrderDetailPage() {
     let priceNotes: string[] = [];
     
     try {
-      // 1. 只计算纯PCB价格
       const result = calcPcbPriceV3(pcbFormData);
       pcb_price = Number(result.total).toFixed(2);
       priceNotes = result.notes || [];
       
-      // 2. 重新计算cny_price（基于当前的其他费用）
       const ship_price = Number(values.ship_price) || 0;
       const custom_duty = Number(values.custom_duty) || 0;
       const coupon = Number(values.coupon) || 0;
       
-      // 处理加价项
       let surcharges: Array<{name: string, amount: number}> = [];
       if (Array.isArray(values.surcharges)) {
         surcharges = values.surcharges;
@@ -330,15 +163,12 @@ export default function AdminOrderDetailPage() {
       }
       const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
       
-      // 计算CNY总价 = PCB价格 + 运费 + 关税 + 加价项 - 优惠券
       const cny_price = (Number(pcb_price) + ship_price + custom_duty + surchargeTotal - coupon).toFixed(2);
       
-      // 重新计算admin_price（考虑汇率）
       const currency = values.currency as string || 'USD';
       const exchange_rate = Number(values.exchange_rate) || 7.2;
       const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
       
-      // 3. 更新状态
       setAdminOrderEdits([
         {
           ...values,
@@ -348,8 +178,8 @@ export default function AdminOrderDetailPage() {
         },
       ]);
       
-      // 4. 单独保存计算备注
       setCalculationNotes(priceNotes);
+      setShowCalculationNotes(true);
       
       toast.success(`PCB价格计算完成：¥${pcb_price}，总价已更新：¥${cny_price}`);
       
@@ -369,28 +199,22 @@ export default function AdminOrderDetailPage() {
     let shippingDetails = '';
     
     try {
-      // 计算生产周期
       const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
       newProductionDays = String(cycle.cycleDays);
       
-      // 保存交期计算备注
       setDeliveryNotes(cycle.reason || []);
       
-      // 计算预计交期（当前日期 + 生产天数）
       const today = new Date();
       const targetDate = new Date(today);
       targetDate.setDate(today.getDate() + cycle.cycleDays);
       deliveryDate = targetDate.toISOString().split('T')[0];
       
-      // 使用完整的运费计算逻辑
       if (pcbFormData.shippingAddress?.country && pcbFormData.shippingAddress?.courier) {
         try {
-          // 动态导入运费计算模块
           import('@/lib/shipping-calculator').then(({ calculateShippingCost }) => {
             const shippingResult = calculateShippingCost(pcbFormData);
-            const finalShippingCost = Math.round(shippingResult.finalCost * 7.2); // 转换为人民币，假设汇率7.2
+            const finalShippingCost = Math.round(shippingResult.finalCost * 7.2);
             
-            // 保存详细运费备注
             setShippingNotes({
               basicInfo: `${pcbFormData.shippingAddress.courier.toUpperCase()} 到 ${pcbFormData.shippingAddress.country}`,
               weightInfo: `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg，计费重量：${shippingResult.chargeableWeight}kg`,
@@ -413,149 +237,17 @@ export default function AdminOrderDetailPage() {
             
             toast.success(
               `交期计算完成：${newProductionDays}天（${deliveryDate}）\n` +
-              `运费详情：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})\n` +
-              `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg\n` +
-              `计费重量：${shippingResult.chargeableWeight}kg，快递：${pcbFormData.shippingAddress.courier.toUpperCase()}`
+              `运费详情：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`
             );
           }).catch(() => {
-            // 如果运费计算失败，使用简单估算
             throw new Error('运费计算模块加载失败');
           });
-          return; // 异步处理，提前返回
+          return;
         } catch (shippingError) {
           console.warn('运费计算失败，使用简单估算:', shippingError);
         }
       }
       
-      // 简单运费估算（备用方案）
-      const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000; // 转换为平方米
-      const isUrgent = pcbFormData.delivery === 'urgent';
-      
-      // 运费估算逻辑
-      if (totalArea <= 0.1) {
-        estimatedShippingCost = isUrgent ? 150 : 80; // 小件
-        shippingDetails = '小件包裹';
-      } else if (totalArea <= 0.5) {
-        estimatedShippingCost = isUrgent ? 250 : 120; // 中件
-        shippingDetails = '中等包裹';
-      } else {
-        estimatedShippingCost = isUrgent ? 350 : 180; // 大件
-        shippingDetails = '大件包裹';
-      }
-      
-      shippingDetails += isUrgent ? '（加急）' : '（标准）';
-      
-      // 保存简单估算备注
-      setShippingNotes({
-        basicInfo: '简单估算（缺少详细收货信息）',
-        weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
-        costBreakdown: [
-          `包裹类型：${shippingDetails}`,
-          `估算运费：¥${estimatedShippingCost}`
-        ]
-      });
-      
-    } catch (error) {
-      console.error('计算交期失败:', error);
-      toast.error('计算交期失败，请检查PCB规格');
-      return;
-    }
-    
-    // 重新计算总价（包含新的运费）
-    const pcb_price = Number(values.pcb_price) || 0;
-    const custom_duty = Number(values.custom_duty) || 0;
-    const coupon = Number(values.coupon) || 0;
-    
-    // 处理加价项
-    let surcharges: Array<{name: string, amount: number}> = [];
-    if (Array.isArray(values.surcharges)) {
-      surcharges = values.surcharges;
-    } else if (typeof values.surcharges === 'string') {
-      try {
-        surcharges = JSON.parse(values.surcharges);
-      } catch {
-        surcharges = [];
-      }
-    }
-    const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
-    
-    // 计算CNY总价 = PCB价格 + 运费 + 关税 + 加价项 - 优惠券
-    const cny_price = (pcb_price + estimatedShippingCost + custom_duty + surchargeTotal - coupon).toFixed(2);
-    
-    // 重新计算admin_price（考虑汇率）
-    const currency = values.currency as string || 'USD';
-    const exchange_rate = Number(values.exchange_rate) || 7.2;
-    const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
-    
-    setAdminOrderEdits([
-      {
-        ...values,
-        production_days: newProductionDays,
-        delivery_date: deliveryDate,
-        ship_price: estimatedShippingCost,
-        cny_price,
-        admin_price,
-      },
-    ]);
-    
-    toast.success(`交期计算完成：${newProductionDays}天（${deliveryDate}），运费估算：¥${estimatedShippingCost}${shippingDetails ? ` (${shippingDetails})` : ''}`);
-  };
-
-  // 单独计算运费
-  const handleCalcShipping = (values: Record<string, unknown>) => {
-    if (!pcbFormData) {
-      toast.error('PCB规格数据不完整，无法计算运费');
-      return;
-    }
-    
-    let estimatedShippingCost = 0;
-    let shippingDetails = '';
-    
-    try {
-      // 优先使用完整的运费计算逻辑
-      if (pcbFormData.shippingAddress?.country && pcbFormData.shippingAddress?.courier) {
-        import('@/lib/shipping-calculator').then(({ calculateShippingCost }) => {
-          const shippingResult = calculateShippingCost(pcbFormData);
-          const finalShippingCost = Math.round(shippingResult.finalCost * 7.2); // 转换为人民币
-          
-          // 保存详细运费备注
-          setShippingNotes({
-            basicInfo: `${pcbFormData.shippingAddress.courier.toUpperCase()} 到 ${pcbFormData.shippingAddress.country}`,
-            weightInfo: `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg，计费重量：${shippingResult.chargeableWeight}kg`,
-            costBreakdown: [
-              `基础运费：$${shippingResult.baseCost.toFixed(2)}`,
-              `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}`,
-              `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`,
-              `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`
-            ]
-          });
-          
-          setAdminOrderEdits([
-            {
-              ...values,
-              ship_price: finalShippingCost,
-            },
-          ]);
-          
-          toast.success(
-            `运费计算完成：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})\n` +
-            `快递公司：${pcbFormData.shippingAddress.courier.toUpperCase()}\n` +
-            `目的地：${pcbFormData.shippingAddress.country}\n` +
-            `实际重量：${shippingResult.actualWeight}kg\n` +
-            `体积重量：${shippingResult.volumetricWeight}kg\n` +
-            `计费重量：${shippingResult.chargeableWeight}kg\n` +
-            `基础运费：$${shippingResult.baseCost.toFixed(2)}\n` +
-            `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}\n` +
-            `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`
-          );
-        }).catch((error) => {
-          console.error('运费计算失败:', error);
-          toast.error('运费计算失败：' + error.message);
-        });
-        return;
-      }
-      
-      // 简单估算（备用方案）
       const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000;
       const isUrgent = pcbFormData.delivery === 'urgent';
       
@@ -572,7 +264,6 @@ export default function AdminOrderDetailPage() {
       
       shippingDetails += isUrgent ? '（加急）' : '（标准）';
       
-      // 保存简单估算备注
       setShippingNotes({
         basicInfo: '简单估算（缺少详细收货信息）',
         weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
@@ -581,6 +272,126 @@ export default function AdminOrderDetailPage() {
           `估算运费：¥${estimatedShippingCost}`
         ]
       });
+      
+    } catch (error) {
+      console.error('计算交期失败:', error);
+      toast.error('计算交期失败，请检查PCB规格');
+      return;
+    }
+    
+    const pcb_price = Number(values.pcb_price) || 0;
+    const custom_duty = Number(values.custom_duty) || 0;
+    const coupon = Number(values.coupon) || 0;
+    
+    let surcharges: Array<{name: string, amount: number}> = [];
+    if (Array.isArray(values.surcharges)) {
+      surcharges = values.surcharges;
+    } else if (typeof values.surcharges === 'string') {
+      try {
+        surcharges = JSON.parse(values.surcharges);
+      } catch {
+        surcharges = [];
+      }
+    }
+    const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
+    
+    const cny_price = (pcb_price + estimatedShippingCost + custom_duty + surchargeTotal - coupon).toFixed(2);
+    
+    const currency = values.currency as string || 'USD';
+    const exchange_rate = Number(values.exchange_rate) || 7.2;
+    const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
+    
+    setAdminOrderEdits([
+      {
+        ...values,
+        production_days: newProductionDays,
+        delivery_date: deliveryDate,
+        ship_price: estimatedShippingCost,
+        cny_price,
+        admin_price,
+      },
+    ]);
+    
+    toast.success(`交期计算完成：${newProductionDays}天（${deliveryDate}），运费估算：¥${estimatedShippingCost}${shippingDetails ? ` (${shippingDetails})` : ''}`);
+    setShowDeliveryNotes(true);
+    setShowShippingNotes(true);
+  };
+
+  // 单独计算运费
+  const handleCalcShipping = (values: Record<string, unknown>) => {
+    if (!pcbFormData) {
+      toast.error('PCB规格数据不完整，无法计算运费');
+      return;
+    }
+    
+    let estimatedShippingCost = 0;
+    let shippingDetails = '';
+    
+    try {
+      if (pcbFormData.shippingAddress?.country && pcbFormData.shippingAddress?.courier) {
+        import('@/lib/shipping-calculator').then(({ calculateShippingCost }) => {
+          const shippingResult = calculateShippingCost(pcbFormData);
+          const finalShippingCost = Math.round(shippingResult.finalCost * 7.2);
+          
+          const courierDisplay = (pcbFormData.shippingAddress as any).courierName || pcbFormData.shippingAddress.courier;
+          const countryDisplay = (pcbFormData.shippingAddress as any).countryName || pcbFormData.shippingAddress.country;
+          
+          setShippingNotes({
+            basicInfo: `${courierDisplay?.toUpperCase()} 到 ${countryDisplay}`,
+            weightInfo: `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg，计费重量：${shippingResult.chargeableWeight}kg`,
+            costBreakdown: [
+              `基础运费：$${shippingResult.baseCost.toFixed(2)}`,
+              `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}`,
+              `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`,
+              `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`
+            ]
+          });
+          setShowShippingNotes(true);
+          
+          setAdminOrderEdits([
+            {
+              ...values,
+              ship_price: finalShippingCost,
+            },
+          ]);
+          
+          toast.success(
+            `运费计算完成：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})\n` +
+            `快递公司：${courierDisplay?.toUpperCase()}\n` +
+            `目的地：${countryDisplay}`
+          );
+        }).catch((error) => {
+          console.error('运费计算失败:', error);
+          toast.error('运费计算失败：' + error.message);
+        });
+        return;
+      }
+      
+      const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000;
+      const isUrgent = pcbFormData.delivery === 'urgent';
+      
+      if (totalArea <= 0.1) {
+        estimatedShippingCost = isUrgent ? 150 : 80;
+        shippingDetails = '小件包裹';
+      } else if (totalArea <= 0.5) {
+        estimatedShippingCost = isUrgent ? 250 : 120;
+        shippingDetails = '中等包裹';
+      } else {
+        estimatedShippingCost = isUrgent ? 350 : 180;
+        shippingDetails = '大件包裹';
+      }
+      
+      shippingDetails += isUrgent ? '（加急）' : '（标准）';
+      
+      setShippingNotes({
+        basicInfo: '简单估算（缺少详细收货信息）',
+        weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
+        costBreakdown: [
+          `包裹类型：${shippingDetails}`,
+          `估算运费：¥${estimatedShippingCost}`
+        ]
+      });
+      setShowShippingNotes(true);
       
       setAdminOrderEdits([
         {
@@ -595,6 +406,16 @@ export default function AdminOrderDetailPage() {
       console.error('运费计算失败:', error);
       toast.error('运费计算失败，请检查PCB规格和收货地址');
     }
+  };
+
+  // 重新计算所有
+  const handleRecalc = (values: Record<string, unknown>) => {
+    if (!pcbFormData) return;
+    
+    handleCalcPCB(values);
+    setTimeout(() => handleCalcDelivery(values), 100);
+    
+    toast.success('已重新计算，所有明细已更新');
   };
 
   // PCB参数字段中文映射
@@ -683,10 +504,27 @@ export default function AdminOrderDetailPage() {
     ulMark: v => v ? '是' : '否',
     singleDimensions: v => v && typeof v === 'object' && 'length' in v && 'width' in v ? `${(v as Record<string, unknown>).length} x ${(v as Record<string, unknown>).width} cm` : String(v),
     panelDimensions: v => v && typeof v === 'object' && 'row' in v && 'column' in v ? `${(v as Record<string, unknown>).row}行 x ${(v as Record<string, unknown>).column}列` : String(v),
+    shippingAddress: v => {
+      if (!v || typeof v !== 'object') return String(v);
+      const addr = v as Record<string, unknown>;
+      
+      // 优先使用友好名称，回退到代码
+      const country = (addr.countryName as string) || (addr.country_name as string) || (addr.country as string) || '';
+      const state = (addr.stateName as string) || (addr.state_name as string) || (addr.state as string) || '';
+      const city = (addr.cityName as string) || (addr.city_name as string) || (addr.city as string) || '';
+      const courier = (addr.courierName as string) || (addr.courier_name as string) || (addr.courier as string) || '';
+      const contactName = (addr.contactName as string) || (addr.contact_name as string) || '';
+      
+      return `${contactName} | ${country} ${state} ${city} | ${courier}`;
+    },
+    customs: v => {
+      if (!v || typeof v !== 'object') return String(v);
+      const customs = v as Record<string, unknown>;
+      return `${customs.value || ''}${customs.currency || ''} - ${customs.description || ''}`;
+    },
   };
 
   // PCB参数字段分组及条件显示配置
-  // 类型声明
   interface PCBFieldConfig {
     key: keyof typeof pcbFieldLabelMap;
     shouldShow: (data: Record<string, unknown>) => boolean;
@@ -719,6 +557,7 @@ export default function AdminOrderDetailPage() {
         { key: 'panelSet', shouldShow: data => isPanel(String(data.shipmentType)) },
         { key: 'differentDesignsCount', shouldShow: data => isPanel(String(data.shipmentType)) },
         { key: 'border', shouldShow: data => isPanel(String(data.shipmentType)) },
+        { key: 'pcbNote', shouldShow: () => true },
       ],
     },
     {
@@ -768,9 +607,7 @@ export default function AdminOrderDetailPage() {
       fields: [
         { key: 'delivery', shouldShow: () => true },
         { key: 'specialRequests', shouldShow: () => true },
-        { key: 'pcbNote', shouldShow: () => true },
         { key: 'gerberUrl', shouldShow: () => true },
-        { key: 'shippingCostEstimation', shouldShow: () => true },
         { key: 'shippingAddress', shouldShow: () => true },
         { key: 'customs', shouldShow: () => true },
         { key: 'customsNote', shouldShow: () => true },
@@ -780,7 +617,7 @@ export default function AdminOrderDetailPage() {
   ];
 
   if (loading) {
-    return <div className="w-full p-2 md:p-4">Loading...</div>;
+    return <div>Loading UI...</div>;
   }
   if (error) {
     return <div className="w-full p-2 md:p-4 text-red-600">Error: {error}</div>;
@@ -839,7 +676,7 @@ export default function AdminOrderDetailPage() {
 
           {/* 右侧信息区 */}
           <div className="xl:col-span-2 space-y-6">
-            {/* 价格明细卡片 - 重新设计 */}
+            {/* 价格明细卡片 */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4">
                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -894,7 +731,7 @@ export default function AdminOrderDetailPage() {
                       </div>
                     </div>
 
-                    {/* 费用分解 */}
+                    {/* 其他详细信息 */}
                     {order.cal_values.priceDetail && (
                       <div>
                         <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -910,75 +747,8 @@ export default function AdminOrderDetailPage() {
                             <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.testMethod || '0'}</span>
                           </div>
                           <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                            <span className="text-gray-600">多层铜厚</span>
-                            <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.multilayerCopperWeight || '0'}</span>
-                          </div>
-                          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                             <span className="text-gray-600">工程费用</span>
                             <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.engFee || '0'}</span>
-                          </div>
-                          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                            <span className="text-gray-600">板厚费用</span>
-                            <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.thickness || '0'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 其他费用 - 使用默认值或显示暂无 */}
-                    <div>
-                      <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        💳 其他费用
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <span className="text-gray-600">运费</span>
-                          <span className="font-semibold text-gray-900">¥{(order.cal_values as any)?.shippingCost || '0'}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <span className="text-gray-600">税费</span>
-                          <span className="font-semibold text-gray-900">¥{(order.cal_values as any)?.tax || '0'}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <span className="text-gray-600">折扣</span>
-                          <span className="font-semibold text-gray-900">-¥{(order.cal_values as any)?.discount || '0'}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 时间信息 */}
-                    {((order.cal_values as any)?.estimatedFinishDate || (order.cal_values as any)?.courierDays) && (
-                      <div>
-                        <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                          ⏰ 时间信息
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {(order.cal_values as any)?.estimatedFinishDate && (
-                            <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                              <span className="text-indigo-600">预计完成</span>
-                              <span className="font-semibold text-indigo-800">{(order.cal_values as any).estimatedFinishDate}</span>
-                            </div>
-                          )}
-                          {(order.cal_values as any)?.courierDays && (
-                            <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                              <span className="text-indigo-600">快递天数</span>
-                              <span className="font-semibold text-indigo-800">{(order.cal_values as any).courierDays} 天</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 订单限制 */}
-                    {(order.cal_values as any)?.courier && (
-                      <div>
-                        <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                          📋 订单信息
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                            <span className="text-yellow-600">快递方式</span>
-                            <span className="font-semibold text-yellow-800">{(order.cal_values as any).courier}</span>
                           </div>
                         </div>
                       </div>
@@ -993,16 +763,27 @@ export default function AdminOrderDetailPage() {
               </div>
             </div>
 
-            {/* 计算备注卡片 */}
-            {calculationNotes.length > 0 && (
+            {/* 计算备注卡片 - 带关闭按钮 */}
+            {calculationNotes.length > 0 && showCalculationNotes && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="bg-gradient-to-r from-blue-500 to-cyan-600 px-6 py-4">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    📋 价格计算明细
-                    <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
-                      {calculationNotes.length} 项
-                    </span>
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      📋 价格计算明细
+                      <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
+                        {calculationNotes.length} 项
+                      </span>
+                    </h3>
+                    <button
+                      onClick={() => setShowCalculationNotes(false)}
+                      className="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors"
+                      title="关闭价格计算明细"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="p-6">
                   <div className="space-y-3">
@@ -1015,29 +796,31 @@ export default function AdminOrderDetailPage() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-amber-800">
-                      <span className="text-sm">ℹ️</span>
-                      <span className="text-sm font-medium">审核提示</span>
-                    </div>
-                    <p className="text-xs text-amber-700 mt-1">
-                      以上是系统根据PCB规格自动计算的价格明细，请仔细审核各项费用是否合理
-                    </p>
-                  </div>
                 </div>
               </div>
             )}
 
-            {/* 交期计算备注卡片 */}
-            {deliveryNotes.length > 0 && (
+            {/* 交期计算备注卡片 - 带关闭按钮 */}
+            {deliveryNotes.length > 0 && showDeliveryNotes && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-4">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    📅 交期计算明细
-                    <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
-                      {deliveryNotes.length} 项
-                    </span>
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      📅 交期计算明细
+                      <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
+                        {deliveryNotes.length} 项
+                      </span>
+                    </h3>
+                    <button
+                      onClick={() => setShowDeliveryNotes(false)}
+                      className="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors"
+                      title="关闭交期计算明细"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="p-6">
                   <div className="space-y-3">
@@ -1050,32 +833,33 @@ export default function AdminOrderDetailPage() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-indigo-800">
-                      <span className="text-sm">⏰</span>
-                      <span className="text-sm font-medium">生产提示</span>
-                    </div>
-                    <p className="text-xs text-indigo-700 mt-1">
-                      交期计算基于PCB规格、特殊工艺、面积等因素，实际生产时间可能因工厂排期而调整
-                    </p>
-                  </div>
                 </div>
               </div>
             )}
 
-            {/* 运费计算备注卡片 */}
-            {(shippingNotes.basicInfo || shippingNotes.costBreakdown.length > 0) && (
+            {/* 运费计算备注卡片 - 带关闭按钮 */}
+            {(shippingNotes.basicInfo || shippingNotes.costBreakdown.length > 0) && showShippingNotes && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="bg-gradient-to-r from-orange-500 to-red-600 px-6 py-4">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    🚚 运费计算明细
-                    <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
-                      详细
-                    </span>
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      🚚 运费计算明细
+                      <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
+                        详细
+                      </span>
+                    </h3>
+                    <button
+                      onClick={() => setShowShippingNotes(false)}
+                      className="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors"
+                      title="关闭运费计算明细"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="p-6">
-                  {/* 基础信息 */}
                   {shippingNotes.basicInfo && (
                     <div className="mb-4 p-3 bg-orange-50/50 rounded-lg border border-orange-100">
                       <div className="flex items-center gap-2 mb-2">
@@ -1085,7 +869,6 @@ export default function AdminOrderDetailPage() {
                     </div>
                   )}
                   
-                  {/* 重量信息 */}
                   {shippingNotes.weightInfo && (
                     <div className="mb-4 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
                       <div className="flex items-center gap-2 mb-2">
@@ -1095,7 +878,6 @@ export default function AdminOrderDetailPage() {
                     </div>
                   )}
                   
-                  {/* 费用明细 */}
                   {shippingNotes.costBreakdown.length > 0 && (
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
@@ -1111,16 +893,6 @@ export default function AdminOrderDetailPage() {
                       ))}
                     </div>
                   )}
-                  
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-yellow-800">
-                      <span className="text-sm">🚛</span>
-                      <span className="text-sm font-medium">物流提示</span>
-                    </div>
-                    <p className="text-xs text-yellow-700 mt-1">
-                      运费计算基于包裹重量、体积、目的地等因素，实际费用可能因汇率波动、燃油附加费调整而有所变动
-                    </p>
-                  </div>
                 </div>
               </div>
             )}

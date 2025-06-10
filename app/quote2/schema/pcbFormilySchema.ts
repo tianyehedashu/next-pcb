@@ -294,7 +294,7 @@ export const pcbFormilySchema: ISchema = {
 
     borderCutType: {
       type: 'string',
-      title: 'Board PCB Separation',
+      title: 'PCB Separation',
       'x-component': 'TabSelect',
       'x-component-props': {
         options: [

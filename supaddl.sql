@@ -42,11 +42,15 @@ create table if not exists public.user_addresses (
   contact_name varchar(100) not null,
   phone varchar(50) not null,
   country varchar(10) not null,
+  country_name varchar(100), -- 国家友好名称，如 "United States"
   state varchar(100),
+  state_name varchar(100), -- 州/省友好名称，如 "California"
   city varchar(100),
+  city_name varchar(100), -- 城市友好名称，如 "Los Angeles"
   address text not null,
   zip_code varchar(20),
   courier varchar(50), -- 首选快递
+  courier_name varchar(100), -- 快递公司友好名称，如 "DHL"
   is_default boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now()),
   updated_at timestamp with time zone default timezone('utc'::text, now())

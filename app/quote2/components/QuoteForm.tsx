@@ -36,8 +36,8 @@ interface QuoteFormGroupMemoProps {
     fields: string[];
   };
   index: number;
-  schema: any;
-  SchemaField: any;
+  schema: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  SchemaField: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 const QuoteFormGroupMemo = React.memo(({ group, index, schema, SchemaField }: QuoteFormGroupMemoProps) => (
@@ -187,12 +187,13 @@ const SubmitButtonSection = React.memo(({ user, isSubmitting, handleGuestSubmitW
             'Field';
           let msg = '';
           if (err && typeof err === 'object') {
-            if (Array.isArray((err as any).issues) && (err as any).issues.length > 0) {
-              msg = (err as any).issues[0].message;
-            } else if (Array.isArray((err as any).messages) && (err as any).messages.length > 0) {
-              msg = (err as any).messages[0];
+            const errorObj = err as Record<string, unknown>;
+            if (Array.isArray(errorObj.issues) && errorObj.issues.length > 0) {
+              msg = String((errorObj.issues[0] as Record<string, unknown>)?.message || '');
+            } else if (Array.isArray(errorObj.messages) && errorObj.messages.length > 0) {
+              msg = String(errorObj.messages[0]);
             } else if ('message' in err) {
-              msg = String((err as any).message);
+              msg = String(errorObj.message);
             } else {
               msg = JSON.stringify(err);
             }
@@ -454,22 +455,23 @@ export function QuoteForm() {
           setShowGuestForm(true);
         }
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       // 校验失败，优雅处理错误提示
       let msg = 'Please check the form fields';
       if (err && typeof err === 'object') {
+        const errorObj = err as Record<string, unknown>;
         const fieldTitle =
-          err.title ||
-          (err.decoratorProps && err.decoratorProps.title) ||
-          err.address ||
-          err.path ||
+          (errorObj.title as string) ||
+          ((errorObj.decoratorProps as Record<string, unknown>)?.title as string) ||
+          (errorObj.address as string) ||
+          (errorObj.path as string) ||
           'Field';
-        if (Array.isArray(err.issues) && err.issues.length > 0) {
-          msg = `${fieldTitle}: ${err.issues[0].message}`;
-        } else if (Array.isArray(err.messages) && err.messages.length > 0) {
-          msg = `${fieldTitle}: ${err.messages[0]}`;
+        if (Array.isArray(errorObj.issues) && errorObj.issues.length > 0) {
+          msg = `${fieldTitle}: ${String((errorObj.issues[0] as Record<string, unknown>)?.message || '')}`;
+        } else if (Array.isArray(errorObj.messages) && errorObj.messages.length > 0) {
+          msg = `${fieldTitle}: ${String(errorObj.messages[0])}`;
         } else if ('message' in err) {
-          msg = `${fieldTitle}: ${String(err.message)}`;
+          msg = `${fieldTitle}: ${String(errorObj.message)}`;
         }
       }
       setSubmitError(msg);

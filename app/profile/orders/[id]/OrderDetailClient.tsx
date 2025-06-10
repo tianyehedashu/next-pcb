@@ -112,15 +112,21 @@ function OrderAddressCard({ address }: OrderAddressCardProps) {
         </div>
         <div>
           <span className="text-xs text-muted-foreground font-semibold uppercase">Country</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{(address?.country as string) ?? "-"}</div>
+          <div className="text-base font-semibold text-gray-800 break-all">
+            {(address?.country_name as string) || (address?.country as string) || "-"}
+          </div>
         </div>
         <div>
           <span className="text-xs text-muted-foreground font-semibold uppercase">State</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{(address?.state as string) ?? "-"}</div>
+          <div className="text-base font-semibold text-gray-800 break-all">
+            {(address?.state_name as string) || (address?.state as string) || "-"}
+          </div>
         </div>
         <div>
           <span className="text-xs text-muted-foreground font-semibold uppercase">City</span>
-          <div className="text-base font-semibold text-gray-800 break-all">{(address?.city as string) ?? "-"}</div>
+          <div className="text-base font-semibold text-gray-800 break-all">
+            {(address?.city_name as string) || (address?.city as string) || "-"}
+          </div>
         </div>
         <div>
           <span className="text-xs text-muted-foreground font-semibold uppercase">Zip Code</span>

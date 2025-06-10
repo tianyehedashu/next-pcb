@@ -18,6 +18,28 @@ export type OptionType = { value: string; label: string };
 // 快递选项类型
 type CourierOptionType = { value: string; label: string; icon: React.ComponentType<{ className?: string }>; color: string };
 
+// 快递选项配置
+const COURIER_OPTIONS: CourierOptionType[] = [
+  { 
+    value: 'dhl', 
+    label: 'DHL',
+    icon: Package,
+    color: 'bg-yellow-400 text-black'
+  },
+  { 
+    value: 'fedex', 
+    label: 'FedEx',
+    icon: Plane,
+    color: 'bg-purple-600 text-white'
+  },
+  { 
+    value: 'ups', 
+    label: 'UPS',
+    icon: Truck,
+    color: 'bg-amber-700 text-white'
+  }
+];
+
 // GeoNames 省/州类型
 type GeoNamesState = {
   geonameId: number;
@@ -36,13 +58,17 @@ type GeoNamesCity = {
 export interface AddressFormValue {
   id?: string;
   country: string;
+  countryName?: string; // 国家友好名称，如 "United States"
   state: string;
+  stateName?: string; // 州/省友好名称，如 "California"
   city: string;
+  cityName?: string; // 城市友好名称，如 "Los Angeles"
   address: string;
   zipCode: string;
   contactName: string;
   phone: string;
   courier?: string;
+  courierName?: string; // 快递公司友好名称，如 "DHL"
   isDefault?: boolean;
   label?: string; // 地址标签，如 "Home", "Office"
 }
@@ -496,7 +522,7 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
            addressLabel !== (originalAddress.label || '');
   };
 
-  const handleFieldChange = (field: keyof AddressFormValue, fieldValue: string) => {
+  const handleFieldChange = (field: keyof AddressFormValue, fieldValue: string, displayName?: string) => {
     const newValue = {
       country: '',
       state: '',
@@ -510,14 +536,23 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
       [field]: fieldValue
     };
 
-    // 当国家改变时，清空州和城市
-    if (field === 'country') {
+    // 同时保存显示名称
+    if (field === 'country' && displayName) {
+      newValue.countryName = displayName;
+      // 当国家改变时，清空州和城市及其名称
       newValue.state = '';
+      newValue.stateName = '';
       newValue.city = '';
-    }
-    // 当州改变时，清空城市
-    else if (field === 'state') {
+      newValue.cityName = '';
+    } else if (field === 'state' && displayName) {
+      newValue.stateName = displayName;
+      // 当州改变时，清空城市及其名称
       newValue.city = '';
+      newValue.cityName = '';
+    } else if (field === 'city' && displayName) {
+      newValue.cityName = displayName;
+    } else if (field === 'courier' && displayName) {
+      newValue.courierName = displayName;
     }
 
     onChange?.(newValue);
@@ -573,8 +608,17 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
                         <div className="text-xs sm:text-sm text-gray-600 space-y-1">
                           <div className="truncate">{address.contactName} • {address.phone}</div>
                           <div className="break-words">{address.address}</div>
-                          <div>{address.city}, {address.state} {address.zipCode}</div>
-                          <div className="truncate">{countriesOptions.find((c: OptionType) => c.value === address.country)?.label}</div>
+                          <div>
+                            {address.cityName || address.city}, {address.stateName || address.state} {address.zipCode}
+                          </div>
+                          <div className="truncate">
+                            {address.countryName || COUNTRY_LIST.find(c => c.iso2 === address.country)?.name || address.country}
+                          </div>
+                          {address.courier && (
+                            <div className="truncate">
+                              Courier: {address.courierName || address.courier}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-wrap sm:flex-nowrap gap-1 sm:gap-2 justify-end">
@@ -684,32 +728,12 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
                 Preferred Courier <span className="text-red-500">*</span>
               </label>
               <ReactSelect
-                options={[
-                  { 
-                    value: 'dhl', 
-                    label: 'DHL',
-                    icon: Package,
-                    color: 'bg-yellow-400 text-black'
-                  },
-                  { 
-                    value: 'fedex', 
-                    label: 'FedEx',
-                    icon: Plane,
-                    color: 'bg-purple-600 text-white'
-                  },
-                  { 
-                    value: 'ups', 
-                    label: 'UPS',
-                    icon: Truck,
-                    color: 'bg-amber-700 text-white'
-                  }
-                ]}
-                value={[
-                  { value: 'dhl', label: 'DHL', icon: Package, color: 'bg-yellow-400 text-black' },
-                  { value: 'fedex', label: 'FedEx', icon: Plane, color: 'bg-purple-600 text-white' },
-                  { value: 'ups', label: 'UPS', icon: Truck, color: 'bg-amber-700 text-white' }
-                ].find(opt => opt.value === value?.courier) || null}
-                onChange={(newValue: unknown) => handleFieldChange('courier', (newValue as CourierOptionType | null)?.value || '')}
+                options={COURIER_OPTIONS}
+                value={COURIER_OPTIONS.find(opt => opt.value === value?.courier) || null}
+                onChange={(newValue: unknown) => {
+                  const selectedOption = newValue as CourierOptionType | null;
+                  handleFieldChange('courier', selectedOption?.value || '', selectedOption?.label);
+                }}
                 placeholder="Select Courier"
                 isClearable
                 styles={{
@@ -751,7 +775,11 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
               <ReactSelect
                 options={countriesOptions}
                 value={countriesOptions.find(opt => opt.value === value?.country) || null}
-                onChange={(newValue) => handleFieldChange('country', (newValue as OptionType)?.value || '')}
+                onChange={(newValue) => {
+                  const selectedOption = newValue as OptionType | null;
+                  const countryInfo = COUNTRY_LIST.find(c => c.iso2 === selectedOption?.value);
+                  handleFieldChange('country', selectedOption?.value || '', countryInfo?.name);
+                }}
                 placeholder="Select country"
                 isClearable
                 styles={selectStyles}
@@ -767,7 +795,10 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
               <ReactSelect
                 options={states}
                 value={states.find(opt => opt.value === value?.state) || null}
-                onChange={(newValue) => handleFieldChange('state', (newValue as OptionType)?.value || '')}
+                onChange={(newValue) => {
+                  const selectedOption = newValue as OptionType | null;
+                  handleFieldChange('state', selectedOption?.value || '', selectedOption?.label);
+                }}
                 placeholder={!value?.country ? "Select Country First" : "Select state/province"}
                 isDisabled={!value?.country}
                 isClearable
@@ -785,7 +816,10 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
               <ReactSelect
                 options={cities}
                 value={cities.find(opt => opt.value === value?.city) || null}
-                onChange={(newValue) => handleFieldChange('city', (newValue as OptionType)?.value || '')}
+                onChange={(newValue) => {
+                  const selectedOption = newValue as OptionType | null;
+                  handleFieldChange('city', selectedOption?.value || '', selectedOption?.label);
+                }}
                 placeholder={!value?.state ? "Select State First" : "Select city"}
                 isDisabled={!value?.state}
                 isClearable

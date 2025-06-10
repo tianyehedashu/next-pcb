@@ -130,7 +130,7 @@ export function calcPcbPriceV3(form: QuoteFormData): {
   const engFeeResult = engFeeHandler(ctxForm, totalArea, totalCount);
   const filmFeeResult = filmFeeHandler(ctxForm,singleArea);
   let addPercent = 0;
-  if (form.crossOuts === CrossOuts.Accept) {
+  if (form.crossOuts === CrossOuts.NotAccept) {
     const { percent, note } = getPanelAddPercent(form.differentDesignsCount);
     addPercent = percent;
     if (note) notes.push(note);

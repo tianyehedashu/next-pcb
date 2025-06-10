@@ -173,9 +173,9 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
   // Service Information
   testMethod: TestMethod.FlyingProbe,
   productReport: [ProductReport.None],
-  workingGerber: WorkingGerber.RequireApproval,
+  workingGerber: WorkingGerber.NotRequired,
   ulMark: false,
-  crossOuts: CrossOuts.NotAccept,
+  crossOuts: CrossOuts.Accept,
   ipcClass: IPCClass.Level2,
   ifDataConflicts: IfDataConflicts.FollowOrder,
   specialRequests: '',

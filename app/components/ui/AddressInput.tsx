@@ -1,24 +1,10 @@
 import React from "react";
 import { connect, mapProps } from "@formily/react";
-import { AddressFormComponent } from "@/app/quote2/components/AddressFormComponent";
-
-interface AddressValue {
-  id?: string;
-  country: string;
-  state?: string;
-  city: string;
-  address: string;
-  zipCode: string;
-  phone?: string;
-  contactName: string;
-  courier?: string;
-  isDefault?: boolean;
-  label?: string;
-}
+import { AddressFormComponent, AddressFormValue } from "@/app/quote2/components/AddressFormComponent";
 
 interface AddressInputProps {
-  value?: AddressValue;
-  onChange?: (value: AddressValue) => void;
+  value?: AddressFormValue;
+  onChange?: (value: AddressFormValue) => void;
   disabled?: boolean;
   userId?: string; // 用户ID，用于获取地址列表
 }
@@ -36,11 +22,11 @@ const AddressInput: React.FC<AddressInputProps> = ({ value, onChange, disabled, 
           <div><strong>Contact:</strong> {value?.contactName || 'N/A'}</div>
           <div><strong>Phone:</strong> {value?.phone || 'N/A'}</div>
           <div><strong>Address:</strong> {value?.address || 'N/A'}</div>
-          <div><strong>City:</strong> {value?.city || 'N/A'}</div>
-          <div><strong>State:</strong> {value?.state || 'N/A'}</div>
+          <div><strong>City:</strong> {value?.cityName || value?.city || 'N/A'}</div>
+          <div><strong>State:</strong> {value?.stateName || value?.state || 'N/A'}</div>
           <div><strong>ZIP:</strong> {value?.zipCode || 'N/A'}</div>
-          <div><strong>Country:</strong> {value?.country || 'N/A'}</div>
-          <div><strong>Courier:</strong> {value?.courier || 'N/A'}</div>
+          <div><strong>Country:</strong> {value?.countryName || value?.country || 'N/A'}</div>
+          <div><strong>Courier:</strong> {value?.courierName || value?.courier || 'N/A'}</div>
         </div>
       </div>
     );
