@@ -131,12 +131,9 @@ export default function AdminOrderDetailPage() {
   const handleSave = async (values: Record<string, unknown>, options?: { sendNotification?: boolean; notificationType?: string }) => {
     if (!orderId) return;
     try {
-      // 添加详细的调试日志：检查接收到的原始数据
-      console.log('🔍 前端接收到的原始表单数据:', values);
-
       // ❗️ 重要：将 Formily 的 Proxy 对象转换为普通对象
       const cleanedValues = JSON.parse(JSON.stringify(values));
-
+      
       // 确保 surcharges 是一个有效的数组
       if (cleanedValues.surcharges) {
         if (typeof cleanedValues.surcharges === 'string') {
@@ -159,15 +156,6 @@ export default function AdminOrderDetailPage() {
         // 如果是 undefined 或 null，设置为空字符串
         cleanedValues.admin_note = '';
       }
-
-      // 调试日志：检查发送的数据
-      console.log('🔍 发送到API的数据:', {
-        admin_note: cleanedValues.admin_note,
-        admin_note_length: typeof cleanedValues.admin_note === 'string' ? cleanedValues.admin_note.length : 0,
-        surcharges: cleanedValues.surcharges,
-        surcharges_length: Array.isArray(cleanedValues.surcharges) ? cleanedValues.surcharges.length : 0,
-        method: isAdminOrderCreated ? 'PATCH' : 'POST'
-      });
 
       // 添加邮件通知选项和用户邮箱
       if (options?.sendNotification) {
@@ -231,7 +219,6 @@ export default function AdminOrderDetailPage() {
       
       hasInitAdminOrderEdits.current = true;
     } catch (error) {
-      console.error('操作失败:', error);
       const errorMessage = error instanceof Error ? error.message : (isAdminOrderCreated ? '保存失败，请重试' : '创建失败，请重试');
       toast.error(errorMessage, {
         duration: 5000, // 显示5秒，让用户有时间阅读错误信息
