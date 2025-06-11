@@ -7,6 +7,7 @@ import { useFileUpload } from '../hooks/useFileUpload';
 import { FileUploadStatus } from './FileUploadStatus';
 import { AnalysisResultDisplay } from './AnalysisResultDisplay';
 import { useForm } from "@formily/react";
+import { useQuoteStore } from "@/lib/stores/quote-store";
 
 // 定义一个与FileUploadStatus组件兼容的类型
 interface StatusFrontendAnalysisResult {
@@ -34,6 +35,7 @@ interface CompatibleUploadState {
 export function FileUploadSection() {
   const { uploadState, handleFileSelect, retryUpload, clearFile } = useFileUpload();
   const form = useForm();
+  const { updateFormData } = useQuoteStore();
 
   // 处理文件输入变化
   const handleFileInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,58 +69,98 @@ export function FileUploadSection() {
 
   // 同步分析结果到表单
   useEffect(() => {
-    if (uploadState.analysisResult && form) {
+    console.log('=== FileUploadSection useEffect triggered ===');
+    console.log('uploadState.analysisResult:', uploadState.analysisResult);
+    console.log('uploadState.uploadUrl:', uploadState.uploadUrl);
+    console.log('uploadState.uploadStatus:', uploadState.uploadStatus);
+    console.log('form:', !!form);
+    
+    if (!form) {
+      console.log('No form instance, skipping sync');
+      return;
+    }
+    
+    const fieldsToUpdate: { [key: string]: unknown } = {};
+
+    // 1. 同步分析结果（如果存在）
+    if (uploadState.analysisResult) {
+      console.log('Syncing analysis result...');
       const { analysisResult } = uploadState;
-      const parsedFields: { [key: string]: unknown } = {};
 
       // PCB尺寸
       if (analysisResult.dimensions) {
         const { width, height } = analysisResult.dimensions;
-        // 保留2位小数
         const fixedWidth = typeof width === 'number' ? Number(width.toFixed(2)) : 0;
         const fixedHeight = typeof height === 'number' ? Number(height.toFixed(2)) : 0;
-        parsedFields.singleDimensions = { length: fixedWidth, width: fixedHeight };
+        fieldsToUpdate.singleDimensions = { length: fixedWidth, width: fixedHeight };
+        console.log('Setting dimensions:', fieldsToUpdate.singleDimensions);
       }
+      
       // 层数
       if (analysisResult.layers && Array.isArray(analysisResult.layers)) {
-        parsedFields.layers = analysisResult.layers.length;
+        fieldsToUpdate.layers = analysisResult.layers.length;
+        console.log('Setting layers:', fieldsToUpdate.layers);
       }
+      
       // 金手指
       if (analysisResult.hasGoldFingers !== undefined) {
-        parsedFields.goldFingers = analysisResult.hasGoldFingers;
-      }
-
-      // 同步文件上传URL
-      if (uploadState.uploadUrl) {
-        parsedFields.gerberFileUrl = uploadState.uploadUrl;
-      }
-
-      if (parsedFields.singleDimensions) {
-        const { length, width } = parsedFields.singleDimensions as { length?: unknown, width?: unknown };
-        form.setFieldState('singleDimensions', state => {
-          state.value = {
-            length: Number(length) || 0,
-            width: Number(width) || 0
-          };
-        });
-      }
-      if (parsedFields.layers !== undefined) {
-        form.setFieldState('layers', state => {
-          state.value = Number(parsedFields.layers) || 0;
-        });
-      }
-      if (parsedFields.goldFingers !== undefined) {
-        form.setFieldState('goldFingers', state => {
-          state.value = Boolean(parsedFields.goldFingers);
-        });
-      }
-      if (parsedFields.gerberFileUrl !== undefined) {
-        form.setFieldState('gerberFileUrl', state => {
-          state.value = String(parsedFields.gerberFileUrl || '');
-        });
+        fieldsToUpdate.goldFingers = analysisResult.hasGoldFingers;
+        console.log('Setting goldFingers:', fieldsToUpdate.goldFingers);
       }
     }
-  }, [uploadState.analysisResult, uploadState.uploadUrl, form]);
+
+    // 2. 同步文件上传URL（最重要的部分）
+    if (uploadState.uploadUrl) {
+      console.log('Syncing uploadUrl:', uploadState.uploadUrl);
+      fieldsToUpdate.gerberUrl = uploadState.uploadUrl;
+    }
+
+    // 3. 批量更新 store 和表单
+    if (Object.keys(fieldsToUpdate).length > 0) {
+      console.log('=== Updating store and form with fields ===', fieldsToUpdate);
+      
+      // 先更新 store（确保数据持久化）
+      updateFormData(fieldsToUpdate);
+      console.log('Store updated');
+      
+      // 再更新表单字段
+      Object.entries(fieldsToUpdate).forEach(([key, value]) => {
+        try {
+          if (key === 'singleDimensions' && value && typeof value === 'object') {
+            const dims = value as { length: number; width: number };
+            form.setFieldState('singleDimensions', state => {
+              state.value = {
+                length: Number(dims.length) || 0,
+                width: Number(dims.width) || 0
+              };
+            });
+            console.log('Form field singleDimensions updated');
+          } else {
+            form.setFieldState(key, state => {
+              if (key === 'layers') {
+                state.value = Number(value) || 0;
+              } else if (key === 'goldFingers') {
+                state.value = Boolean(value);
+              } else if (key === 'gerberUrl') {
+                state.value = String(value || '');
+              } else {
+                state.value = value;
+              }
+            });
+            console.log(`Form field ${key} updated to:`, value);
+          }
+        } catch (error) {
+          console.error(`Error updating form field ${key}:`, error);
+        }
+      });
+      
+      console.log('=== Sync completed ===');
+      console.log('Current form values:', form.values);
+      console.log('Current store gerberUrl:', useQuoteStore.getState().formData.gerberUrl);
+    } else {
+      console.log('No fields to update');
+    }
+  }, [uploadState.analysisResult, uploadState.uploadUrl, uploadState.uploadStatus, form, updateFormData]);
 
   const hasFile = !!uploadState.file;
 

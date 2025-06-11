@@ -245,11 +245,13 @@ export function useFileUpload() {
     // 2. 未登录只分析
     if (!user) {
       if (analysisResult) { // if analysis was successful
+        // 生成本地 blob url
+        const localUrl = URL.createObjectURL(file);
         setUploadState(prev => ({
           ...prev,
           uploadStatus: 'idle',
           uploadError: 'Please log in to upload files to the cloud.',
-          uploadUrl: null,
+          uploadUrl: localUrl,
         }));
       }
       return;

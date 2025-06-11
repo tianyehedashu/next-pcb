@@ -402,12 +402,25 @@ export function QuoteForm() {
       await form.validate(); // 校验通过不抛异常
       setSubmitError(null); // 校验通过清空错误
       await form.submit(async (values) => {
-        console.log('Form submitted:', values);
+        console.log('=== Form Submit Started ===');
+        console.log('Form values gerberUrl:', values.gerberUrl);
+        console.log('UploadState uploadUrl:', uploadState.uploadUrl);
+        console.log('UploadState status:', uploadState.uploadStatus);
 
-        const gerberFileUrl: string | null = uploadState.uploadUrl || null;
+        // 从 store 中获取最新的 gerberUrl（最可靠）
+        const storeData = useQuoteStore.getState().formData;
+        const gerberFileUrl: string | null = storeData.gerberUrl || values.gerberUrl || uploadState.uploadUrl || null;
+        console.log('Store gerberUrl:', storeData.gerberUrl);
+        console.log('Final gerberFileUrl:', gerberFileUrl);
+        console.log('=== Data Sources Summary ===');
+        console.log('Priority 1 (Store):', storeData.gerberUrl);
+        console.log('Priority 2 (Form):', values.gerberUrl);
+        console.log('Priority 3 (UploadState):', uploadState.uploadUrl);
 
-        // 提取关键字段和地址信息
+        // 提取关键字段和地址信息，确保 pcbSpecData 包含 gerberUrl
         const { phone: userPhone, shippingAddress, ...pcbSpecData } = values;
+        // 确保 pcbSpecData 中有最新的 gerberUrl
+        pcbSpecData.gerberUrl = gerberFileUrl || '';
 
         // 直接使用 store 中的 calValues
         const cal_values = calValues;
@@ -493,7 +506,11 @@ export function QuoteForm() {
     setIsSubmitting(true);
 
     try {
-      const gerberFileUrl: string | null = uploadState.uploadUrl || null;
+      // 从 store 中获取最新的 gerberUrl（最可靠）
+      const storeData = useQuoteStore.getState().formData;
+      const gerberFileUrl: string | null = storeData.gerberUrl || form.values.gerberUrl || uploadState.uploadUrl || null;
+      console.log('Guest submit - Store gerberUrl:', storeData.gerberUrl);
+      console.log('Guest submit - Final gerberFileUrl:', gerberFileUrl);
 
       // 验证邮箱
       if (!guestEmail.includes('@')) {
