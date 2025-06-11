@@ -267,7 +267,13 @@ export const pcbFormilySchema: ISchema = {
         placeholder: "Note for layout only ;example: 2up，routed panel with 4x10mm waste edges.",
         rows: 4
       },
-      required: true
+      required: true,
+      "x-validator": [
+        {
+          required: true,
+          message: "Panel Note is required"
+        }
+      ]
     }),
 
     border: {
@@ -733,6 +739,12 @@ export const pcbFormilySchema: ISchema = {
         // userId 将通过 form context 或 reactions 传递
       },
       required: true,
+      "x-validator": [
+        {
+          required: true,
+          message: "Shipping Address is required"
+        }
+      ],
       default: {
         country: "",
         state: "",

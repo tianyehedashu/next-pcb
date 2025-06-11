@@ -1,6 +1,6 @@
 "use client"
 import React from "react";
-import { createSchemaField } from "@formily/react";
+import { createSchemaField, connect, mapProps } from "@formily/react";
 import { Input } from "@/components/ui/input";
 import { Select as UISelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -88,15 +88,9 @@ export const formilyComponents = {
       </UISelect>
     );
   },
-  TextArea: (props: FormilyFieldProps) => (
-    <Textarea 
-      value={String(props.value || '')}
-      onChange={(e) => props.onChange?.(e.target.value)}
-      placeholder={props.placeholder}
-      rows={props.rows}
-      className="text-sm min-h-[80px] resize-y"
-    />
-  ),
+  TextArea: connect(Textarea, mapProps({
+    className: true
+  })),
   Checkbox: (props: FormilyFieldProps) => (
     <Checkbox 
       checked={Boolean(props.value)}

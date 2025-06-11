@@ -207,23 +207,40 @@ export const useFormNotifications = () => {
       });
     };
 
-    // 处理验证错误
-    const handleValidationError = (field: Field) => {
-      if (field.errors?.length > 0) {
-        const fieldDisplayName = field.title || field.path?.toString() || '';
-        const errorText = String(field.errors[0]);
+    // 处理验证错误 - 暂时禁用以避免与QuoteForm中的错误处理冲突
+    // const handleValidationError = (field: Field) => {
+    //   if (field.errors?.length > 0) {
+    //     const fieldDisplayName = field.title || field.path?.toString() || '';
+    //     const error = field.errors[0];
         
-        addNotification({
-          type: 'validation-error',
-          title: fieldDisplayName,
-          message: errorText,
-          fieldPath: field.path?.toString() || '',
-          fieldTitle: field.title,
-          duration: 5000,
-          autoHide: true
-        });
-      }
-    };
+    //     let errorText = 'This field is required';
+        
+    //     // 正确解析错误对象
+    //     if (error && typeof error === 'object') {
+    //       const errorObj = error as Record<string, unknown>;
+    //       if (typeof errorObj.message === 'string' && errorObj.message) {
+    //         errorText = errorObj.message;
+    //       } else if (Array.isArray(errorObj.issues) && errorObj.issues.length > 0) {
+    //         const issue = errorObj.issues[0] as Record<string, unknown>;
+    //         errorText = typeof issue.message === 'string' ? issue.message : 'This field is required';
+    //       } else if (Array.isArray(errorObj.messages) && errorObj.messages.length > 0) {
+    //         errorText = String(errorObj.messages[0]);
+    //       }
+    //     } else if (typeof error === 'string' && error) {
+    //       errorText = error;
+    //     }
+        
+    //     addNotification({
+    //       type: 'validation-error',
+    //       title: fieldDisplayName,
+    //       message: errorText,
+    //       fieldPath: field.path?.toString() || '',
+    //       fieldTitle: field.title,
+    //       duration: 5000,
+    //       autoHide: true
+    //     });
+    //   }
+    // };
 
     // 延迟初始化，确保表单完全加载
     const timer = setTimeout(initializeFieldStates, 1000);
@@ -251,8 +268,8 @@ export const useFormNotifications = () => {
           handleValueChange(field, fieldPath, previousState);
         }
 
-        // 处理验证错误
-        handleValidationError(field);
+        // 注释掉验证错误处理，避免与QuoteForm中的错误处理冲突
+        // handleValidationError(field);
 
         // 更新状态
         fieldChangeMap.set(fieldPath, {
@@ -261,8 +278,9 @@ export const useFormNotifications = () => {
           visible: currentVisible
         });
       } else if (type === 'onFieldValidateStart') {
-        const field = payload as Field;
-        handleValidationError(field);
+        // 注释掉验证错误处理，避免与QuoteForm中的错误处理冲突
+        // const field = payload as Field;
+        // handleValidationError(field);
       }
     });
 

@@ -185,23 +185,27 @@ const SubmitButtonSection = React.memo(({ user, isSubmitting, handleGuestSubmitW
             event.payload.address ||
             event.payload.path ||
             'Field';
-          let msg = '';
+          
+          let msg = 'This field is required';
+          
           if (err && typeof err === 'object') {
             const errorObj = err as Record<string, unknown>;
-            if (Array.isArray(errorObj.issues) && errorObj.issues.length > 0) {
-              msg = String((errorObj.issues[0] as Record<string, unknown>)?.message || '');
+            // 尝试多种方式提取错误信息
+            if (typeof errorObj.message === 'string' && errorObj.message) {
+              msg = errorObj.message;
+            } else if (Array.isArray(errorObj.issues) && errorObj.issues.length > 0) {
+              const issue = errorObj.issues[0] as Record<string, unknown>;
+              msg = typeof issue.message === 'string' ? issue.message : 'This field is required';
             } else if (Array.isArray(errorObj.messages) && errorObj.messages.length > 0) {
               msg = String(errorObj.messages[0]);
-            } else if ('message' in err) {
-              msg = String(errorObj.message);
             } else {
-              msg = JSON.stringify(err);
+              // 如果没有找到标准的错误信息，使用默认值
+              msg = 'This field is required';
             }
-          } else if (typeof err === 'string') {
+          } else if (typeof err === 'string' && err) {
             msg = err;
-          } else {
-            msg = JSON.stringify(err);
           }
+          
           setSubmitError(`${fieldTitle}: ${msg}`);
         }
       }
@@ -290,6 +294,42 @@ const SubmitButtonSection = React.memo(({ user, isSubmitting, handleGuestSubmitW
 });
 SubmitButtonSection.displayName = 'SubmitButtonSection';
 
+// 使用 React.memo 包装错误提示弹窗
+interface ErrorDialogProps {
+  showErrorDialog: boolean;
+  setShowErrorDialog: (show: boolean) => void;
+  errorMessage: string | null;
+}
+
+const ErrorDialog = React.memo(({ 
+  showErrorDialog, 
+  setShowErrorDialog, 
+  errorMessage 
+}: ErrorDialogProps) => (
+    <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-red-600">
+            <AlertCircle className="h-5 w-5" />
+            Validation Error
+          </DialogTitle>
+          <DialogDescription className="text-gray-700">
+            Please fix the following issue before submitting:
+          </DialogDescription>
+        </DialogHeader>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-800 font-medium">
+            {errorMessage || 'Unknown validation error occurred'}
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => setShowErrorDialog(false)}>Got it</Button>
+        </DialogFooter>
+              </DialogContent>
+      </Dialog>
+));
+ErrorDialog.displayName = 'ErrorDialog';
+
 // 使用 React.memo 包装登录建议弹窗
 interface LoginSuggestDialogProps {
   showLoginSuggestDialog: boolean;
@@ -338,6 +378,7 @@ export function QuoteForm() {
   const [showGuestForm, setShowGuestForm] = React.useState(false);
   const [showLoginSuggestDialog, setShowLoginSuggestDialog] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [showErrorDialog, setShowErrorDialog] = React.useState(false);
 
   // 使用 useMemo 缓存表单实例
   const formInstance = React.useMemo(() => {
@@ -527,23 +568,6 @@ export function QuoteForm() {
         }
       });
     } catch (err: unknown) {
-      // Debug: 详细打印错误信息
-      console.log('=== Form Validation Error Debug ===');
-      console.log('Error type:', typeof err);
-      console.log('Is array:', Array.isArray(err));
-      console.log('Error value:', err);
-      
-      if (Array.isArray(err)) {
-        console.log('Array length:', err.length);
-        if (err.length > 0) {
-          console.log('First error:', err[0]);
-          console.log('First error type:', typeof err[0]);
-          if (typeof err[0] === 'object') {
-            console.log('First error keys:', Object.keys(err[0] as object));
-          }
-        }
-      }
-      
       let errorMessage = 'Please fill in all required fields.';
       
       // Formily 验证错误通常是一个数组
@@ -551,150 +575,56 @@ export function QuoteForm() {
         const firstError = err[0];
         if (firstError && typeof firstError === 'object') {
           const errorObj = firstError as Record<string, unknown>;
-          console.log('Processing first error object:', errorObj);
           
           // 提取字段标题和错误信息
           const fieldTitle = errorObj.title || errorObj.address || errorObj.path || 'Field';
-          console.log('Extracted field title:', fieldTitle);
           
-          errorMessage = `${fieldTitle}: This field is required`;
+          // 尝试提取错误消息
+          let message = 'This field is required';
+          if (typeof errorObj.message === 'string') {
+            message = errorObj.message;
+          } else if (Array.isArray(errorObj.messages) && errorObj.messages.length > 0) {
+            message = String(errorObj.messages[0]);
+          }
+          
+          errorMessage = `${fieldTitle}: ${message}`;
         }
       } else if (err && typeof err === 'object') {
+        // 如果是验证错误对象，尝试提取有意义的信息
         const errorObj = err as Record<string, unknown>;
-        if (errorObj.message && typeof errorObj.message === 'string') {
-          errorMessage = errorObj.message;
-        } else if (errorObj.title && typeof errorObj.title === 'string') {
-          errorMessage = `${errorObj.title}: This field is required`;
-        }
-      }
-      
-      console.log('Final error message:', errorMessage);
-      console.log('=== End Debug ===');
-      
-      setSubmitError(errorMessage);
-      
-      // 尝试精确滚动到错误字段
-      let scrolledToField = false;
-      
-      if (Array.isArray(err) && err.length > 0) {
-        const firstError = err[0];
-        if (firstError && typeof firstError === 'object') {
-          const errorObj = firstError as Record<string, unknown>;
-          const fieldPath = errorObj.address || errorObj.path;
-          
-          if (fieldPath && typeof fieldPath === 'string') {
-            console.log(`Trying to scroll to field: ${fieldPath}`);
-            
-            // 尝试多种选择器来精确定位字段
-            const selectors = [
-              // Formily 字段容器
-              `[data-field-path="${fieldPath}"]`,
-              `[data-field="${fieldPath}"]`,
-              `[data-testid="${fieldPath}"]`,
-              // 输入元素本身
-              `[name="${fieldPath}"]`,
-              `#${fieldPath}`,
-              // 特殊处理 pcbNote (TextArea)
-              ...(fieldPath === 'pcbNote' ? [
-                'textarea[placeholder*="layout"]',
-                'textarea[placeholder*="Note for layout"]',
-                'textarea[placeholder*="2up"]'
-              ] : []),
-              // FormItem 包装器
-              `.formily-item:has([name="${fieldPath}"])`,
-              `.form-item:has([name="${fieldPath}"])`,
-              // 通过标签定位
-              `label[for="${fieldPath}"] + *`,
-              // 通用选择器
-              `*[data-path="${fieldPath}"]`,
-              `*[data-field-name="${fieldPath}"]`
-            ];
-            
-            // 逐个尝试选择器
-            for (const selector of selectors) {
-              try {
-                const element = document.querySelector(selector) as HTMLElement;
-                if (element) {
-                  console.log(`Found field element with selector: ${selector}`);
-                  
-                  // 滚动到字段位置
-                  element.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'center',
-                    inline: 'nearest'
-                  });
-                  
-                  // 添加视觉高亮
-                  element.classList.add('ring-2', 'ring-red-400', 'ring-opacity-75');
-                  setTimeout(() => {
-                    element.classList.remove('ring-2', 'ring-red-400', 'ring-opacity-75');
-                  }, 3000);
-                  
-                  // 尝试聚焦（如果是输入元素）
-                  try {
-                    if (element.focus && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT')) {
-                      setTimeout(() => element.focus(), 100);
-                    }
-                  } catch (e) {
-                    console.log('Focus failed:', e);
-                  }
-                  
-                  scrolledToField = true;
-                  break;
-                }
-              } catch (e) {
-                console.log(`Selector failed: ${selector}`, e);
-              }
-            }
-            
-            // 如果找不到具体字段，回退到表单组
-            if (!scrolledToField) {
-              console.log(`Could not find field ${fieldPath}, trying group fallback`);
-              
-              const fieldToGroupMap: Record<string, number> = {
-                'pcbType': 0, 'layers': 0, 'useShengyiMaterial': 0, 'thickness': 0, 'tg': 0,
-                'differentDesignsCount': 0, 'singleDimensions': 0, 'shipmentType': 0,
-                'singleCount': 0, 'panelDimensions': 0, 'panelSet': 0, 'breakAwayRail': 0,
-                'borderCutType': 0, 'border': 0, 'pcbNote': 0,
-                'outerCopperWeight': 1, 'innerCopperWeight': 1, 'minTrace': 1, 'minHole': 1,
-                'solderMask': 1, 'silkscreen': 1, 'surfaceFinish': 1, 'surfaceFinishEnigType': 1,
-                'impedance': 1, 'goldFingers': 1, 'goldFingersBevel': 1,
-                'maskCover': 1, 'edgePlating': 1, 'edgeCover': 1,
-                'hdi': 2, 'castellated': 2, 'testMethod': 2, 'workingGerber': 2,
-                'productReport': 2, 'ulMark': 2, 'crossOuts': 2, 'ipcClass': 2, 'ifDataConflicts': 2,
-                'delivery': 2, 'specialRequests': 2,
-                'shippingCostEstimation': 3,
-                'shippingAddress': 4
-              };
-              
-              const groupIndex = fieldToGroupMap[fieldPath];
-              if (groupIndex !== undefined) {
-                const groupElement = document.getElementById(`form-step-${groupIndex}`);
-                if (groupElement) {
-                  console.log(`Found group element, scrolling to form-step-${groupIndex}`);
-                  groupElement.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start',
-                    inline: 'nearest'
-                  });
-                  
-                  // 添加视觉提示
-                  groupElement.classList.add('ring-2', 'ring-red-300', 'ring-opacity-50');
-                  setTimeout(() => {
-                    groupElement.classList.remove('ring-2', 'ring-red-300', 'ring-opacity-50');
-                  }, 3000);
-                  
-                  scrolledToField = true;
-                }
-              }
-            }
+        
+        // 检查是否有errors数组（Formily字段错误格式）
+        if (Array.isArray(errorObj.errors) && errorObj.errors.length > 0) {
+          const firstFieldError = errorObj.errors[0];
+          if (typeof firstFieldError === 'object' && firstFieldError !== null) {
+            const fieldErrorObj = firstFieldError as Record<string, unknown>;
+            const fieldName = fieldErrorObj.address || fieldErrorObj.path || 'Unknown field';
+            const message = fieldErrorObj.message || 'This field is required';
+            errorMessage = `${fieldName}: ${message}`;
           }
         }
+        // 检查是否直接是字段错误
+        else if (errorObj.address || errorObj.path) {
+          const fieldName = errorObj.address || errorObj.path || 'Unknown field';
+          const message = errorObj.message || 'This field is required';
+          errorMessage = `${fieldName}: ${message}`;
+        }
+        // 检查是否有message属性
+        else if (typeof errorObj.message === 'string') {
+          errorMessage = errorObj.message;
+        }
+      } else if (typeof err === 'string') {
+        errorMessage = err;
       }
       
-      // 如果没有成功滚动到特定字段，就滚动到顶部
-      if (!scrolledToField) {
-        console.log('Fallback: scrolling to top');
+      setSubmitError(errorMessage);
+      setShowErrorDialog(true); // 显示错误弹框
+      
+      // 使用简单的滚动方案：滚动到第一个表单组
+      const firstGroup = document.getElementById('form-step-0');
+      if (firstGroup) {
+        firstGroup.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       
@@ -890,6 +820,13 @@ export function QuoteForm() {
                 setShowLoginSuggestDialog={setShowLoginSuggestDialog}
                 handleLoginRedirect={handleLoginRedirect}
                 handleContinueAsGuest={handleContinueAsGuest}
+              />
+
+              {/* 错误提示弹窗 */}
+              <ErrorDialog
+                showErrorDialog={showErrorDialog}
+                setShowErrorDialog={setShowErrorDialog}
+                errorMessage={submitError}
               />
             </form>
           )}
