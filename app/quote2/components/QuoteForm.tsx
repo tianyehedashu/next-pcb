@@ -418,6 +418,108 @@ export function QuoteForm() {
   const handleSubmit = React.useCallback(async () => {
     if (!form) return;
     
+    // 滚动到错误字段的函数 - 适配Formily自定义组件
+    const scrollToErrorField = (fieldName: string) => {
+      // 尝试多种选择器来定位Formily自定义组件
+      const selectors = [
+        // Formily字段容器
+        `[data-field-path="${fieldName}"]`,
+        `[data-field="${fieldName}"]`,
+        // 字段包装器
+        `[data-testid="${fieldName}"]`,
+        `[data-formily-field="${fieldName}"]`,
+        // 输入元素本身
+        `[name="${fieldName}"]`,
+        `#${fieldName}`,
+        // 字段标题或标签
+        `[for="${fieldName}"]`,
+        // FormItem容器（常见的Formily结构）
+        `.formily-element[data-path="${fieldName}"]`,
+        `.formily-field[data-path="${fieldName}"]`,
+        // Ant Design/自定义UI容器
+        `[data-field-name="${fieldName}"]`,
+        // 特殊处理的字段
+        ...(fieldName === 'pcbNote' ? [
+          'textarea[placeholder*="layout"]',
+          'textarea[placeholder*="Note"]',
+          'textarea[placeholder*="2up"]',
+          '.formily-textarea-field',
+          '.group textarea',
+          '[data-field-name="pcbNote"] textarea',
+          'div:has(textarea[placeholder*="layout"]) textarea'
+        ] : [])
+      ];
+
+      // 逐个尝试选择器
+      for (const selector of selectors) {
+        const element = document.querySelector(selector) as HTMLElement;
+        if (element) {
+          // 平滑滚动到字段
+          element.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'nearest'
+          });
+          
+          // 尝试聚焦（如果是可聚焦元素）
+          try {
+            if (element.focus) {
+              element.focus();
+            }
+          } catch {
+            // 忽略聚焦错误
+          }
+          
+          // 添加视觉高亮
+          element.classList.add('ring-2', 'ring-red-400', 'ring-opacity-50');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-red-400', 'ring-opacity-50');
+          }, 3000);
+          
+          return true; // 成功定位并跳转
+        }
+      }
+
+      // 如果找不到具体字段，尝试跳转到对应的表单组
+      const fieldToGroupMap: Record<string, number> = {
+        'pcbType': 0, 'layers': 0, 'useShengyiMaterial': 0, 'thickness': 0, 'tg': 0,
+        'differentDesignsCount': 0, 'singleDimensions': 0, 'shipmentType': 0,
+        'singleCount': 0, 'panelDimensions': 0, 'panelSet': 0, 'breakAwayRail': 0,
+        'borderCutType': 0, 'border': 0, 'pcbNote': 0,
+        'outerCopperWeight': 1, 'innerCopperWeight': 1, 'minTrace': 1, 'minHole': 1,
+        'solderMask': 1, 'silkscreen': 1, 'surfaceFinish': 1, 'surfaceFinishEnigType': 1,
+        'impedance': 1, 'goldFingers': 1, 'goldFingersBevel': 1,
+        'maskCover': 1, 'edgePlating': 1, 'edgeCover': 1,
+        'hdi': 2, 'castellated': 2, 'testMethod': 2, 'workingGerber': 2,
+        'productReport': 2, 'ulMark': 2, 'crossOuts': 2, 'ipcClass': 2, 'ifDataConflicts': 2,
+        'delivery': 2, 'specialRequests': 2,
+        'shippingCostEstimation': 3,
+        'shippingAddress': 4
+      };
+
+      const groupIndex = fieldToGroupMap[fieldName];
+      if (groupIndex !== undefined) {
+        const groupElement = document.getElementById(`form-step-${groupIndex}`);
+        if (groupElement) {
+          groupElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+          
+          // 添加组级视觉提示
+          groupElement.classList.add('animate-pulse', 'ring-2', 'ring-red-300', 'ring-opacity-30');
+          setTimeout(() => {
+            groupElement.classList.remove('animate-pulse', 'ring-2', 'ring-red-300', 'ring-opacity-30');
+          }, 3000);
+          
+          return true;
+        }
+      }
+
+      return false; // 未能定位到字段
+    };
+    
     // 在提交前检查当前的状态
     console.log('=== Pre-submit State Check ===');
     const currentStoreData = useQuoteStore.getState().formData;
@@ -476,9 +578,18 @@ export function QuoteForm() {
         if (user) {
           // 已登录用户：保存到用户账户并跳转到确认页面
           
-          // 确保登录用户必须先完成文件上传才能继续（如果有选择文件）
-          if (uploadState.file && (!gerberFileUrl || uploadState.uploadStatus !== 'success')) {
-            toast.error("请等待文件上传完成后再提交。");
+          // 已登录用户必须上传gerber文件才能继续
+          if (!gerberFileUrl || gerberFileUrl.trim() === '') {
+            toast.error("Please upload Gerber file before submitting.");
+            setSubmitError("Gerber file is required for logged-in users");
+            setIsSubmitting(false);
+            return; // 中止提交
+          }
+          
+          // 如果正在上传文件，需要等待上传完成
+          if (uploadState.file && uploadState.uploadStatus !== 'success') {
+            toast.error("Please wait for file upload to complete before submitting.");
+            setSubmitError("File upload in progress");
             setIsSubmitting(false);
             return; // 中止提交
           }
@@ -517,24 +628,88 @@ export function QuoteForm() {
         }
       });
     } catch (err: unknown) {
-      // 校验失败，优雅处理错误提示
+      // 校验失败，优雅处理错误提示并滚动到错误字段
+      console.error('Form validation error:', err);
+      
       let msg = 'Please check the form fields';
+      let errorFieldName = '';
+      
       if (err && typeof err === 'object') {
         const errorObj = err as Record<string, unknown>;
-        const fieldTitle =
-          (errorObj.title as string) ||
-          ((errorObj.decoratorProps as Record<string, unknown>)?.title as string) ||
-          (errorObj.address as string) ||
-          (errorObj.path as string) ||
-          'Field';
-        if (Array.isArray(errorObj.issues) && errorObj.issues.length > 0) {
-          msg = `${fieldTitle}: ${String((errorObj.issues[0] as Record<string, unknown>)?.message || '')}`;
-        } else if (Array.isArray(errorObj.messages) && errorObj.messages.length > 0) {
-          msg = `${fieldTitle}: ${String(errorObj.messages[0])}`;
-        } else if ('message' in err) {
-          msg = `${fieldTitle}: ${String(errorObj.message)}`;
+        
+        // Debug: 打印完整的错误对象结构
+        console.log('Error object structure:', {
+          keys: Object.keys(errorObj),
+          errorObj: errorObj,
+          title: errorObj.title,
+          address: errorObj.address,
+          path: errorObj.path,
+          message: errorObj.message,
+          decoratorProps: errorObj.decoratorProps
+        });
+        
+        // 获取错误字段名
+        if (errorObj.address) {
+          errorFieldName = String(errorObj.address);
+        } else if (errorObj.path) {
+          errorFieldName = String(errorObj.path);
         }
+        
+        // 获取字段标题
+        let fieldTitle = 'Field';
+        if (errorObj.title && typeof errorObj.title === 'string') {
+          fieldTitle = errorObj.title;
+        } else if (errorObj.decoratorProps && typeof errorObj.decoratorProps === 'object') {
+          const decoratorProps = errorObj.decoratorProps as Record<string, unknown>;
+          if (decoratorProps.title && typeof decoratorProps.title === 'string') {
+            fieldTitle = decoratorProps.title;
+          }
+        } else if (errorObj.address && typeof errorObj.address === 'string') {
+          fieldTitle = errorObj.address;
+        } else if (errorObj.path && typeof errorObj.path === 'string') {
+          fieldTitle = errorObj.path;
+        }
+        
+        // 获取错误消息
+        let errorMessage = '';
+        if (Array.isArray(errorObj.issues) && errorObj.issues.length > 0) {
+          const firstIssue = errorObj.issues[0] as Record<string, unknown>;
+          errorMessage = String(firstIssue?.message || '');
+        } else if (Array.isArray(errorObj.messages) && errorObj.messages.length > 0) {
+          errorMessage = String(errorObj.messages[0]);
+        } else if (errorObj.message && typeof errorObj.message === 'string') {
+          errorMessage = errorObj.message;
+        } else if (errorObj.message && typeof errorObj.message === 'object') {
+          // 处理 message 是对象的情况
+          const messageObj = errorObj.message as Record<string, unknown>;
+          if (messageObj.message && typeof messageObj.message === 'string') {
+            errorMessage = messageObj.message;
+          } else {
+            errorMessage = 'Invalid value';
+          }
+        } else {
+          errorMessage = 'Invalid value';
+        }
+        
+        msg = `${fieldTitle}: ${errorMessage}`;
+        
+        console.log('Processed error:', {
+          fieldTitle,
+          errorMessage,
+          errorFieldName,
+          finalMessage: msg
+        });
       }
+      
+      // 滚动到错误字段
+      if (errorFieldName) {
+        console.log('Attempting to scroll to field:', errorFieldName);
+        const scrollResult = scrollToErrorField(errorFieldName);
+        console.log('Scroll result:', scrollResult);
+      } else {
+        console.log('No error field name found, cannot scroll');
+      }
+      
       setSubmitError(msg);
       setIsSubmitting(false);
       return;

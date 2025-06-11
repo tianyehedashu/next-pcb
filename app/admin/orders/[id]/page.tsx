@@ -9,6 +9,7 @@ import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
 import { calcPcbPriceV3 } from '@/lib/pcb-calc-v3';
 import { OrderOverviewTabs } from '@/app/admin/components/OrderOverviewTabs';
 import { AdminOrderForm } from '@/app/admin/components/AdminOrderForm';
+import { AdminOrderActions } from '@/app/admin/components/AdminOrderActions';
 import { Order, AdminOrder } from '@/app/admin/types/order';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 
@@ -118,8 +119,15 @@ export default function AdminOrderDetailPage() {
   // 计算是否已创建管理员订单
   const isAdminOrderCreated = !!order?.admin_orders;
 
+  // 处理状态变更（用于快速状态操作时同步表单）
+  const handleStatusChange = (newStatus: string) => {
+    setAdminOrderEdits(prev => 
+      prev.map(edit => ({ ...edit, status: newStatus }))
+    );
+  };
+
   // 保存
-  const handleSave = async (values: Record<string, unknown>) => {
+  const handleSave = async (values: Record<string, unknown>, options?: { sendNotification?: boolean; notificationType?: string }) => {
     if (!orderId) return;
     try {
       // 清理和验证数据
@@ -138,6 +146,22 @@ export default function AdminOrderDetailPage() {
         }
       } else {
         cleanedValues.surcharges = [];
+      }
+
+      // 添加邮件通知选项和用户邮箱
+      if (options?.sendNotification) {
+        cleanedValues.sendNotification = true;
+        cleanedValues.notificationType = options.notificationType || 'order_updated';
+        // 从订单数据中获取用户邮箱
+        cleanedValues.userEmail = order?.email;
+        
+        // 如果没有邮箱，显示警告但继续保存
+        if (!order?.email) {
+          toast.warning('⚠️ 用户邮箱不存在，将跳过邮件通知', {
+            description: '订单将正常保存，但不会发送邮件通知给客户',
+            duration: 4000
+          });
+        }
       }
       
       const method = isAdminOrderCreated ? 'PATCH' : 'POST';
@@ -161,7 +185,9 @@ export default function AdminOrderDetailPage() {
         throw new Error(errorMessage);
       }
       
-      toast.success(isAdminOrderCreated ? '✅ 管理员订单保存成功' : '✅ 管理员订单创建成功');
+      const successMessage = isAdminOrderCreated ? '✅ 管理员订单保存成功' : '✅ 管理员订单创建成功';
+      const emailMessage = options?.sendNotification ? ' 并已发送邮件通知' : '';
+      toast.success(successMessage + emailMessage);
       
       // 重新获取订单数据
       const updatedOrder = await fetchOrder();
@@ -896,9 +922,9 @@ export default function AdminOrderDetailPage() {
         {/* 主内容区 */}
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
           {/* 左侧管理员表单 */}
-          <div className="xl:col-span-3">
+          <div className="xl:col-span-3 space-y-6">
             {!isAdminOrderCreated && (
-              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
                 <div className="flex items-center gap-2 text-amber-800">
                   <span className="text-lg">⚠️</span>
                   <span className="font-medium">还未创建管理员订单</span>
@@ -906,17 +932,36 @@ export default function AdminOrderDetailPage() {
                 <p className="text-sm text-amber-700 mt-1">请填写并创建管理员订单信息</p>
               </div>
             )}
+            
+            {/* 操作控制面板 */}
             <div className="sticky top-6">
-              <AdminOrderForm
-                initialValues={adminOrderEdits[0] || {}}
-                onSave={handleSave}
-                onRecalc={handleRecalc}
-                onCalcPCB={handleCalcPCB}
-                onCalcDelivery={handleCalcDelivery}
-                onCalcShipping={handleCalcShipping}
-                readOnly={false}
-                submitButtonText={isAdminOrderCreated ? '保存' : '创建'}
-              />
+                          <AdminOrderActions
+              values={adminOrderEdits[0] || {}}
+              onSave={handleSave}
+              onRecalc={handleRecalc}
+              onCalcPCB={handleCalcPCB}
+              onCalcDelivery={handleCalcDelivery}
+              onCalcShipping={handleCalcShipping}
+              isAdminOrderCreated={isAdminOrderCreated}
+              disabled={loading}
+              onStatusChange={handleStatusChange}
+            />
+            </div>
+
+            {/* 管理员表单 */}
+            <div>
+                          <AdminOrderForm
+              initialValues={adminOrderEdits[0] || {}}
+              onSave={handleSave}
+              onRecalc={handleRecalc}
+              onCalcPCB={handleCalcPCB}
+              onCalcDelivery={handleCalcDelivery}
+              onCalcShipping={handleCalcShipping}
+              readOnly={false}
+              submitButtonText={isAdminOrderCreated ? '保存' : '创建'}
+              hideActionButtons={true}
+              onStatusChange={handleStatusChange}
+            />
             </div>
           </div>
 

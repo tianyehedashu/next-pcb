@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { ADMIN_ORDER, USER_ORDER } from '@/app/constants/tableNames';
+import nodemailer from 'nodemailer';
 
 // 清理和验证管理员订单字段
 function sanitizeAdminOrderFields(body: Record<string, unknown>) {
@@ -41,29 +42,96 @@ function sanitizeAdminOrderFields(body: Record<string, unknown>) {
   };
 }
 
+// 发送邮件通知
+async function sendEmailNotification(
+  orderId: string,
+  userEmail: string,
+  adminOrderData: Record<string, unknown>,
+  notificationType: string
+) {
+  try {
+    // 获取基础URL，支持多种环境变量
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+                   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 
+                   process.env.SITE_URL || 
+                   'https://www.speedxpcb.com/';
+    
+    const orderUrl = `${baseUrl}/profile/orders/${orderId}`;
+    
+    // 简化的邮件内容
+    const subject = `PCB Order Update - #${orderId}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>PCB Order Update</h2>
+        <p>Dear Customer,</p>
+        <p>Your PCB order has been updated.</p>
+        <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
+          <h3>Order Details:</h3>
+          <p><strong>Order ID:</strong> ${orderId}</p>
+          <p><strong>Status:</strong> ${adminOrderData.status}</p>
+          ${adminOrderData.cny_price ? `<p><strong>Total:</strong> ¥${adminOrderData.cny_price}</p>` : ''}
+        </div>
+        <p><a href="${orderUrl}">View Order Details</a></p>
+        <p>Best regards,<br>PCB Manufacturing Team</p>
+      </div>
+    `;
+    
+    // 创建邮件传输器 - 支持多种邮件服务
+    const emailConfig = {
+      host: process.env.SMTP_HOST || 'smtp.qq.com',
+      port: parseInt(process.env.SMTP_PORT || '465'),
+      secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
+      auth: {
+        user: process.env.SMTP_USER || process.env.QQ_EMAIL_USER,
+        pass: process.env.SMTP_PASS || process.env.QQ_EMAIL_AUTH_CODE,
+      },
+    };
+
+    const transporter = nodemailer.createTransport(emailConfig);
+
+    // 发送邮件
+    const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.QQ_EMAIL_USER;
+    const fromName = process.env.SMTP_FROM_NAME || 'PCB Manufacturing';
+    
+    await transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: userEmail,
+      subject,
+      html,
+    });
+
+    console.log('邮件发送成功:', {
+      to: userEmail,
+      subject,
+      orderId,
+      notificationType
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('发送邮件通知失败:', {
+      error: error instanceof Error ? error.message : error,
+      orderId,
+      userEmail,
+      notificationType
+    });
+    return false;
+  }
+}
+
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  // Note: cookies() 在某些 Next.js 版本中需要 await
+   
   const cookieStore = await cookies();
   const { id: userOrderId } = await params;
+   //@ts-expect-error nextjs 15 的cookies 是异步的
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
   try {
     const body = await request.json();
-    
-    // 1. 获取用户订单信息
-    const { data: userOrder, error: userOrderError } = await supabase
-      .from(USER_ORDER)
-      .select('*')
-      .eq('id', userOrderId)
-      .single();
-
-    if (userOrderError || !userOrder) {
-      console.error('Error fetching user order:', userOrderError);
-      return NextResponse.json({ error: 'User order not found' }, { status: 404 });
-    }
+    const { sendNotification = false, notificationType = 'order_created', userEmail, ...otherFields } = body;
 
     // 2. 检查是否已存在管理员订单
     const { data: existingAdminOrder, error: checkError } = await supabase
@@ -77,7 +145,7 @@ export async function POST(
     }
 
     // 3. 准备管理员订单数据
-    const adminOrderFields = sanitizeAdminOrderFields(body);
+    const adminOrderFields = sanitizeAdminOrderFields(otherFields);
     const insertData = {
       user_order_id: userOrderId,
       ...adminOrderFields,
@@ -97,12 +165,19 @@ export async function POST(
       return NextResponse.json({ error: createError.message }, { status: 500 });
     }
 
-    // 5. 更新用户订单时间戳
+    // 5. 更新用户订单状态
+    const userOrderUpdateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    // 如果有状态更新，同步到用户订单
+    if (adminOrderFields.status && adminOrderFields.status !== 'created') {
+      userOrderUpdateData.status = adminOrderFields.status;
+    }
+
     const { data: updatedUserOrder, error: updateError } = await supabase
       .from(USER_ORDER)
-      .update({
-        updated_at: new Date().toISOString(),
-      })
+      .update(userOrderUpdateData)
       .eq('id', userOrderId)
       .select('*,admin_orders(*)')
       .single();
@@ -110,6 +185,16 @@ export async function POST(
     if (updateError) {
       console.error('Error updating user order:', updateError);
       return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    // 6. 发送邮件通知
+    if (sendNotification && userEmail) {
+      await sendEmailNotification(
+        userOrderId,
+        userEmail,
+        adminOrderFields,
+        notificationType
+      );
     }
 
     return NextResponse.json(updatedUserOrder);
@@ -126,48 +211,74 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  // Note: cookies() 在某些 Next.js 版本中需要 await
-  const cookieStore = await cookies();
+  const cookieStore =await cookies();
   const { id: userOrderId } = await params;
+  //@ts-expect-error nextjs 15 的cookies 是异步的
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
   try {
     const body = await request.json();
+    const { sendNotification = false, notificationType = 'order_updated', userEmail, ...otherFields } = body;
+
     // 1. 查找管理员订单
     const { data: adminOrder, error: adminOrderError } = await supabase
       .from(ADMIN_ORDER)
       .select('*')
       .eq('user_order_id', userOrderId)
       .single();
+    
     if (adminOrderError || !adminOrder) {
       return NextResponse.json({ error: 'Admin order not found' }, { status: 404 });
     }
+
     // 2. 更新管理员订单
     const updateFields = sanitizeAdminOrderFields({
-      ...body,
+      ...otherFields,
       updated_at: new Date().toISOString(),
     });
+    
     const { error: updateError } = await supabase
       .from(ADMIN_ORDER)
       .update(updateFields)
       .eq('id', adminOrder.id)
       .select()
       .single();
+    
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
-    // 3. 更新用户订单的admin_orders字段（同步最新）
+
+    // 3. 更新用户订单状态
+    const userOrderUpdateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    // 如果有状态更新，同步到用户订单
+    if (updateFields.status) {
+      userOrderUpdateData.status = updateFields.status;
+    }
+
     const { data: updatedUserOrder, error: userOrderUpdateError } = await supabase
       .from(USER_ORDER)
-      .update({
-        updated_at: new Date().toISOString(),
-      })
+      .update(userOrderUpdateData)
       .eq('id', userOrderId)
       .select('*,admin_orders(*)')
       .single();
+    
     if (userOrderUpdateError) {
       return NextResponse.json({ error: userOrderUpdateError.message }, { status: 500 });
     }
+
+    // 4. 发送邮件通知
+    if (sendNotification && userEmail) {
+      await sendEmailNotification(
+        userOrderId,
+        userEmail,
+        updateFields,
+        notificationType
+      );
+    }
+
     return NextResponse.json(updatedUserOrder);
   } catch (error) {
     console.error('Unexpected error:', error);

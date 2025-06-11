@@ -706,9 +706,11 @@ interface AdminOrderFormProps {
   onCalcShipping?: (values: Record<string, unknown>) => void;
   readOnly?: boolean;
   submitButtonText?: string;
+  hideActionButtons?: boolean;
+  onStatusChange?: (newStatus: string) => void; // 新增：状态变更回调
 }
 
-export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onCalcDelivery, onCalcShipping, readOnly, submitButtonText }: AdminOrderFormProps) {
+export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onCalcDelivery, onCalcShipping, readOnly, submitButtonText, hideActionButtons, onStatusChange }: AdminOrderFormProps) {
   const [isEdit, setIsEdit] = useState(!readOnly);
   const deliveryDateManuallySet = useRef(false);
   
@@ -789,6 +791,14 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
           form.setValuesIn('exchange_rate', 1);
         }
       });
+
+      // 监听状态变化，通知父组件
+      onFieldValueChange('status', () => {
+        const newStatus = form.values.status as string;
+        if (newStatus && onStatusChange) {
+          onStatusChange(newStatus);
+        }
+      });
     }
   });
 
@@ -810,20 +820,22 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
         </div>
         
         {/* 计算按钮组 */}
-        <div className="flex gap-2 justify-center flex-wrap">
-          <Button type="button" variant="outline" size="sm" onClick={() => onCalcPCB?.(form.values)} disabled={!isEdit}>
-            🔧 PCB计算
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => onCalcDelivery?.(form.values)} disabled={!isEdit}>
-            📅 交期计算
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => onCalcShipping?.(form.values)} disabled={!isEdit}>
-            🚚 运费计算
-          </Button>
-          <Button type="button" variant="secondary" size="sm" onClick={() => onRecalc(form.values)} disabled={!isEdit}>
-            🔄 全部重算
-          </Button>
-        </div>
+        {!hideActionButtons && (
+          <div className="flex gap-2 justify-center flex-wrap">
+            <Button type="button" variant="outline" size="sm" onClick={() => onCalcPCB?.(form.values)} disabled={!isEdit}>
+              🔧 PCB计算
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => onCalcDelivery?.(form.values)} disabled={!isEdit}>
+              📅 交期计算
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => onCalcShipping?.(form.values)} disabled={!isEdit}>
+              🚚 运费计算
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={() => onRecalc(form.values)} disabled={!isEdit}>
+              🔄 全部重算
+            </Button>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <FormProvider form={form}>
@@ -864,14 +876,16 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
             </div>
           ))}
 
-          <div className="sticky bottom-0 bg-white py-2 z-10">
-            {/* 主要操作按钮 */}
-            <div className="flex gap-2 justify-end">
-              <Button type="button" onClick={() => onSave(form.values)} disabled={!isEdit}>
-                {submitButtonText || '保存'}
-              </Button>
+          {!hideActionButtons && (
+            <div className="sticky bottom-0 bg-white py-2 z-10">
+              {/* 主要操作按钮 */}
+              <div className="flex gap-2 justify-end">
+                <Button type="button" onClick={() => onSave(form.values)} disabled={!isEdit}>
+                  {submitButtonText || '保存'}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </FormProvider>
       </CardContent>
     </Card>
