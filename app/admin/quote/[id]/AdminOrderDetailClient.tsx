@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getPublicFileUrl } from "@/lib/supabase-file-url";
-import DownloadButton from "../../../../components/custom-ui/DownloadButton";
+import DownloadButton from "../../../components/custom-ui/DownloadButton";
 import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toUSD } from "@/lib/utils";

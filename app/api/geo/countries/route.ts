@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import countries from '@/lib/data/countries.json';
+// import countries from '@/lib/data/countries.json';
 
 export interface Country {
   id: number;

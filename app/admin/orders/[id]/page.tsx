@@ -787,7 +787,7 @@ export default function AdminOrderDetailPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
-      <div className="container mx-auto px-4 py-6">
+      <div className="max-w-[1600px] mx-auto px-2 py-6 w-full">
         {/* 页面标题区 */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
@@ -949,7 +949,7 @@ export default function AdminOrderDetailPage() {
                       <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
                         <div className="text-sm text-purple-600 font-medium mb-1">单价</div>
                         <div className="text-xl font-bold text-purple-700">
-                          ¥{(order.cal_values as any)?.unitPrice || (order.cal_values.price && order.cal_values.totalQuantity ? (order.cal_values.price / order.cal_values.totalQuantity).toFixed(2) : '0')}
+                          ${(order.cal_values as any)?.unitPrice || (order.cal_values.price && order.cal_values.totalQuantity ? (order.cal_values.price / order.cal_values.totalQuantity).toFixed(2) : '0')}
                         </div>
                       </div>
                       
