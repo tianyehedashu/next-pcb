@@ -262,25 +262,16 @@ const useQuoteStore = create<QuoteStore>()(
       calValues: { ...DEFAULT_CAL_VALUES },
 
       // === 基础操作 ===
-      updateFormData: (updates) => {
+      updateFormData: (updates: Partial<QuoteFormData>) => {
         set((state) => {
           const newFormData = { ...state.formData, ...updates };
-          const newFieldErrors = { ...state.errors.fieldErrors };
-          Object.keys(updates).forEach(key => {
-            delete newFieldErrors[key];
-          });
-          const hasChanges = JSON.stringify(newFormData) !== JSON.stringify(state.originalData);
+          
           return {
             ...state,
             formData: newFormData,
             calculated: calculateProperties(newFormData),
             isDirty: true,
-            hasChanges,
-            validationState: 'idle',
-            errors: {
-              ...state.errors,
-              fieldErrors: newFieldErrors,
-            },
+            hasChanges: true,
           };
         });
       },
@@ -637,29 +628,43 @@ const useQuoteStore = create<QuoteStore>()(
         originalData: state.originalData,
         autoSaveEnabled: state.autoSaveEnabled,
       }),
-      transform: {
-        in: (state: { state: QuoteStoreState; version: number }) => state,
-        out: (state: { state: QuoteStoreState; version: number }) => {
-          const parsedFormData = quoteSchema.safeParse(state.state.formData);
-          if (parsedFormData.success) {
-            const sanitizedFormData = {
-              ...DEFAULT_FORM_DATA,
-              ...parsedFormData.data,
+      onRehydrateStorage: () => {
+        return (state) => {
+          if (state) {
+            // 获取当前会话ID
+            const getCurrentSessionId = () => {
+              return sessionStorage.getItem('upload-session-id');
             };
-            // 针对 singleDimensions.length 和 width 进行额外检查，以防类型被破坏
-            if (typeof sanitizedFormData.singleDimensions?.length !== 'number' || !Number.isFinite(sanitizedFormData.singleDimensions.length as number) || sanitizedFormData.singleDimensions.length <= 0) {
-              sanitizedFormData.singleDimensions = { ...sanitizedFormData.singleDimensions, length: DEFAULT_FORM_DATA.singleDimensions.length };
+            
+            // 检查 gerberUrl 是否属于当前会话且有效
+            const isCurrentSessionUrl = (url: string) => {
+              if (!url || !url.includes('supabase.co/storage') || !url.includes('gerber_uploads')) {
+                return false;
+              }
+              
+              const currentSessionId = getCurrentSessionId();
+              if (!currentSessionId) {
+                return false; // 没有会话ID，清空所有URL
+              }
+              
+              // 从URL中提取会话ID（格式：timestamp-randomStr-sessionId-filename）
+              const urlParts = url.split('/');
+              const filename = urlParts[urlParts.length - 1];
+              
+              // 检查文件名是否包含当前会话ID
+              return filename.includes(currentSessionId);
+            };
+            
+            // 清空不属于当前会话的 URL
+            if (!isCurrentSessionUrl(state.formData.gerberUrl)) {
+              state.formData.gerberUrl = '';
             }
-            if (typeof sanitizedFormData.singleDimensions?.width !== 'number' || !Number.isFinite(sanitizedFormData.singleDimensions.width as number) || sanitizedFormData.singleDimensions.width <= 0) {
-              sanitizedFormData.singleDimensions = { ...sanitizedFormData.singleDimensions, width: DEFAULT_FORM_DATA.singleDimensions.width };
+            
+            if (!isCurrentSessionUrl(state.originalData.gerberUrl)) {
+              state.originalData.gerberUrl = '';
             }
-            state.state.formData = sanitizedFormData;
-          } else {
-            console.warn("Zustand persist rehydration failed schema validation. Using default form data.", parsedFormData.error);
-            state.state.formData = DEFAULT_FORM_DATA;
           }
-          return state;
-        },
+        };
       },
     }
   )
@@ -674,7 +679,7 @@ export const useQuoteStoreHydrated = () => {
     setIsHydrated(true);
   }, []);
 
-  // 在水合完成前返回默认状态
+  // 在水合完成前返回默认状态(gerberUrl始终为空)
   if (!isHydrated) {
     return {
       ...store,

@@ -3,6 +3,38 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { ADMIN_ORDER, USER_ORDER } from '@/app/constants/tableNames';
 import nodemailer from 'nodemailer';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+// 验证管理员权限
+async function verifyAdminRole(supabase: SupabaseClient) {
+  try {
+    // 获取当前用户
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { isAdmin: false, error: 'Unauthorized' };
+    }
+
+    // 检查用户角色 - 这里假设你有一个 user_roles 表或 profiles 表中有 role 字段
+    // 根据你的实际数据库结构调整
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return { isAdmin: false, error: 'User profile not found' };
+    }
+
+    // 检查是否为管理员角色
+    const isAdmin = profile.role === 'admin' || profile.role === 'super_admin';
+    
+    return { isAdmin, user, error: isAdmin ? null : 'Insufficient permissions' };
+  } catch (error) {
+    console.error('Error verifying admin role:', error);
+    return { isAdmin: false, error: 'Failed to verify permissions' };
+  }
+}
 
 // 清理和验证管理员订单字段
 function sanitizeAdminOrderFields(body: Record<string, unknown>) {
@@ -21,11 +53,32 @@ function sanitizeAdminOrderFields(body: Record<string, unknown>) {
     }
   }
 
+  // 处理 admin_note：确保是字符串类型
+  let adminNote = '';
+  if (body.admin_note) {
+    if (typeof body.admin_note === 'string') {
+      adminNote = body.admin_note;
+    } else if (Array.isArray(body.admin_note)) {
+      // 如果传入的是数组，转换为字符串（兼容旧数据）
+      adminNote = body.admin_note.filter(note => note && typeof note === 'string').join('\n');
+    } else {
+      adminNote = String(body.admin_note);
+    }
+  }
+
+  // 调试日志：检查处理的数据
+  console.log('🔍 API接收到的数据:', {
+    原始admin_note: body.admin_note,
+    处理后admin_note: adminNote,
+    原始surcharges: body.surcharges,
+    处理后surcharges: surcharges
+  });
+
   return {
     status: body.status || 'created',
     pcb_price: body.pcb_price || null,
     admin_price: body.admin_price || null,
-    admin_note: body.admin_note || [],
+    admin_note: adminNote, // 字符串类型
     currency: body.currency || 'CNY',
     due_date: body.due_date || null,
     pay_time: body.pay_time || null,
@@ -130,6 +183,12 @@ export async function POST(
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
   try {
+    // 验证管理员权限
+    const { isAdmin, error: authError } = await verifyAdminRole(supabase);
+    if (!isAdmin) {
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { sendNotification = false, notificationType = 'order_created', userEmail, ...otherFields } = body;
 
@@ -154,16 +213,30 @@ export async function POST(
     };
 
     // 4. 创建管理员订单
-    const { error: createError } = await supabase
+    // 调试日志：检查即将插入到数据库的数据
+    console.log('🔍 即将插入到数据库的数据:', {
+      admin_note: insertData.admin_note,
+      surcharges: insertData.surcharges,
+      user_order_id: insertData.user_order_id
+    });
+    
+    const { data: createdData, error: createError } = await supabase
       .from(ADMIN_ORDER)
       .insert(insertData)
       .select()
       .single();
 
     if (createError) {
-      console.error('Error creating admin order:', createError);
+      console.error('❌ 创建管理员订单失败:', createError);
       return NextResponse.json({ error: createError.message }, { status: 500 });
     }
+    
+    // 调试日志：确认数据库插入结果
+    console.log('✅ 管理员订单创建成功:', {
+      admin_note: createdData?.admin_note,
+      surcharges: createdData?.surcharges,
+      id: createdData?.id
+    });
 
     // 5. 更新用户订单状态
     const userOrderUpdateData: Record<string, unknown> = {
@@ -217,6 +290,12 @@ export async function PATCH(
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
   try {
+    // 验证管理员权限
+    const { isAdmin, error: authError } = await verifyAdminRole(supabase);
+    if (!isAdmin) {
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { sendNotification = false, notificationType = 'order_updated', userEmail, ...otherFields } = body;
 
@@ -237,7 +316,14 @@ export async function PATCH(
       updated_at: new Date().toISOString(),
     });
     
-    const { error: updateError } = await supabase
+    // 调试日志：检查即将更新到数据库的数据
+    console.log('🔍 即将更新到数据库的字段:', {
+      admin_note: updateFields.admin_note,
+      surcharges: updateFields.surcharges,
+      adminOrderId: adminOrder.id
+    });
+    
+    const { data: updatedData, error: updateError } = await supabase
       .from(ADMIN_ORDER)
       .update(updateFields)
       .eq('id', adminOrder.id)
@@ -245,8 +331,15 @@ export async function PATCH(
       .single();
     
     if (updateError) {
+      console.error('❌ 数据库更新失败:', updateError);
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
+    
+    // 调试日志：确认数据库更新结果
+    console.log('✅ 数据库更新成功:', {
+      admin_note: updatedData?.admin_note,
+      surcharges: updatedData?.surcharges
+    });
 
     // 3. 更新用户订单状态
     const userOrderUpdateData: Record<string, unknown> = {

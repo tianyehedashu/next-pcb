@@ -6,10 +6,27 @@ import { createForm, onFieldValueChange } from "@formily/core";
 import { FormProvider, createSchemaField, useForm } from "@formily/react";
 import { formilyComponents } from "@/app/quote2/components/FormilyComponents";
 import FormFieldLayout from "@/app/quote2/components/FormFieldLayout";
-import { Trash2, Plus, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { Trash2, Plus, Clock, CheckCircle, AlertTriangle, Mail, Send } from "lucide-react";
 import OrderStepBar from "@/components/ui/OrderStepBar";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select as ShadSelect,
+  SelectContent as ShadSelectContent,
+  SelectItem as ShadSelectItem,
+  SelectTrigger as ShadSelectTrigger,
+  SelectValue as ShadSelectValue,
+} from "@/components/ui/select";
 
 // 加价项类型定义
 interface SurchargeItem {
@@ -699,7 +716,7 @@ const SchemaField = createSchemaField({
 
 interface AdminOrderFormProps {
   initialValues: Record<string, unknown>;
-  onSave: (values: Record<string, unknown>) => void;
+  onSave: (values: Record<string, unknown>, options?: { sendNotification?: boolean; notificationType?: string }) => void;
   onRecalc: (values: Record<string, unknown>) => void;
   onCalcPCB?: (values: Record<string, unknown>) => void;
   onCalcDelivery?: (values: Record<string, unknown>) => void;
@@ -708,6 +725,7 @@ interface AdminOrderFormProps {
   submitButtonText?: string;
   hideActionButtons?: boolean;
   onStatusChange?: (newStatus: string) => void; // 新增：状态变更回调
+
 }
 
 export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onCalcDelivery, onCalcShipping, readOnly, submitButtonText, hideActionButtons, onStatusChange }: AdminOrderFormProps) {
@@ -877,17 +895,108 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
           ))}
 
           {!hideActionButtons && (
-            <div className="sticky bottom-0 bg-white py-2 z-10">
+            <div className="sticky bottom-0 bg-white py-4 px-2 border-t z-10">
               {/* 主要操作按钮 */}
               <div className="flex gap-2 justify-end">
-                <Button type="button" onClick={() => onSave(form.values)} disabled={!isEdit}>
-                  {submitButtonText || '保存'}
+                <Button variant="outline" type="button" onClick={() => {
+                  onSave(form.values);
+                }} disabled={!isEdit}>
+                  {submitButtonText || '仅保存'}
                 </Button>
+
+                <SaveAndNotifyDialog 
+                  onConfirm={(notificationType) => {
+                    onSave(form.values, { sendNotification: true, notificationType });
+                  }}
+                >
+                  <Button type="button" disabled={!isEdit} className="bg-blue-600 hover:bg-blue-700">
+                    <Mail className="mr-2 h-4 w-4" />
+                    {submitButtonText ? `${submitButtonText}并通知` : '保存并通知'}
+                  </Button>
+                </SaveAndNotifyDialog>
               </div>
             </div>
           )}
         </FormProvider>
       </CardContent>
     </Card>
+  );
+}
+
+// 邮件通知类型配置
+const EMAIL_NOTIFICATION_TYPES = {
+  order_updated: {
+    label: '订单更新通知',
+    description: '通知客户订单信息已更新',
+    icon: '📝',
+  },
+  payment_received: {
+    label: '付款确认通知',
+    description: '通知客户付款已确认，生产即将开始',
+    icon: '💰',
+  },
+  order_shipped: {
+    label: '订单发货通知',
+    description: '通知客户订单已发货',
+    icon: '📦',
+  },
+  order_completed: {
+    label: '订单完成通知',
+    description: '通知客户订单已完成并交付',
+    icon: '✅',
+  }
+} as const;
+
+// 新增：保存并通知对话框
+function SaveAndNotifyDialog({ onConfirm, children }: { onConfirm: (notificationType: string) => void, children: React.ReactNode }) {
+  const [notificationType, setNotificationType] = useState('order_updated');
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>发送邮件通知</DialogTitle>
+          <DialogDescription>
+            保存订单后，将向客户发送一封邮件通知。请选择合适的通知类型。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="notification-type" className="text-right">
+              通知类型
+            </Label>
+            <div className="col-span-3">
+              <ShadSelect value={notificationType} onValueChange={setNotificationType}>
+                <ShadSelectTrigger id="notification-type">
+                  <ShadSelectValue placeholder="选择通知类型..." />
+                </ShadSelectTrigger>
+                <ShadSelectContent>
+                  {Object.entries(EMAIL_NOTIFICATION_TYPES).map(([key, info]) => (
+                    <ShadSelectItem key={key} value={key}>
+                      <div className="flex items-center gap-2">
+                        <span>{info.icon}</span>
+                        <span>{info.label}</span>
+                      </div>
+                    </ShadSelectItem>
+                  ))}
+                </ShadSelectContent>
+              </ShadSelect>
+            </div>
+          </div>
+          {notificationType && (
+            <div className="col-span-4 ml-auto text-sm text-gray-500 p-2 bg-gray-50 rounded-md w-full">
+              {EMAIL_NOTIFICATION_TYPES[notificationType as keyof typeof EMAIL_NOTIFICATION_TYPES].description}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button onClick={() => onConfirm(notificationType)}>
+            <Send className="mr-2 h-4 w-4" />
+            确认发送
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 } 

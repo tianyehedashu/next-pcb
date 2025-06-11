@@ -8,8 +8,6 @@ create table if not exists public.pcb_quotes (
   shipping_address jsonb, -- 收货地址信息
   gerber_file_url text, -- Gerber文件URL
   status varchar(50) default 'pending', -- 订单状态: pending, quoted, confirmed, cancelled
-  admin_quote_price decimal(10,2), -- 管理员报价
-  admin_notes text, -- 管理员备注
   created_at timestamp with time zone default timezone('utc'::text, now()),
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );

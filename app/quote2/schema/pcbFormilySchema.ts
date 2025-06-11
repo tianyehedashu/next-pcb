@@ -205,10 +205,17 @@ export const pcbFormilySchema: ISchema = {
         fulfill: {
           state: {
             visible: "{{$deps[0] === 'single'}}",
-            display: "{{$deps[0] === 'single' ? 'visible' : 'none'}}"
+            display: "{{$deps[0] === 'single' ? 'visible' : 'none'}}",
+            required: "{{$deps[0] === 'single'}}"
           }
         }
-      }
+      },
+      "x-validator": [
+        {
+          required: true,
+          message: "Quantity is required when shipment type is single"
+        }
+      ]
     },
 
     panelDimensions: fullWidth({
@@ -252,9 +259,16 @@ export const pcbFormilySchema: ISchema = {
           dependencies: ["shipmentType"],
           fulfill: {
             state: {
-              visible: "{{$deps[0] === 'panel_by_gerber' || $deps[0] === 'panel_by_speedx'}}"
+              visible: "{{$deps[0] === 'panel_by_gerber' || $deps[0] === 'panel_by_speedx'}}",
+              required: "{{$deps[0] === 'panel_by_gerber' || $deps[0] === 'panel_by_speedx'}}"
             }
           }
+        }
+      ],
+      "x-validator": [
+        {
+          required: true,
+          message: "Panel quantity is required when shipment type is panel"
         }
       ]
     },

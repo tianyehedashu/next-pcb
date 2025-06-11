@@ -6,6 +6,7 @@ import { useUserStore } from '@/lib/userStore';
 import JSZip from 'jszip';
 import whatsThatGerber from 'whats-that-gerber';
 import gerberParser from 'gerber-parser';
+import { useQuoteStore } from '@/lib/stores/quote-store';
 
 const initialState: FileUploadState = {
   file: null,
@@ -177,13 +178,23 @@ async function analyzeGerberPackage(file: File): Promise<FrontendAnalysisResult>
 
 // --- End Refactored Analysis Logic ---
 
+// 生成会话ID，用于标识当前浏览器会话
+const getSessionId = () => {
+  let sessionId = sessionStorage.getItem('upload-session-id');
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    sessionStorage.setItem('upload-session-id', sessionId);
+  }
+  return sessionId;
+};
 
 // 工具函数：上传文件到Supabase
 async function uploadFileToSupabase(file: File, user: { id?: string; email?: string } | null): Promise<SupabaseUploadResult> {
     // 生成UUID并保留原始文件名
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 10);
-    const uuid = `${timestamp}-${randomStr}`;
+    const sessionId = getSessionId();
+    const uuid = `${timestamp}-${randomStr}-${sessionId}`;
     const originalName = file.name;
     
     // 添加用户信息到文件路径
@@ -214,6 +225,7 @@ async function uploadFileToSupabase(file: File, user: { id?: string; email?: str
       if (!publicUrlData || !publicUrlData.publicUrl) {
       return { success: false, url: null, error: 'Failed to get public URL after upload.' };
     }
+    
     return { success: true, url: publicUrlData.publicUrl, error: null };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error during upload';
@@ -225,30 +237,31 @@ async function uploadFileToSupabase(file: File, user: { id?: string; email?: str
 export function useFileUpload() {
   const [uploadState, setUploadState] = useState<FileUploadState>(initialState);
   const user = useUserStore(state => state.user);
+  const { updateFormData } = useQuoteStore();
 
   // 调试：监听组件挂载和卸载
   useEffect(() => {
-    console.log('=== useFileUpload hook mounted ===');
     return () => {
-      console.log('=== useFileUpload hook unmounted ===');
+      // Hook cleanup
     };
   }, []);
 
-  // 调试：监听 uploadState 的所有变化
+  // 新增：当文件上传成功时，立即同步到 quote store
   useEffect(() => {
-    console.log('=== useFileUpload uploadState changed ===');
-    console.log('Status:', uploadState.uploadStatus);
-    console.log('URL:', uploadState.uploadUrl);
-    console.log('File:', uploadState.file?.name || 'No file');
-    console.log('Error:', uploadState.uploadError);
-    console.log('Full state:', uploadState);
-  }, [uploadState]);
+    if (uploadState.uploadUrl && uploadState.uploadUrl.trim() !== '' && uploadState.uploadStatus === 'success') {
+      // 额外验证：确保是有效的 Supabase URL
+      const isValidSupabaseUrl = uploadState.uploadUrl.includes('supabase.co/storage') && 
+                                uploadState.uploadUrl.includes('gerber_uploads');
+      
+      if (isValidSupabaseUrl) {
+        // 立即更新 store，确保 gerberUrl 被保存
+        updateFormData({ gerberUrl: uploadState.uploadUrl || undefined });
+      }
+    }
+  }, [uploadState.uploadUrl, uploadState.uploadStatus, updateFormData]);
 
   // 选择文件并自动分析+上传
   const handleFileSelect = useCallback(async (file: File) => {
-    console.log('=== handleFileSelect called with file:', file.name);
-    console.log('Current uploadState before reset:', uploadState);
-    
     // 完全重置状态，包括清空之前的uploadUrl
     const resetState = { 
       ...initialState, 
@@ -256,7 +269,6 @@ export function useFileUpload() {
       uploadStatus: 'parsing' as const,
       uploadUrl: null // 确保清空之前的URL
     };
-    console.log('=== Resetting upload state, clearing previous uploadUrl ===');
     setUploadState(resetState);
     
     let analysisResult: FrontendAnalysisResult | null = null;
@@ -276,12 +288,10 @@ export function useFileUpload() {
     }
  
     // 自动上传（无论分析是否成功）
-    console.log('=== Starting file upload to Supabase ===');
     setUploadState(prev => ({ ...prev, uploadStatus: 'uploading-supabase', uploadError: null }));
     const uploadResult = await uploadFileToSupabase(file, user);
     if (uploadResult.success) {
-      console.log('=== File upload successful ===');
-      console.log('Upload URL:', uploadResult.url);
+      updateFormData({ gerberUrl: uploadResult.url || undefined });
       setUploadState(prev => ({ 
         ...prev, 
         uploadStatus: 'success', 
@@ -290,10 +300,7 @@ export function useFileUpload() {
         uploadProgress: 100, 
         analysisResult: analysisResult || prev.analysisResult 
       }));
-      console.log('Upload state updated with NEW URL:', uploadResult.url);
     } else {
-      console.log('=== File upload failed ===');
-      console.log('Upload error:', uploadResult.error);
       setUploadState(prev => ({ 
         ...prev, 
         uploadStatus: 'error', 
@@ -302,7 +309,7 @@ export function useFileUpload() {
         analysisResult: analysisResult || prev.analysisResult 
       }));
     }
-  }, [user]);
+  }, [user, updateFormData]);
 
   // 重试逻辑
   const retryUpload = useCallback(async () => {
@@ -328,11 +335,8 @@ export function useFileUpload() {
 
   // 清空
   const clearFile = useCallback(() => {
-    console.log('=== clearFile called ===');
-    console.log('Previous state before clearing:', uploadState);
-    console.trace('Call stack for clearFile');
     setUploadState(initialState);
-  }, [uploadState]);
+  }, []);
 
   // 兼容外部调用
   const initiateUpload = useCallback(async (file: File) => {

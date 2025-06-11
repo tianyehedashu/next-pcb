@@ -379,6 +379,7 @@ export function QuoteForm() {
   const [showLoginSuggestDialog, setShowLoginSuggestDialog] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [showErrorDialog, setShowErrorDialog] = React.useState(false);
+ 
 
   // 使用 useMemo 缓存表单实例
   const formInstance = React.useMemo(() => {
@@ -392,8 +393,18 @@ export function QuoteForm() {
           if (isUpdatingFromHydrationRef.current) return;
           requestAnimationFrame(() => {
             const storeData = useQuoteStore.getState().formData;
-            if (JSON.stringify(formInstance.values) !== JSON.stringify(storeData)) {
-              updateFormData(formInstance.values);
+            const formValues = formInstance.values;
+            
+            // 检查是否真的有变化
+            if (JSON.stringify(formValues) !== JSON.stringify(storeData)) {
+              // 保护 gerberUrl：如果表单中的 gerberUrl 为空，但 store 中有值，则保留 store 中的值
+              const updatedValues = { ...formValues };
+              if ((!updatedValues.gerberUrl || updatedValues.gerberUrl.trim() === '') && 
+                  storeData.gerberUrl && storeData.gerberUrl.trim() !== '') {
+                updatedValues.gerberUrl = storeData.gerberUrl;
+              }
+              
+              updateFormData(updatedValues);
             }
           });
         });
@@ -419,25 +430,8 @@ export function QuoteForm() {
       isUpdatingFromHydrationRef.current = true;
       const storeData = useQuoteStore.getState().formData;
       
-      console.log('=== Hydration Process Started ===');
-      console.log('Store gerberUrl:', storeData.gerberUrl);
-      console.log('Current uploadState:', { 
-        file: uploadState.file?.name, 
-        status: uploadState.uploadStatus, 
-        uploadUrl: uploadState.uploadUrl 
-      });
-      
-      // 水合时排除gerberUrl，让文件上传逻辑独立管理
-      console.log('=== Hydration excluding gerberUrl, letting file upload manage it independently ===');
-      
-      // 手动创建不包含gerberUrl的对象
-      const { gerberUrl, ...hydrationData } = storeData;
-      console.log('Excluded gerberUrl from hydration:', gerberUrl); // 使用变量避免未使用警告
-      
-      formInstance.setValues(hydrationData, undefined);
-      
-      // store也不同步gerberUrl，保持当前值
-      // updateFormData 不调用，避免覆盖任何文件上传的状态
+      // gerberUrl已经在store的onRehydrateStorage中被清空，直接同步即可
+      formInstance.setValues(storeData, undefined);
       
       isUpdatingFromHydrationRef.current = false;
     });
@@ -445,7 +439,20 @@ export function QuoteForm() {
     return () => {
       unsubscribe();
     };
-  }, [formInstance]); // 只依赖formInstance，因为水合不再管理gerberUrl或调用updateFormData
+  }, [formInstance, uploadState.file, uploadState.uploadStatus, uploadState.uploadUrl]); // 添加 uploadState 依赖
+
+  // 专门监控 uploadState 的变化，确保 gerberUrl 被正确同步
+  React.useEffect(() => {
+    if (form && uploadState.uploadUrl && uploadState.uploadUrl.trim() !== '' && uploadState.uploadStatus === 'success') {
+      // 强制同步到 store
+      updateFormData({ gerberUrl: uploadState.uploadUrl });
+      
+      // 强制同步到表单
+      form.setFieldState('gerberUrl', state => {
+        state.value = uploadState.uploadUrl || '';
+      });
+    }
+  }, [form, uploadState.uploadUrl, uploadState.uploadStatus, updateFormData]);
 
   // 使用 useMemo 缓存字段分组
   const getVisibleFieldGroups = React.useMemo(() => {
@@ -459,26 +466,44 @@ export function QuoteForm() {
   const handleSubmit = React.useCallback(async () => {
     if (!form) return;
     
-
     // 在提交前检查当前的状态
-    console.log('=== Pre-submit State Check ===');
     const currentStoreData = useQuoteStore.getState().formData;
-    console.log('Current store gerberUrl:', currentStoreData.gerberUrl);
-    console.log('Current form gerberUrl:', form.values.gerberUrl);
-    console.log('Current uploadState uploadUrl:', uploadState.uploadUrl);
-    console.log('Current uploadState status:', uploadState.uploadStatus);
+    form.setFieldState('gerberUrl', state => {
+      state.value = currentStoreData.gerberUrl || '';
+    });
     
     setIsSubmitting(true);
 
     try {
       await form.validate(); // 校验通过不抛异常
+      
+      // 已登录用户的额外验证：检查gerberUrl
+      if (user) {
+        const storeData = useQuoteStore.getState().formData;
+        const gerberFileUrl = uploadState.uploadUrl || storeData.gerberUrl || form.values.gerberUrl;
+        
+        if (!gerberFileUrl || gerberFileUrl.trim() === '') {
+          throw [{
+            title: 'Gerber File',
+            message: 'Gerber file is required for logged-in users',
+            address: 'gerberUrl',
+            path: 'gerberUrl'
+          }];
+        }
+        
+        // 如果正在上传文件，需要等待上传完成
+        if (uploadState.file && uploadState.uploadStatus !== 'success') {
+          throw [{
+            title: 'Gerber File',
+            message: 'Please wait for file upload to complete before submitting',
+            address: 'gerberUrl',
+            path: 'gerberUrl'
+          }];
+        }
+      }
+      
       setSubmitError(null); // 校验通过清空错误
       await form.submit(async (values) => {
-        console.log('=== Form Submit Started ===');
-        console.log('Form values gerberUrl:', values.gerberUrl);
-        console.log('UploadState uploadUrl:', uploadState.uploadUrl);
-        console.log('UploadState status:', uploadState.uploadStatus);
-
         // 从 store 中获取最新的 gerberUrl（最可靠），并提供多层备选
         const storeData = useQuoteStore.getState().formData;
         let gerberFileUrl: string | null = null;
@@ -486,26 +511,16 @@ export function QuoteForm() {
         // 修改优先级：优先使用最新上传成功的URL，避免使用缓存的旧URL
         if (uploadState.uploadUrl && uploadState.uploadUrl.trim() !== '' && uploadState.uploadStatus === 'success') {
           gerberFileUrl = uploadState.uploadUrl;
-          console.log('Using gerberUrl from UploadState (highest priority for fresh uploads):', gerberFileUrl);
           // 同时更新 store 以保持数据一致性
           updateFormData({ gerberUrl: uploadState.uploadUrl });
         } else if (storeData.gerberUrl && storeData.gerberUrl.trim() !== '') {
           // 只有在没有新上传文件时才使用store中的URL
           gerberFileUrl = storeData.gerberUrl;
-          console.log('Using gerberUrl from Store (cached):', gerberFileUrl);
         } else if (values.gerberUrl && values.gerberUrl.trim() !== '') {
           gerberFileUrl = values.gerberUrl;
-          console.log('Using gerberUrl from Form values:', gerberFileUrl);
         } else {
           gerberFileUrl = null;
-          console.log('No valid gerberUrl found in any source');
         }
-        
-        console.log('Final gerberFileUrl:', gerberFileUrl);
-        console.log('=== Data Sources Summary ===');
-        console.log('Priority 1 (UploadState - fresh uploads):', uploadState.uploadUrl, '(status:', uploadState.uploadStatus, ')');
-        console.log('Priority 2 (Store - cached):', storeData.gerberUrl);
-        console.log('Priority 3 (Form values):', values.gerberUrl);
 
         // 提取关键字段和地址信息，确保 pcbSpecData 包含 gerberUrl
         const { phone: userPhone, shippingAddress, ...pcbSpecData } = values;
@@ -517,22 +532,6 @@ export function QuoteForm() {
 
         if (user) {
           // 已登录用户：保存到用户账户并跳转到确认页面
-          
-          // 已登录用户必须上传gerber文件才能继续
-          if (!gerberFileUrl || gerberFileUrl.trim() === '') {
-            toast.error("Please upload Gerber file before submitting.");
-            setSubmitError("Gerber file is required for logged-in users");
-            setIsSubmitting(false);
-            return; // 中止提交
-          }
-          
-          // 如果正在上传文件，需要等待上传完成
-          if (uploadState.file && uploadState.uploadStatus !== 'success') {
-            toast.error("Please wait for file upload to complete before submitting.");
-            setSubmitError("File upload in progress");
-            setIsSubmitting(false);
-            return; // 中止提交
-          }
           
           const { data: { session } } = await supabase.auth.getSession();
           const access_token = session?.access_token;
@@ -620,12 +619,18 @@ export function QuoteForm() {
       setSubmitError(errorMessage);
       setShowErrorDialog(true); // 显示错误弹框
       
-      // 使用简单的滚动方案：滚动到第一个表单组
-      const firstGroup = document.getElementById('form-step-0');
-      if (firstGroup) {
-        firstGroup.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
+      // 智能滚动：如果是gerber文件错误，滚动到文件上传区域，否则滚动到表单顶部
+      if (errorMessage.includes('Gerber File')) {
+        // 滚动到文件上传区域
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        // 滚动到第一个表单组
+        const firstGroup = document.getElementById('form-step-0');
+        if (firstGroup) {
+          firstGroup.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       }
       
       setIsSubmitting(false);
@@ -653,22 +658,16 @@ export function QuoteForm() {
       // 修改优先级：优先使用最新上传成功的URL，避免使用缓存的旧URL
       if (uploadState.uploadUrl && uploadState.uploadUrl.trim() !== '' && uploadState.uploadStatus === 'success') {
         gerberFileUrl = uploadState.uploadUrl;
-        console.log('Using gerberUrl from UploadState (highest priority for fresh uploads):', gerberFileUrl);
         // 同时更新 store 以保持数据一致性
         updateFormData({ gerberUrl: uploadState.uploadUrl });
       } else if (storeData.gerberUrl && storeData.gerberUrl.trim() !== '') {
         // 只有在没有新上传文件时才使用store中的URL
         gerberFileUrl = storeData.gerberUrl;
-        console.log('Using gerberUrl from Store (cached):', gerberFileUrl);
       } else if (form.values.gerberUrl && form.values.gerberUrl.trim() !== '') {
         gerberFileUrl = form.values.gerberUrl;
-        console.log('Using gerberUrl from Form values:', gerberFileUrl);
       } else {
         gerberFileUrl = null;
-        console.log('No valid gerberUrl found in any source');
       }
-      
-      console.log('Guest submit - Final gerberFileUrl:', gerberFileUrl);
 
       // 验证邮箱
       if (!guestEmail.includes('@')) {

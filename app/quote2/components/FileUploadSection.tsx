@@ -41,24 +41,19 @@ export function FileUploadSection() {
   const handleFileInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // 选择新文件时，立即清空store中的缓存URL
-      console.log('=== New file selected, clearing cached gerberUrl ===');
-      updateFormData({ gerberUrl: '' });
-      
       // 选择文件后会自动解析并上传
       handleFileSelect(file);
     }
     // 清空input值，允许重复选择同一文件
     event.target.value = '';
-  }, [handleFileSelect, updateFormData]);
+  }, [handleFileSelect]);
 
   // 处理拖放
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file) {
-      // 拖放新文件时，立即清空store中的缓存URL
-      console.log('=== New file dropped, clearing cached gerberUrl ===');
+      // 清空之前的URL以确保使用新上传的文件
       updateFormData({ gerberUrl: '' });
       
       // 拖放文件后会自动解析并上传
@@ -77,14 +72,7 @@ export function FileUploadSection() {
 
   // 同步分析结果到表单
   useEffect(() => {
-    console.log('=== FileUploadSection useEffect triggered ===');
-    console.log('uploadState.analysisResult:', uploadState.analysisResult);
-    console.log('uploadState.uploadUrl:', uploadState.uploadUrl);
-    console.log('uploadState.uploadStatus:', uploadState.uploadStatus);
-    console.log('form:', !!form);
-    
     if (!form) {
-      console.log('No form instance, skipping sync');
       return;
     }
     
@@ -92,7 +80,6 @@ export function FileUploadSection() {
 
     // 1. 同步分析结果（如果存在）
     if (uploadState.analysisResult) {
-      console.log('Syncing analysis result...');
       const { analysisResult } = uploadState;
 
       // PCB尺寸
@@ -101,35 +88,28 @@ export function FileUploadSection() {
         const fixedWidth = typeof width === 'number' ? Number(width.toFixed(2)) : 0;
         const fixedHeight = typeof height === 'number' ? Number(height.toFixed(2)) : 0;
         fieldsToUpdate.singleDimensions = { length: fixedWidth, width: fixedHeight };
-        console.log('Setting dimensions:', fieldsToUpdate.singleDimensions);
       }
       
       // 层数
       if (analysisResult.layers && Array.isArray(analysisResult.layers)) {
         fieldsToUpdate.layers = analysisResult.layers.length;
-        console.log('Setting layers:', fieldsToUpdate.layers);
       }
       
       // 金手指
       if (analysisResult.hasGoldFingers !== undefined) {
         fieldsToUpdate.goldFingers = analysisResult.hasGoldFingers;
-        console.log('Setting goldFingers:', fieldsToUpdate.goldFingers);
       }
     }
 
-    // 2. 同步文件上传URL（最重要的部分）- 只要有 uploadUrl 就同步
-    if (uploadState.uploadUrl && uploadState.uploadUrl.trim() !== '') {
-      console.log('Syncing uploadUrl:', uploadState.uploadUrl);
+    // 2. 同步文件上传URL（最关键）
+    if (uploadState.uploadUrl && uploadState.uploadUrl.trim() !== '' && uploadState.uploadStatus === 'success') {
       fieldsToUpdate.gerberUrl = uploadState.uploadUrl;
     }
 
     // 3. 批量更新 store 和表单
     if (Object.keys(fieldsToUpdate).length > 0) {
-      console.log('=== Updating store and form with fields ===', fieldsToUpdate);
-      
       // 先更新 store（确保数据持久化）
       updateFormData(fieldsToUpdate);
-      console.log('Store updated');
       
       // 再更新表单字段，使用 setTimeout 确保在下一个事件循环中执行
       setTimeout(() => {
@@ -143,7 +123,6 @@ export function FileUploadSection() {
                   width: Number(dims.width) || 0
                 };
               });
-              console.log('Form field singleDimensions updated');
             } else {
               form.setFieldState(key, state => {
                 if (key === 'layers') {
@@ -156,60 +135,14 @@ export function FileUploadSection() {
                   state.value = value;
                 }
               });
-              console.log(`Form field ${key} updated to:`, value);
             }
           } catch (error) {
             console.error(`Error updating form field ${key}:`, error);
           }
         });
-        
-        console.log('=== Sync completed ===');
-        console.log('Current form values after timeout:', form.values);
-        console.log('Current store gerberUrl after timeout:', useQuoteStore.getState().formData.gerberUrl);
       }, 0);
-    } else {
-      console.log('No fields to update');
     }
   }, [uploadState.analysisResult, uploadState.uploadUrl, uploadState.uploadStatus, form, updateFormData]);
-
-  // 专门监听文件上传成功的 effect，确保立即同步 uploadUrl
-  useEffect(() => {
-    if (uploadState.uploadUrl && uploadState.uploadUrl.trim() !== '' && form) {
-      console.log('=== Upload URL Detected ===');
-      console.log('Immediately syncing uploadUrl to form and store:', uploadState.uploadUrl);
-      console.log('Current status:', uploadState.uploadStatus);
-      
-      // 立即更新 store - 确保最新的URL被保存，即使在水合之后
-      updateFormData({ gerberUrl: uploadState.uploadUrl });
-      
-      // 立即更新表单，强制覆盖任何可能的缓存值
-      form.setFieldState('gerberUrl', state => {
-        state.value = uploadState.uploadUrl || '';
-      });
-      
-      // 添加延迟同步，确保在所有异步操作完成后再次确认同步
-      setTimeout(() => {
-        console.log('=== Delayed sync verification ===');
-        const currentFormValue = form.getFieldState('gerberUrl')?.value;
-        const currentStoreValue = useQuoteStore.getState().formData.gerberUrl;
-        
-        console.log('Form gerberUrl after delay:', currentFormValue);
-        console.log('Store gerberUrl after delay:', currentStoreValue);
-        console.log('Expected uploadUrl:', uploadState.uploadUrl);
-        
-        // 如果发现不一致，强制再次同步
-        if (uploadState.uploadUrl && (currentFormValue !== uploadState.uploadUrl || currentStoreValue !== uploadState.uploadUrl)) {
-          console.log('=== Inconsistency detected, forcing re-sync ===');
-          updateFormData({ gerberUrl: uploadState.uploadUrl });
-          form.setFieldState('gerberUrl', state => {
-            state.value = uploadState.uploadUrl || '';
-          });
-        }
-      }, 100); // 100ms延迟确保所有同步操作完成
-      
-      console.log('Immediate sync completed - new URL should override any cached values');
-    }
-  }, [uploadState.uploadUrl, uploadState.uploadStatus, form, updateFormData]);
 
   const hasFile = !!uploadState.file;
 

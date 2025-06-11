@@ -23,23 +23,16 @@ const menu = [
   {
     title: "My Orders",
     items: [
-      { label: "My NextPCB", href: "/profile", icon: User },
+      { label: "My Speedxpcb", href: "/profile", icon: User },
       { label: "My Shopping Cart", href: "/profile/cart", icon: ShoppingCart },
       { label: "Pay the difference", href: "/profile/pay-diff", icon: CreditCard },
       { label: "All Orders", href: "/profile/orders", icon: List },
       { label: "Unfinished Payment", href: "/profile/unfinished", icon: CreditCard },
-      { label: "DFA Review", href: "/profile/dfa-review", icon: ClipboardList },
       { label: "Production Status", href: "/profile/production-status", icon: Package },
       { label: "Delivery", href: "/profile/delivery", icon: Truck },
       { label: "Awaiting Feedback", href: "/profile/feedback", icon: MessageCircle },
       { label: "Complete", href: "/profile/complete", icon: List },
       { label: "Refunds & Disputes", href: "/profile/refunds", icon: HelpCircle },
-    ],
-  },
-  {
-    title: "Engineer Questions (EQ)",
-    items: [
-      { label: "EQ List", href: "/profile/eq", icon: List },
     ],
   },
   {

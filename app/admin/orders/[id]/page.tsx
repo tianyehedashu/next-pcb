@@ -9,7 +9,6 @@ import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
 import { calcPcbPriceV3 } from '@/lib/pcb-calc-v3';
 import { OrderOverviewTabs } from '@/app/admin/components/OrderOverviewTabs';
 import { AdminOrderForm } from '@/app/admin/components/AdminOrderForm';
-import { AdminOrderActions } from '@/app/admin/components/AdminOrderActions';
 import { Order, AdminOrder } from '@/app/admin/types/order';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 
@@ -61,7 +60,7 @@ export default function AdminOrderDetailPage() {
     ship_price: '',
     custom_duty: '',
     coupon: 0,
-    admin_note: '',
+    admin_note: '', // 确保默认值是字符串
     surcharges: [],
   };
 
@@ -109,6 +108,8 @@ export default function AdminOrderDetailPage() {
           due_date: admin.due_date ? String(admin.due_date).split('T')[0] : '',
           delivery_date: admin.delivery_date ? String(admin.delivery_date).split('T')[0] : '',
           surcharges: Array.isArray(admin.surcharges) ? admin.surcharges : [],
+          // 确保 admin_note 存在且为字符串类型
+          admin_note: admin.admin_note ? String(admin.admin_note) : '',
         }))
       );
     } else {
@@ -130,9 +131,12 @@ export default function AdminOrderDetailPage() {
   const handleSave = async (values: Record<string, unknown>, options?: { sendNotification?: boolean; notificationType?: string }) => {
     if (!orderId) return;
     try {
-      // 清理和验证数据
-      const cleanedValues = { ...values };
-      
+      // 添加详细的调试日志：检查接收到的原始数据
+      console.log('🔍 前端接收到的原始表单数据:', values);
+
+      // ❗️ 重要：将 Formily 的 Proxy 对象转换为普通对象
+      const cleanedValues = JSON.parse(JSON.stringify(values));
+
       // 确保 surcharges 是一个有效的数组
       if (cleanedValues.surcharges) {
         if (typeof cleanedValues.surcharges === 'string') {
@@ -147,6 +151,23 @@ export default function AdminOrderDetailPage() {
       } else {
         cleanedValues.surcharges = [];
       }
+
+      // 确保 admin_note 是字符串类型
+      if (cleanedValues.admin_note !== undefined && cleanedValues.admin_note !== null) {
+        cleanedValues.admin_note = String(cleanedValues.admin_note);
+      } else {
+        // 如果是 undefined 或 null，设置为空字符串
+        cleanedValues.admin_note = '';
+      }
+
+      // 调试日志：检查发送的数据
+      console.log('🔍 发送到API的数据:', {
+        admin_note: cleanedValues.admin_note,
+        admin_note_length: typeof cleanedValues.admin_note === 'string' ? cleanedValues.admin_note.length : 0,
+        surcharges: cleanedValues.surcharges,
+        surcharges_length: Array.isArray(cleanedValues.surcharges) ? cleanedValues.surcharges.length : 0,
+        method: isAdminOrderCreated ? 'PATCH' : 'POST'
+      });
 
       // 添加邮件通知选项和用户邮箱
       if (options?.sendNotification) {
@@ -187,7 +208,10 @@ export default function AdminOrderDetailPage() {
       
       const successMessage = isAdminOrderCreated ? '✅ 管理员订单保存成功' : '✅ 管理员订单创建成功';
       const emailMessage = options?.sendNotification ? ' 并已发送邮件通知' : '';
-      toast.success(successMessage + emailMessage);
+      toast.success(successMessage + emailMessage, {
+        description: isAdminOrderCreated ? '订单信息已更新' : '管理员订单已创建',
+        duration: 3000
+      });
       
       // 重新获取订单数据
       const updatedOrder = await fetchOrder();
@@ -195,7 +219,14 @@ export default function AdminOrderDetailPage() {
       // 强制重新初始化表单数据
       if (updatedOrder?.admin_orders) {
         const adminOrders = getAdminOrders(updatedOrder.admin_orders);
-        setAdminOrderEdits(adminOrders.map(admin => ({ ...admin })));
+        setAdminOrderEdits(adminOrders.map(admin => ({ 
+          ...admin,
+          due_date: admin.due_date ? String(admin.due_date).split('T')[0] : '',
+          delivery_date: admin.delivery_date ? String(admin.delivery_date).split('T')[0] : '',
+          surcharges: Array.isArray(admin.surcharges) ? admin.surcharges : [],
+          // 确保 admin_note 存在且为字符串类型
+          admin_note: admin.admin_note ? String(admin.admin_note) : '',
+        })));
       }
       
       hasInitAdminOrderEdits.current = true;
@@ -252,9 +283,10 @@ export default function AdminOrderDetailPage() {
       const exchange_rate = Number(values.exchange_rate) || 7.2;
       const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
       
-      setAdminOrderEdits([
+      setAdminOrderEdits(prev => [
         {
-          ...values,
+          ...prev[0], // 保留现有的表单数据
+          ...values,   // 包含用户输入的最新数据
           pcb_price,
           cny_price,
           admin_price,
@@ -319,9 +351,10 @@ export default function AdminOrderDetailPage() {
               ]
             });
             
-            setAdminOrderEdits([
+            setAdminOrderEdits(prev => [
               {
-                ...values,
+                ...prev[0], // 保留现有的表单数据
+                ...values,   // 包含用户输入的最新数据
                 production_days: newProductionDays,
                 delivery_date: deliveryDate,
                 ship_price: finalShippingCost,
@@ -401,9 +434,10 @@ export default function AdminOrderDetailPage() {
     const exchange_rate = Number(values.exchange_rate) || 7.2;
     const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
     
-    setAdminOrderEdits([
+    setAdminOrderEdits(prev => [
       {
-        ...values,
+        ...prev[0], // 保留现有的表单数据
+        ...values,   // 包含用户输入的最新数据
         production_days: newProductionDays,
         delivery_date: deliveryDate,
         ship_price: estimatedShippingCost,
@@ -454,9 +488,10 @@ export default function AdminOrderDetailPage() {
           });
           setShowShippingNotes(true);
           
-          setAdminOrderEdits([
+          setAdminOrderEdits(prev => [
             {
-              ...values,
+              ...prev[0], // 保留现有的表单数据
+              ...values,   // 包含用户输入的最新数据
               ship_price: finalShippingCost,
             },
           ]);
@@ -505,9 +540,10 @@ export default function AdminOrderDetailPage() {
       });
       setShowShippingNotes(true);
       
-      setAdminOrderEdits([
+      setAdminOrderEdits(prev => [
         {
-          ...values,
+          ...prev[0], // 保留现有的表单数据
+          ...values,   // 包含用户输入的最新数据
           ship_price: estimatedShippingCost,
         },
       ]);
@@ -573,9 +609,10 @@ export default function AdminOrderDetailPage() {
       const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
       
       // 先更新PCB相关计算结果
-      setAdminOrderEdits([
+      setAdminOrderEdits(prev => [
         {
-          ...updatedValues,
+          ...prev[0], // 保留现有的表单数据
+          ...updatedValues, // 包含更新后的PCB价格
           cny_price,
           admin_price,
         },
@@ -933,23 +970,8 @@ export default function AdminOrderDetailPage() {
               </div>
             )}
             
-            {/* 操作控制面板 */}
-            <div className="sticky top-6">
-                          <AdminOrderActions
-              values={adminOrderEdits[0] || {}}
-              onSave={handleSave}
-              onRecalc={handleRecalc}
-              onCalcPCB={handleCalcPCB}
-              onCalcDelivery={handleCalcDelivery}
-              onCalcShipping={handleCalcShipping}
-              isAdminOrderCreated={isAdminOrderCreated}
-              disabled={loading}
-              onStatusChange={handleStatusChange}
-            />
-            </div>
-
             {/* 管理员表单 */}
-            <div>
+            <div className="sticky top-6">
                           <AdminOrderForm
               initialValues={adminOrderEdits[0] || {}}
               onSave={handleSave}
@@ -959,7 +981,7 @@ export default function AdminOrderDetailPage() {
               onCalcShipping={handleCalcShipping}
               readOnly={false}
               submitButtonText={isAdminOrderCreated ? '保存' : '创建'}
-              hideActionButtons={true}
+              hideActionButtons={false}
               onStatusChange={handleStatusChange}
             />
             </div>

@@ -26,7 +26,7 @@ export interface AdminOrder {
   pcb_price?: number | string | null;
   admin_price?: number | string | null;
   cny_price?: number | string | null;
-  admin_note?: string | string[] | null;
+  admin_note?: string | null;
   currency?: string | null;
   due_date?: string | null;
   pay_time?: string | null;
