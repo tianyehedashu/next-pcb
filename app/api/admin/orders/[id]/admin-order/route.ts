@@ -104,10 +104,7 @@ async function sendEmailNotification(
 ) {
   try {
     // 获取基础URL，支持多种环境变量
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 
-                   process.env.SITE_URL || 
-                   'https://www.speedxpcb.com/';
+    const baseUrl =process.env.NEXT_PUBLIC_SITE_URL || 'https://www.speedxpcb.com';
     
     const orderUrl = `${baseUrl}/profile/orders/${orderId}`;
     
