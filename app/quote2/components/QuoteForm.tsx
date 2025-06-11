@@ -418,108 +418,7 @@ export function QuoteForm() {
   const handleSubmit = React.useCallback(async () => {
     if (!form) return;
     
-    // 滚动到错误字段的函数 - 适配Formily自定义组件
-    const scrollToErrorField = (fieldName: string) => {
-      // 尝试多种选择器来定位Formily自定义组件
-      const selectors = [
-        // Formily字段容器
-        `[data-field-path="${fieldName}"]`,
-        `[data-field="${fieldName}"]`,
-        // 字段包装器
-        `[data-testid="${fieldName}"]`,
-        `[data-formily-field="${fieldName}"]`,
-        // 输入元素本身
-        `[name="${fieldName}"]`,
-        `#${fieldName}`,
-        // 字段标题或标签
-        `[for="${fieldName}"]`,
-        // FormItem容器（常见的Formily结构）
-        `.formily-element[data-path="${fieldName}"]`,
-        `.formily-field[data-path="${fieldName}"]`,
-        // Ant Design/自定义UI容器
-        `[data-field-name="${fieldName}"]`,
-        // 特殊处理的字段
-        ...(fieldName === 'pcbNote' ? [
-          'textarea[placeholder*="layout"]',
-          'textarea[placeholder*="Note"]',
-          'textarea[placeholder*="2up"]',
-          '.formily-textarea-field',
-          '.group textarea',
-          '[data-field-name="pcbNote"] textarea',
-          'div:has(textarea[placeholder*="layout"]) textarea'
-        ] : [])
-      ];
 
-      // 逐个尝试选择器
-      for (const selector of selectors) {
-        const element = document.querySelector(selector) as HTMLElement;
-        if (element) {
-          // 平滑滚动到字段
-          element.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center',
-            inline: 'nearest'
-          });
-          
-          // 尝试聚焦（如果是可聚焦元素）
-          try {
-            if (element.focus) {
-              element.focus();
-            }
-          } catch {
-            // 忽略聚焦错误
-          }
-          
-          // 添加视觉高亮
-          element.classList.add('ring-2', 'ring-red-400', 'ring-opacity-50');
-          setTimeout(() => {
-            element.classList.remove('ring-2', 'ring-red-400', 'ring-opacity-50');
-          }, 3000);
-          
-          return true; // 成功定位并跳转
-        }
-      }
-
-      // 如果找不到具体字段，尝试跳转到对应的表单组
-      const fieldToGroupMap: Record<string, number> = {
-        'pcbType': 0, 'layers': 0, 'useShengyiMaterial': 0, 'thickness': 0, 'tg': 0,
-        'differentDesignsCount': 0, 'singleDimensions': 0, 'shipmentType': 0,
-        'singleCount': 0, 'panelDimensions': 0, 'panelSet': 0, 'breakAwayRail': 0,
-        'borderCutType': 0, 'border': 0, 'pcbNote': 0,
-        'outerCopperWeight': 1, 'innerCopperWeight': 1, 'minTrace': 1, 'minHole': 1,
-        'solderMask': 1, 'silkscreen': 1, 'surfaceFinish': 1, 'surfaceFinishEnigType': 1,
-        'impedance': 1, 'goldFingers': 1, 'goldFingersBevel': 1,
-        'maskCover': 1, 'edgePlating': 1, 'edgeCover': 1,
-        'hdi': 2, 'castellated': 2, 'testMethod': 2, 'workingGerber': 2,
-        'productReport': 2, 'ulMark': 2, 'crossOuts': 2, 'ipcClass': 2, 'ifDataConflicts': 2,
-        'delivery': 2, 'specialRequests': 2,
-        'shippingCostEstimation': 3,
-        'shippingAddress': 4
-      };
-
-      const groupIndex = fieldToGroupMap[fieldName];
-      if (groupIndex !== undefined) {
-        const groupElement = document.getElementById(`form-step-${groupIndex}`);
-        if (groupElement) {
-          groupElement.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start',
-            inline: 'nearest'
-          });
-          
-          // 添加组级视觉提示
-          groupElement.classList.add('animate-pulse', 'ring-2', 'ring-red-300', 'ring-opacity-30');
-          setTimeout(() => {
-            groupElement.classList.remove('animate-pulse', 'ring-2', 'ring-red-300', 'ring-opacity-30');
-          }, 3000);
-          
-          return true;
-        }
-      }
-
-      return false; // 未能定位到字段
-    };
-    
     // 在提交前检查当前的状态
     console.log('=== Pre-submit State Check ===');
     const currentStoreData = useQuoteStore.getState().formData;
@@ -628,89 +527,177 @@ export function QuoteForm() {
         }
       });
     } catch (err: unknown) {
-      // 校验失败，优雅处理错误提示并滚动到错误字段
-      console.error('Form validation error:', err);
+      // Debug: 详细打印错误信息
+      console.log('=== Form Validation Error Debug ===');
+      console.log('Error type:', typeof err);
+      console.log('Is array:', Array.isArray(err));
+      console.log('Error value:', err);
       
-      let msg = 'Please check the form fields';
-      let errorFieldName = '';
+      if (Array.isArray(err)) {
+        console.log('Array length:', err.length);
+        if (err.length > 0) {
+          console.log('First error:', err[0]);
+          console.log('First error type:', typeof err[0]);
+          if (typeof err[0] === 'object') {
+            console.log('First error keys:', Object.keys(err[0] as object));
+          }
+        }
+      }
       
-      if (err && typeof err === 'object') {
+      let errorMessage = 'Please fill in all required fields.';
+      
+      // Formily 验证错误通常是一个数组
+      if (Array.isArray(err) && err.length > 0) {
+        const firstError = err[0];
+        if (firstError && typeof firstError === 'object') {
+          const errorObj = firstError as Record<string, unknown>;
+          console.log('Processing first error object:', errorObj);
+          
+          // 提取字段标题和错误信息
+          const fieldTitle = errorObj.title || errorObj.address || errorObj.path || 'Field';
+          console.log('Extracted field title:', fieldTitle);
+          
+          errorMessage = `${fieldTitle}: This field is required`;
+        }
+      } else if (err && typeof err === 'object') {
         const errorObj = err as Record<string, unknown>;
-        
-        // Debug: 打印完整的错误对象结构
-        console.log('Error object structure:', {
-          keys: Object.keys(errorObj),
-          errorObj: errorObj,
-          title: errorObj.title,
-          address: errorObj.address,
-          path: errorObj.path,
-          message: errorObj.message,
-          decoratorProps: errorObj.decoratorProps
-        });
-        
-        // 获取错误字段名
-        if (errorObj.address) {
-          errorFieldName = String(errorObj.address);
-        } else if (errorObj.path) {
-          errorFieldName = String(errorObj.path);
-        }
-        
-        // 获取字段标题
-        let fieldTitle = 'Field';
-        if (errorObj.title && typeof errorObj.title === 'string') {
-          fieldTitle = errorObj.title;
-        } else if (errorObj.decoratorProps && typeof errorObj.decoratorProps === 'object') {
-          const decoratorProps = errorObj.decoratorProps as Record<string, unknown>;
-          if (decoratorProps.title && typeof decoratorProps.title === 'string') {
-            fieldTitle = decoratorProps.title;
-          }
-        } else if (errorObj.address && typeof errorObj.address === 'string') {
-          fieldTitle = errorObj.address;
-        } else if (errorObj.path && typeof errorObj.path === 'string') {
-          fieldTitle = errorObj.path;
-        }
-        
-        // 获取错误消息
-        let errorMessage = '';
-        if (Array.isArray(errorObj.issues) && errorObj.issues.length > 0) {
-          const firstIssue = errorObj.issues[0] as Record<string, unknown>;
-          errorMessage = String(firstIssue?.message || '');
-        } else if (Array.isArray(errorObj.messages) && errorObj.messages.length > 0) {
-          errorMessage = String(errorObj.messages[0]);
-        } else if (errorObj.message && typeof errorObj.message === 'string') {
+        if (errorObj.message && typeof errorObj.message === 'string') {
           errorMessage = errorObj.message;
-        } else if (errorObj.message && typeof errorObj.message === 'object') {
-          // 处理 message 是对象的情况
-          const messageObj = errorObj.message as Record<string, unknown>;
-          if (messageObj.message && typeof messageObj.message === 'string') {
-            errorMessage = messageObj.message;
-          } else {
-            errorMessage = 'Invalid value';
-          }
-        } else {
-          errorMessage = 'Invalid value';
+        } else if (errorObj.title && typeof errorObj.title === 'string') {
+          errorMessage = `${errorObj.title}: This field is required`;
         }
-        
-        msg = `${fieldTitle}: ${errorMessage}`;
-        
-        console.log('Processed error:', {
-          fieldTitle,
-          errorMessage,
-          errorFieldName,
-          finalMessage: msg
-        });
       }
       
-      // 滚动到错误字段
-      if (errorFieldName) {
-        console.log('Attempting to scroll to field:', errorFieldName);
-        const scrollResult = scrollToErrorField(errorFieldName);
-        console.log('Scroll result:', scrollResult);
-      } else {
-        console.log('No error field name found, cannot scroll');
+      console.log('Final error message:', errorMessage);
+      console.log('=== End Debug ===');
+      
+      setSubmitError(errorMessage);
+      
+      // 尝试精确滚动到错误字段
+      let scrolledToField = false;
+      
+      if (Array.isArray(err) && err.length > 0) {
+        const firstError = err[0];
+        if (firstError && typeof firstError === 'object') {
+          const errorObj = firstError as Record<string, unknown>;
+          const fieldPath = errorObj.address || errorObj.path;
+          
+          if (fieldPath && typeof fieldPath === 'string') {
+            console.log(`Trying to scroll to field: ${fieldPath}`);
+            
+            // 尝试多种选择器来精确定位字段
+            const selectors = [
+              // Formily 字段容器
+              `[data-field-path="${fieldPath}"]`,
+              `[data-field="${fieldPath}"]`,
+              `[data-testid="${fieldPath}"]`,
+              // 输入元素本身
+              `[name="${fieldPath}"]`,
+              `#${fieldPath}`,
+              // 特殊处理 pcbNote (TextArea)
+              ...(fieldPath === 'pcbNote' ? [
+                'textarea[placeholder*="layout"]',
+                'textarea[placeholder*="Note for layout"]',
+                'textarea[placeholder*="2up"]'
+              ] : []),
+              // FormItem 包装器
+              `.formily-item:has([name="${fieldPath}"])`,
+              `.form-item:has([name="${fieldPath}"])`,
+              // 通过标签定位
+              `label[for="${fieldPath}"] + *`,
+              // 通用选择器
+              `*[data-path="${fieldPath}"]`,
+              `*[data-field-name="${fieldPath}"]`
+            ];
+            
+            // 逐个尝试选择器
+            for (const selector of selectors) {
+              try {
+                const element = document.querySelector(selector) as HTMLElement;
+                if (element) {
+                  console.log(`Found field element with selector: ${selector}`);
+                  
+                  // 滚动到字段位置
+                  element.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center',
+                    inline: 'nearest'
+                  });
+                  
+                  // 添加视觉高亮
+                  element.classList.add('ring-2', 'ring-red-400', 'ring-opacity-75');
+                  setTimeout(() => {
+                    element.classList.remove('ring-2', 'ring-red-400', 'ring-opacity-75');
+                  }, 3000);
+                  
+                  // 尝试聚焦（如果是输入元素）
+                  try {
+                    if (element.focus && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT')) {
+                      setTimeout(() => element.focus(), 100);
+                    }
+                  } catch (e) {
+                    console.log('Focus failed:', e);
+                  }
+                  
+                  scrolledToField = true;
+                  break;
+                }
+              } catch (e) {
+                console.log(`Selector failed: ${selector}`, e);
+              }
+            }
+            
+            // 如果找不到具体字段，回退到表单组
+            if (!scrolledToField) {
+              console.log(`Could not find field ${fieldPath}, trying group fallback`);
+              
+              const fieldToGroupMap: Record<string, number> = {
+                'pcbType': 0, 'layers': 0, 'useShengyiMaterial': 0, 'thickness': 0, 'tg': 0,
+                'differentDesignsCount': 0, 'singleDimensions': 0, 'shipmentType': 0,
+                'singleCount': 0, 'panelDimensions': 0, 'panelSet': 0, 'breakAwayRail': 0,
+                'borderCutType': 0, 'border': 0, 'pcbNote': 0,
+                'outerCopperWeight': 1, 'innerCopperWeight': 1, 'minTrace': 1, 'minHole': 1,
+                'solderMask': 1, 'silkscreen': 1, 'surfaceFinish': 1, 'surfaceFinishEnigType': 1,
+                'impedance': 1, 'goldFingers': 1, 'goldFingersBevel': 1,
+                'maskCover': 1, 'edgePlating': 1, 'edgeCover': 1,
+                'hdi': 2, 'castellated': 2, 'testMethod': 2, 'workingGerber': 2,
+                'productReport': 2, 'ulMark': 2, 'crossOuts': 2, 'ipcClass': 2, 'ifDataConflicts': 2,
+                'delivery': 2, 'specialRequests': 2,
+                'shippingCostEstimation': 3,
+                'shippingAddress': 4
+              };
+              
+              const groupIndex = fieldToGroupMap[fieldPath];
+              if (groupIndex !== undefined) {
+                const groupElement = document.getElementById(`form-step-${groupIndex}`);
+                if (groupElement) {
+                  console.log(`Found group element, scrolling to form-step-${groupIndex}`);
+                  groupElement.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start',
+                    inline: 'nearest'
+                  });
+                  
+                  // 添加视觉提示
+                  groupElement.classList.add('ring-2', 'ring-red-300', 'ring-opacity-50');
+                  setTimeout(() => {
+                    groupElement.classList.remove('ring-2', 'ring-red-300', 'ring-opacity-50');
+                  }, 3000);
+                  
+                  scrolledToField = true;
+                }
+              }
+            }
+          }
+        }
       }
       
-      setSubmitError(msg);
+      // 如果没有成功滚动到特定字段，就滚动到顶部
+      if (!scrolledToField) {
+        console.log('Fallback: scrolling to top');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      
       setIsSubmitting(false);
       return;
     }
