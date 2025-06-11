@@ -18,6 +18,8 @@ function getAdminOrders(admin_orders: unknown): AdminOrder[] {
   return [admin_orders as AdminOrder];
 }
 
+
+
 export default function AdminOrderDetailPage() {
   const params = useParams();
   const orderId = params?.id as string;
@@ -865,7 +867,7 @@ export default function AdminOrderDetailPage() {
                             <div className="text-xs text-green-600 font-medium mb-1">✓ Available</div>
                             <DownloadButton 
                               filePath={gerberUrl}
-                              bucket="next-pcb"
+                              bucket="gerber"
                               className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 border-indigo-200"
                             >
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

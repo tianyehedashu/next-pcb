@@ -41,22 +41,30 @@ export function FileUploadSection() {
   const handleFileInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // 选择新文件时，立即清空store中的缓存URL
+      console.log('=== New file selected, clearing cached gerberUrl ===');
+      updateFormData({ gerberUrl: '' });
+      
       // 选择文件后会自动解析并上传
       handleFileSelect(file);
     }
     // 清空input值，允许重复选择同一文件
     event.target.value = '';
-  }, [handleFileSelect]);
+  }, [handleFileSelect, updateFormData]);
 
   // 处理拖放
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file) {
+      // 拖放新文件时，立即清空store中的缓存URL
+      console.log('=== New file dropped, clearing cached gerberUrl ===');
+      updateFormData({ gerberUrl: '' });
+      
       // 拖放文件后会自动解析并上传
       handleFileSelect(file);
     }
-  }, [handleFileSelect]);
+  }, [handleFileSelect, updateFormData]);
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -109,8 +117,8 @@ export function FileUploadSection() {
       }
     }
 
-    // 2. 同步文件上传URL（最重要的部分）
-    if (uploadState.uploadUrl) {
+    // 2. 同步文件上传URL（最重要的部分）- 只要有 uploadUrl 就同步
+    if (uploadState.uploadUrl && uploadState.uploadUrl.trim() !== '') {
       console.log('Syncing uploadUrl:', uploadState.uploadUrl);
       fieldsToUpdate.gerberUrl = uploadState.uploadUrl;
     }
@@ -123,44 +131,85 @@ export function FileUploadSection() {
       updateFormData(fieldsToUpdate);
       console.log('Store updated');
       
-      // 再更新表单字段
-      Object.entries(fieldsToUpdate).forEach(([key, value]) => {
-        try {
-          if (key === 'singleDimensions' && value && typeof value === 'object') {
-            const dims = value as { length: number; width: number };
-            form.setFieldState('singleDimensions', state => {
-              state.value = {
-                length: Number(dims.length) || 0,
-                width: Number(dims.width) || 0
-              };
-            });
-            console.log('Form field singleDimensions updated');
-          } else {
-            form.setFieldState(key, state => {
-              if (key === 'layers') {
-                state.value = Number(value) || 0;
-              } else if (key === 'goldFingers') {
-                state.value = Boolean(value);
-              } else if (key === 'gerberUrl') {
-                state.value = String(value || '');
-              } else {
-                state.value = value;
-              }
-            });
-            console.log(`Form field ${key} updated to:`, value);
+      // 再更新表单字段，使用 setTimeout 确保在下一个事件循环中执行
+      setTimeout(() => {
+        Object.entries(fieldsToUpdate).forEach(([key, value]) => {
+          try {
+            if (key === 'singleDimensions' && value && typeof value === 'object') {
+              const dims = value as { length: number; width: number };
+              form.setFieldState('singleDimensions', state => {
+                state.value = {
+                  length: Number(dims.length) || 0,
+                  width: Number(dims.width) || 0
+                };
+              });
+              console.log('Form field singleDimensions updated');
+            } else {
+              form.setFieldState(key, state => {
+                if (key === 'layers') {
+                  state.value = Number(value) || 0;
+                } else if (key === 'goldFingers') {
+                  state.value = Boolean(value);
+                } else if (key === 'gerberUrl') {
+                  state.value = String(value || '');
+                } else {
+                  state.value = value;
+                }
+              });
+              console.log(`Form field ${key} updated to:`, value);
+            }
+          } catch (error) {
+            console.error(`Error updating form field ${key}:`, error);
           }
-        } catch (error) {
-          console.error(`Error updating form field ${key}:`, error);
-        }
-      });
-      
-      console.log('=== Sync completed ===');
-      console.log('Current form values:', form.values);
-      console.log('Current store gerberUrl:', useQuoteStore.getState().formData.gerberUrl);
+        });
+        
+        console.log('=== Sync completed ===');
+        console.log('Current form values after timeout:', form.values);
+        console.log('Current store gerberUrl after timeout:', useQuoteStore.getState().formData.gerberUrl);
+      }, 0);
     } else {
       console.log('No fields to update');
     }
   }, [uploadState.analysisResult, uploadState.uploadUrl, uploadState.uploadStatus, form, updateFormData]);
+
+  // 专门监听文件上传成功的 effect，确保立即同步 uploadUrl
+  useEffect(() => {
+    if (uploadState.uploadUrl && uploadState.uploadUrl.trim() !== '' && form) {
+      console.log('=== Upload URL Detected ===');
+      console.log('Immediately syncing uploadUrl to form and store:', uploadState.uploadUrl);
+      console.log('Current status:', uploadState.uploadStatus);
+      
+      // 立即更新 store - 确保最新的URL被保存，即使在水合之后
+      updateFormData({ gerberUrl: uploadState.uploadUrl });
+      
+      // 立即更新表单，强制覆盖任何可能的缓存值
+      form.setFieldState('gerberUrl', state => {
+        state.value = uploadState.uploadUrl || '';
+      });
+      
+      // 添加延迟同步，确保在所有异步操作完成后再次确认同步
+      setTimeout(() => {
+        console.log('=== Delayed sync verification ===');
+        const currentFormValue = form.getFieldState('gerberUrl')?.value;
+        const currentStoreValue = useQuoteStore.getState().formData.gerberUrl;
+        
+        console.log('Form gerberUrl after delay:', currentFormValue);
+        console.log('Store gerberUrl after delay:', currentStoreValue);
+        console.log('Expected uploadUrl:', uploadState.uploadUrl);
+        
+        // 如果发现不一致，强制再次同步
+        if (uploadState.uploadUrl && (currentFormValue !== uploadState.uploadUrl || currentStoreValue !== uploadState.uploadUrl)) {
+          console.log('=== Inconsistency detected, forcing re-sync ===');
+          updateFormData({ gerberUrl: uploadState.uploadUrl });
+          form.setFieldState('gerberUrl', state => {
+            state.value = uploadState.uploadUrl || '';
+          });
+        }
+      }, 100); // 100ms延迟确保所有同步操作完成
+      
+      console.log('Immediate sync completed - new URL should override any cached values');
+    }
+  }, [uploadState.uploadUrl, uploadState.uploadStatus, form, updateFormData]);
 
   const hasFile = !!uploadState.file;
 
@@ -193,6 +242,11 @@ export function FileUploadSection() {
 
   return (
     <div>
+      {/* 调试信息 - 显示当前状态 */}
+      <div className="mb-2 p-2 bg-gray-100 rounded text-xs">
+        <strong>Debug Info:</strong> Status: {uploadState.uploadStatus} | URL: {uploadState.uploadUrl ? 'Yes' : 'No'} | File: {uploadState.file?.name || 'None'}
+      </div>
+      
       {!hasFile ? (
         // 文件选择区域
         <div

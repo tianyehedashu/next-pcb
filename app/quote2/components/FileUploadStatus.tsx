@@ -47,6 +47,14 @@ interface FileUploadStatusProps {
 export function FileUploadStatus({ uploadState, onRetry, onClear, onReplace }: FileUploadStatusProps) {
   const { uploadStatus, uploadProgress, uploadError, fileName, fileSize, uploadUrl } = uploadState;
   
+  // 调试：记录状态变化
+  React.useEffect(() => {
+    console.log('=== FileUploadStatus received state update ===');
+    console.log('Upload Status:', uploadStatus);
+    console.log('Upload URL:', uploadUrl);
+    console.log('File Name:', fileName);
+  }, [uploadStatus, uploadUrl, fileName]);
+  
   const isUploading = uploadStatus === 'uploading-supabase';
   const isParsing = uploadStatus === 'parsing';
   const isSuccess = uploadStatus === 'success';

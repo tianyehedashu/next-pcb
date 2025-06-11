@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { FrontendAnalysisResult } from "../components/AnalysisResultDisplay";
 import { SupabaseUploadResult, FileUploadState } from '../types/FileUpload';
@@ -179,7 +179,7 @@ async function analyzeGerberPackage(file: File): Promise<FrontendAnalysisResult>
 
 
 // 工具函数：上传文件到Supabase
-async function uploadFileToSupabase(file: File, user: any): Promise<SupabaseUploadResult> {
+async function uploadFileToSupabase(file: File, user: { id?: string; email?: string } | null): Promise<SupabaseUploadResult> {
     // 生成UUID并保留原始文件名
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 10);
@@ -215,8 +215,9 @@ async function uploadFileToSupabase(file: File, user: any): Promise<SupabaseUplo
       return { success: false, url: null, error: 'Failed to get public URL after upload.' };
     }
     return { success: true, url: publicUrlData.publicUrl, error: null };
-  } catch (error: any) {
-    return { success: false, url: null, error: error?.message || 'Unknown error during upload' };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error during upload';
+    return { success: false, url: null, error: errorMessage };
   }
 }
 
@@ -225,44 +226,81 @@ export function useFileUpload() {
   const [uploadState, setUploadState] = useState<FileUploadState>(initialState);
   const user = useUserStore(state => state.user);
 
+  // 调试：监听组件挂载和卸载
+  useEffect(() => {
+    console.log('=== useFileUpload hook mounted ===');
+    return () => {
+      console.log('=== useFileUpload hook unmounted ===');
+    };
+  }, []);
+
+  // 调试：监听 uploadState 的所有变化
+  useEffect(() => {
+    console.log('=== useFileUpload uploadState changed ===');
+    console.log('Status:', uploadState.uploadStatus);
+    console.log('URL:', uploadState.uploadUrl);
+    console.log('File:', uploadState.file?.name || 'No file');
+    console.log('Error:', uploadState.uploadError);
+    console.log('Full state:', uploadState);
+  }, [uploadState]);
+
   // 选择文件并自动分析+上传
   const handleFileSelect = useCallback(async (file: File) => {
-    setUploadState({ ...initialState, file, uploadStatus: 'parsing' });
+    console.log('=== handleFileSelect called with file:', file.name);
+    console.log('Current uploadState before reset:', uploadState);
+    
+    // 完全重置状态，包括清空之前的uploadUrl
+    const resetState = { 
+      ...initialState, 
+      file, 
+      uploadStatus: 'parsing' as const,
+      uploadUrl: null // 确保清空之前的URL
+    };
+    console.log('=== Resetting upload state, clearing previous uploadUrl ===');
+    setUploadState(resetState);
+    
     let analysisResult: FrontendAnalysisResult | null = null;
     try {
       // 1. 前端分析
       analysisResult = await analyzeGerberPackage(file);
       setUploadState(prev => ({ ...prev, analysisResult, uploadStatus: 'idle' }));
-    } catch (error: any) {
+    } catch (error) {
       // 分析失败，记录错误
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during analysis';
       setUploadState(prev => ({
         ...prev,
         uploadStatus: 'error',
-        uploadError: error?.message || 'Unknown error during analysis',
+        uploadError: errorMessage,
         analysisResult: null,
       }));
     }
-    // 2. 未登录只分析
-    if (!user) {
-      if (analysisResult) { // if analysis was successful
-        // 生成本地 blob url
-        const localUrl = URL.createObjectURL(file);
-        setUploadState(prev => ({
-          ...prev,
-          uploadStatus: 'idle',
-          uploadError: 'Please log in to upload files to the cloud.',
-          uploadUrl: localUrl,
-        }));
-      }
-      return;
-    }
-    // 3. 登录后自动上传（无论分析是否成功）
+ 
+    // 自动上传（无论分析是否成功）
+    console.log('=== Starting file upload to Supabase ===');
     setUploadState(prev => ({ ...prev, uploadStatus: 'uploading-supabase', uploadError: null }));
     const uploadResult = await uploadFileToSupabase(file, user);
     if (uploadResult.success) {
-      setUploadState(prev => ({ ...prev, uploadStatus: 'success', uploadUrl: uploadResult.url, uploadError: null, uploadProgress: 100, analysisResult: analysisResult || prev.analysisResult }));
+      console.log('=== File upload successful ===');
+      console.log('Upload URL:', uploadResult.url);
+      setUploadState(prev => ({ 
+        ...prev, 
+        uploadStatus: 'success', 
+        uploadUrl: uploadResult.url, 
+        uploadError: null, 
+        uploadProgress: 100, 
+        analysisResult: analysisResult || prev.analysisResult 
+      }));
+      console.log('Upload state updated with NEW URL:', uploadResult.url);
     } else {
-      setUploadState(prev => ({ ...prev, uploadStatus: 'error', uploadError: uploadResult.error, uploadProgress: 100, analysisResult: analysisResult || prev.analysisResult }));
+      console.log('=== File upload failed ===');
+      console.log('Upload error:', uploadResult.error);
+      setUploadState(prev => ({ 
+        ...prev, 
+        uploadStatus: 'error', 
+        uploadError: uploadResult.error, 
+        uploadProgress: 100, 
+        analysisResult: analysisResult || prev.analysisResult 
+      }));
     }
   }, [user]);
 
@@ -290,8 +328,11 @@ export function useFileUpload() {
 
   // 清空
   const clearFile = useCallback(() => {
+    console.log('=== clearFile called ===');
+    console.log('Previous state before clearing:', uploadState);
+    console.trace('Call stack for clearFile');
     setUploadState(initialState);
-  }, []);
+  }, [uploadState]);
 
   // 兼容外部调用
   const initiateUpload = useCallback(async (file: File) => {
@@ -305,10 +346,11 @@ export function useFileUpload() {
         analysisResult: uploadState.analysisResult,
         error: null
       };
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
       return { 
         success: false, 
-        error: error?.message || "Unknown error",
+        error: errorMessage,
         analysisResult: null 
       };
     }
