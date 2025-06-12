@@ -22,7 +22,7 @@ async function getOrder(
     .select(
       `
       *,
-      admin_orders!inner(*)
+      admin_orders(*)
     `
     )
     .eq('id', orderId)

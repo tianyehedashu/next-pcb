@@ -27,19 +27,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No admin emails found' }, { status: 500 });
   }
 
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.qq.com',
-    port: 465,
-    secure: true,
+  const emailConfig = {
+    host: process.env.SMTP_HOST || 'smtp.qq.com',
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
     auth: {
-      user: process.env.QQ_EMAIL_USER,
-      pass: process.env.QQ_EMAIL_AUTH_CODE,
+      user: process.env.SMTP_USER || process.env.QQ_EMAIL_USER,
+      pass: process.env.SMTP_PASS || process.env.QQ_EMAIL_AUTH_CODE,
     },
-  });
+  };
+
+  const transporter = nodemailer.createTransport(emailConfig);
 
   try {
+    const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.QQ_EMAIL_USER;
+    const fromName = process.env.SMTP_FROM_NAME || 'PCB Manufacturing';
     await transporter.sendMail({
-      from: `"Your App" <${process.env.QQ_EMAIL_USER}>`,
+      from: `"${fromName}" <${fromEmail}>`,
       to,
       subject,
       html,

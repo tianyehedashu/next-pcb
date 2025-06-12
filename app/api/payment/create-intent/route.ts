@@ -7,9 +7,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { orderId, amount, currency = 'usd' } = body;
 
-    if (!orderId || !amount) {
+    if (!orderId) {
       return NextResponse.json(
-        { error: 'Order ID and amount are required' },
+        { error: 'Order ID is required' },
         { status: 400 }
       );
     }
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       .select(
         `
         *,
-        admin_orders!inner(*)
+        admin_orders(*)
       `
       )
       .eq('id', orderId)
@@ -51,8 +51,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Get admin order details (should be exactly one)
-    const adminOrder = quote.admin_orders?.[0];
+    // Handle both array and object cases from Supabase relations
+    let adminOrder;
+    if (Array.isArray(quote.admin_orders)) {
+      adminOrder = quote.admin_orders[0];
+    } else {
+      adminOrder = quote.admin_orders;
+    }
 
+    console.log('adminOrder quote.admin_orders:', quote.admin_orders);
+    console.log('adminOrder processed:', adminOrder);
+    
     if (!adminOrder) {
       return NextResponse.json(
         { error: 'Order has not been reviewed by admin yet' },
@@ -75,8 +84,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use admin_price as the payment amount
+    // Use admin_price as the authoritative payment amount
+    // If amount is provided from frontend, verify it matches admin_price for security
     const paymentAmount = adminOrder.admin_price;
+    
+    if (amount && Math.abs(amount - paymentAmount) > 0.01) {
+      console.error(`Payment amount mismatch: frontend=${amount}, admin_price=${paymentAmount}`);
+      return NextResponse.json(
+        { error: 'Payment amount does not match the order price' },
+        { status: 400 }
+      );
+    }
 
     // Create payment intent
     const paymentIntent = await stripe.paymentIntents.create({

@@ -731,6 +731,7 @@ interface AdminOrderFormProps {
 export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onCalcDelivery, onCalcShipping, readOnly, submitButtonText, hideActionButtons, onStatusChange }: AdminOrderFormProps) {
   const [isEdit, setIsEdit] = useState(!readOnly);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
   const deliveryDateManuallySet = useRef(false);
   
   // 价格联动计算函数
@@ -841,17 +842,70 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
         {/* 计算按钮组 */}
         {!hideActionButtons && (
           <div className="flex gap-2 justify-center flex-wrap">
-            <Button type="button" variant="outline" size="sm" onClick={() => onCalcPCB?.(form.values)} disabled={!isEdit}>
-              🔧 PCB计算
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                try {
+                  setIsCalculating(true);
+                  onCalcPCB?.(form.values);
+                } finally {
+                  // 设置短暂延迟，让用户看到loading状态
+                  setTimeout(() => setIsCalculating(false), 500);
+                }
+              }} 
+              disabled={!isEdit || isCalculating || isSaving}
+            >
+              {isCalculating ? "计算中..." : "🔧 PCB计算"}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => onCalcDelivery?.(form.values)} disabled={!isEdit}>
-              📅 交期计算
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                try {
+                  setIsCalculating(true);
+                  onCalcDelivery?.(form.values);
+                } finally {
+                  setTimeout(() => setIsCalculating(false), 500);
+                }
+              }} 
+              disabled={!isEdit || isCalculating || isSaving}
+            >
+              {isCalculating ? "计算中..." : "📅 交期计算"}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => onCalcShipping?.(form.values)} disabled={!isEdit}>
-              🚚 运费计算
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                try {
+                  setIsCalculating(true);
+                  onCalcShipping?.(form.values);
+                } finally {
+                  setTimeout(() => setIsCalculating(false), 500);
+                }
+              }} 
+              disabled={!isEdit || isCalculating || isSaving}
+            >
+              {isCalculating ? "计算中..." : "🚚 运费计算"}
             </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={() => onRecalc(form.values)} disabled={!isEdit}>
-              🔄 全部重算
+            <Button 
+              type="button" 
+              variant="secondary" 
+              size="sm" 
+              onClick={async () => {
+                try {
+                  setIsCalculating(true);
+                  onRecalc(form.values);
+                } finally {
+                  setTimeout(() => setIsCalculating(false), 800);
+                }
+              }} 
+              disabled={!isEdit || isCalculating || isSaving}
+            >
+              {isCalculating ? "计算中..." : "🔄 全部重算"}
             </Button>
           </div>
         )}
@@ -899,18 +953,50 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
             <div className="sticky bottom-0 bg-white py-4 px-2 border-t z-10">
               {/* 主要操作按钮 */}
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" type="button" onClick={async () => {
-                  await onSave(form.values);
-                }} disabled={!isEdit}>
-                  {submitButtonText || '仅保存'}
+                <Button 
+                  variant="outline" 
+                  type="button" 
+                  onClick={async () => {
+                    try {
+                      setIsSaving(true);
+                      await onSave(form.values);
+                    } catch (error) {
+                      console.error('保存失败:', error);
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }} 
+                  disabled={!isEdit || isSaving}
+                  className={isSaving ? "opacity-70" : ""}
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                      保存中...
+                    </>
+                  ) : (
+                    submitButtonText || '仅保存'
+                  )}
                 </Button>
 
                 <SaveAndNotifyDialog 
                   onConfirm={async (notificationType) => {
-                    await onSave(form.values, { sendNotification: true, notificationType });
+                    try {
+                      setIsSaving(true);
+                      await onSave(form.values, { sendNotification: true, notificationType });
+                    } catch (error) {
+                      console.error('保存并通知失败:', error);
+                      throw error; // 重新抛出错误，让对话框处理
+                    } finally {
+                      setIsSaving(false);
+                    }
                   }}
                 >
-                  <Button type="button" disabled={!isEdit} className="bg-blue-600 hover:bg-blue-700">
+                  <Button 
+                    type="button" 
+                    disabled={!isEdit || isSaving} 
+                    className={`bg-blue-600 hover:bg-blue-700 ${isSaving ? "opacity-70" : ""}`}
+                  >
                     <Mail className="mr-2 h-4 w-4" />
                     {submitButtonText ? `${submitButtonText}并通知` : '保存并通知'}
                   </Button>

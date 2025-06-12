@@ -5,12 +5,10 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import StripePaymentForm from '@/components/custom-ui/StripePaymentForm';
 import { getAdminOrder, canOrderBePaid, getOrderPaymentAmount, formatOrderPrice, type OrderWithAdminOrder, type AdminOrder } from '@/lib/utils/orderHelpers';
-import { stripePromise } from '@/lib/stripe-client'; 
-import { Elements } from '@stripe/react-stripe-js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, Package, MapPin } from 'lucide-react';
+import { ArrowLeft, Package, MapPin, Shield } from 'lucide-react';
 
 // Use the standardized interface from orderHelpers
 type Order = OrderWithAdminOrder;
@@ -24,7 +22,6 @@ export default function PaymentPage() {
   const [adminOrder, setAdminOrder] = useState<AdminOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   useEffect(() => {
     if (!orderId) {
@@ -50,14 +47,15 @@ export default function PaymentPage() {
 
         const data: Order = await response.json();
         
-        if (data.admin_orders?.payment_status === 'paid') {
+        // Get admin order first
+        const currentAdminOrder = getAdminOrder(data);
+        
+        if (currentAdminOrder?.payment_status === 'paid') {
           router.push(`/profile/orders/${orderId}`);
           return;
         }
-        
-        const currentAdminOrder = getAdminOrder(data);
 
-        if (!canOrderBePaid(data, currentAdminOrder)) {
+        if (!canOrderBePaid(data)) {
           setError('This order is not ready for payment. Please wait for admin review.');
           setLoading(false);
           return;
@@ -66,22 +64,9 @@ export default function PaymentPage() {
         setOrder(data);
         setAdminOrder(currentAdminOrder);
 
-        const intentResponse = await fetch('/api/payment/create-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: data.id, adminOrderId: currentAdminOrder?.id }),
-        });
-
-        if (!intentResponse.ok) {
-          const intentError = await intentResponse.json();
-          throw new Error(intentError.error || 'Failed to create payment intent.');
-        }
-
-        const { clientSecret: newClientSecret } = await intentResponse.json();
-        setClientSecret(newClientSecret);
-
-      } catch (err: any) {
-        setError(err.message || 'An unexpected error occurred.');
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
+        setError(errorMessage);
         console.error('Error fetching order:', err);
       } finally {
         setLoading(false);
@@ -92,7 +77,7 @@ export default function PaymentPage() {
   }, [orderId, router]);
 
   const handlePaymentSuccess = () => {
-    router.push(`/profile/orders/${orderId}/success`);
+    router.push(`/profile/orders/${orderId}`);
   }
 
   const handlePaymentError = (errorMessage: string) => {
@@ -101,86 +86,272 @@ export default function PaymentPage() {
 
   if (loading) {
     return (
-       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-         <div className="text-center">
-           <p className="text-lg font-semibold text-gray-700">Loading Payment Details...</p>
-           <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto mt-4"></div>
-         </div>
-       </div>
-    );
-   }
-
-  if (error || !order || !adminOrder || !clientSecret) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md mx-4">
-          <CardHeader>
-            <CardTitle>Payment Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Alert variant="destructive">
-              <AlertDescription>{error || 'Could not load order details.'}</AlertDescription>
-            </Alert>
-            <Button onClick={() => router.back()} className="mt-4 w-full">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pt-20 pb-12">
+        <div className="container mx-auto px-4">
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-lg font-semibold text-gray-700">Loading Payment Details...</p>
+              <p className="text-sm text-gray-500 mt-2">Please wait while we prepare your checkout</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
-  const amount = getOrderPaymentAmount(adminOrder);
+  if (error || !order || !adminOrder) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pt-20 pb-12">
+        <div className="container mx-auto px-4">
+          <div className="max-w-md mx-auto">
+            <Card className="shadow-lg border-0">
+              <CardHeader className="text-center">
+                <CardTitle className="text-red-600">Payment Error</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Alert variant="destructive" className="mb-4">
+                  <AlertDescription>{error || 'Could not load order details.'}</AlertDescription>
+                </Alert>
+                <Button onClick={() => router.back()} className="w-full">
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const amount = getOrderPaymentAmount(order);
   const shippingAddress = order.shipping_address as { [key: string]: string } | null;
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
-           <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Order
-           </Button>
-           <h1 className="text-2xl font-extrabold text-gray-900">Checkout</h1>
-           <div></div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pt-20 pb-12">
+      <div className="container mx-auto px-4">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <Button 
+              variant="ghost" 
+              onClick={() => router.back()} 
+              className="text-gray-600 hover:text-gray-900 hover:bg-white/60 transition-colors"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Order
+            </Button>
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-gray-900">Secure Checkout</h1>
+              <p className="text-sm text-gray-600 mt-1">Complete your order securely</p>
+            </div>
+            <div className="w-[120px]"></div> {/* Spacer for centering */}
+          </div>
 
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="p-6">
-             <div className="flex justify-between items-center text-lg font-semibold border-b pb-4 mb-4">
-               <span>Total Amount</span>
-               <span className="text-blue-600">
-                 {formatOrderPrice(order, adminOrder)}
-               </span>
-             </div>
-             
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold text-gray-800 mb-2 flex items-center"><Package className="mr-2 h-5 w-5"/>Order Summary</h3>
-                  <p className="text-sm text-gray-600">Order ID: {order.id}</p>
-                </div>
-                {shippingAddress && (
-                  <div>
-                    <h3 className="font-semibold text-gray-800 mb-2 flex items-center"><MapPin className="mr-2 h-5 w-5"/>Shipping Address</h3>
-                    <p className="text-sm text-gray-600">{shippingAddress.name}</p>
-                    <p className="text-sm text-gray-600">{shippingAddress.line1}{shippingAddress.line2 ? `, ${shippingAddress.line2}` : ''}</p>
-                    <p className="text-sm text-gray-600">{shippingAddress.city}, {shippingAddress.state} {shippingAddress.postal_code}</p>
-                    <p className="text-sm text-gray-600">{shippingAddress.country}</p>
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column - Order Summary */}
+            <div className="lg:col-span-1 space-y-6">
+              {/* Total Amount Card */}
+              <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg font-semibold text-gray-900">Order Total</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                      {formatOrderPrice(order)}
+                    </div>
+                    <p className="text-sm text-gray-500">Final amount to pay</p>
                   </div>
-                )}
-             </div>
+                </CardContent>
+              </Card>
 
-             <div className="mt-6">
-              <Elements stripe={stripePromise} options={{ clientSecret }}>
+                             {/* Order Summary */}
+               <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                 <CardHeader className="pb-4">
+                   <CardTitle className="flex items-center text-lg font-semibold text-gray-900">
+                     <Package className="mr-2 h-5 w-5 text-blue-600" />
+                     Order Summary
+                   </CardTitle>
+                 </CardHeader>
+                 <CardContent className="space-y-3">
+                   <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                     <span className="text-sm font-medium text-gray-600">Order ID</span>
+                     <div className="text-right">
+                       <button
+                         onClick={() => {
+                           navigator.clipboard.writeText(order.id);
+                           // 可以添加一个简单的提示
+                         }}
+                         className="text-sm text-gray-900 font-mono hover:text-blue-600 transition-colors cursor-pointer"
+                         title="Click to copy full Order ID"
+                       >
+                         {order.id.slice(0, 8)}...
+                       </button>
+                       <p className="text-xs text-gray-500">Click to copy</p>
+                     </div>
+                   </div>
+                   
+                   <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                     <span className="text-sm font-medium text-gray-600">Status</span>
+                     <div className="flex items-center gap-2">
+                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                       <span className="text-sm text-green-600 font-medium">Ready for Payment</span>
+                     </div>
+                   </div>
+                   
+                   <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                     <span className="text-sm font-medium text-gray-600">Currency</span>
+                     <span className="text-sm text-gray-900 font-semibold">{adminOrder.currency}</span>
+                   </div>
+                   
+                   {order.created_at && (
+                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                       <span className="text-sm font-medium text-gray-600">Order Date</span>
+                       <span className="text-sm text-gray-900">
+                         {new Date(order.created_at).toLocaleDateString('en-US', {
+                           year: 'numeric',
+                           month: 'short',
+                           day: 'numeric'
+                         })}
+                       </span>
+                     </div>
+                   )}
+                   
+                   {adminOrder.delivery_date && (
+                     <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                       <span className="text-sm font-medium text-gray-600">Expected Delivery</span>
+                       <span className="text-sm text-blue-600 font-medium">
+                         {new Date(adminOrder.delivery_date).toLocaleDateString('en-US', {
+                           year: 'numeric',
+                           month: 'short',
+                           day: 'numeric'
+                         })}
+                       </span>
+                     </div>
+                   )}
+                   
+
+                 </CardContent>
+               </Card>
+
+                             {/* Shipping Address */}
+               {shippingAddress && (
+                 <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                   <CardHeader className="pb-4">
+                     <CardTitle className="flex items-center text-lg font-semibold text-gray-900">
+                       <MapPin className="mr-2 h-5 w-5 text-blue-600" />
+                       Shipping Address
+                     </CardTitle>
+                   </CardHeader>
+                   <CardContent className="space-y-3">
+                     {/* Contact Information */}
+                     <div className="pb-3 border-b border-gray-100">
+                       <div className="flex items-center justify-between">
+                         <div>
+                           <p className="font-semibold text-gray-900">
+                             {shippingAddress.contactName || shippingAddress.name || 'Contact Name'}
+                           </p>
+                           {shippingAddress.phone && (
+                             <p className="text-sm text-blue-600">📞 {shippingAddress.phone}</p>
+                           )}
+                         </div>
+                         {shippingAddress.isDefault && (
+                           <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                             Default
+                           </span>
+                         )}
+                       </div>
+                     </div>
+
+                     {/* Address Details */}
+                     <div className="space-y-2">
+                       <div>
+                         <p className="text-xs text-gray-500 uppercase font-medium">Street Address</p>
+                         <p className="text-gray-800 font-medium">
+                           {shippingAddress.address || shippingAddress.line1}
+                         </p>
+                         {shippingAddress.line2 && (
+                           <p className="text-gray-600">{shippingAddress.line2}</p>
+                         )}
+                       </div>
+
+                       <div className="grid grid-cols-2 gap-3">
+                         <div>
+                           <p className="text-xs text-gray-500 uppercase font-medium">City</p>
+                           <p className="text-gray-800">
+                             {shippingAddress.cityName || shippingAddress.city}
+                           </p>
+                         </div>
+                         <div>
+                           <p className="text-xs text-gray-500 uppercase font-medium">Postal Code</p>
+                           <p className="text-gray-800">
+                             {shippingAddress.zipCode || shippingAddress.postal_code}
+                           </p>
+                         </div>
+                       </div>
+
+                       <div className="grid grid-cols-2 gap-3">
+                         <div>
+                           <p className="text-xs text-gray-500 uppercase font-medium">State/Province</p>
+                           <p className="text-gray-800">
+                             {shippingAddress.stateName || shippingAddress.state}
+                           </p>
+                         </div>
+                         <div>
+                           <p className="text-xs text-gray-500 uppercase font-medium">Country</p>
+                           <p className="text-gray-800 font-medium">
+                             {shippingAddress.countryName || shippingAddress.country}
+                           </p>
+                         </div>
+                       </div>
+
+                       {/* Shipping Method */}
+                       {(shippingAddress.courier || shippingAddress.courierName) && (
+                         <div className="pt-2 border-t border-gray-100">
+                           <p className="text-xs text-gray-500 uppercase font-medium">Shipping Method</p>
+                           <div className="flex items-center gap-2 mt-1">
+                             <span className="text-lg">🚚</span>
+                             <p className="text-gray-800 font-medium">
+                               {shippingAddress.courierName || shippingAddress.courier}
+                             </p>
+                           </div>
+                         </div>
+                       )}
+                     </div>
+                   </CardContent>
+                 </Card>
+               )}
+
+              {/* Security Note */}
+              <Card className="shadow-lg border-0 bg-green-50/80 backdrop-blur-sm border-green-200">
+                <CardContent className="pt-6">
+                  <div className="flex items-center space-x-3">
+                    <Shield className="h-6 w-6 text-green-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-green-800">Secure Payment</p>
+                      <p className="text-xs text-green-600 mt-1">
+                        Your payment information is encrypted and secure
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column - Payment Form */}
+            <div className="lg:col-span-2">
+              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-xl border-0 overflow-hidden">
                 <StripePaymentForm
                   orderId={orderId}
                   amount={amount}
                   currency={adminOrder.currency.toLowerCase()}
-                  displayCurrency={order.display_currency?.toLowerCase() || 'usd'}
+                  displayCurrency={adminOrder.currency.toLowerCase()}
                   onSuccess={handlePaymentSuccess}
                   onError={handlePaymentError}
                 />
-              </Elements>
-             </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -126,9 +126,13 @@ const GuestContactForm = React.memo(({
         </Button>
         <Button
           type="button"
-          onClick={handleGuestSubmit}
+          onClick={() => {
+            if (!isSubmitting && guestEmail) {
+              handleGuestSubmit();
+            }
+          }}
           disabled={isSubmitting || !guestEmail}
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <>
@@ -229,8 +233,13 @@ const SubmitButtonSection = React.memo(({ user, isSubmitting, handleGuestSubmitW
                 type="submit"
                 size="lg"
                 disabled={isSubmitting}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
-                onClick={user ? undefined : (e => { e.preventDefault(); handleGuestSubmitWithSuggest(); })}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={user ? undefined : (e => { 
+                  e.preventDefault(); 
+                  if (!isSubmitting) {
+                    handleGuestSubmitWithSuggest(); 
+                  }
+                })}
               >
                 {isSubmitting ? (
                   <>
@@ -372,6 +381,10 @@ export function QuoteForm() {
   const calculated = useQuoteCalculated();
   const calValues = useQuoteCalValues();
   
+  // 防抖相关状态
+  const lastSubmitTimeRef = React.useRef<number>(0);
+  const SUBMIT_DEBOUNCE_TIME = 2000; // 2秒防抖
+  
   // 游客用户的联系信息
   const [guestEmail, setGuestEmail] = React.useState("");
   const [guestPhone, setGuestPhone] = React.useState("");
@@ -466,13 +479,22 @@ export function QuoteForm() {
   const handleSubmit = React.useCallback(async () => {
     if (!form) return;
     
+    // 防抖检查
+    const now = Date.now();
+    if (isSubmitting || (now - lastSubmitTimeRef.current < SUBMIT_DEBOUNCE_TIME)) {
+      console.log('提交被防抖机制阻止');
+      return;
+    }
+    
     // 在提交前检查当前的状态
     const currentStoreData = useQuoteStore.getState().formData;
     form.setFieldState('gerberUrl', state => {
       state.value = currentStoreData.gerberUrl || '';
     });
     
+    // 设置提交状态和时间戳
     setIsSubmitting(true);
+    lastSubmitTimeRef.current = now;
 
     try {
       await form.validate(); // 校验通过不抛异常
@@ -558,7 +580,11 @@ export function QuoteForm() {
               toast.success('Quote saved successfully!');
               router.push(`/profile/orders/${result.id}`);
             } else {
-              throw new Error('Failed to save quote');
+              const errorData = await response.json().catch(() => ({}));
+              if (response.status === 429) {
+                throw new Error(errorData.error || 'Too many requests. Please wait before submitting again.');
+              }
+              throw new Error(errorData.error || 'Failed to save quote');
             }
           }
         } else {
@@ -632,12 +658,10 @@ export function QuoteForm() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       }
-      
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-    setIsSubmitting(false);
-  }, [form, uploadState, router, user, calculated, setSubmitError, calValues, updateFormData]);
+  }, [form, uploadState, router, user, calculated, setSubmitError, calValues, updateFormData, isSubmitting]);
 
   const handleReset = React.useCallback(() => {
     if (!form) return;
@@ -647,8 +671,17 @@ export function QuoteForm() {
   }, [form]);
 
   const handleGuestSubmit = React.useCallback(async () => {
-    if (!form || !guestEmail) return;
+    if (!form || !guestEmail || isSubmitting) return;
+    
+    // 防抖检查
+    const now = Date.now();
+    if (now - lastSubmitTimeRef.current < SUBMIT_DEBOUNCE_TIME) {
+      console.log('游客提交被防抖机制阻止');
+      return;
+    }
+    
     setIsSubmitting(true);
+    lastSubmitTimeRef.current = now;
 
     try {
       // 从 store 中获取最新的 gerberUrl（最可靠），并提供多层备选
@@ -672,7 +705,6 @@ export function QuoteForm() {
       // 验证邮箱
       if (!guestEmail.includes('@')) {
         toast.error("请输入有效的邮箱地址");
-        setIsSubmitting(false);
         return;
       }
 
@@ -700,7 +732,11 @@ export function QuoteForm() {
         router.push(`/profile/quotes/success?id=${result.id}`);
         resetForm();
       } else {
-        throw new Error('Failed to submit guest quote');
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          throw new Error(errorData.error || 'Too many requests. Please wait before submitting again.');
+        }
+        throw new Error(errorData.error || 'Failed to submit guest quote');
       }
     } catch (error) {
       console.error('Guest submit error:', error);
@@ -708,7 +744,7 @@ export function QuoteForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [form, uploadState, guestEmail, guestPhone, router, resetForm, calValues, updateFormData]);
+  }, [form, uploadState, guestEmail, guestPhone, router, resetForm, calValues, updateFormData, isSubmitting]);
 
   const handleGuestSubmitWithSuggest = React.useCallback(() => {
     setShowLoginSuggestDialog(true);

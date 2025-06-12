@@ -1,5 +1,72 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import type { User } from '@supabase/supabase-js';
+
+// ========== 路径权限配置 ==========
+const PATH_CONFIG = {
+  // 需要管理员权限的路径
+  ADMIN_PATHS: ['/admin', '/api/admin'],
+  // 需要登录权限的路径
+  USER_PATHS: ['/profile', '/api/user'],
+} as const;
+
+/**
+ * 检查路径是否匹配指定的路径前缀列表
+ */
+function matchesPathPrefixes(pathname: string, pathPrefixes: readonly string[]): boolean {
+  return pathPrefixes.some(prefix => pathname.startsWith(prefix));
+}
+
+/**
+ * 创建重定向到登录页面的响应
+ */
+function createRedirectToAuth(request: NextRequest): NextResponse {
+  const loginUrl = new URL('/auth', request.url);
+  const fullPath = request.nextUrl.pathname + request.nextUrl.search;
+  loginUrl.searchParams.set('redirect', fullPath);
+  return NextResponse.redirect(loginUrl);
+}
+
+/**
+ * 管理员权限中间件
+ * 检查用户是否有管理员权限
+ */
+async function adminMiddleware(request: NextRequest, user: User | null): Promise<NextResponse | null> {
+  const pathname = request.nextUrl.pathname;
+  
+  // 检查是否为管理员路径
+  if (!matchesPathPrefixes(pathname, PATH_CONFIG.ADMIN_PATHS)) {
+    return null; // 不是管理员路径，跳过检查
+  }
+  
+  // 管理员权限检查：必须登录 + 具有 admin 角色
+  const isAdmin = user && user.user_metadata?.role === 'admin';
+  if (!isAdmin) {
+    return createRedirectToAuth(request);
+  }
+  
+  return null; // 权限检查通过
+}
+
+/**
+ * 用户登录中间件
+ * 检查用户是否已登录
+ */
+async function userAuthMiddleware(request: NextRequest, user: User | null): Promise<NextResponse | null> {
+  const pathname = request.nextUrl.pathname;
+  
+  // 检查是否为用户路径
+  if (!matchesPathPrefixes(pathname, PATH_CONFIG.USER_PATHS)) {
+    return null; // 不是用户路径，跳过检查
+  }
+  
+  // 用户登录检查：只需要用户已登录即可
+  if (!user) {
+    return createRedirectToAuth(request);
+  }
+  
+  return null; // 权限检查通过
+}
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({
@@ -28,18 +95,30 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (
-    (request.nextUrl.pathname.startsWith('/admin') || request.nextUrl.pathname.startsWith('/api/admin')) &&
-    (!user || user.user_metadata?.role !== 'admin')
-  ) {
-    const loginUrl = new URL('/auth', request.url);
-    loginUrl.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search);
-    return NextResponse.redirect(loginUrl);
+  // ========== 执行权限检查中间件链 ==========
+  
+  // 1. 管理员权限检查
+  const adminResult = await adminMiddleware(request, user);
+  if (adminResult) {
+    return adminResult; // 权限不足，返回重定向
   }
-
+  
+  // 2. 用户登录检查
+  const userAuthResult = await userAuthMiddleware(request, user);
+  if (userAuthResult) {
+    return userAuthResult; // 未登录，返回重定向
+  }
+  
+  // 所有权限检查通过，继续请求
   return response;
 }
 
+// Next.js 要求静态配置，不能使用动态函数
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*'],
+  matcher: [
+    '/admin/:path*',
+    '/api/admin/:path*',
+    '/profile/:path*',
+    '/api/user/:path*',
+  ],
 }; 
