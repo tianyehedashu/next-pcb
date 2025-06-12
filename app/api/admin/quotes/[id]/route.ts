@@ -1,19 +1,18 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
-import type { Database } from "@/types/supabase";
+import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createRouteHandlerClient<Database>({ cookies });
+    const supabase = await createSupabaseServerClient(false);
+    const { id } = await params;
 
     const { data: quote, error } = await supabase
       .from("pcb_quotes")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error) {
@@ -42,12 +41,13 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createRouteHandlerClient<Database>({ cookies });
+    const supabase = await createSupabaseServerClient(false);
     const body = await request.json();
+    const { id } = await params;
 
     const { data: quote, error } = await supabase
       .from("pcb_quotes")
@@ -57,7 +57,7 @@ export async function PATCH(
         admin_notes: body.admin_notes,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 

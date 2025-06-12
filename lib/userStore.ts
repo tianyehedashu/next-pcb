@@ -8,6 +8,7 @@ export type UserRole = "admin" | "user" | "guest";
 export interface UserInfo {
   id: string;
   email?: string;
+  full_name?: string;
   avatar_url?: string;
   status?: string;
   role?: UserRole;

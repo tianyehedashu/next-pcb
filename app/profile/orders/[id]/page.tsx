@@ -12,14 +12,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Pencil, Package, Clock, DollarSign, MapPin, FileText, AlertCircle, 
-  ArrowLeft, CheckCircle, Truck, AlertTriangle 
+  ArrowLeft, CheckCircle, Truck, AlertTriangle, CreditCard
 } from 'lucide-react';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 import OrderStepBar from '@/components/ui/OrderStepBar';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabaseClient';
 import { useUserStore } from '@/lib/userStore';
-import type { Database } from '../../../types/supabase';
 import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
+import { formatOrderPrice, getOrderCurrencySymbol } from '@/lib/utils/orderHelpers';
 
 // Order interface matching pcb_quotes table
 interface Order {
@@ -31,11 +31,12 @@ interface Order {
   pcb_spec: any; // JSONB - PCB specifications
   gerber_file_url: string | null;
   status: string | null;
+  payment_status?: string | null;
   created_at: string | null;
   updated_at: string | null;
   user_name: string | null;
-  // Related admin order information
-  admin_orders?: Array<{
+  // Related admin order information (one-to-one relationship)
+  admin_orders?: [{
     id: string;
     status: string;
     pcb_price: number | null;
@@ -46,8 +47,10 @@ interface Order {
     due_date: string | null;
     delivery_date: string | null;
     admin_note: string | null;
+    payment_status?: string | null;
+    order_status?: string | null;
     [key: string]: any;
-  }>;
+  }];
 }
 
 // Order status mapping with English labels
@@ -140,7 +143,6 @@ export default function OrderDetailPage() {
   const [pcbFormData, setPcbFormData] = useState<QuoteFormData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createClientComponentClient<Database>();
   const user = useUserStore(state => state.user);
 
   // Edit states
@@ -468,7 +470,7 @@ export default function OrderDetailPage() {
                   <div>
                     <div className="text-sm text-gray-500">Quote Price</div>
                     <div className="text-xl font-bold text-green-600">
-                      {adminOrder?.admin_price ? `$${adminOrder.admin_price.toFixed(2)}` : 'Pending Quote'}
+                      {formatOrderPrice({ admin_orders: [adminOrder] } as any)}
                     </div>
                   </div>
                   
@@ -495,6 +497,42 @@ export default function OrderDetailPage() {
                     </>
                   )}
                 </div>
+                
+                {/* Payment Button */}
+                {adminOrder?.admin_price && adminOrder?.payment_status !== 'paid' && (
+                  <div className="mt-4 pt-4 border-t">
+                    <Button 
+                      onClick={() => router.push(`/payment/${order.id}`)}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      size="lg"
+                    >
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Pay Now - {getOrderCurrencySymbol({ admin_orders: [adminOrder] } as any)}{adminOrder.admin_price.toFixed(2)}
+                    </Button>
+                  </div>
+                )}
+                
+                {adminOrder?.payment_status === 'paid' && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle className="h-5 w-5" />
+                      <span className="font-medium">Payment Completed</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Order Status Info */}
+                {adminOrder && !adminOrder.admin_price && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="flex items-center gap-2 text-yellow-600">
+                      <AlertTriangle className="h-5 w-5" />
+                      <span className="font-medium">Waiting for Admin Review</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Your order is being reviewed by our team. You will receive a notification when pricing is available.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

@@ -1,15 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/supabaseClient";
 import { useUserStore } from "@/lib/userStore";
-import type { Database } from "../../../types/supabase";
 import { toUSD } from "@/lib/utils";
+import { canOrderBePaid, getOrderPaymentAmount, type OrderWithAdminOrder } from "@/lib/utils/orderHelpers";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Search, Package, Calendar, DollarSign, Filter, Plus, RefreshCw, Eye, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Package, Calendar, DollarSign, Filter, Plus, RefreshCw, Eye, ArrowUpDown, ChevronLeft, ChevronRight, CreditCard } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -19,11 +19,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+interface AdminOrderInfo {
+  id: string;
+  status: string;
+  admin_price: number | null;
+  currency: string;
+  payment_status?: string | null;
+  [key: string]: unknown;
+}
+
 interface OrderListItem {
   id: string;
   created_at: string | null;
   status: string | null;
   pcb_spec?: Record<string, unknown>;
+  admin_orders?: AdminOrderInfo[] | AdminOrderInfo;
 }
 
 const ORDER_STATUS_MAP: Record<string, { text: string; style: string; description: string }> = {
@@ -39,11 +49,7 @@ const ORDER_STATUS_MAP: Record<string, { text: string; style: string; descriptio
   'cancelled': { text: "Cancelled", style: "bg-red-100 text-red-800 border-red-200", description: "Order cancelled" },
 };
 
-export default function OrdersPage({
-  searchParams = {},
-}: {
-  searchParams?: { status?: string }
-}): React.ReactElement {
+export default function OrdersPage(): React.ReactElement {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loadingOrders, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,9 +60,10 @@ export default function OrdersPage({
   const [itemsPerPage] = useState(10);
   // const [adminOrders, setAdminOrders] = useState<Record<string, Record<string, unknown>>>({});
   const router = useRouter();
-  const supabase = createClientComponentClient<Database>();
+  const searchParams = useSearchParams();
   const user = useUserStore(state => state.user);
-  const [statusFilter, setStatusFilter] = useState(searchParams?.status || 'all');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
+  const orderType = searchParams.get('type'); // 'pending-payment' for pending payment orders
 
   const fetchOrders = async () => {
     if (!user?.id) return;
@@ -72,10 +79,25 @@ export default function OrdersPage({
 
       if (quotesError) throw quotesError;
       
-      setOrders(quotesData as OrderListItem[] || []);
+      // 使用API获取带有admin_orders的完整数据
+      const ordersWithAdminDataPromises = (quotesData || []).map(async (order) => {
+        try {
+          const response = await fetch(`/api/user/orders/${order.id}`);
+          if (response.ok) {
+            return await response.json();
+          }
+          // 如果响应不OK，则返回null，以便后续过滤
+          return null;
+        } catch (err) {
+          console.warn(`Failed to fetch admin data for order ${order.id}:`, err);
+          return null;
+        }
+      });
 
-      // TODO: 获取管理员订单数据 - 需要更新类型定义
-      // 暂时注释掉，等类型定义更新后再启用
+      const ordersWithAdminData = (await Promise.all(ordersWithAdminDataPromises))
+        .filter(order => order !== null); // 过滤掉获取失败的订单
+      
+      setOrders(ordersWithAdminData as OrderListItem[] || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -116,9 +138,16 @@ export default function OrdersPage({
   };
 
   const filteredOrders = orders.filter(order => {
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       order.id.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // 如果是待支付类型，只显示可以支付的订单，并忽略状态过滤器
+    if (orderType === 'pending-payment') {
+      const canPay = canOrderBePaid(order as OrderWithAdminOrder);
+      return matchesSearch && canPay;
+    }
+
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     return matchesStatus && matchesSearch;
   });
 
@@ -182,8 +211,15 @@ export default function OrdersPage({
               <Package className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-              <p className="text-gray-600">Track and manage your PCB orders</p>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {orderType === 'pending-payment' ? 'Pending Payments' : 'My Orders'}
+              </h1>
+              <p className="text-gray-600">
+                {orderType === 'pending-payment' 
+                  ? 'Orders that are ready for payment' 
+                  : 'Track and manage your PCB orders'
+                }
+              </p>
             </div>
           </div>
 
@@ -202,20 +238,22 @@ export default function OrdersPage({
               </div>
 
               {/* Status Filter */}
-              <Select value={statusFilter} onValueChange={handleStatusChange}>
-                <SelectTrigger className="w-[180px] bg-white border-gray-200">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  {Object.entries(ORDER_STATUS_MAP).map(([value, { text }]) => (
-                    <SelectItem key={value} value={value}>
-                      {text}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {orderType !== 'pending-payment' && (
+                <Select value={statusFilter} onValueChange={handleStatusChange}>
+                  <SelectTrigger className="w-[180px] bg-white border-gray-200">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    {Object.entries(ORDER_STATUS_MAP).map(([value, { text }]) => (
+                      <SelectItem key={value} value={value}>
+                        {text}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Action Buttons */}
@@ -313,6 +351,7 @@ export default function OrdersPage({
                   {paginatedOrders.map((order) => {
                     const statusInfo = ORDER_STATUS_MAP[order.status || 'created'];
                     const summary = getOrderSummary(order);
+                    const isPendingPayment = canOrderBePaid(order as OrderWithAdminOrder);
                     
                     return (
                       <TableRow key={order.id} className="hover:bg-gray-50">
@@ -328,12 +367,23 @@ export default function OrdersPage({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge 
-                            className={`${statusInfo?.style} border text-xs font-medium`}
-                            title={statusInfo?.description}
-                          >
-                            {statusInfo?.text || order.status}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              className={`${statusInfo?.style} border text-xs font-medium`}
+                              title={statusInfo?.description}
+                            >
+                              {statusInfo?.text || order.status}
+                            </Badge>
+                            {isPendingPayment && (
+                              <Badge 
+                                className="bg-green-100 text-green-800 border-green-200 text-xs font-medium"
+                                title="Ready for payment"
+                              >
+                                <CreditCard className="w-3 h-3 mr-1" />
+                                Ready to Pay
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
@@ -354,14 +404,27 @@ export default function OrdersPage({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => router.push(`/profile/orders/${order.id}`)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => router.push(`/profile/orders/${order.id}`)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {orderType === 'pending-payment' && canOrderBePaid(order as OrderWithAdminOrder) && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => router.push(`/payment/${order.id}`)}
+                                className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CreditCard className="h-3 w-3 mr-1" />
+                                Pay
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -435,7 +498,9 @@ export default function OrdersPage({
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-gray-900">{filteredOrders.length}</div>
-                  <div className="text-sm text-gray-500">Total Orders</div>
+                  <div className="text-sm text-gray-500">
+                    {orderType === 'pending-payment' ? 'Pending Payments' : 'Total Orders'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -447,9 +512,17 @@ export default function OrdersPage({
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-gray-900">
-                    {toUSD(0)}
+                    {orderType === 'pending-payment' ? 
+                      `$${filteredOrders.reduce((sum, order) => {
+                        const amount = getOrderPaymentAmount(order as OrderWithAdminOrder);
+                        return sum + amount;
+                      }, 0).toFixed(2)}` 
+                      : toUSD(0)
+                    }
                   </div>
-                  <div className="text-sm text-gray-500">Total Value</div>
+                  <div className="text-sm text-gray-500">
+                    {orderType === 'pending-payment' ? 'Total Amount Due' : 'Total Value'}
+                  </div>
                 </div>
               </div>
             </div>

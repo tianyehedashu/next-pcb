@@ -4,52 +4,30 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
   Menu,
-  ShoppingCart,
-  CreditCard,
   List,
-  Truck,
-  Package,
   ClipboardList,
   Lock,
   User,
-  MessageCircle,
-  HelpCircle,
   ChevronLeft,
+  CreditCard,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { useState } from "react";
 
 const menu = [
   {
-    title: "My Orders",
+    title: "My Business",
     items: [
-      { label: "My Speedxpcb", href: "/profile", icon: User },
-      { label: "My Shopping Cart", href: "/profile/cart", icon: ShoppingCart },
-      { label: "Pay the difference", href: "/profile/pay-diff", icon: CreditCard },
-      { label: "All Orders", href: "/profile/orders", icon: List },
-      { label: "Unfinished Payment", href: "/profile/unfinished", icon: CreditCard },
-      { label: "Production Status", href: "/profile/production-status", icon: Package },
-      { label: "Delivery", href: "/profile/delivery", icon: Truck },
-      { label: "Awaiting Feedback", href: "/profile/feedback", icon: MessageCircle },
-      { label: "Complete", href: "/profile/complete", icon: List },
-      { label: "Refunds & Disputes", href: "/profile/refunds", icon: HelpCircle },
+      { label: "My Orders", href: "/profile/orders", icon: List },
+      { label: "Pending Payments", href: "/profile/orders?type=pending-payment", icon: CreditCard },
+      { label: "My Quotes", href: "/profile/quotes", icon: ClipboardList },
     ],
   },
   {
-    title: "My Account",
+    title: "Account",
     items: [
-      { label: "My Message", href: "/profile/message", icon: MessageCircle },
-      { label: "Account Balance", href: "/profile/balance", icon: CreditCard },
-      { label: "My Coupon", href: "/profile/coupon", icon: CreditCard },
-    ],
-  },
-  {
-    title: "Setting",
-    items: [
-      { label: "My Profile", href: "/profile", icon: User },
-      { label: "Billing Details", href: "/profile/billing", icon: CreditCard },
-      { label: "My Shipping Address", href: "/profile/address", icon: Truck },
-      { label: "Change the Password", href: "/profile/password", icon: Lock },
+      { label: "Profile", href: "/profile", icon: User },
+      { label: "Change Password", href: "/profile/password", icon: Lock },
     ],
   },
 ];

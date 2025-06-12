@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
+import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { ADMIN_ORDER, USER_ORDER } from '@/app/constants/tableNames';
 import nodemailer from 'nodemailer';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -170,14 +169,11 @@ async function sendEmailNotification(
 }
 
 export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-   
-  const cookieStore = await cookies();
+  const supabase = await createSupabaseServerClient(false);
   const { id: userOrderId } = await params;
-   //@ts-expect-error nextjs 15 的cookies 是异步的
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
   try {
     // 验证管理员权限
@@ -210,7 +206,6 @@ export async function POST(
     };
 
     // 4. 创建管理员订单
-    // 调试日志：检查即将插入到数据库的数据
     console.log('🔍 即将插入到数据库的数据:', {
       admin_note: insertData.admin_note,
       surcharges: insertData.surcharges,
@@ -228,7 +223,6 @@ export async function POST(
       return NextResponse.json({ error: createError.message }, { status: 500 });
     }
     
-    // 调试日志：确认数据库插入结果
     console.log('✅ 管理员订单创建成功:', {
       admin_note: createdData?.admin_note,
       surcharges: createdData?.surcharges,
@@ -239,55 +233,40 @@ export async function POST(
     const userOrderUpdateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
-
-    // 如果有状态更新，同步到用户订单
     if (adminOrderFields.status && adminOrderFields.status !== 'created') {
       userOrderUpdateData.status = adminOrderFields.status;
     }
 
-    const { data: updatedUserOrder, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from(USER_ORDER)
       .update(userOrderUpdateData)
-      .eq('id', userOrderId)
-      .select('*,admin_orders(*)')
-      .single();
+      .eq('id', userOrderId);
 
     if (updateError) {
-      console.error('Error updating user order:', updateError);
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      console.warn('⚠️ 更新用户订单状态失败:', updateError);
     }
-
+    
     // 6. 发送邮件通知
     if (sendNotification && userEmail) {
-      await sendEmailNotification(
-        userOrderId,
-        userEmail,
-        adminOrderFields,
-        notificationType
-      );
+      await sendEmailNotification(userOrderId, userEmail, createdData, notificationType);
     }
 
-    return NextResponse.json(updatedUserOrder);
+    return NextResponse.json(createdData);
   } catch (error) {
-    console.error('Unexpected error:', error);
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+    console.error('❌ 处理 POST 请求失败:', error);
+    return NextResponse.json({ error: 'Failed to create admin order' }, { status: 500 });
   }
 }
 
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore =await cookies();
+  const supabase = await createSupabaseServerClient(false);
   const { id: userOrderId } = await params;
-  //@ts-expect-error nextjs 15 的cookies 是异步的
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
+  
   try {
-    // 验证管理员权限
     const { isAdmin, error: authError } = await verifyAdminRole(supabase);
     if (!isAdmin) {
       return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
@@ -296,85 +275,59 @@ export async function PATCH(
     const body = await request.json();
     const { sendNotification = false, notificationType = 'order_updated', userEmail, ...otherFields } = body;
 
-    // 1. 查找管理员订单
-    const { data: adminOrder, error: adminOrderError } = await supabase
-      .from(ADMIN_ORDER)
-      .select('*')
-      .eq('user_order_id', userOrderId)
-      .single();
-    
-    if (adminOrderError || !adminOrder) {
-      return NextResponse.json({ error: 'Admin order not found' }, { status: 404 });
-    }
-
-    // 2. 更新管理员订单
-    const updateFields = sanitizeAdminOrderFields({
-      ...otherFields,
-      updated_at: new Date().toISOString(),
-    });
-    
-    // 调试日志：检查即将更新到数据库的数据
-    console.log('🔍 即将更新到数据库的字段:', {
-      admin_note: updateFields.admin_note,
-      surcharges: updateFields.surcharges,
-      adminOrderId: adminOrder.id
-    });
-    
-    const { data: updatedData, error: updateError } = await supabase
-      .from(ADMIN_ORDER)
-      .update(updateFields)
-      .eq('id', adminOrder.id)
-      .select()
-      .single();
-    
-    if (updateError) {
-      console.error('❌ 数据库更新失败:', updateError);
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-    
-    // 调试日志：确认数据库更新结果
-    console.log('✅ 数据库更新成功:', {
-      admin_note: updatedData?.admin_note,
-      surcharges: updatedData?.surcharges
-    });
-
-    // 3. 更新用户订单状态
-    const userOrderUpdateData: Record<string, unknown> = {
+    const adminOrderFields = sanitizeAdminOrderFields(otherFields);
+    const updateData = {
+      ...adminOrderFields,
       updated_at: new Date().toISOString(),
     };
 
-    // 如果有状态更新，同步到用户订单
-    if (updateFields.status) {
-      userOrderUpdateData.status = updateFields.status;
+    console.log('🔍 即将更新到数据库的数据:', {
+      admin_note: updateData.admin_note,
+      surcharges: updateData.surcharges,
+      user_order_id: userOrderId
+    });
+
+    const { data: updatedData, error: updateError } = await supabase
+      .from(ADMIN_ORDER)
+      .update(updateData)
+      .eq('user_order_id', userOrderId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('❌ 更新管理员订单失败:', updateError);
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    const { data: updatedUserOrder, error: userOrderUpdateError } = await supabase
+    console.log('✅ 管理员订单更新成功:', {
+      admin_note: updatedData?.admin_note,
+      surcharges: updatedData?.surcharges,
+      id: updatedData?.id
+    });
+
+    const userOrderUpdateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (adminOrderFields.status) {
+      userOrderUpdateData.status = adminOrderFields.status;
+    }
+
+    const { error: userUpdateError } = await supabase
       .from(USER_ORDER)
       .update(userOrderUpdateData)
-      .eq('id', userOrderId)
-      .select('*,admin_orders(*)')
-      .single();
-    
-    if (userOrderUpdateError) {
-      return NextResponse.json({ error: userOrderUpdateError.message }, { status: 500 });
+      .eq('id', userOrderId);
+      
+    if (userUpdateError) {
+      console.warn('⚠️ 更新用户订单状态失败:', userUpdateError);
     }
 
-    // 4. 发送邮件通知
     if (sendNotification && userEmail) {
-      await sendEmailNotification(
-        userOrderId,
-        userEmail,
-        updateFields,
-        notificationType
-      );
+      await sendEmailNotification(userOrderId, userEmail, updatedData, notificationType);
     }
 
-    return NextResponse.json(updatedUserOrder);
+    return NextResponse.json(updatedData);
   } catch (error) {
-    console.error('Unexpected error:', error);
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+    console.error('❌ 处理 PATCH 请求失败:', error);
+    return NextResponse.json({ error: 'Failed to update admin order' }, { status: 500 });
   }
 } 

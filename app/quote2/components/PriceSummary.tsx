@@ -538,6 +538,39 @@ export default function PriceSummary() {
           </div>
         )}
 
+        {/* Action Buttons */}
+        <div className="pt-4 border-t border-gray-200 space-y-3">
+          {/* Save as Draft Button */}
+          <Button
+            variant="outline"
+            onClick={() => {
+              // TODO: Implement save as draft functionality
+              console.log('Saving as draft...');
+            }}
+            className="w-full"
+            disabled={!isClient || calculated.totalQuantity === 0}
+          >
+            Save as Draft
+          </Button>
+
+          {/* Request Quote Button */}
+          <Button
+            onClick={() => {
+              // TODO: Implement request quote functionality
+              console.log('Requesting quote...');
+            }}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+            disabled={!isClient || calculated.totalQuantity === 0}
+          >
+            Request Quote
+            {isClient && calculated.totalQuantity > 0 && (
+              <span className="ml-2 text-blue-100">
+                (${priceBreakdown.totalPrice.toFixed(2)})
+              </span>
+            )}
+          </Button>
+        </div>
+
         {/* Disclaimer */}
         <div className="text-sm text-gray-500 text-center">
           For reference only, final price is subject to review.

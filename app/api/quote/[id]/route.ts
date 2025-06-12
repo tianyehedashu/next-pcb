@@ -4,9 +4,12 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export async function GET(req: NextRequest, context: any) {
+export async function GET(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const params = context.params ? (await context.params) : {};
+    const { id } = await params;
     const authHeader = req.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
     if (!token) {
@@ -19,13 +22,14 @@ export async function GET(req: NextRequest, context: any) {
     if (!user) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data, error } = await supabase.from('pcb_quotes').select('*').eq('id', params.id).single();
+    const { data, error } = await supabase.from('pcb_quotes').select('*').eq('id', id).single();
     if (error || !data) {
       return NextResponse.json({ error: 'Quote not found or no permission' }, { status: 404 });
     }
     return NextResponse.json({ data }, { status: 200 });
-  } catch (err: any) {
-    console.log(err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.log(errorMessage);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 } 

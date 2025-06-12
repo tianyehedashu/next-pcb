@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 
 interface DownloadButtonProps {
@@ -17,7 +17,6 @@ export default function DownloadButton({
   className
 }: DownloadButtonProps) {
   const [loading, setLoading] = useState(false);
-  const supabase = createClientComponentClient();
 
   const handleDownload = async () => {
     setLoading(true);

@@ -39,9 +39,14 @@ CREATE INDEX IF NOT EXISTS idx_admin_orders_user_order_id ON public.admin_orders
 CREATE INDEX IF NOT EXISTS idx_admin_orders_status ON public.admin_orders(status);
 CREATE INDEX IF NOT EXISTS idx_admin_orders_created_at ON public.admin_orders(created_at);
 
--- 添加约束确保一对一关系
+-- 添加约束确保一对一关系：一个用户订单只能有一个管理员订单
 ALTER TABLE public.admin_orders 
 ADD CONSTRAINT IF NOT EXISTS unique_user_order_id UNIQUE (user_order_id);
+
+-- 添加外键约束确保数据完整性
+ALTER TABLE public.admin_orders 
+ADD CONSTRAINT IF NOT EXISTS fk_admin_orders_user_order_id 
+FOREIGN KEY (user_order_id) REFERENCES public.pcb_quotes(id) ON DELETE CASCADE;
 
 -- 添加更新时间触发器
 CREATE OR REPLACE FUNCTION update_updated_at_column()

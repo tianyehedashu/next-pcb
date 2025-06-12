@@ -716,7 +716,7 @@ const SchemaField = createSchemaField({
 
 interface AdminOrderFormProps {
   initialValues: Record<string, unknown>;
-  onSave: (values: Record<string, unknown>, options?: { sendNotification?: boolean; notificationType?: string }) => void;
+  onSave: (values: Record<string, unknown>, options?: { sendNotification?: boolean; notificationType?: string }) => Promise<void>;
   onRecalc: (values: Record<string, unknown>) => void;
   onCalcPCB?: (values: Record<string, unknown>) => void;
   onCalcDelivery?: (values: Record<string, unknown>) => void;
@@ -730,6 +730,7 @@ interface AdminOrderFormProps {
 
 export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onCalcDelivery, onCalcShipping, readOnly, submitButtonText, hideActionButtons, onStatusChange }: AdminOrderFormProps) {
   const [isEdit, setIsEdit] = useState(!readOnly);
+  const [isSaving, setIsSaving] = useState(false);
   const deliveryDateManuallySet = useRef(false);
   
   // 价格联动计算函数
@@ -898,15 +899,15 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
             <div className="sticky bottom-0 bg-white py-4 px-2 border-t z-10">
               {/* 主要操作按钮 */}
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" type="button" onClick={() => {
-                  onSave(form.values);
+                <Button variant="outline" type="button" onClick={async () => {
+                  await onSave(form.values);
                 }} disabled={!isEdit}>
                   {submitButtonText || '仅保存'}
                 </Button>
 
                 <SaveAndNotifyDialog 
-                  onConfirm={(notificationType) => {
-                    onSave(form.values, { sendNotification: true, notificationType });
+                  onConfirm={async (notificationType) => {
+                    await onSave(form.values, { sendNotification: true, notificationType });
                   }}
                 >
                   <Button type="button" disabled={!isEdit} className="bg-blue-600 hover:bg-blue-700">
@@ -948,11 +949,26 @@ const EMAIL_NOTIFICATION_TYPES = {
 } as const;
 
 // 新增：保存并通知对话框
-function SaveAndNotifyDialog({ onConfirm, children }: { onConfirm: (notificationType: string) => void, children: React.ReactNode }) {
+function SaveAndNotifyDialog({ onConfirm, children }: { onConfirm: (notificationType: string) => Promise<void>, children: React.ReactNode }) {
   const [notificationType, setNotificationType] = useState('order_updated');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleConfirm = async () => {
+    try {
+      setIsLoading(true);
+      await onConfirm(notificationType);
+      setIsOpen(false); // 成功后关闭对话框
+    } catch (error) {
+      // 错误处理由父组件的onConfirm函数处理，这里不需要额外处理
+      console.error('保存并通知失败:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -967,7 +983,11 @@ function SaveAndNotifyDialog({ onConfirm, children }: { onConfirm: (notification
               通知类型
             </Label>
             <div className="col-span-3">
-              <ShadSelect value={notificationType} onValueChange={setNotificationType}>
+              <ShadSelect 
+                value={notificationType} 
+                onValueChange={setNotificationType}
+                disabled={isLoading}
+              >
                 <ShadSelectTrigger id="notification-type">
                   <ShadSelectValue placeholder="选择通知类型..." />
                 </ShadSelectTrigger>
@@ -989,11 +1009,39 @@ function SaveAndNotifyDialog({ onConfirm, children }: { onConfirm: (notification
               {EMAIL_NOTIFICATION_TYPES[notificationType as keyof typeof EMAIL_NOTIFICATION_TYPES].description}
             </div>
           )}
+          
+          {/* 加载状态提示 */}
+          {isLoading && (
+            <div className="col-span-4 flex items-center gap-2 p-3 bg-blue-50 rounded-md border border-blue-200">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span className="text-sm text-blue-700">正在保存订单并发送邮件通知...</span>
+            </div>
+          )}
         </div>
         <DialogFooter>
-          <Button onClick={() => onConfirm(notificationType)}>
-            <Send className="mr-2 h-4 w-4" />
-            确认发送
+          <Button 
+            variant="outline" 
+            onClick={() => setIsOpen(false)}
+            disabled={isLoading}
+          >
+            取消
+          </Button>
+          <Button 
+            onClick={handleConfirm}
+            disabled={isLoading}
+            className={isLoading ? "opacity-70" : ""}
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                处理中...
+              </>
+            ) : (
+              <>
+                <Send className="mr-2 h-4 w-4" />
+                确认发送
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,8 +1,7 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -10,7 +9,7 @@ export async function GET(request: Request) {
     const search = searchParams.get("search") || "";
     const pageSize = 10;
 
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = createSupabaseServerClient();
 
     // 构建查询
     let query = supabase

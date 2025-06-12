@@ -164,7 +164,7 @@ export default function Navbar() {
                   </Link>
                 </DropdownMenu.Item>
                 <DropdownMenu.Item asChild>
-                  <Link href="/quote/orders">
+                  <Link href="/profile/orders">
                     <Button variant="ghost" className="w-full justify-start gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors">
                       <ListOrdered className="w-4 h-4 text-primary" />
                       <span className="text-sm">My Orders</span>

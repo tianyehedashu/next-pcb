@@ -117,6 +117,7 @@ export type Database = {
           id: string
           pcb_spec: Json
           phone: string | null
+          payment_intent_id: string | null
           shipping_address: Json | null
           status: string | null
           updated_at: string | null
@@ -131,6 +132,7 @@ export type Database = {
           id?: string
           pcb_spec: Json
           phone?: string | null
+          payment_intent_id?: string | null
           shipping_address?: Json | null
           status?: string | null
           updated_at?: string | null
@@ -145,6 +147,7 @@ export type Database = {
           id?: string
           pcb_spec?: Json
           phone?: string | null
+          payment_intent_id?: string | null
           shipping_address?: Json | null
           status?: string | null
           updated_at?: string | null

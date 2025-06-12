@@ -10,7 +10,7 @@ import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from "@
 import { getPublicFileUrl } from "@/lib/supabase-file-url";
 import DownloadButton from "../../../components/custom-ui/DownloadButton";
 import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/supabaseClient";
 import { toUSD } from "@/lib/utils";
 import { PcbQuoteForm } from "@/types/pcbQuoteForm";
 import type { Database } from "@/types/supabase";
@@ -404,54 +404,41 @@ interface OrderSummaryCardProps {
 function OrderSummaryCard({ order, onBack, onOrderUpdate }: OrderSummaryCardProps) {
   const { toast } = useToast();
   const [status, setStatus] = useState<OrderStatus>(order.status || "pending");
-  const [paymentStatus, setPaymentStatus] = useState(order.payment_status || "pending");
-  const [quotedPrice, setQuotedPrice] = useState(order.quoted_price || 0);
-  const [shippingCost, setShippingCost] = useState(order.shipping_cost || 0);
-  const [totalAmount, setTotalAmount] = useState(order.total_amount || 0);
-  const [productionDays, setProductionDays] = useState(order.production_days || 0);
-  const [adminNotes, setAdminNotes] = useState(order.admin_notes || "");
   const [isLoading, setIsLoading] = useState(false);
 
-  // 动态计算PCB价格
-  const pcbSpec = order.pcb_spec && typeof order.pcb_spec === 'object' ? order.pcb_spec as Record<string, unknown> : {};
-  const pcbPriceResult = calcPcbPriceV2(pcbSpec as unknown as PcbQuoteForm);
-
   function handleRecalc() {
-    if (pcbPriceResult.total) {
-      setQuotedPrice(pcbPriceResult.total);
-      setTotalAmount(pcbPriceResult.total + shippingCost);
-    }
-    toast({ title: "Price recalculated based on PCB specifications" });
+    setIsLoading(true);
+    const pcbData = order.pcb_spec as PcbQuoteForm;
+    const priceResult = calcPcbPriceV2(pcbData, pcbData.singleCount || 0);
+    setUpdatedPrice(priceResult.totalPrice);
+    setIsLoading(false);
   }
 
   async function handleSave() {
     setIsLoading(true);
     try {
-      const supabase = createClientComponentClient<Database>();
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("orders")
         .update({
-          status,
-          payment_status: paymentStatus,
-          quoted_price: quotedPrice,
-          shipping_cost: shippingCost,
-          total_amount: totalAmount,
-          production_days: productionDays,
-          admin_notes: adminNotes,
+          pcb_price: updatedPrice,
+          status: updatedStatus,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", order.id);
+        .eq("id", order.id)
+        .select()
+        .single();
 
       if (error) throw error;
-
-      toast({ title: "Order updated successfully" });
+      toast({
+        title: "Success",
+        description: "Order updated successfully.",
+      });
       onOrderUpdate();
-    } catch (error) {
-      console.error("Error updating order:", error);
-      toast({ 
-        title: "Failed to update order", 
-        description: "Please try again later.",
-        variant: "destructive"
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -489,52 +476,14 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate }: OrderSummaryCardProp
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Payment Status</label>
-            <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-              <SelectTrigger>
-                <span>{paymentStatus}</span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
-                <SelectItem value="refunded">Refunded</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Price Controls */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Quoted Price (USD)</label>
             <Input
               type="number"
-              value={quotedPrice}
-              onChange={(e) => setQuotedPrice(Number(e.target.value))}
+              value={updatedPrice}
+              onChange={(e) => setUpdatedPrice(Number(e.target.value))}
               step="0.01"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Shipping Cost (USD)</label>
-            <Input
-              type="number"
-              value={shippingCost}
-              onChange={(e) => {
-                const cost = Number(e.target.value);
-                setShippingCost(cost);
-                setTotalAmount(quotedPrice + cost);
-              }}
-              step="0.01"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Production Days</label>
-            <Input
-              type="number"
-              value={productionDays}
-              onChange={(e) => setProductionDays(Number(e.target.value))}
             />
           </div>
 
@@ -542,26 +491,15 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate }: OrderSummaryCardProp
             <div className="flex justify-between items-center">
               <span className="text-xl font-bold text-blue-900">Total Amount</span>
               <span className="text-2xl font-extrabold text-blue-700">
-                {toUSD(totalAmount)}
+                {toUSD(updatedPrice + (order.shipping_cost || 0))}
               </span>
             </div>
           </div>
 
-          {/* Admin Notes */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Admin Notes</label>
-            <textarea
-              className="w-full min-h-[80px] px-3 py-2 border rounded-md resize-vertical"
-              value={adminNotes}
-              onChange={(e) => setAdminNotes(e.target.value)}
-              placeholder="Internal notes for this order..."
-            />
-          </div>
-
           <div className="flex flex-col gap-2 pt-2">
             <Button variant="outline" onClick={onBack}>Back</Button>
-            <Button variant="secondary" onClick={handleRecalc}>
-              Recalculate Price
+            <Button variant="secondary" onClick={handleRecalc} disabled={isLoading}>
+              {isLoading ? "Recalculating..." : "Recalculate Price"}
             </Button>
             <Button variant="default" onClick={handleSave} disabled={isLoading}>
               {isLoading ? "Saving..." : "Save Changes"}
@@ -585,8 +523,7 @@ export default function AdminOrderDetailClient({ order }: { order: Database["pub
   }
 
   const handleOrderUpdate = () => {
-    // 在实际应用中，您可能需要重新获取订单数据
-    window.location.reload();
+    router.refresh();
   };
 
   return (
