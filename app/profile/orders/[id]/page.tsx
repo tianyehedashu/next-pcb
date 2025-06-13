@@ -140,15 +140,15 @@ const ORDER_STATUS_MAP: Record<string, { text: string; style: string; descriptio
   },
   'reviewed': { 
     text: "Reviewed", 
-    style: "bg-purple-100 text-purple-800 border-purple-200", 
-    description: "Review completed, awaiting quote",
-    stepKey: "review"
+    style: "bg-green-100 text-green-800 border-green-200", 
+    description: "Review completed, ready for confirmation and payment",
+    stepKey: "confirm_pay"
   },
   'quoted': { 
     text: "Quoted", 
     style: "bg-green-100 text-green-800 border-green-200", 
     description: "Quote provided, awaiting confirmation",
-    stepKey: "quote"
+    stepKey: "confirm_pay"
   },
   'confirmed': { 
     text: "Confirmed", 
@@ -198,7 +198,6 @@ const ORDER_STATUS_MAP: Record<string, { text: string; style: string; descriptio
 const ORDER_STEPS = [
   { label: "Created", key: "created" },
   { label: "Review", key: "review" },
-  { label: "Quote", key: "quote" },
   { label: "Confirm & Pay", key: "confirm_pay" },
   { label: "Production", key: "production" },
   { label: "Shipping", key: "shipping" },
@@ -308,10 +307,10 @@ export default function OrderDetailPage() {
   }, [user, fetchOrder]);
 
   // Check if editing is allowed (before payment/production)
-  const canEdit = order && ['created', 'pending', 'reviewed', 'quoted'].includes(order.status || '');
+  const canEdit = order && ['created', 'pending', 'reviewed'].includes(order.status || '');
 
   // Check if cancellation is allowed
-  const canCancel = order && ['created', 'pending', 'reviewed', 'quoted'].includes(order.status || '');
+  const canCancel = order && ['created', 'pending', 'reviewed'].includes(order.status || '');
 
   // Update order information
   const updateOrder = async (updates: Partial<Order>) => {
@@ -347,8 +346,8 @@ export default function OrderDetailPage() {
     await updateOrder({ shipping_address: editedAddress });
     setIsEditingAddress(false);
     
-    // If order status is 'reviewed' or later, set back to 'pending' for re-review
-    if (order && ['reviewed', 'quoted'].includes(order.status || '')) {
+    // If order status is 'reviewed', set back to 'pending' for re-review
+    if (order && order.status === 'reviewed') {
       await updateOrder({ status: 'pending' });
       toast({
         title: 'Info',
@@ -368,8 +367,8 @@ export default function OrderDetailPage() {
     await updateOrder({ pcb_spec: editedPcbSpec });
     setIsEditingPcbSpec(false);
     
-    // If order status is 'reviewed' or later, set back to 'pending' for re-review
-    if (order && ['reviewed', 'quoted'].includes(order.status || '')) {
+    // If order status is 'reviewed', set back to 'pending' for re-review
+    if (order && order.status === 'reviewed') {
       await updateOrder({ status: 'pending' });
       toast({
         title: 'Info',
@@ -534,6 +533,44 @@ export default function OrderDetailPage() {
   }
 
   const statusInfo = ORDER_STATUS_MAP[order.status || 'created'];
+  
+  // Check if the order is ready for payment. Requires admin order, price, and 'reviewed' status.
+  const isReadyForPayment = adminOrder && adminOrder.admin_price && adminOrder.status === 'reviewed';
+
+  // Determine the current step for the progress bar
+  const getCurrentStep = () => {
+    const userStatus = order.status || 'created';
+    const isPaid = adminOrder?.payment_status === 'paid';
+
+    if (isPaid) {
+      if (adminOrder?.status === 'shipped') return 'shipping';
+      if (adminOrder?.status === 'delivered') return 'receiving';
+      if (adminOrder?.status === 'completed') return 'complete';
+      return 'production';
+    }
+
+    if (isReadyForPayment) {
+      return 'confirm_pay';
+    }
+    
+    // If admin order exists but isn't ready for payment, it's still in the review phase.
+    if (adminOrder) {
+      return 'review';
+    }
+
+    // Otherwise, base the step on the user's order status.
+    switch (userStatus) {
+      case 'created':
+        return 'created';
+      case 'pending':
+      case 'reviewed':
+        return 'review';
+      default:
+        return 'created';
+    }
+  };
+
+  const currentStep = getCurrentStep();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
@@ -575,7 +612,7 @@ export default function OrderDetailPage() {
         {/* Order Progress Steps */}
         <div className="mb-8">
           <OrderStepBar 
-            currentStatus={statusInfo?.stepKey || 'created'} 
+            currentStatus={currentStep} 
             steps={ORDER_STEPS}
           />
         </div>
@@ -607,17 +644,61 @@ export default function OrderDetailPage() {
                   <Badge className={`${statusInfo?.style} border text-sm px-3 py-1`}>
                     {statusInfo?.text || order.status}
                   </Badge>
-                  <span className="text-gray-600">{statusInfo?.description}</span>
+                  <span className="text-gray-600">
+                    {(() => {
+                      const userStatus = order.status || 'created';
+                      const isPaid = adminOrder?.payment_status === 'paid';
+
+                      if (isPaid) {
+                        if (adminOrder?.status === 'shipped') return 'Order has been shipped.';
+                        if (adminOrder?.status === 'delivered') return 'Order has been delivered.';
+                        if (adminOrder?.status === 'completed') return 'Order completed.';
+                        return 'Payment received, order in production.';
+                      }
+
+                      if (isReadyForPayment) {
+                        return 'Price confirmed by admin, ready for payment.';
+                      }
+
+                      if (adminOrder) {
+                        if (!adminOrder.admin_price) {
+                          return `Admin is reviewing, waiting for price confirmation. Admin status: ${adminOrder.status}`;
+                        }
+                        return `Admin is finalizing your order, waiting for final approval. Admin status: ${adminOrder.status}`;
+                      }
+
+                      switch (userStatus) {
+                        case 'created':
+                          return 'Quote request submitted, waiting for admin review.';
+                        case 'pending':
+                          return 'Being reviewed by our team.';
+                        case 'reviewed':
+                          return 'Initial review complete, waiting for admin to finalize pricing and details.';
+                        default:
+                          return statusInfo?.description || 'Status unknown';
+                      }
+                    })()}
+                  </span>
                 </div>
                 
                 {/* Admin Order Status */}
-                {adminOrder && (
+                {adminOrder ? (
                   <div className="border-t pt-4">
                     <h4 className="font-medium text-gray-900 mb-2">Admin Processing Status</h4>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-500">Processing Status: </span>
-                        <span className="font-medium">{adminOrder.status || '-'}</span>
+                        <span className="text-gray-500">Admin Status: </span>
+                        <span className="font-medium">{adminOrder.status || 'Processing'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Payment Status: </span>
+                        <span className="font-medium">{adminOrder.payment_status || 'Unpaid'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Price Status: </span>
+                        <span className="font-medium">
+                          {adminOrder.admin_price ? 'Confirmed' : 'Pending'}
+                        </span>
                       </div>
                       <div>
                         <span className="text-gray-500">Expected Delivery: </span>
@@ -636,6 +717,16 @@ export default function OrderDetailPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                ) : (
+                  <div className="border-t pt-4">
+                    <div className="flex items-center gap-2 text-amber-600">
+                      <Clock className="h-4 w-4" />
+                      <span className="text-sm font-medium">Waiting for Admin Review</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Our team will review your order and create an admin order record with confirmed pricing soon.
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -711,7 +802,7 @@ export default function OrderDetailPage() {
                             <span className="font-medium">
                               {adminOrder.currency === 'CNY' 
                                 ? `¥${adminOrder.pcb_price?.toFixed(2) || '-'}` 
-                                : `$${adminOrder.pcb_price ? (adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
+                                : `$${(adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) || '-'}`
                               }
                             </span>
                           </div>
@@ -752,9 +843,15 @@ export default function OrderDetailPage() {
                   </div>
                 )}
                 
-                {/* Payment Button */}
-                {adminOrder?.admin_price && adminOrder?.payment_status !== 'paid' && (
+                {/* Payment Button - Only show when admin has confirmed price and status is reviewed */}
+                {isReadyForPayment && adminOrder?.payment_status !== 'paid' && (
                   <div className="mt-4 pt-4 border-t">
+                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded">
+                      <div className="flex items-center gap-2 text-green-700 text-sm">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-medium">Price Confirmed & Approved - Ready for Payment</span>
+                      </div>
+                    </div>
                     <Button 
                       onClick={() => router.push(`/payment/${order.id}`)}
                       className="w-full bg-blue-600 hover:bg-blue-700"
@@ -764,6 +861,31 @@ export default function OrderDetailPage() {
                       Pay Now - {adminOrder.currency === 'CNY' ? '¥' : '$'}
                       {adminOrder.admin_price?.toFixed(2)}
                     </Button>
+                  </div>
+                )}
+                
+                {/* Waiting for Admin Confirmation */}
+                {!isReadyForPayment && adminOrder?.payment_status !== 'paid' && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-amber-700 mb-2">
+                        <Clock className="h-4 w-4" />
+                        <span className="font-medium">
+                          {
+                            !adminOrder ? "Waiting for Admin Review" :
+                            !adminOrder.admin_price ? "Waiting for Price Confirmation" :
+                            "Waiting for Final Admin Approval"
+                          }
+                        </span>
+                      </div>
+                      <p className="text-sm text-amber-700">
+                        {
+                          !adminOrder ? "Our team will review your order and provide final pricing soon." :
+                          !adminOrder.admin_price ? "Our admin team is calculating the final price for your order." :
+                          "Our admin team has drafted the order details. Once they give the final approval (by changing status to 'reviewed'), you will be able to proceed with payment."
+                        }
+                      </p>
+                    </div>
                   </div>
                 )}
                 
