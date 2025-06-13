@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -32,25 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/components/ui/use-toast';
-
-// Define shipping address type
-interface ShippingAddress {
-  id?: string;
-  city?: string;
-  label?: string;
-  phone?: string;
-  state?: string;
-  address?: string;
-  country?: string;
-  courier?: string;
-  zipCode?: string;
-  cityName?: string;
-  isDefault?: boolean;
-  stateName?: string;
-  contactName?: string;
-  countryName?: string;
-  courierName?: string;
-}
+import { AddressFormComponent, AddressFormValue } from '@/app/quote2/components/AddressFormComponent';
 
 // Define cal_values type
 interface CalValues {
@@ -110,7 +92,7 @@ interface Order {
   user_id: string | null;
   email: string;
   phone: string | null;
-  shipping_address: ShippingAddress | null;
+  shipping_address: AddressFormValue | null;
   pcb_spec: Record<string, unknown> | null;
   gerber_file_url: string | null;
   status: string | null;
@@ -222,7 +204,9 @@ export default function OrderDetailPage() {
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [isEditingPcbSpec, setIsEditingPcbSpec] = useState(false);
-  const [editedAddress, setEditedAddress] = useState<ShippingAddress>({});
+  const [editedAddress, setEditedAddress] = useState<AddressFormValue>({
+    country: '', state: '', city: '', address: '', zipCode: '', contactName: '', phone: '', courier: ''
+  });
   const [editedPhone, setEditedPhone] = useState('');
   const [editedPcbSpec, setEditedPcbSpec] = useState<QuoteFormData>({} as QuoteFormData);
 
@@ -343,6 +327,15 @@ export default function OrderDetailPage() {
 
   // Save address changes
   const handleSaveAddress = async () => {
+    if (!editedAddress || !editedAddress.country || !editedAddress.address) {
+      toast({
+        title: "Invalid Address",
+        description: "Please ensure all required address fields are filled out.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     await updateOrder({ shipping_address: editedAddress });
     setIsEditingAddress(false);
     
@@ -747,7 +740,7 @@ export default function OrderDetailPage() {
                       <h4 className="font-semibold text-green-800">Final Confirmed Price</h4>
                     </div>
                     <div className="text-2xl font-bold text-green-600 mb-2">
-                      {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price.toFixed(2)}
+                      {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price?.toFixed(2) || '0.00'}
                     </div>
                     <p className="text-sm text-green-700">
                       This is the final price confirmed by our team after detailed review.
@@ -802,7 +795,7 @@ export default function OrderDetailPage() {
                             <span className="font-medium">
                               {adminOrder.currency === 'CNY' 
                                 ? `¥${adminOrder.pcb_price?.toFixed(2) || '-'}` 
-                                : `$${(adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) || '-'}`
+                                : `$${adminOrder.pcb_price ? (adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
                               }
                             </span>
                           </div>
@@ -1040,62 +1033,28 @@ export default function OrderDetailPage() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="max-w-4xl">
                       <DialogHeader>
                         <DialogTitle>Edit Shipping Address</DialogTitle>
+                        <DialogDescription>
+                          Select a saved address, or edit the fields below. Changes here will only apply to this order. To manage your address book permanently, go to your profile.
+                        </DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="contactName">Contact Name</Label>
-                          <Input
-                            id="contactName"
-                            value={editedAddress.contactName || ''}
-                            onChange={(e) => setEditedAddress({...editedAddress, contactName: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="phone">Phone</Label>
-                          <Input
-                            id="phone"
-                            value={editedAddress.phone || ''}
-                            onChange={(e) => setEditedAddress({...editedAddress, phone: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="address">Address</Label>
-                          <Textarea
-                            id="address"
-                            value={editedAddress.address || ''}
-                            onChange={(e) => setEditedAddress({...editedAddress, address: e.target.value})}
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label htmlFor="city">City</Label>
-                            <Input
-                              id="city"
-                              value={editedAddress.city || ''}
-                              onChange={(e) => setEditedAddress({...editedAddress, city: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="zipCode">Postal Code</Label>
-                            <Input
-                              id="zipCode"
-                              value={editedAddress.zipCode || ''}
-                              onChange={(e) => setEditedAddress({...editedAddress, zipCode: e.target.value})}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" onClick={() => setIsEditingAddress(false)}>
-                            Cancel
-                          </Button>
-                          <Button onClick={handleSaveAddress}>
-                            Save
-                          </Button>
-                        </div>
-                      </div>
+                      
+                      <AddressFormComponent
+                        userId={user?.id}
+                        value={editedAddress}
+                        onChange={setEditedAddress}
+                      />
+                      
+                      <DialogFooter className="mt-4">
+                        <Button variant="outline" onClick={() => setIsEditingAddress(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleSaveAddress}>
+                          Apply to This Order
+                        </Button>
+                      </DialogFooter>
                     </DialogContent>
                   </Dialog>
                 )}
@@ -1112,15 +1071,15 @@ export default function OrderDetailPage() {
                     <div className="text-gray-700">
                       {[
                         order.shipping_address.address,
-                        order.shipping_address.city,
-                        order.shipping_address.state,
-                        order.shipping_address.country,
+                        order.shipping_address.cityName || order.shipping_address.city,
+                        order.shipping_address.stateName || order.shipping_address.state,
+                        order.shipping_address.countryName || order.shipping_address.country,
                         order.shipping_address.zipCode
                       ].filter(Boolean).join(', ')}
                     </div>
                     {order.shipping_address.courier && (
-                      <div className="text-sm text-gray-500">
-                        Shipping Method: {order.shipping_address.courier}
+                      <div className="text-sm text-gray-500 mt-2">
+                        <span className="font-semibold">Shipping Method:</span> {order.shipping_address.courierName || order.shipping_address.courier}
                       </div>
                     )}
                   </div>
@@ -1524,7 +1483,7 @@ export default function OrderDetailPage() {
                           <span className="font-medium">
                             {adminOrder.currency === 'CNY' 
                               ? `¥${adminOrder.pcb_price.toFixed(2)}` 
-                              : `$${(adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2)}`
+                              : `$${adminOrder.pcb_price ? (adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
                             }
                           </span>
                         </div>
@@ -1535,7 +1494,7 @@ export default function OrderDetailPage() {
                           <span>
                             {adminOrder.currency === 'CNY' 
                               ? `¥${adminOrder.ship_price.toFixed(2)}` 
-                              : `$${(adminOrder.ship_price / (adminOrder.exchange_rate || 7.2)).toFixed(2)}`
+                              : `$${adminOrder.ship_price ? (adminOrder.ship_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
                             }
                           </span>
                         </div>
@@ -1546,7 +1505,7 @@ export default function OrderDetailPage() {
                           <span>
                             {adminOrder.currency === 'CNY' 
                               ? `¥${adminOrder.custom_duty.toFixed(2)}` 
-                              : `$${(adminOrder.custom_duty / (adminOrder.exchange_rate || 7.2)).toFixed(2)}`
+                              : `$${adminOrder.custom_duty ? (adminOrder.custom_duty / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
                             }
                           </span>
                         </div>
@@ -1557,7 +1516,7 @@ export default function OrderDetailPage() {
                           <span className="text-green-600">
                             -{adminOrder.currency === 'CNY' 
                               ? `¥${adminOrder.coupon.toFixed(2)}` 
-                              : `$${(adminOrder.coupon / (adminOrder.exchange_rate || 7.2)).toFixed(2)}`
+                              : `$${adminOrder.coupon ? (adminOrder.coupon / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
                             }
                           </span>
                         </div>
@@ -1571,7 +1530,7 @@ export default function OrderDetailPage() {
                               <span className="text-xs">
                                 {adminOrder.currency === 'CNY' 
                                   ? `¥${surcharge.amount.toFixed(2)}` 
-                                  : `$${(surcharge.amount / (adminOrder.exchange_rate || 7.2)).toFixed(2)}`
+                                  : `$${surcharge.amount ? (surcharge.amount / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
                                 }
                               </span>
                             </div>
