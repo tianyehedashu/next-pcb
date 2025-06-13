@@ -9,6 +9,95 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_orders: {
+        Row: {
+          admin_note: string | null
+          admin_price: number | null
+          approved_refund_amount: number | null
+          cny_price: number | null
+          coupon: number | null
+          created_at: string
+          currency: string | null
+          custom_duty: number | null
+          delivery_date: string | null
+          due_date: string | null
+          exchange_rate: number | null
+          id: string
+          pay_time: string | null
+          payment_status: string
+          pcb_price: number | null
+          production_days: number | null
+          refund_status: string | null
+          requested_refund_amount: number | null
+          ship_price: number | null
+          status: string
+          surcharges: Json | null
+          updated_at: string
+          user_id: string | null
+          user_order_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          admin_price?: number | null
+          approved_refund_amount?: number | null
+          cny_price?: number | null
+          coupon?: number | null
+          created_at?: string
+          currency?: string | null
+          custom_duty?: number | null
+          delivery_date?: string | null
+          due_date?: string | null
+          exchange_rate?: number | null
+          id?: string
+          pay_time?: string | null
+          payment_status?: string
+          pcb_price?: number | null
+          production_days?: number | null
+          refund_status?: string | null
+          requested_refund_amount?: number | null
+          ship_price?: number | null
+          status?: string
+          surcharges?: Json | null
+          updated_at?: string
+          user_id?: string | null
+          user_order_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          admin_price?: number | null
+          approved_refund_amount?: number | null
+          cny_price?: number | null
+          coupon?: number | null
+          created_at?: string
+          currency?: string | null
+          custom_duty?: number | null
+          delivery_date?: string | null
+          due_date?: string | null
+          exchange_rate?: number | null
+          id?: string
+          pay_time?: string | null
+          payment_status?: string
+          pcb_price?: number | null
+          production_days?: number | null
+          refund_status?: string | null
+          requested_refund_amount?: number | null
+          ship_price?: number | null
+          status?: string
+          surcharges?: Json | null
+          updated_at?: string
+          user_id?: string | null
+          user_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_admin_orders_user_order_id"
+            columns: ["user_order_id"]
+            isOneToOne: true
+            referencedRelation: "pcb_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           created_at: string | null
@@ -109,49 +198,49 @@ export type Database = {
       }
       pcb_quotes: {
         Row: {
-          admin_notes: string | null
-          admin_quote_price: number | null
+          cal_values: Json | null
           created_at: string | null
           email: string
           gerber_file_url: string | null
           id: string
+          payment_intent_id: string | null
           pcb_spec: Json
           phone: string | null
-          payment_intent_id: string | null
           shipping_address: Json | null
           status: string | null
           updated_at: string | null
           user_id: string | null
+          user_name: string | null
         }
         Insert: {
-          admin_notes?: string | null
-          admin_quote_price?: number | null
+          cal_values?: Json | null
           created_at?: string | null
           email: string
           gerber_file_url?: string | null
           id?: string
+          payment_intent_id?: string | null
           pcb_spec: Json
           phone?: string | null
-          payment_intent_id?: string | null
           shipping_address?: Json | null
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
+          user_name?: string | null
         }
         Update: {
-          admin_notes?: string | null
-          admin_quote_price?: number | null
+          cal_values?: Json | null
           created_at?: string | null
           email?: string
           gerber_file_url?: string | null
           id?: string
+          payment_intent_id?: string | null
           pcb_spec?: Json
           phone?: string | null
-          payment_intent_id?: string | null
           shipping_address?: Json | null
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
+          user_name?: string | null
         }
         Relationships: []
       }
@@ -219,15 +308,19 @@ export type Database = {
         Row: {
           address: string
           city: string | null
+          city_name: string | null
           contact_name: string
           country: string
+          country_name: string | null
           courier: string | null
+          courier_name: string | null
           created_at: string | null
           id: number
           is_default: boolean | null
           label: string | null
           phone: string
           state: string | null
+          state_name: string | null
           updated_at: string | null
           user_id: string
           zip_code: string | null
@@ -235,15 +328,19 @@ export type Database = {
         Insert: {
           address: string
           city?: string | null
+          city_name?: string | null
           contact_name: string
           country: string
+          country_name?: string | null
           courier?: string | null
+          courier_name?: string | null
           created_at?: string | null
           id?: number
           is_default?: boolean | null
           label?: string | null
           phone: string
           state?: string | null
+          state_name?: string | null
           updated_at?: string | null
           user_id: string
           zip_code?: string | null
@@ -251,15 +348,19 @@ export type Database = {
         Update: {
           address?: string
           city?: string | null
+          city_name?: string | null
           contact_name?: string
           country?: string
+          country_name?: string | null
           courier?: string | null
+          courier_name?: string | null
           created_at?: string | null
           id?: number
           is_default?: boolean | null
           label?: string | null
           phone?: string
           state?: string | null
+          state_name?: string | null
           updated_at?: string | null
           user_id?: string
           zip_code?: string | null

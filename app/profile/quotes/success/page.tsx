@@ -91,7 +91,7 @@ function QuoteSuccessContent() {
             <div className="space-y-2 text-sm text-gray-700">
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-gray-500" />
-                <span>Email: support@nextpcb.com</span>
+                <span>Email: sales@speedxpcb.com</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-gray-500" />
@@ -177,7 +177,7 @@ function QuoteSuccessLoading() {
             <div className="space-y-2 text-sm text-gray-700">
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-gray-500" />
-                <span>Email: support@nextpcb.com</span>
+                <span>Email: sales@speedxpcb.com</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-gray-500" />

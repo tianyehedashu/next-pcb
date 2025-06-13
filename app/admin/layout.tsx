@@ -63,7 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
               <div className="p-4 border-t">
                 <div className="text-xs text-muted-foreground text-center">
-                  &copy; {new Date().getFullYear()} NextPCB Admin
+                  &copy; {new Date().getFullYear()} SpeedXPCB Admin
                 </div>
               </div>
             </div>
@@ -98,7 +98,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         <div className="p-4 border-t">
           <div className="text-xs text-muted-foreground text-center">
-            &copy; {new Date().getFullYear()} NextPCB Admin
+            &copy; {new Date().getFullYear()} SpeedXPCB Admin
           </div>
         </div>
       </aside>

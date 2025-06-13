@@ -181,7 +181,7 @@ function AuthContent() {
         <div className="flex flex-col items-center gap-2 w-full">
           <span className="inline-flex items-center gap-2 text-blue-700 font-extrabold text-xl tracking-tight mb-2">
             <svg width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#3B82F6"/><path d="M10 17.5L15 22.5L22 10.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            NextPCB
+            SpeedXPCB
           </span>
           <CardTitle className="text-center text-xl font-bold text-blue-800 mt-1 mb-0">
             {isSignUp ? "Create your account" : "Sign in to your account"}

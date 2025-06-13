@@ -38,6 +38,9 @@ export interface AdminOrder {
   ship_price?: number | string | null;
   custom_duty?: number | string | null;
   surcharges?: SurchargeItem[];
+  refund_status?: string | null;
+  requested_refund_amount?: number | null;
+  approved_refund_amount?: number | null;
 }
 
 export interface Order {

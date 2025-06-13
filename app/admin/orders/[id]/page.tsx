@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useParams } from 'next/navigation';
 import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
@@ -11,14 +11,18 @@ import { OrderOverviewTabs } from '@/app/admin/components/OrderOverviewTabs';
 import { AdminOrderForm } from '@/app/admin/components/AdminOrderForm';
 import { Order, AdminOrder } from '@/app/admin/types/order';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
+import { Textarea } from "@/components/ui/textarea";
+import { CreditCard, Loader2, Info, CheckCircle } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 function getAdminOrders(admin_orders: unknown): AdminOrder[] {
   if (!admin_orders) return [];
   if (Array.isArray(admin_orders)) return admin_orders as AdminOrder[];
   return [admin_orders as AdminOrder];
 }
-
-
 
 export default function AdminOrderDetailPage() {
   const params = useParams();
@@ -44,6 +48,15 @@ export default function AdminOrderDetailPage() {
   const [showShippingNotes, setShowShippingNotes] = useState(true);
   const hasInitAdminOrderEdits = useRef(false);
   
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editedFields, setEditedFields] = useState<Partial<AdminOrder>>({});
+  
+  const [isReviewingRefund, setIsReviewingRefund] = useState(false);
+  const [refundReviewAmount, setRefundReviewAmount] = useState<string>("");
+  const [refundReviewReason, setRefundReviewReason] = useState("");
+  
+  const [isProcessingStripeRefund, setIsProcessingStripeRefund] = useState(false);
+  
   // 定义默认值
   const adminOrderDefaultValues = {
     status: 'created',
@@ -65,7 +78,7 @@ export default function AdminOrderDetailPage() {
   };
 
   // 获取订单数据
-  const fetchOrder = async (): Promise<Order | undefined> => {
+  const fetchOrder = useCallback(async (): Promise<Order | undefined> => {
     if (!orderId) return;
     try {
       setLoading(true);
@@ -93,11 +106,11 @@ export default function AdminOrderDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId]);
 
   useEffect(() => {
     fetchOrder();
-  }, [orderId]);
+  }, [fetchOrder]);
 
   useEffect(() => {
     if (order?.admin_orders) {
@@ -827,6 +840,58 @@ export default function AdminOrderDetailPage() {
     },
   ];
 
+  const handleRefundReview = async (action: 'approve' | 'reject') => {
+    setIsReviewingRefund(true);
+    try {
+      if (action === 'approve' && (isNaN(parseFloat(refundReviewAmount)) || parseFloat(refundReviewAmount) < 0)) {
+        throw new Error("Please enter a valid, non-negative refund amount.");
+      }
+      if (!refundReviewReason) {
+        throw new Error("Please provide a reason for the decision.");
+      }
+
+      const response = await fetch(`/api/admin/orders/${orderId}/review-refund`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          amount: parseFloat(refundReviewAmount || "0"),
+          reason: refundReviewReason,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to review refund.');
+      
+      toast.success(`The refund has been successfully ${action}d.`);
+      fetchOrder(); // Refresh data
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsReviewingRefund(false);
+    }
+  };
+
+  const handleProcessStripeRefund = async () => {
+    setIsProcessingStripeRefund(true);
+    try {
+      const response = await fetch(`/api/admin/orders/${orderId}/process-refund`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to process Stripe refund.');
+
+      toast.success('Stripe refund processed successfully!');
+      fetchOrder(); // Refresh data
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsProcessingStripeRefund(false);
+    }
+  };
+  
+  const adminOrder = order ? getAdminOrders(order.admin_orders)[0] : null;
+
   if (loading) {
     return <div>Loading UI...</div>;
   }
@@ -1207,6 +1272,88 @@ export default function AdminOrderDetailPage() {
                 hidePriceDetailsTab={true}
               />
             </div>
+
+            {adminOrder?.refund_status === 'requested' && (
+              <Card className="mt-6 border-yellow-400">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Info className="text-yellow-500" />
+                    <span>Refund Request Pending Review</span>
+                  </CardTitle>
+                  <CardDescription>
+                    The user has requested a refund. Please review and approve or reject the request.
+                    Estimated refund amount based on policy was: ${adminOrder.requested_refund_amount?.toFixed(2)}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="refundAmount">Approved Refund Amount ({adminOrder.currency})</Label>
+                    <Input
+                      id="refundAmount"
+                      type="number"
+                      placeholder="Enter final refund amount"
+                      value={refundReviewAmount}
+                      onChange={(e) => setRefundReviewAmount(e.target.value)}
+                      disabled={isReviewingRefund}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="refundReason">Reason for Decision</Label>
+                    <Textarea
+                      id="refundReason"
+                      placeholder="Explain the reason for your approval or rejection..."
+                      value={refundReviewReason}
+                      onChange={(e) => setRefundReviewReason(e.target.value)}
+                      disabled={isReviewingRefund}
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter className="flex justify-end gap-2">
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleRefundReview('reject')}
+                    disabled={isReviewingRefund}
+                  >
+                    {isReviewingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject'}
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={() => handleRefundReview('approve')}
+                    disabled={isReviewingRefund}
+                  >
+                    {isReviewingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Approve'}
+                  </Button>
+                </CardFooter>
+              </Card>
+            )}
+
+            {adminOrder?.refund_status === 'processing' && (
+              <Card className="mt-6 border-green-400">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="text-green-500" />
+                    <span>Ready to Process Refund</span>
+                  </CardTitle>
+                  <CardDescription>
+                    The user has confirmed the refund amount of ${adminOrder.approved_refund_amount?.toFixed(2)}. You can now process the refund via Stripe.
+                  </CardDescription>
+                </CardHeader>
+                <CardFooter>
+                  <Button
+                    onClick={handleProcessStripeRefund}
+                    disabled={isProcessingStripeRefund}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {isProcessingStripeRefund ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CreditCard className="mr-2 h-4 w-4" />
+                    )}
+                    Process Refund via Stripe
+                  </Button>
+                </CardFooter>
+              </Card>
+            )}
           </div>
         </div>
       </div>

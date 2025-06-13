@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { QuotePageClient } from "./components/QuotePageClient";
 
 export const metadata: Metadata = {
-  title: "PCB Quote Request - Get Instant Pricing | NextPCB",
+  title: "PCB Quote Request - Get Instant Pricing | SpeedXPCB",
   description: "Get instant PCB manufacturing quotes with our advanced calculator. Professional PCB fabrication services with competitive pricing and fast delivery.",
   keywords: ["PCB quote", "PCB manufacturing", "circuit board", "PCB fabrication", "electronics manufacturing"],
   openGraph: {

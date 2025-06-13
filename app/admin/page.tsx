@@ -21,7 +21,7 @@ export default function AdminDashboard() {
           <div className="text-gray-500">Site Notices</div>
         </div>
       </div>
-      <div className="mt-10 text-gray-400 text-sm text-center">Welcome to the NextPCB Admin Panel. Select a section from the sidebar to get started.</div>
+      <div className="mt-10 text-gray-400 text-sm text-center">Welcome to the SpeedXPCB Admin Panel. Select a section from the sidebar to get started.</div>
     </div>
   );
 } 

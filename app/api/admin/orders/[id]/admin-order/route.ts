@@ -95,35 +95,27 @@ function sanitizeAdminOrderFields(body: Record<string, unknown>) {
 }
 
 // 发送邮件通知
-async function sendEmailNotification(
+export async function sendNotificationToUser(
+  userId: string,
+  subject: string,
+  html: string,
   orderId: string,
-  userEmail: string,
-  adminOrderData: Record<string, unknown>,
   notificationType: string
 ) {
   try {
-    // 获取基础URL，支持多种环境变量
-    const baseUrl =process.env.NEXT_PUBLIC_SITE_URL || 'https://www.speedxpcb.com';
-    
-    const orderUrl = `${baseUrl}/profile/orders/${orderId}`;
-    
-    // 简化的邮件内容
-    const subject = `PCB Order Update - #${orderId}`;
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>PCB Order Update</h2>
-        <p>Dear Customer,</p>
-        <p>Your PCB order has been updated.</p>
-        <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
-          <h3>Order Details:</h3>
-          <p><strong>Order ID:</strong> ${orderId}</p>
-          <p><strong>Status:</strong> ${adminOrderData.status}</p>
-          ${adminOrderData.cny_price ? `<p><strong>Total:</strong> ¥${adminOrderData.cny_price}</p>` : ''}
-        </div>
-        <p><a href="${orderUrl}">View Order Details</a></p>
-        <p>Best regards,<br>PCB Manufacturing Team</p>
-      </div>
-    `;
+    // 创建 supabase 管理员 client 来获取用户信息
+    const supabaseAdmin = await createSupabaseServerClient(false);
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('email')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user || !user.email) {
+      console.error('获取用户邮箱失败:', { userId, error: userError?.message });
+      return false;
+    }
+    const userEmail = user.email;
     
     // 创建邮件传输器 - 支持多种邮件服务
     const emailConfig = {
@@ -161,7 +153,6 @@ async function sendEmailNotification(
     console.error('发送邮件通知失败:', {
       error: error instanceof Error ? error.message : error,
       orderId,
-      userEmail,
       notificationType
     });
     return false;
@@ -183,7 +174,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { sendNotification = false, notificationType = 'order_created', userEmail, ...otherFields } = body;
+    const { sendNotification = false, notificationType = 'order_created', ...otherFields } = body;
 
     // 2. 检查是否已存在管理员订单
     const { data: existingAdminOrder, error: checkError } = await supabase
@@ -247,8 +238,14 @@ export async function POST(
     }
     
     // 6. 发送邮件通知
-    if (sendNotification && userEmail) {
-      await sendEmailNotification(userOrderId, userEmail, createdData, notificationType);
+    if (sendNotification) {
+      const subject = `Your PCB Order #${userOrderId} has been created`;
+      const html = `<p>Your order has been successfully created and is now waiting for admin review. You can view your order here: <a href="${process.env.NEXT_PUBLIC_SITE_URL}/profile/orders/${userOrderId}">View Order</a></p>`;
+      
+      const { data: quote } = await supabase.from(USER_ORDER).select('user_id').eq('id', userOrderId).single();
+      if (quote?.user_id) {
+         await sendNotificationToUser(quote.user_id, subject, html, userOrderId, notificationType);
+      }
     }
 
     return NextResponse.json(createdData);
@@ -273,7 +270,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { sendNotification = false, notificationType = 'order_updated', userEmail, ...otherFields } = body;
+    const { sendNotification = false, notificationType = 'order_updated', ...otherFields } = body;
 
     const adminOrderFields = sanitizeAdminOrderFields(otherFields);
     const updateData = {
@@ -321,8 +318,14 @@ export async function PATCH(
       console.warn('⚠️ 更新用户订单状态失败:', userUpdateError);
     }
 
-    if (sendNotification && userEmail) {
-      await sendEmailNotification(userOrderId, userEmail, updatedData, notificationType);
+    if (sendNotification) {
+      const subject = `Your PCB Order #${userOrderId} has been updated`;
+      const html = `<p>There has been an update to your order. You can view the latest details here: <a href="${process.env.NEXT_PUBLIC_SITE_URL}/profile/orders/${userOrderId}">View Order</a></p>`;
+      
+      const { data: quote } = await supabase.from(USER_ORDER).select('user_id').eq('id', userOrderId).single();
+      if (quote?.user_id) {
+         await sendNotificationToUser(quote.user_id, subject, html, userOrderId, notificationType);
+      }
     }
 
     return NextResponse.json(updatedData);

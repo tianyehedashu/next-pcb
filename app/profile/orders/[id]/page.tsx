@@ -1,10 +1,10 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,14 +12,39 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Pencil, Package, Clock, DollarSign, MapPin, FileText, AlertCircle, 
-  ArrowLeft, CheckCircle, Truck, AlertTriangle, CreditCard
+  ArrowLeft, CheckCircle, Truck, AlertTriangle, CreditCard, Info, Loader2
 } from 'lucide-react';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 import OrderStepBar from '@/components/ui/OrderStepBar';
 import { supabase } from '@/lib/supabaseClient';
-import { useUserStore } from '@/lib/userStore';
+import { useUserStore, UserInfo } from "@/lib/userStore";
 import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
 import { formatOrderPrice, getOrderCurrencySymbol } from '@/lib/utils/orderHelpers';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { useToast } from '@/components/ui/use-toast';
+
+// Define more specific types
+interface AdminOrder {
+  id: number;
+  payment_status?: string | null;
+  order_status?: string | null;
+  refund_status?: string | null;
+  approved_refund_amount?: number | null;
+  refund_reason?: string | null;
+  admin_price?: number | null;
+  currency?: string | null;
+  [key: string]: any;
+}
 
 // Order interface matching pcb_quotes table
 interface Order {
@@ -36,21 +61,7 @@ interface Order {
   updated_at: string | null;
   user_name: string | null;
   // Related admin order information (one-to-one relationship)
-  admin_orders?: [{
-    id: string;
-    status: string;
-    pcb_price: number | null;
-    admin_price: number | null;
-    cny_price: number | null;
-    currency: string;
-    exchange_rate: number;
-    due_date: string | null;
-    delivery_date: string | null;
-    admin_note: string | null;
-    payment_status?: string | null;
-    order_status?: string | null;
-    [key: string]: any;
-  }];
+  admin_orders: AdminOrder[];
 }
 
 // Order status mapping with English labels
@@ -139,11 +150,14 @@ export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params?.id as string;
   const router = useRouter();
+  const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
   const [pcbFormData, setPcbFormData] = useState<QuoteFormData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const user = useUserStore(state => state.user);
+  const user = useUserStore((state) => state.user);
+  const [isRefunding, setIsRefunding] = useState(false);
+  const [isConfirmingRefund, setIsConfirmingRefund] = useState(false);
 
   // Edit states
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -154,8 +168,8 @@ export default function OrderDetailPage() {
   const [editedPcbSpec, setEditedPcbSpec] = useState<any>({});
 
   // Fetch order details
-  const fetchOrder = async () => {
-    if (!orderId || !user?.id) return;
+  const fetchOrder = useCallback(async () => {
+    if (!orderId || !user) return;
     
     try {
       setLoading(true);
@@ -194,18 +208,24 @@ export default function OrderDetailPage() {
       setEditedAddress(orderData.shipping_address || {});
       setEditedPhone(orderData.phone || '');
       
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching order:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      toast.error(err instanceof Error ? err.message : 'Failed to load order');
+      setError(err.message);
+      toast({
+        title: 'Error Fetching Order',
+        description: err.message,
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId, user, toast]);
 
   useEffect(() => {
-    fetchOrder();
-  }, [orderId, user?.id]);
+    if (user) {
+      fetchOrder();
+    }
+  }, [user, fetchOrder]);
 
   // Check if editing is allowed (before payment/production)
   const canEdit = order && ['created', 'pending', 'reviewed', 'quoted'].includes(order.status || '');
@@ -228,9 +248,13 @@ export default function OrderDetailPage() {
 
       toast.success('Order updated successfully');
       await fetchOrder(); // Refresh data
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating order:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to update order');
+      toast({
+        title: 'Error Updating Order',
+        description: err.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -274,9 +298,13 @@ export default function OrderDetailPage() {
       await updateOrder({ status: 'cancelled' });
       toast.success('Order cancelled successfully');
       router.push('/profile/orders');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error cancelling order:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to cancel order');
+      toast({
+        title: 'Error Cancelling Order',
+        description: err.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -323,6 +351,62 @@ export default function OrderDetailPage() {
     return displayMap[key] ? displayMap[key](value) : String(value);
   };
 
+  const adminOrder = order?.admin_orders?.[0];
+  const canRequestRefund = adminOrder?.payment_status === 'paid' && (!adminOrder.refund_status || adminOrder.refund_status === 'rejected');
+
+  const handleRefundRequest = async () => {
+    setIsRefunding(true);
+    try {
+      const response = await fetch(`/api/user/orders/${orderId}/request-refund`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to request refund.');
+      }
+      toast({
+        title: 'Refund Request Submitted',
+        description: 'Your refund request has been submitted for admin review.',
+      });
+      fetchOrder(); // Refresh order details
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefunding(false);
+    }
+  };
+
+  const handleRefundConfirmation = async (action: 'confirm' | 'cancel') => {
+    setIsConfirmingRefund(true);
+    try {
+      const response = await fetch(`/api/user/orders/${orderId}/confirm-refund`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to process your request.');
+      
+      toast({
+        title: 'Success',
+        description: data.message,
+      });
+      fetchOrder(); // Refresh data
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsConfirmingRefund(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
@@ -351,7 +435,6 @@ export default function OrderDetailPage() {
   }
 
   const statusInfo = ORDER_STATUS_MAP[order.status || 'created'];
-  const adminOrder = order.admin_orders?.[0]; // Get admin order info
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
@@ -518,20 +601,79 @@ export default function OrderDetailPage() {
                       <CheckCircle className="h-5 w-5" />
                       <span className="font-medium">Payment Completed</span>
                     </div>
+                    <p className="text-sm text-gray-500 mt-1">This is the final amount for your order.</p>
                   </div>
                 )}
 
-                {/* Order Status Info */}
-                {adminOrder && !adminOrder.admin_price && (
+                {canRequestRefund && (
                   <div className="mt-4 pt-4 border-t">
-                    <div className="flex items-center gap-2 text-yellow-600">
-                      <AlertTriangle className="h-5 w-5" />
-                      <span className="font-medium">Waiting for Admin Review</span>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" className="w-full" disabled={isRefunding}>
+                          Request Refund
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action will submit a refund request for administrator review.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleRefundRequest} disabled={isRefunding}>
+                            {isRefunding ? 'Submitting...' : 'Yes, Request Refund'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
+
+                {adminOrder?.refund_status && adminOrder.refund_status !== 'rejected' && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="flex items-center gap-2 text-blue-600">
+                      <Info className="h-5 w-5" />
+                      <span className="font-medium">Refund Status: {adminOrder.refund_status}</span>
                     </div>
                     <p className="text-sm text-gray-600 mt-1">
-                      Your order is being reviewed by our team. You will receive a notification when pricing is available.
+                      Your refund request is being processed. You will be notified of any updates.
                     </p>
                   </div>
+                )}
+
+                {adminOrder?.refund_status === 'pending_confirmation' && (
+                  <Card className="mt-4 border-blue-400">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Info className="text-blue-500" />
+                        <span>Action Required: Confirm Your Refund</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Our team has reviewed your refund request. Please confirm the details below to proceed.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <p><strong>Approved Refund Amount:</strong> ${adminOrder.approved_refund_amount?.toFixed(2)}</p>
+                      <p><strong>Admin Note:</strong> {adminOrder.refund_reason || 'N/A'}</p>
+                    </CardContent>
+                    <CardFooter className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleRefundConfirmation('cancel')}
+                        disabled={isConfirmingRefund}
+                      >
+                        Cancel Request
+                      </Button>
+                      <Button
+                        onClick={() => handleRefundConfirmation('confirm')}
+                        disabled={isConfirmingRefund}
+                      >
+                        {isConfirmingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm Refund'}
+                      </Button>
+                    </CardFooter>
+                  </Card>
                 )}
               </CardContent>
             </Card>

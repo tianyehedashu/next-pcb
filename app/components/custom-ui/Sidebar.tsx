@@ -49,7 +49,7 @@ export function Sidebar() {
         </Avatar>
         <div className="flex flex-col">
           <span className="text-sm font-semibold">Admin</span>
-          <span className="text-xs text-muted-foreground">admin@nextpcb.com</span>
+          <span className="text-xs text-muted-foreground">sales@www.speedxpcb.com</span>
         </div>
       </div>
     </aside>
