@@ -45,7 +45,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient(false);
+    const supabase = await createSupabaseServerClient();
     const body = await request.json();
     const { id } = await params;
 

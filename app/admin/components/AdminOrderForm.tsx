@@ -830,7 +830,7 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
   }, [initialValues, form]);
 
   return (
-    <Card className="sticky top-4">
+    <Card className="sticky top-24">
       <CardHeader className="space-y-3">
         <div className="flex flex-row justify-between items-center">
           <CardTitle>管理员订单</CardTitle>

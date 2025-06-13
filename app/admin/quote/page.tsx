@@ -71,10 +71,12 @@ export default function QuoteListPage() {
       const response = await fetch(`/api/admin/quotes?${queryParams}`);
       const data = await response.json();
 
-      setQuotes(data.quotes);
-      setTotalPages(data.totalPages);
+      setQuotes(Array.isArray(data.quotes) ? data.quotes : []);
+      setTotalPages(data.totalPages || 1);
     } catch (error) {
       console.error('Failed to fetch quotes:', error);
+      setQuotes([]);
+      setTotalPages(1);
       toast({
         title: "Error",
         description: "Failed to fetch quotes",
@@ -120,7 +122,7 @@ export default function QuoteListPage() {
                 <SelectValue placeholder="选择状态" />
               </SelectTrigger>
               <SelectContent>
-                {statusFilters.map((filter) => (
+                {(statusFilters || []).map((filter) => (
                   <SelectItem key={filter.value} value={filter.value}>
                     {filter.label}
                   </SelectItem>
@@ -153,7 +155,7 @@ export default function QuoteListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {quotes.map((quote) => (
+                  {(quotes || []).map((quote) => (
                     <tr key={quote.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4">{quote.id}</td>
                       <td className="py-3 px-4">

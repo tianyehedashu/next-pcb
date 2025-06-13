@@ -43,9 +43,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row pt-16">
+    <div className="min-h-screen bg-background flex flex-col md:flex-row pt-20 md:pt-24">
       {/* 移动端顶部栏 */}
-      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border shadow-sm sticky top-0 z-30">
+      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border shadow-sm sticky top-20 z-[500]">
         <span className="text-lg font-semibold text-primary">Admin Panel</span>
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
@@ -53,7 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Menu className="h-5 w-5 text-primary" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[280px] p-0">
+          <SheetContent side="left" className="w-[280px] p-0 z-[900]">
             <SheetHeader className="p-4 border-b">
               <SheetTitle className="text-xl font-bold text-primary">Admin Panel</SheetTitle>
             </SheetHeader>
@@ -74,8 +74,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* 桌面端侧边栏 */}
       <aside 
         className={`
-          hidden md:flex sticky top-16 h-[calc(100vh-4rem)] 
-          bg-card border-r border-border flex-col z-40 
+          hidden md:flex sticky top-24 h-[calc(100vh-6rem)] 
+          bg-card border-r border-border flex-col z-[400] 
           transition-all duration-300 ease-in-out
           ${desktopSidebarOpen ? 'w-64' : 'w-16'}
         `}

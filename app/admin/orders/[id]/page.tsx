@@ -1023,7 +1023,7 @@ export default function AdminOrderDetailPage() {
             )}
             
             {/* 管理员表单 */}
-            <div className="sticky top-6">
+            <div className="sticky top-24">
                           <AdminOrderForm
               initialValues={adminOrderEdits[0] || {}}
               onSave={handleSave}

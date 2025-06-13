@@ -87,10 +87,10 @@ export default function Navbar() {
       className="w-full"
       onMouseEnter={mounted ? () => { setShow(true); setHover(true); } : undefined}
       onMouseLeave={mounted ? () => { setHover(false); if (window.scrollY > 10) setShow(false); } : undefined}
-      style={{ position: "relative", zIndex: 50 }}
+      style={{ position: "relative", zIndex: 1000 }}
     >
       <nav
-        className={`fixed top-0 left-0 w-full flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 bg-background/80 border-b border-border backdrop-blur-xl transition-all duration-500 ease-out
+        className={`fixed top-0 left-0 w-full flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 bg-background/80 border-b border-border backdrop-blur-xl transition-all duration-500 ease-out z-[1000]
         ${mounted && show ? "opacity-100 translate-y-0" : mounted ? "opacity-0 -translate-y-8 pointer-events-none" : "opacity-100 translate-y-0"}
         ${mounted && show ? "shadow-lg shadow-primary/5" : "shadow-lg shadow-primary/5"}
         `}
@@ -149,7 +149,7 @@ export default function Navbar() {
               </DropdownMenu.Trigger>
               <DropdownMenu.Content 
                 sideOffset={12} 
-                className="z-[200] min-w-[220px] rounded-xl bg-popover/95 backdrop-blur-xl p-2 shadow-xl border border-border animate-in slide-in-from-top-2 duration-200"
+                className="z-[1100] min-w-[220px] rounded-xl bg-popover/95 backdrop-blur-xl p-2 shadow-xl border border-border animate-in slide-in-from-top-2 duration-200"
               >
                 <div className="px-3 py-2 border-b border-border/50 mb-2">
                   <p className="text-sm font-medium text-popover-foreground">Signed in as</p>
@@ -224,7 +224,7 @@ export default function Navbar() {
               </DropdownMenu.Trigger>
               <DropdownMenu.Content 
                 sideOffset={8} 
-                className="z-[200] min-w-[200px] rounded-xl bg-popover/95 backdrop-blur-xl p-2 shadow-xl border border-border"
+                className="z-[1100] min-w-[200px] rounded-xl bg-popover/95 backdrop-blur-xl p-2 shadow-xl border border-border"
               >
                 <div className="px-3 py-2 border-b border-border/50 mb-2">
                   <p className="text-xs font-medium text-popover-foreground">Signed in as</p>
@@ -276,7 +276,7 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {mounted && mobileMenuOpen && (
-        <div className="md:hidden fixed top-[76px] left-0 w-full bg-background/95 backdrop-blur-xl border-b border-border shadow-lg z-40 animate-in slide-in-from-top-2 duration-200">
+        <div className="md:hidden fixed top-[76px] left-0 w-full bg-background/95 backdrop-blur-xl border-b border-border shadow-lg z-[999] animate-in slide-in-from-top-2 duration-200">
           <div className="px-4 py-6 space-y-1">
             {navigationItems.map((item) => (
               <a
@@ -312,7 +312,7 @@ export default function Navbar() {
       )}
 
       {/* Hover Detection Area */}
-      <div className="fixed top-0 left-0 w-full h-6 z-40" />
+      <div className="fixed top-0 left-0 w-full h-6 z-[998]" />
     </div>
   );
 } 

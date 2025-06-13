@@ -61,11 +61,13 @@ export function canOrderBePaid(order: OrderWithAdminOrder): boolean {
     return false;
   }
   
-  // The backend does not check the parent quote's status, so we align with that logic.
-  // The authoritative checks are the admin_price and payment_status.
-  
   // 必须有管理员设置的价格
   if (!adminOrder.admin_price || adminOrder.admin_price <= 0) {
+    return false;
+  }
+  
+  // 必须管理员已审核通过（状态为 'reviewed'）
+  if (adminOrder.status !== 'reviewed') {
     return false;
   }
   
@@ -132,4 +134,7 @@ export function getOrderCurrencySymbol(order: OrderWithAdminOrder): string {
   const adminOrder = getAdminOrder(order);
   const currency = adminOrder?.currency || 'USD';
   return currency === 'CNY' ? '¥' : '$';
-} 
+}
+
+// 注意：canOrderBePaid 函数已更新，现在要求管理员状态必须为 'reviewed' 才能支付
+// 这确保了只有管理员审核通过的订单才能进行支付 

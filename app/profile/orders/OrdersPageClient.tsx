@@ -9,7 +9,8 @@ import { toUSD } from "@/lib/utils";
 import { canOrderBePaid, getOrderPaymentAmount, type OrderWithAdminOrder } from "@/lib/utils/orderHelpers";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Search, Package, Plus, RefreshCw, Eye, CreditCard } from "lucide-react";
+
+import { Search, Package, Plus, RefreshCw, Eye, CreditCard, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -18,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Pagination } from "@/app/components/ui/pagination";
 
 interface AdminOrderInfo {
   id: string;
@@ -37,10 +39,14 @@ interface OrderListItem {
   admin_orders?: AdminOrderInfo[] | AdminOrderInfo;
 }
 
+type SortField = 'created_at' | 'status' | 'admin_price' | 'lead_time';
+type SortOrder = 'asc' | 'desc';
+
 const ORDER_STATUS_MAP: Record<string, { text: string; style: string; description: string }> = {
   'created': { text: "Created", style: "bg-blue-100 text-blue-800 border-blue-200", description: "Quote request submitted" },
   'pending': { text: "Pending", style: "bg-yellow-100 text-yellow-800 border-yellow-200", description: "Awaiting review" },
   'quoted': { text: "Quoted", style: "bg-green-100 text-green-800 border-green-200", description: "Quote provided" },
+  'reviewed': { text: "Reviewed", style: "bg-green-100 text-green-800 border-green-200", description: "Admin reviewed and approved" },
   'confirmed': { text: "Confirmed", style: "bg-indigo-100 text-indigo-800 border-indigo-200", description: "Order confirmed" },
   'in_production': { text: "In Production", style: "bg-blue-100 text-blue-800 border-blue-200", description: "PCBs being manufactured" },
   'shipped': { text: "Shipped", style: "bg-cyan-100 text-cyan-800 border-cyan-200", description: "Order shipped" },
@@ -54,6 +60,14 @@ export default function OrdersPageClient(): React.ReactElement {
   const [loadingOrders, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  
+  // 排序状态
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -107,6 +121,7 @@ export default function OrdersPageClient(): React.ReactElement {
 
   const handleStatusChange = (value: string) => {
     setStatusFilter(value);
+    setCurrentPage(1); // 重置到第一页
     const params = new URLSearchParams(window.location.search);
     if (value === 'all') {
       params.delete('status');
@@ -114,6 +129,53 @@ export default function OrdersPageClient(): React.ReactElement {
       params.set('status', value);
     }
     router.push(`/profile/orders?${params.toString()}`);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+    setCurrentPage(1); // 重置到第一页
+  };
+
+  // 获取排序后的订单
+  const getSortedOrders = (ordersToSort: OrderListItem[]) => {
+    return [...ordersToSort].sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+
+      switch (sortField) {
+        case 'created_at':
+          aValue = new Date(a.created_at || 0).getTime();
+          bValue = new Date(b.created_at || 0).getTime();
+          break;
+        case 'status':
+          const aAdminOrder = Array.isArray(a.admin_orders) ? a.admin_orders[0] : a.admin_orders;
+          const bAdminOrder = Array.isArray(b.admin_orders) ? b.admin_orders[0] : b.admin_orders;
+          aValue = aAdminOrder?.status || a.status || '';
+          bValue = bAdminOrder?.status || b.status || '';
+          break;
+        case 'admin_price':
+          const aAdmin = Array.isArray(a.admin_orders) ? a.admin_orders[0] : a.admin_orders;
+          const bAdmin = Array.isArray(b.admin_orders) ? b.admin_orders[0] : b.admin_orders;
+          aValue = aAdmin?.admin_price || 0;
+          bValue = bAdmin?.admin_price || 0;
+          break;
+        case 'lead_time':
+          aValue = a.cal_values?.leadTimeDays || 0;
+          bValue = b.cal_values?.leadTimeDays || 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
   };
 
   const filteredOrders = orders.filter(order => {
@@ -128,6 +190,36 @@ export default function OrdersPageClient(): React.ReactElement {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     return matchesStatus && matchesSearch;
   });
+
+  // 应用排序
+  const sortedOrders = getSortedOrders(filteredOrders);
+
+  // 应用分页
+  const totalItems = sortedOrders.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedOrders = sortedOrders.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // 滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePageSizeChange = (newPageSize: string) => {
+    setPageSize(parseInt(newPageSize));
+    setCurrentPage(1);
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
+    }
+    return sortOrder === 'asc' ? 
+      <ChevronUp className="h-4 w-4 text-blue-600" /> : 
+      <ChevronDown className="h-4 w-4 text-blue-600" />;
+  };
 
   const getOrderSummary = (order: OrderListItem) => {
     const pcbSpec = order.pcb_spec as Record<string, unknown> & { thickness?: number, surfaceFinish?: string, delivery?: string };
@@ -154,14 +246,24 @@ export default function OrdersPageClient(): React.ReactElement {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('en-US', {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
       hour12: false,
+    });
+  };
+
+  const formatDateShort = (dateString: string | null) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
     });
   };
 
@@ -171,7 +273,7 @@ export default function OrdersPageClient(): React.ReactElement {
       return (
         <div className="flex flex-col">
           <span className="font-semibold text-gray-800">
-            ${toUSD(adminOrder.admin_price)}
+            {toUSD(adminOrder.admin_price)}
           </span>
           <span className="text-xs text-gray-500">Quoted Price</span>
         </div>
@@ -182,7 +284,7 @@ export default function OrdersPageClient(): React.ReactElement {
       return (
         <div className="flex flex-col">
           <span className="font-semibold text-gray-800">
-            ~${toUSD(order.cal_values.totalPrice)}
+            ~{toUSD(order.cal_values.totalPrice)}
           </span>
           <span className="text-xs text-gray-500">Estimated</span>
         </div>
@@ -220,14 +322,14 @@ export default function OrdersPageClient(): React.ReactElement {
         className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
       >
         <CreditCard className="h-3 w-3" />
-        Pay ${toUSD(paymentAmount)}
+        Pay {toUSD(paymentAmount)}
       </Button>
     );
   };
 
   if (loadingOrders) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="space-y-4">
         <div className="animate-pulse">
           <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
           <div className="space-y-4">
@@ -241,22 +343,22 @@ export default function OrdersPageClient(): React.ReactElement {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <Package className="h-8 w-8 text-blue-600" />
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <Package className="h-6 w-6 lg:h-8 lg:w-8 text-blue-600" />
             {orderType === 'pending-payment' ? 'Pending Payment Orders' : 'My Orders'}
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-600 mt-1 text-sm lg:text-base">
             {orderType === 'pending-payment' 
               ? 'Orders awaiting payment' 
               : 'Track your PCB orders and quotes'
             }
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -265,7 +367,7 @@ export default function OrdersPageClient(): React.ReactElement {
             className="flex items-center gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
           <Button
             onClick={() => router.push('/quote2')}
@@ -273,52 +375,106 @@ export default function OrdersPageClient(): React.ReactElement {
             className="flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
-            New Quote
+            <span className="hidden sm:inline">New Quote</span>
           </Button>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-2">
-        <Search className="h-4 w-4 text-gray-500" />
-        <Input
-          placeholder="Search by Order ID..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-xs"
-        />
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Search className="h-4 w-4 text-gray-500" />
+          <Input
+            placeholder="Search by Order ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full sm:max-w-xs"
+          />
+        </div>
         {orderType !== 'pending-payment' && (
           <Select value={statusFilter} onValueChange={handleStatusChange}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="quoted">Quoted</SelectItem>
+              <SelectItem value="reviewed">Reviewed</SelectItem>
               <SelectItem value="confirmed">Confirmed</SelectItem>
             </SelectContent>
           </Select>
         )}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">Per page:</span>
+          <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+            <SelectTrigger className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="5">5</SelectItem>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="text-sm text-gray-600">
+          Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} orders
+        </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        <Table>
+      {/* Orders Table - Large Desktop */}
+      <div className="hidden xl:block bg-white rounded-lg border shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table className="min-w-[1200px]">
           <TableHeader>
             <TableRow className="bg-gray-50">
-              <TableHead className="w-[150px]">Order</TableHead>
-              <TableHead>Details</TableHead>
-              <TableHead className="w-[150px]">Price</TableHead>
-              <TableHead className="w-[120px]">Lead Time</TableHead>
-              <TableHead className="w-[120px]">Status</TableHead>
-              <TableHead className="text-right w-[220px]">Actions</TableHead>
+              <TableHead className="w-[140px]">Order ID</TableHead>
+              <TableHead 
+                className="w-[180px] cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort('created_at')}
+              >
+                <div className="flex items-center gap-2">
+                  Created Date
+                  {renderSortIcon('created_at')}
+                </div>
+              </TableHead>
+              <TableHead className="min-w-[300px]">Details</TableHead>
+              <TableHead 
+                className="w-[140px] cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort('admin_price')}
+              >
+                <div className="flex items-center gap-2">
+                  Price
+                  {renderSortIcon('admin_price')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="w-[110px] cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort('lead_time')}
+              >
+                <div className="flex items-center gap-2">
+                  Lead Time
+                  {renderSortIcon('lead_time')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="w-[130px] cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort('status')}
+              >
+                <div className="flex items-center gap-2">
+                  Status
+                  {renderSortIcon('status')}
+                </div>
+              </TableHead>
+              <TableHead className="text-right w-[180px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredOrders.length === 0 ? (
+            {paginatedOrders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-16 text-gray-500">
+                <TableCell colSpan={7} className="text-center py-16 text-gray-500">
                   {orderType === 'pending-payment' 
                     ? 'No orders pending payment' 
                     : 'No orders found'
@@ -326,16 +482,27 @@ export default function OrdersPageClient(): React.ReactElement {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredOrders.map((order) => {
+              paginatedOrders.map((order) => {
                 const summary = getOrderSummary(order);
                 return (
                   <TableRow key={order.id} className="hover:bg-gray-50 border-b">
                     <TableCell>
+                      <span className="font-mono text-sm font-semibold text-blue-600 hover:underline cursor-pointer" onClick={() => router.push(`/profile/orders/${order.id}`)}>
+                        #{order.id.slice(0, 8)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex flex-col gap-0.5">
-                        <span className="font-mono text-sm font-semibold text-blue-600 hover:underline cursor-pointer" onClick={() => router.push(`/profile/orders/${order.id}`)}>
-                          #{order.id.slice(0, 8)}
-                        </span>
-                        <span className="text-xs text-gray-500">{formatDate(order.created_at)}</span>
+                        <div className="text-sm text-gray-900">
+                          {formatDateShort(order.created_at)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {order.created_at && new Date(order.created_at).toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit', 
+                            hour12: false 
+                          })}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -376,8 +543,181 @@ export default function OrdersPageClient(): React.ReactElement {
               })
             )}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       </div>
+
+      {/* Orders Table - Medium Desktop */}
+      <div className="hidden lg:block xl:hidden bg-white rounded-lg border shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table className="min-w-[900px]">
+            <TableHeader>
+              <TableRow className="bg-gray-50">
+                <TableHead className="w-[120px]">Order ID</TableHead>
+                <TableHead 
+                  className="w-[140px] cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('created_at')}
+                >
+                  <div className="flex items-center gap-2">
+                    Date
+                    {renderSortIcon('created_at')}
+                  </div>
+                </TableHead>
+                <TableHead className="min-w-[200px]">Summary</TableHead>
+                <TableHead 
+                  className="w-[100px] cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('admin_price')}
+                >
+                  <div className="flex items-center gap-2">
+                    Price
+                    {renderSortIcon('admin_price')}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-[100px] cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center gap-2">
+                    Status
+                    {renderSortIcon('status')}
+                  </div>
+                </TableHead>
+                <TableHead className="text-right w-[150px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedOrders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-16 text-gray-500">
+                    {orderType === 'pending-payment' 
+                      ? 'No orders pending payment' 
+                      : 'No orders found'
+                    }
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedOrders.map((order) => {
+                  const summary = getOrderSummary(order);
+                  return (
+                    <TableRow key={order.id} className="hover:bg-gray-50 border-b">
+                      <TableCell>
+                        <span className="font-mono text-sm font-semibold text-blue-600 hover:underline cursor-pointer" onClick={() => router.push(`/profile/orders/${order.id}`)}>
+                          #{order.id.slice(0, 8)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-gray-900">
+                          {formatDateShort(order.created_at)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm space-y-1">
+                          <div>{summary.layers} layers, Qty: {summary.quantity}</div>
+                          <div className="text-gray-600">{summary.size} • {summary.delivery}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{renderOrderPrice(order)}</TableCell>
+                      <TableCell>{renderOrderStatus(order)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => router.push(`/profile/orders/${order.id}`)}
+                            className="flex items-center gap-1"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          {renderPaymentButton(order)}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* Orders Cards - Mobile/Tablet */}
+      <div className="lg:hidden space-y-4">
+        {paginatedOrders.length === 0 ? (
+          <div className="text-center py-16 text-gray-500 bg-white rounded-lg border">
+            {orderType === 'pending-payment' 
+              ? 'No orders pending payment' 
+              : 'No orders found'
+            }
+          </div>
+        ) : (
+          paginatedOrders.map((order) => {
+            const summary = getOrderSummary(order);
+            return (
+              <div key={order.id} className="bg-white rounded-lg border shadow-sm p-4 space-y-4">
+                {/* Order Header */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span 
+                      className="font-mono text-lg font-semibold text-blue-600 hover:underline cursor-pointer" 
+                      onClick={() => router.push(`/profile/orders/${order.id}`)}
+                    >
+                      #{order.id.slice(0, 8)}
+                    </span>
+                    <div className="text-xs text-gray-500 mt-1">{formatDate(order.created_at)}</div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    {renderOrderStatus(order)}
+                    {renderOrderPrice(order)}
+                  </div>
+                </div>
+
+                {/* Order Details */}
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="font-medium text-gray-600">Layers:</span> {summary.layers}</div>
+                  <div><span className="font-medium text-gray-600">Qty:</span> {summary.quantity}</div>
+                  <div><span className="font-medium text-gray-600">Size:</span> {summary.size}</div>
+                  <div><span className="font-medium text-gray-600">Delivery:</span> {summary.delivery}</div>
+                  <div><span className="font-medium text-gray-600">Thickness:</span> {summary.thickness}</div>
+                  <div><span className="font-medium text-gray-600">Finish:</span> {summary.surfaceFinish}</div>
+                </div>
+
+                {/* Lead Time */}
+                {order.cal_values?.leadTimeDays && (
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-600">Lead Time:</span> {order.cal_values.leadTimeDays} days
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => router.push(`/profile/orders/${order.id}`)}
+                    className="flex items-center gap-1 flex-1"
+                  >
+                    <Eye className="h-3 w-3" />
+                    View Details
+                  </Button>
+                  {renderPaymentButton(order)}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-6">
+          <Pagination
+            page={currentPage}
+            pageSize={pageSize}
+            total={totalItems}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
     </div>
   );
 } 

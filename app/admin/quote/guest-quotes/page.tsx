@@ -92,9 +92,11 @@ export default function AdminGuestQuotesPage() {
         return;
       }
       
-      setQuotes(data || []);
-    } catch {
+      setQuotes(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching guest quotes:", error);
       setError("An error occurred while fetching quotes.");
+      setQuotes([]);
     } finally {
       setLoading(false);
     }
@@ -195,7 +197,7 @@ export default function AdminGuestQuotesPage() {
               </CardContent>
             </Card>
           ) : (
-            quotes.map((quote) => (
+            (quotes || []).map((quote) => (
               <Card 
                 key={quote.id} 
                 className={`cursor-pointer transition-all hover:shadow-md ${

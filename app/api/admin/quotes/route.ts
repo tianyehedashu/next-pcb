@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
     const pageSize = 10;
 
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     // 构建查询
     let query = supabase

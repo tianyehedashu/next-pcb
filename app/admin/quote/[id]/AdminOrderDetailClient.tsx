@@ -6,7 +6,7 @@ import OrderStepBar from "@/components/ui/OrderStepBar";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectItem } from "@/components/ui/select";
 import { getPublicFileUrl } from "@/lib/supabase-file-url";
 import DownloadButton from "../../../components/custom-ui/DownloadButton";
 import { calcPcbPriceV2 } from "@/lib/pcb-calc-v2";
@@ -51,21 +51,15 @@ const FIELD_GROUPS: { title: string; fields: { key: keyof PcbQuoteForm; label: s
       { key: "halfHole", label: "Half Hole" },
       { key: "edgeCover", label: "Edge Cover" },
       { key: "maskCover", label: "Mask Cover" },
-      { key: "testMethod", label: "Test Method" },
     ],
   },
   {
     title: "Service",
     fields: [
       { key: "testMethod", label: "Test Method" },
-      { key: "prodCap", label: "Production Cap." },
       { key: "productReport", label: "Product Report" },
-      { key: "rejectBoard", label: "Reject Board" },
-      { key: "yyPin", label: "YY Pin" },
-      { key: "customerCode", label: "Customer Code" },
-      { key: "payMethod", label: "Pay Method" },
-      { key: "qualityAttach", label: "Quality Attach" },
-      { key: "smt", label: "SMT" },
+      { key: "crossOuts", label: "Cross Out" },
+      { key: "ulMark", label: "UL Mark" },
     ],
   },
 ];
@@ -446,7 +440,7 @@ function OrderSummaryCard({ order, onBack, onOrderUpdate }: OrderSummaryCardProp
   }
 
   return (
-    <Card className="sticky top-24 shadow-xl border-blue-200 bg-gradient-to-br from-blue-100/80 via-white to-blue-50/80">
+    <Card className="sticky top-28 shadow-xl border-blue-200 bg-gradient-to-br from-blue-100/80 via-white to-blue-50/80">
       <CardHeader className="border-b pb-4">
         <CardTitle className="text-xl font-bold text-blue-800">Admin Panel</CardTitle>
       </CardHeader>
