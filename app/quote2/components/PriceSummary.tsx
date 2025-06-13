@@ -9,6 +9,7 @@ import { useQuoteFormData, useQuoteCalculated } from "@/lib/stores/quote-store";
 import { calculateLeadTime } from '@/lib/stores/quote-calculations';
 import { useQuoteStore } from "@/lib/stores/quote-store";
 import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
+import { useExchangeRate } from '@/lib/hooks/useExchangeRate';
 
 interface PriceBreakdown {
   totalPrice: number;
@@ -30,24 +31,42 @@ export default function PriceSummary() {
   const formData = useQuoteFormData();
   const calculated = useQuoteCalculated();
   const setCalValues = useQuoteStore((state) => state.setCalValues);
+  
+  // 获取实时汇率
+  const { cnyToUsdRate } = useExchangeRate();
 
   // 确保只在客户端渲染
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // 获取运费的辅助函数 - 移到 useMemo 之前
+  // 初始化汇率（如果需要）
+  useEffect(() => {
+    if (isClient && cnyToUsdRate <= 0) {
+      // 如果汇率为0或负数，可以触发获取最新汇率
+      // 这里暂时使用默认值，避免阻塞渲染
+    }
+  }, [isClient, cnyToUsdRate]);
+
+  // 获取运费的辅助函数 - 移到 useMemo 之前（运费已经是USD）
   const getShippingCost = (courier?: string): number => {
     if (!courier) return 0;
     
     const courierCosts: Record<string, number> = {
-      "dhl": 25.00,
-      "fedex": 28.00,
-      "ups": 22.00,
-      "standard": 15.00,
+      "dhl": 25.00,   // USD
+      "fedex": 28.00, // USD
+      "ups": 22.00,   // USD
+      "standard": 15.00, // USD
     };
     
     return courierCosts[courier] || 0;
+  };
+
+  // CNY 转 USD 的辅助函数 - 使用实时汇率
+  const convertCnyToUsd = (cnyAmount: number): number => {
+    // 如果汇率无效，使用默认汇率 0.14
+    const rate = cnyToUsdRate > 0 ? cnyToUsdRate : 0.14;
+    return cnyAmount * rate;
   };
 
   // 获取运费信息的辅助函数 - 移到 useMemo 之前
@@ -93,22 +112,30 @@ export default function PriceSummary() {
     }
 
     try {
-      const { total, detail, notes } = calcPcbPriceV3(formData);
+      const { total, detail, notes } = calcPcbPriceV3(formData); // total 是 CNY
       const totalCount = calculated.totalQuantity;
-      const unitPrice = totalCount > 0 ? total / totalCount : 0;
+      const pcbCostUsd = convertCnyToUsd(total); // 转换为 USD
+      const unitPrice = totalCount > 0 ? pcbCostUsd / totalCount : 0;
       const leadTimeResult = calculateLeadTime(formData, new Date(), formData.delivery);
-      const shippingCost = getShippingCost(formData.shippingCostEstimation?.courier);
+      const shippingCost = getShippingCost(formData.shippingCostEstimation?.courier); // 已经是 USD
+      
+      // 转换detail中的价格
+      const detailUsd: Record<string, number> = {};
+      Object.entries(detail).forEach(([key, value]) => {
+        detailUsd[key] = convertCnyToUsd(value);
+      });
+      
       return {
-        totalPrice: total,
+        totalPrice: pcbCostUsd,
         unitPrice,
         detail: {
-          "PCB Cost": total,
+          "PCB Cost": pcbCostUsd,
           "Shipping": shippingCost,
           "Tax": 0,
           "Discount": 0,
-          ...detail
+          ...detailUsd
         },
-        notes,
+        notes: [...notes, `※ Prices converted from CNY to USD at rate ${cnyToUsdRate > 0 ? cnyToUsdRate : 0.14}`],
         minOrderQty: 5, // 默认最小起订量
         leadTime: `${leadTimeResult.cycleDays} days`,
         totalCount
@@ -130,28 +157,35 @@ export default function PriceSummary() {
         totalCount: 0
       };
     }
-  }, [formData, calculated.totalQuantity, isClient]);
+  }, [formData, calculated.totalQuantity, isClient, cnyToUsdRate]);
 
   // 计算 calValues 并写入 store（副作用）
   useEffect(() => {
     if (!isClient) return;
     try {
-      const { total, detail, notes } = calcPcbPriceV3(formData);
+      const { total, detail, notes } = calcPcbPriceV3(formData); // total 是 CNY
       const totalCount = calculated.totalQuantity;
-      const unitPrice = totalCount > 0 ? total / totalCount : 0;
+      const pcbCostUsd = convertCnyToUsd(total); // 转换为 USD
+      const unitPrice = totalCount > 0 ? pcbCostUsd / totalCount : 0;
       const leadTimeResult = calculateLeadTime(formData, new Date(), formData.delivery);
-      const shippingCost = getShippingCost(formData.shippingCostEstimation?.courier);
+      const shippingCost = getShippingCost(formData.shippingCostEstimation?.courier); // 已经是 USD
       const courier = formData.shippingCostEstimation?.courier || "";
       const courierDays = getShippingInfo().days || "";
       const estimatedFinishDate = getRealDeliveryDate(new Date(), leadTimeResult.cycleDays).toISOString().slice(0, 10);
 
+      // 转换detail中的价格为USD
+      const detailUsd: Record<string, number> = {};
+      Object.entries(detail).forEach(([key, value]) => {
+        detailUsd[key] = convertCnyToUsd(value);
+      });
+
       setCalValues({
-        totalPrice: total + shippingCost,
-        pcbPrice: detail["PCB Cost"] ?? total,
-        shippingCost,
+        totalPrice: pcbCostUsd + shippingCost, // 总价：PCB(USD) + 运费(USD)
+        pcbPrice: pcbCostUsd, // PCB价格转换为USD
+        shippingCost, // 运费已经是USD
         tax: 0,
         discount: 0,
-        unitPrice,
+        unitPrice, // 单价基于USD
         minOrderQty: 5,
         totalCount,
         leadTimeResult: {
@@ -160,8 +194,8 @@ export default function PriceSummary() {
         },
         leadTimeDays: leadTimeResult.cycleDays,
         estimatedFinishDate,
-        priceNotes: notes,
-        breakdown: detail,
+        priceNotes: [...notes, `※ All prices converted to USD (rate: ${cnyToUsdRate > 0 ? cnyToUsdRate : 0.14})`],
+        breakdown: detailUsd, // 价格明细转换为USD
         courier,
         courierDays,
         singlePcbArea: calculated.singlePcbArea,
@@ -170,7 +204,7 @@ export default function PriceSummary() {
     } catch {
       // 可选：错误处理
     }
-  }, [formData, calculated.totalQuantity, isClient, calculated.singlePcbArea, calculated.totalArea]);
+  }, [formData, calculated.totalQuantity, isClient, calculated.singlePcbArea, calculated.totalArea, setCalValues, cnyToUsdRate]);
 
   const shippingInfo = getShippingInfo();
 
@@ -411,21 +445,23 @@ export default function PriceSummary() {
           )}
         </div>
 
-        {/* Show Price Details Toggle */}
-        <div className="pt-4 border-t border-gray-200">
-          <Button
-            variant="ghost"
-            onClick={() => setShowPriceDetails(!showPriceDetails)}
-            className="w-full justify-start text-blue-600 hover:text-blue-700 p-0"
-          >
-            {showPriceDetails ? (
-              <ChevronDown className="h-4 w-4 mr-2" />
-            ) : (
-              <ChevronRight className="h-4 w-4 mr-2" />
-            )}
-            Show Price Details
-          </Button>
-        </div>
+        {/* Show Price Details Toggle - 只在开发模式下显示 */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="pt-4 border-t border-gray-200">
+            <Button
+              variant="ghost"
+              onClick={() => setShowPriceDetails(!showPriceDetails)}
+              className="w-full justify-start text-blue-600 hover:text-blue-700 p-0"
+            >
+              {showPriceDetails ? (
+                <ChevronDown className="h-4 w-4 mr-2" />
+              ) : (
+                <ChevronRight className="h-4 w-4 mr-2" />
+              )}
+              Show Price Details
+            </Button>
+          </div>
+        )}
 
         {/* Show Debug Toggle - 只在开发模式下显示 */}
         {process.env.NODE_ENV === 'development' && (
@@ -482,8 +518,8 @@ export default function PriceSummary() {
           </div>
         )}
 
-        {/* Price Details (Collapsible) */}
-        {showPriceDetails && (
+        {/* Price Details (Collapsible) - 只在开发模式下显示 */}
+        {showPriceDetails && process.env.NODE_ENV === 'development' && (
           <div className="space-y-4 text-sm bg-gray-50 rounded-lg p-3">
             {/* Price Breakdown */}
             <div>
@@ -524,7 +560,7 @@ export default function PriceSummary() {
               <div className="font-medium text-gray-700 mb-2">Calculated Properties:</div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">PCB Area:</span>
+                  <span className="text-gray-600">Pannel/Single unit Area:</span>
                   <span className="font-medium">{isClient ? `${calculated.singlePcbArea.toFixed(2)} cm²` : 'Loading...'}</span>
                 </div>
                 <div className="flex justify-between">
