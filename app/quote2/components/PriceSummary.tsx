@@ -164,11 +164,13 @@ export default function PriceSummary() {
         breakdown: detail,
         courier,
         courierDays,
+        singlePcbArea: calculated.singlePcbArea,
+        totalArea: calculated.totalArea,
       });
     } catch {
       // 可选：错误处理
     }
-  }, [formData, calculated.totalQuantity, isClient]);
+  }, [formData, calculated.totalQuantity, isClient, calculated.singlePcbArea, calculated.totalArea]);
 
   const shippingInfo = getShippingInfo();
 

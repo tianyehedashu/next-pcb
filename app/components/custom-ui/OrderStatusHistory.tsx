@@ -17,7 +17,7 @@ interface StatusChange {
   created_at: string;
 }
 
-interface OrderStatusHistoryProps {
+export interface OrderStatusHistoryProps {
   statusHistory: StatusChange[];
   currentStatus: string;
 }

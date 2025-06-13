@@ -175,10 +175,6 @@ export function FileUploadSection() {
 
   return (
     <div>
-      {/* 调试信息 - 显示当前状态 */}
-      <div className="mb-2 p-2 bg-gray-100 rounded text-xs">
-        <strong>Debug Info:</strong> Status: {uploadState.uploadStatus} | URL: {uploadState.uploadUrl ? 'Yes' : 'No'} | File: {uploadState.file?.name || 'None'}
-      </div>
       
       {!hasFile ? (
         // 文件选择区域

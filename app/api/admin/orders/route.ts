@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createSupabaseServerClient, createSupabaseAdminClient } from '@/utils/supabase/server';
 import { USER_ORDER } from '@/app/constants/tableNames';
 
 interface UpdateData {
@@ -134,35 +134,66 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/admin/orders?id=xxx 或 批量
 export async function DELETE(request: NextRequest) {
-    const supabase = await createSupabaseServerClient();
-    let idList: string[] = [];
-    try {
-        const body = await request.json();
-        if (Array.isArray(body.idList)) {
-            idList = body.idList;
+    // Note: The middleware should already have verified for admin privileges.
+    
+    // For this privileged operation, we use the admin client which has the service_role key.
+    const supabaseAdmin = createSupabaseAdminClient();
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    // Case 1: Single delete from query param
+    if (id) {
+        // WARNING: This is NOT an atomic transaction. 
+        // If the second delete fails, data will be inconsistent.
+        
+        // First, delete the associated admin_order.
+        const { error: adminError } = await supabaseAdmin.from('admin_orders').delete().eq('user_order_id', id);
+        if (adminError) {
+            console.error('Admin order deletion error:', adminError);
+            return NextResponse.json({ error: `Failed to delete related admin order: ${adminError.message}` }, { status: 500 });
         }
-    } catch {
-        // Not a batch delete, proceed with single ID
+        
+        // Second, delete the main quote.
+        const { error: quoteError } = await supabaseAdmin.from(USER_ORDER).delete().eq('id', id);
+        if (quoteError) {
+            // CRITICAL: At this point, the admin_order is deleted but the pcb_quote is not.
+            // This leaves the database in an inconsistent state.
+            console.error('Main quote deletion error (INCONSISTENT STATE):', quoteError);
+            return NextResponse.json({ error: `Failed to delete main quote, leaving inconsistent data: ${quoteError.message}` }, { status: 500 });
+        }
+        
+        return NextResponse.json({ message: 'Quote and related orders deleted successfully', id });
     }
 
-    if (idList.length > 0) {
-        // Batch delete
-        const { error } = await supabase.rpc('delete_user_orders_by_ids', { p_ids: idList });
-        if (error) {
-            return NextResponse.json({ error: `Batch delete failed: ${error.message}` }, { status: 500 });
+    // Case 2: Batch delete from request body
+    try {
+        const body = await request.json();
+        const idList = body.idList;
+        if (!Array.isArray(idList) || idList.length === 0) {
+            return NextResponse.json({ error: 'For batch delete, idList array is required in the body' }, { status: 400 });
         }
+
+        // WARNING: This is NOT an atomic transaction.
+        
+        // First, delete associated admin_orders.
+        const { error: adminError } = await supabaseAdmin.from('admin_orders').delete().in('user_order_id', idList);
+        if (adminError) {
+            console.error('Batch admin order deletion error:', adminError);
+            return NextResponse.json({ error: `Batch delete of admin orders failed: ${adminError.message}` }, { status: 500 });
+        }
+        
+        // Second, delete main quotes.
+        const { error: quoteError } = await supabaseAdmin.from(USER_ORDER).delete().in('id', idList);
+        if (quoteError) {
+            // CRITICAL: Inconsistent data state.
+            console.error('Batch main quote deletion error (INCONSISTENT STATE):', quoteError);
+            return NextResponse.json({ error: `Batch delete of main quotes failed, leaving inconsistent data: ${quoteError.message}` }, { status: 500 });
+        }
+
         return NextResponse.json({ message: 'Quotes and related orders deleted successfully', idList });
-    } else {
-        // Single delete
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
-        if (!id) {
-            return NextResponse.json({ error: 'Quote ID is required' }, { status: 400 });
-        }
-        const { error } = await supabase.rpc('delete_user_orders_by_ids', { p_ids: [id] });
-        if (error) {
-            return NextResponse.json({ error: `Failed to delete order: ${error.message}` }, { status: 500 });
-        }
-        return NextResponse.json({ message: 'Quote and related orders deleted successfully', id });
+    } catch(e) {
+        console.error("Error parsing request body for batch delete:", e);
+        return NextResponse.json({ error: 'Invalid request. Provide an `id` query parameter or a request body with `idList`.' }, { status: 400 });
     }
 } 

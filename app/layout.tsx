@@ -4,6 +4,7 @@ import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
 import { ChatwootWidget } from "@/components/ChatwootWidget";
 import { FloatingCustomerServiceButton } from "@/components/FloatingCustomerServiceButton";
+import { Toaster } from "sonner";
 
 import Providers from '@/app/components/Providers';
 
@@ -37,6 +38,7 @@ export default function RootLayout({
         <Footer />
         <ChatwootWidget />
         <FloatingCustomerServiceButton />
+        <Toaster />
       </body>
     </html>
   );

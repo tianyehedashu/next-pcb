@@ -52,6 +52,8 @@ interface CalValues {
   breakdown: Record<string, number>;
   courier: string;
   courierDays: string;
+  singlePcbArea: number;
+  totalArea: number;
 }
 
 // === Store 状态类型 ===
@@ -219,6 +221,8 @@ const DEFAULT_CAL_VALUES: CalValues = {
   breakdown: {},
   courier: "",
   courierDays: "",
+  singlePcbArea: 0,
+  totalArea: 0,
 };
 
 // === 计算属性辅助函数 ===

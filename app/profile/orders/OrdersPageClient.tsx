@@ -33,13 +33,13 @@ interface OrderListItem {
   created_at: string | null;
   status: string | null;
   pcb_spec?: Record<string, unknown>;
+  cal_values?: { leadTimeDays?: number; totalPrice?: number };
   admin_orders?: AdminOrderInfo[] | AdminOrderInfo;
 }
 
 const ORDER_STATUS_MAP: Record<string, { text: string; style: string; description: string }> = {
   'created': { text: "Created", style: "bg-blue-100 text-blue-800 border-blue-200", description: "Quote request submitted" },
   'pending': { text: "Pending", style: "bg-yellow-100 text-yellow-800 border-yellow-200", description: "Awaiting review" },
-  'reviewed': { text: "Reviewed", style: "bg-purple-100 text-purple-800 border-purple-200", description: "Quote under review" },
   'quoted': { text: "Quoted", style: "bg-green-100 text-green-800 border-green-200", description: "Quote provided" },
   'confirmed': { text: "Confirmed", style: "bg-indigo-100 text-indigo-800 border-indigo-200", description: "Order confirmed" },
   'in_production': { text: "In Production", style: "bg-blue-100 text-blue-800 border-blue-200", description: "PCBs being manufactured" },
@@ -73,6 +73,7 @@ export default function OrdersPageClient(): React.ReactElement {
           created_at,
           status,
           pcb_spec,
+          cal_values,
           admin_orders (
             id,
             status,
@@ -129,15 +130,17 @@ export default function OrdersPageClient(): React.ReactElement {
   });
 
   const getOrderSummary = (order: OrderListItem) => {
-    const pcbSpec = order.pcb_spec as Record<string, unknown> | undefined;
-    const singleDimensions = pcbSpec?.singleDimensions as Record<string, unknown> | undefined;
+    const pcbSpec = order.pcb_spec as Record<string, unknown> & { thickness?: number, surfaceFinish?: string, delivery?: string };
+    const singleDimensions = pcbSpec?.singleDimensions as Record<string, unknown> & { length?: number, width?: number } | undefined;
     
     return {
       layers: String(pcbSpec?.layers || '-'),
       quantity: String(pcbSpec?.singleCount || '-'),
       size: singleDimensions?.length && singleDimensions?.width ? 
-        `${singleDimensions.length}×${singleDimensions.width}cm` : '-',
+        `${singleDimensions.length}×${singleDimensions.width}mm` : '-',
       delivery: pcbSpec?.delivery === 'urgent' ? 'Urgent' : 'Standard',
+      thickness: pcbSpec?.thickness ? `${pcbSpec.thickness}mm` : '-',
+      surfaceFinish: String(pcbSpec?.surfaceFinish || '-'),
     };
   };
 
@@ -151,11 +154,41 @@ export default function OrdersPageClient(): React.ReactElement {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
     });
+  };
+
+  const renderOrderPrice = (order: OrderListItem) => {
+    const adminOrder = getAdminOrderInfo(order);
+    if (adminOrder && adminOrder.admin_price != null) {
+      return (
+        <div className="flex flex-col">
+          <span className="font-semibold text-gray-800">
+            ${toUSD(adminOrder.admin_price)}
+          </span>
+          <span className="text-xs text-gray-500">Quoted Price</span>
+        </div>
+      );
+    }
+
+    if (order.cal_values && order.cal_values.totalPrice != null) {
+      return (
+        <div className="flex flex-col">
+          <span className="font-semibold text-gray-800">
+            ~${toUSD(order.cal_values.totalPrice)}
+          </span>
+          <span className="text-xs text-gray-500">Estimated</span>
+        </div>
+      );
+    }
+    return <span className="text-gray-500">-</span>;
   };
 
   const renderOrderStatus = (order: OrderListItem) => {
@@ -274,17 +307,18 @@ export default function OrdersPageClient(): React.ReactElement {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50">
-              <TableHead>Order ID</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>PCB Details</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead className="w-[150px]">Order</TableHead>
+              <TableHead>Details</TableHead>
+              <TableHead className="w-[150px]">Price</TableHead>
+              <TableHead className="w-[120px]">Lead Time</TableHead>
+              <TableHead className="w-[120px]">Status</TableHead>
+              <TableHead className="text-right w-[220px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredOrders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={6} className="text-center py-16 text-gray-500">
                   {orderType === 'pending-payment' 
                     ? 'No orders pending payment' 
                     : 'No orders found'
@@ -295,21 +329,36 @@ export default function OrdersPageClient(): React.ReactElement {
               filteredOrders.map((order) => {
                 const summary = getOrderSummary(order);
                 return (
-                  <TableRow key={order.id} className="hover:bg-gray-50">
-                    <TableCell className="font-mono text-sm">
-                      #{order.id.slice(0, 8)}
-                    </TableCell>
-                    <TableCell>{formatDate(order.created_at)}</TableCell>
+                  <TableRow key={order.id} className="hover:bg-gray-50 border-b">
                     <TableCell>
-                      <div className="space-y-1 text-sm">
-                        <div>Layers: {summary.layers}</div>
-                        <div>Qty: {summary.quantity}</div>
-                        <div>Size: {summary.size}</div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-mono text-sm font-semibold text-blue-600 hover:underline cursor-pointer" onClick={() => router.push(`/profile/orders/${order.id}`)}>
+                          #{order.id.slice(0, 8)}
+                        </span>
+                        <span className="text-xs text-gray-500">{formatDate(order.created_at)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                        <div><span className="font-medium text-gray-600">Layers:</span> {summary.layers}</div>
+                        <div><span className="font-medium text-gray-600">Qty:</span> {summary.quantity}</div>
+                        <div><span className="font-medium text-gray-600">Size:</span> {summary.size}</div>
+                        <div><span className="font-medium text-gray-600">Delivery:</span> {summary.delivery}</div>
+                        <div><span className="font-medium text-gray-600">Thickness:</span> {summary.thickness}</div>
+                        <div><span className="font-medium text-gray-600">Finish:</span> {summary.surfaceFinish}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{renderOrderPrice(order)}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {order.cal_values?.leadTimeDays 
+                          ? `${order.cal_values.leadTimeDays} days` 
+                          : '-'}
                       </div>
                     </TableCell>
                     <TableCell>{renderOrderStatus(order)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
                         <Button
                           size="sm"
                           variant="outline"

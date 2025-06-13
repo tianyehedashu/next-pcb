@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback } from 'react';
-import { toast } from 'sonner';
+// Toast notifications handled by useToast hook
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,9 +17,9 @@ import {
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 import OrderStepBar from '@/components/ui/OrderStepBar';
 import { supabase } from '@/lib/supabaseClient';
-import { useUserStore, UserInfo } from "@/lib/userStore";
+import { useUserStore } from "@/lib/userStore";
 import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
-import { formatOrderPrice, getOrderCurrencySymbol } from '@/lib/utils/orderHelpers';
+// Price formatting utilities removed as we now display prices directly
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +33,53 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/components/ui/use-toast';
 
+// Define shipping address type
+interface ShippingAddress {
+  id?: string;
+  city?: string;
+  label?: string;
+  phone?: string;
+  state?: string;
+  address?: string;
+  country?: string;
+  courier?: string;
+  zipCode?: string;
+  cityName?: string;
+  isDefault?: boolean;
+  stateName?: string;
+  contactName?: string;
+  countryName?: string;
+  courierName?: string;
+}
+
+// Define cal_values type
+interface CalValues {
+  tax?: number;
+  courier?: string;
+  discount?: number;
+  pcbPrice?: number;
+  breakdown?: {
+    basePrice?: number;
+    testMethod?: number;
+    multilayerCopperWeight?: number;
+  };
+  totalArea?: number;
+  unitPrice?: number;
+  priceNotes?: string[];
+  totalCount?: number;
+  totalPrice?: number;
+  courierDays?: string;
+  minOrderQty?: number;
+  leadTimeDays?: number;
+  shippingCost?: number;
+  singlePcbArea?: number;
+  leadTimeResult?: {
+    reason?: string[];
+    cycleDays?: number;
+  };
+  estimatedFinishDate?: string;
+}
+
 // Define more specific types
 interface AdminOrder {
   id: number;
@@ -43,7 +90,18 @@ interface AdminOrder {
   refund_reason?: string | null;
   admin_price?: number | null;
   currency?: string | null;
-  [key: string]: any;
+  status?: string | null;
+  delivery_date?: string | null;
+  admin_note?: string | null;
+  pcb_price?: number | null;
+  cny_price?: number | null;
+  exchange_rate?: number | null;
+  due_date?: string | null;
+  ship_price?: number | null;
+  custom_duty?: number | null;
+  coupon?: number | null;
+  production_days?: number | null;
+  surcharges?: Array<{ name: string; amount: number }>;
 }
 
 // Order interface matching pcb_quotes table
@@ -52,14 +110,16 @@ interface Order {
   user_id: string | null;
   email: string;
   phone: string | null;
-  shipping_address: any; // JSONB
-  pcb_spec: any; // JSONB - PCB specifications
+  shipping_address: ShippingAddress | null;
+  pcb_spec: Record<string, unknown> | null;
   gerber_file_url: string | null;
   status: string | null;
   payment_status?: string | null;
   created_at: string | null;
   updated_at: string | null;
   user_name: string | null;
+  cal_values?: CalValues | null;
+  payment_intent_id?: string | null;
   // Related admin order information (one-to-one relationship)
   admin_orders: AdminOrder[];
 }
@@ -163,9 +223,9 @@ export default function OrderDetailPage() {
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [isEditingPcbSpec, setIsEditingPcbSpec] = useState(false);
-  const [editedAddress, setEditedAddress] = useState<any>({});
+  const [editedAddress, setEditedAddress] = useState<ShippingAddress>({});
   const [editedPhone, setEditedPhone] = useState('');
-  const [editedPcbSpec, setEditedPcbSpec] = useState<any>({});
+  const [editedPcbSpec, setEditedPcbSpec] = useState<QuoteFormData>({} as QuoteFormData);
 
   // Fetch order details
   const fetchOrder = useCallback(async () => {
@@ -173,6 +233,8 @@ export default function OrderDetailPage() {
     
     try {
       setLoading(true);
+      
+      // First get the order data
       const { data: orderData, error: orderError } = await supabase
         .from('pcb_quotes')
         .select('*')
@@ -183,7 +245,24 @@ export default function OrderDetailPage() {
       if (orderError) throw orderError;
       if (!orderData) throw new Error('Order not found');
       
-      setOrder(orderData as Order);
+      // Then get the admin order data
+      const { data: adminOrderData, error: adminOrderError } = await supabase
+        .from('admin_orders')
+        .select('*')
+        .eq('user_order_id', orderId)
+        .maybeSingle();
+
+      if (adminOrderError && adminOrderError.code !== 'PGRST116') {
+        console.warn('Error fetching admin order:', adminOrderError);
+      }
+
+      // Combine the data
+      const combinedOrder: Order = {
+        ...orderData,
+        admin_orders: adminOrderData ? [adminOrderData] : []
+      };
+      
+      setOrder(combinedOrder);
 
       // Parse PCB specifications
       if (orderData.pcb_spec) {
@@ -195,12 +274,12 @@ export default function OrderDetailPage() {
           } else {
             console.warn('PCB spec validation failed:', result.error);
             setPcbFormData(orderData.pcb_spec as QuoteFormData);
-            setEditedPcbSpec(orderData.pcb_spec);
+            setEditedPcbSpec(orderData.pcb_spec as QuoteFormData);
           }
         } catch (err) {
           console.warn('Failed to parse PCB spec:', err);
           setPcbFormData(orderData.pcb_spec as QuoteFormData);
-          setEditedPcbSpec(orderData.pcb_spec);
+          setEditedPcbSpec(orderData.pcb_spec as QuoteFormData);
         }
       }
 
@@ -208,12 +287,13 @@ export default function OrderDetailPage() {
       setEditedAddress(orderData.shipping_address || {});
       setEditedPhone(orderData.phone || '');
       
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       console.error('Error fetching order:', err);
-      setError(err.message);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
       toast({
         title: 'Error Fetching Order',
-        description: err.message,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -246,13 +326,17 @@ export default function OrderDetailPage() {
 
       if (error) throw error;
 
-      toast.success('Order updated successfully');
+      toast({
+        title: 'Success',
+        description: 'Order updated successfully'
+      });
       await fetchOrder(); // Refresh data
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       console.error('Error updating order:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       toast({
         title: 'Error Updating Order',
-        description: err.message,
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -266,7 +350,10 @@ export default function OrderDetailPage() {
     // If order status is 'reviewed' or later, set back to 'pending' for re-review
     if (order && ['reviewed', 'quoted'].includes(order.status || '')) {
       await updateOrder({ status: 'pending' });
-      toast.info('Order status changed to "Under Review" due to address modification');
+      toast({
+        title: 'Info',
+        description: 'Order status changed to "Under Review" due to address modification'
+      });
     }
   };
 
@@ -284,7 +371,10 @@ export default function OrderDetailPage() {
     // If order status is 'reviewed' or later, set back to 'pending' for re-review
     if (order && ['reviewed', 'quoted'].includes(order.status || '')) {
       await updateOrder({ status: 'pending' });
-      toast.info('Order status changed to "Under Review" due to PCB specification modification');
+      toast({
+        title: 'Info',
+        description: 'Order status changed to "Under Review" due to PCB specification modification'
+      });
     }
   };
 
@@ -296,27 +386,34 @@ export default function OrderDetailPage() {
 
     try {
       await updateOrder({ status: 'cancelled' });
-      toast.success('Order cancelled successfully');
+      toast({
+        title: 'Success',
+        description: 'Order cancelled successfully'
+      });
       router.push('/profile/orders');
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       console.error('Error cancelling order:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       toast({
         title: 'Error Cancelling Order',
-        description: err.message,
+        description: errorMessage,
         variant: 'destructive',
       });
     }
   };
 
   // Get PCB field display value
-  const getPcbFieldDisplay = (key: string, value: any): string => {
+  const getPcbFieldDisplay = (key: string, value: unknown): string => {
     if (!value) return '-';
     
-    const displayMap: Record<string, (val: any) => string> = {
+    const displayMap: Record<string, (val: unknown) => string> = {
       pcbType: (v) => v === 'FR-4' ? 'FR-4 Standard' : String(v),
       layers: (v) => `${v} Layers`,
       thickness: (v) => `${v}mm`,
-      singleDimensions: (v) => v?.length && v?.width ? `${v.length} × ${v.width} cm` : '-',
+      singleDimensions: (v) => {
+        const dim = v as { length?: number; width?: number };
+        return dim?.length && dim?.width ? `${dim.length} × ${dim.width} cm` : '-';
+      },
       singleCount: (v) => `${v} pcs`,
       delivery: (v) => v === 'standard' ? 'Standard' : 'Urgent',
       surfaceFinish: (v) => {
@@ -327,7 +424,7 @@ export default function OrderDetailPage() {
           'Immersion Silver': 'Immersion Silver',
           'Immersion Tin': 'Immersion Tin'
         };
-        return map[v] || String(v);
+        return map[v as string] || String(v);
       },
       solderMask: (v) => {
         const map: Record<string, string> = {
@@ -337,14 +434,14 @@ export default function OrderDetailPage() {
           'Black': 'Black',
           'White': 'White'
         };
-        return map[v] || String(v);
+        return map[v as string] || String(v);
       },
       silkscreen: (v) => {
         const map: Record<string, string> = {
           'White': 'White',
           'Black': 'Black'
         };
-        return map[v] || String(v);
+        return map[v as string] || String(v);
       }
     };
 
@@ -369,10 +466,11 @@ export default function OrderDetailPage() {
         description: 'Your refund request has been submitted for admin review.',
       });
       fetchOrder(); // Refresh order details
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       toast({
         title: 'Error',
-        description: err.message,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -396,10 +494,11 @@ export default function OrderDetailPage() {
         description: data.message,
       });
       fetchOrder(); // Refresh data
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       toast({
         title: 'Error',
-        description: err.message,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -549,37 +648,109 @@ export default function OrderDetailPage() {
                 <CardTitle>Price Information</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-gray-500">Quote Price</div>
-                    <div className="text-xl font-bold text-green-600">
-                      {formatOrderPrice({ admin_orders: [adminOrder] } as any)}
+                {/* Final Admin Confirmed Price - Most Important */}
+                {adminOrder?.admin_price && (
+                  <div className="mb-6 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <h4 className="font-semibold text-green-800">Final Confirmed Price</h4>
+                    </div>
+                    <div className="text-2xl font-bold text-green-600 mb-2">
+                      {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price.toFixed(2)}
+                    </div>
+                    <p className="text-sm text-green-700">
+                      This is the final price confirmed by our team after detailed review.
+                    </p>
+                  </div>
+                )}
+
+                {/* Initial Quote vs Final Price Comparison */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Initial System Quote */}
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <h5 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <Info className="h-4 w-4" />
+                        Initial Quote
+                      </h5>
+                      {order.cal_values ? (
+                        <div className="space-y-1 text-sm">
+                          <div>
+                            <span className="text-gray-500">PCB Price: </span>
+                            <span>${order.cal_values.pcbPrice?.toFixed(2) || '-'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Lead Time: </span>
+                            <span>{order.cal_values.leadTimeDays || '-'} days</span>
+                          </div>
+                          {order.cal_values.estimatedFinishDate && (
+                            <div>
+                              <span className="text-gray-500">Est. Completion: </span>
+                              <span>{new Date(order.cal_values.estimatedFinishDate).toLocaleDateString('en-US')}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500">Calculating...</p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-2 italic">
+                        * Initial system calculation for reference
+                      </p>
+                    </div>
+
+                    {/* Final Admin Confirmed Details */}
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <h5 className="font-medium text-blue-700 mb-2 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Final Confirmed
+                      </h5>
+                      {adminOrder ? (
+                        <div className="space-y-1 text-sm">
+                          <div>
+                            <span className="text-gray-500">PCB Price: </span>
+                            <span className="font-medium">
+                              {adminOrder.currency === 'CNY' 
+                                ? `¥${adminOrder.pcb_price?.toFixed(2) || '-'}` 
+                                : `$${adminOrder.pcb_price ? (adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
+                              }
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Production Days: </span>
+                            <span className="font-medium">{adminOrder.production_days || '-'} days</span>
+                          </div>
+                          {adminOrder.due_date && (
+                            <div>
+                              <span className="text-gray-500">Due Date: </span>
+                              <span className="font-medium">{new Date(adminOrder.due_date).toLocaleDateString('en-US')}</span>
+                            </div>
+                          )}
+                          {adminOrder.delivery_date && (
+                            <div>
+                              <span className="text-gray-500">Delivery Date: </span>
+                              <span className="font-medium">{new Date(adminOrder.delivery_date).toLocaleDateString('en-US')}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500">Pending admin review</p>
+                      )}
+                      <p className="text-xs text-blue-600 mt-2 font-medium">
+                        ✓ This is the official final information
+                      </p>
                     </div>
                   </div>
-                  
-                  {adminOrder && (
-                    <>
-                      <div>
-                        <div className="text-sm text-gray-500">PCB Price</div>
-                        <div className="text-lg font-semibold">
-                          {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.pcb_price?.toFixed(2) || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500">Total Price</div>
-                        <div className="text-lg font-semibold">
-                          {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.cny_price?.toFixed(2) || adminOrder.admin_price?.toFixed(2) || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500">Exchange Rate</div>
-                        <div className="text-sm">
-                          1 USD = {adminOrder.exchange_rate || 7.2} CNY
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </div>
+                
+                {/* 汇率信息 - 独立显示 */}
+                {adminOrder && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="text-sm">
+                      <span className="text-gray-500">Exchange Rate: </span>
+                      <span className="font-medium">1 USD = {adminOrder.exchange_rate || 7.2} CNY</span>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Payment Button */}
                 {adminOrder?.admin_price && adminOrder?.payment_status !== 'paid' && (
@@ -590,7 +761,8 @@ export default function OrderDetailPage() {
                       size="lg"
                     >
                       <CreditCard className="h-4 w-4 mr-2" />
-                      Pay Now - {getOrderCurrencySymbol({ admin_orders: [adminOrder] } as any)}{adminOrder.admin_price.toFixed(2)}
+                      Pay Now - {adminOrder.currency === 'CNY' ? '¥' : '$'}
+                      {adminOrder.admin_price?.toFixed(2)}
                     </Button>
                   </div>
                 )}
@@ -918,7 +1090,7 @@ export default function OrderDetailPage() {
                             <Label htmlFor="delivery">Delivery</Label>
                             <Select 
                               value={editedPcbSpec.delivery || 'standard'} 
-                              onValueChange={(value) => setEditedPcbSpec({...editedPcbSpec, delivery: value})}
+                              onValueChange={(value) => setEditedPcbSpec({...editedPcbSpec, delivery: value as 'standard' | 'urgent'})}
                             >
                               <SelectTrigger>
                                 <SelectValue />
@@ -1020,6 +1192,69 @@ export default function OrderDetailPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Order Calculation Details Card */}
+            {order.cal_values && (
+              <Card className="border-gray-200 bg-gray-50/30">
+                <CardHeader className="flex flex-row items-center gap-3">
+                  <Info className="h-5 w-5 text-gray-600" />
+                  <CardTitle className="flex items-center gap-2">
+                    Initial System Calculation
+                    <Badge variant="outline" className="text-xs border-gray-400 text-gray-600">Reference Only</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Price breakdown */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm text-gray-500">PCB Price</div>
+                        <div className="text-lg font-semibold text-green-600">
+                          ${order.cal_values.pcbPrice?.toFixed(2) || '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Unit Price</div>
+                        <div className="text-lg font-semibold">
+                          ${order.cal_values.unitPrice?.toFixed(2) || '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Total Area</div>
+                        <div className="text-sm">
+                          {order.cal_values.totalArea?.toFixed(4) || '-'} m²
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Single PCB Area</div>
+                        <div className="text-sm">
+                          {order.cal_values.singlePcbArea?.toFixed(4) || '-'} m²
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Lead time info */}
+                    <div className="border-t pt-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Production Timeline</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Lead Time: </span>
+                          <span className="font-medium">{order.cal_values.leadTimeDays || '-'} days</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Estimated Completion: </span>
+                          <span className="font-medium">
+                            {order.cal_values.estimatedFinishDate ? 
+                              new Date(order.cal_values.estimatedFinishDate).toLocaleDateString('en-US') : '-'
+                            }
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Right Column - Sidebar */}
@@ -1111,6 +1346,214 @@ export default function OrderDetailPage() {
                     <strong>Note:</strong> You can edit this order until payment is made.
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Admin Order Details Card */}
+            {adminOrder && (
+              <Card className="border-blue-200 bg-blue-50/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-blue-600" />
+                    Official Order Details
+                  </CardTitle>
+                  <CardDescription className="text-blue-700">
+                    ✓ Final confirmed information - This data overrides initial quotes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Status Information */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Status Information</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Admin Status:</span>
+                        <Badge variant="outline" className="text-xs">
+                          {adminOrder.status || 'Pending'}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Payment Status:</span>
+                        <Badge variant={adminOrder.payment_status === 'paid' ? 'default' : 'secondary'} className="text-xs">
+                          {adminOrder.payment_status || 'Unpaid'}
+                        </Badge>
+                      </div>
+                      {adminOrder.refund_status && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Refund Status:</span>
+                          <Badge variant="outline" className="text-xs">
+                            {adminOrder.refund_status}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Final Pricing Details */}
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                      Final Pricing Breakdown
+                      <Badge variant="default" className="text-xs bg-green-600">Official</Badge>
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {adminOrder.pcb_price && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">PCB Cost:</span>
+                          <span className="font-medium">
+                            {adminOrder.currency === 'CNY' 
+                              ? `¥${adminOrder.pcb_price.toFixed(2)}` 
+                              : `$${(adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2)}`
+                            }
+                          </span>
+                        </div>
+                      )}
+                      {adminOrder.ship_price && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Shipping:</span>
+                          <span>
+                            {adminOrder.currency === 'CNY' 
+                              ? `¥${adminOrder.ship_price.toFixed(2)}` 
+                              : `$${(adminOrder.ship_price / (adminOrder.exchange_rate || 7.2)).toFixed(2)}`
+                            }
+                          </span>
+                        </div>
+                      )}
+                      {adminOrder.custom_duty && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Custom Duty:</span>
+                          <span>
+                            {adminOrder.currency === 'CNY' 
+                              ? `¥${adminOrder.custom_duty.toFixed(2)}` 
+                              : `$${(adminOrder.custom_duty / (adminOrder.exchange_rate || 7.2)).toFixed(2)}`
+                            }
+                          </span>
+                        </div>
+                      )}
+                      {adminOrder.coupon && adminOrder.coupon > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Discount:</span>
+                          <span className="text-green-600">
+                            -{adminOrder.currency === 'CNY' 
+                              ? `¥${adminOrder.coupon.toFixed(2)}` 
+                              : `$${(adminOrder.coupon / (adminOrder.exchange_rate || 7.2)).toFixed(2)}`
+                            }
+                          </span>
+                        </div>
+                      )}
+                      {adminOrder.surcharges && adminOrder.surcharges.length > 0 && (
+                        <div>
+                          <span className="text-gray-500">Surcharges:</span>
+                          {adminOrder.surcharges.map((surcharge, index) => (
+                            <div key={index} className="flex justify-between ml-4">
+                              <span className="text-xs text-gray-400">{surcharge.name}:</span>
+                              <span className="text-xs">
+                                {adminOrder.currency === 'CNY' 
+                                  ? `¥${surcharge.amount.toFixed(2)}` 
+                                  : `$${(surcharge.amount / (adminOrder.exchange_rate || 7.2)).toFixed(2)}`
+                                }
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {adminOrder.admin_price && (
+                        <div className="flex justify-between border-t pt-2 font-medium bg-green-50 p-2 rounded">
+                          <span className="text-gray-900">Final Total:</span>
+                          <span className="text-green-600 font-bold">
+                            {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Official Production Timeline */}
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                      Official Production Timeline
+                      <Badge variant="default" className="text-xs bg-blue-600">Confirmed</Badge>
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {adminOrder.production_days && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Production Days:</span>
+                          <span className="font-medium">{adminOrder.production_days} days</span>
+                        </div>
+                      )}
+                      {adminOrder.due_date && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Due Date:</span>
+                          <span className="font-medium">{new Date(adminOrder.due_date).toLocaleDateString('en-US')}</span>
+                        </div>
+                      )}
+                      {adminOrder.delivery_date && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Delivery Date:</span>
+                          <span className="font-medium">{new Date(adminOrder.delivery_date).toLocaleDateString('en-US')}</span>
+                        </div>
+                      )}
+                    </div>
+                    {(!adminOrder.production_days && !adminOrder.due_date && !adminOrder.delivery_date) && (
+                      <p className="text-sm text-gray-500 italic">Timeline pending admin confirmation</p>
+                    )}
+                  </div>
+
+                  {/* Admin Notes */}
+                  {adminOrder.admin_note && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Admin Notes</h4>
+                      <div className="text-sm bg-blue-50 p-3 rounded border-l-3 border-blue-200 whitespace-pre-wrap">
+                        {adminOrder.admin_note}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Order Summary Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                  <Package className="h-5 w-5 text-green-600" />
+                  Order Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-sm">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-gray-500">Order ID:</span>
+                    <span className="font-mono">#{order.id.slice(-8)}</span>
+                  </div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-gray-500">Status:</span>
+                    <Badge variant="outline" className="text-xs">
+                      {statusInfo?.text || order.status}
+                    </Badge>
+                  </div>
+                  {order.payment_intent_id && (
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-500">Payment ID:</span>
+                      <span className="font-mono text-xs">{order.payment_intent_id.slice(-8)}</span>
+                    </div>
+                  )}
+                  {pcbFormData && (
+                    <>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-gray-500">PCB Layers:</span>
+                        <span>{pcbFormData.layers} Layer{(pcbFormData.layers || 0) > 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-gray-500">Quantity:</span>
+                        <span>{pcbFormData.singleCount} pcs</span>
+                      </div>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-gray-500">Delivery:</span>
+                        <span>{pcbFormData.delivery === 'standard' ? 'Standard' : 'Urgent'}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
