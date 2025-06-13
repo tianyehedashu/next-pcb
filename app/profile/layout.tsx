@@ -7,10 +7,24 @@ export default function ProfileLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="container mx-auto p-4 pt-20">
-      <div className="flex flex-col md:flex-row gap-8">
-        <ProfileSidebar />
-        <main className="flex-1 min-w-0">{children}</main>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      {/* 顶部装饰条 */}
+      <div className="h-1 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600"></div>
+      
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 min-h-[calc(100vh-8rem)]">
+          {/* 侧边栏 - 添加粘性定位和现代设计 */}
+          <div className="lg:sticky lg:top-8 lg:self-start">
+            <ProfileSidebar />
+          </div>
+          
+          {/* 主内容区域 */}
+          <main className="flex-1 min-w-0">
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 lg:p-8 transition-all duration-300 hover:shadow-2xl">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
     </div>
   );

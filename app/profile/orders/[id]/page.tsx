@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useState, useCallback } from 'react';
-// Toast notifications handled by useToast hook
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,14 +11,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Pencil, Package, Clock, DollarSign, MapPin, FileText, AlertCircle, 
-  ArrowLeft, CheckCircle, Truck, AlertTriangle, CreditCard, Info, Loader2
+  ArrowLeft, CheckCircle, Truck, AlertTriangle, CreditCard, Info, Loader2, Calendar,
+  Star, Shield, Zap
 } from 'lucide-react';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 import OrderStepBar from '@/components/ui/OrderStepBar';
 import { supabase } from '@/lib/supabaseClient';
 import { useUserStore } from "@/lib/userStore";
 import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
-// Price formatting utilities removed as we now display prices directly
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/components/ui/use-toast';
 import { AddressFormComponent, AddressFormValue } from '@/app/quote2/components/AddressFormComponent';
+import { DeliveryType } from '@/app/quote2/schema/shared-types';
 
 // Define cal_values type
 interface CalValues {
@@ -102,7 +102,6 @@ interface Order {
   user_name: string | null;
   cal_values?: CalValues | null;
   payment_intent_id?: string | null;
-  // Related admin order information (one-to-one relationship)
   admin_orders: AdminOrder[];
 }
 
@@ -110,67 +109,67 @@ interface Order {
 const ORDER_STATUS_MAP: Record<string, { text: string; style: string; description: string; stepKey: string }> = {
   'created': { 
     text: "Created", 
-    style: "bg-blue-100 text-blue-800 border-blue-200", 
+    style: "bg-blue-50 text-blue-700 border-blue-200", 
     description: "Quote request submitted",
     stepKey: "created"
   },
   'pending': { 
     text: "Under Review", 
-    style: "bg-yellow-100 text-yellow-800 border-yellow-200", 
+    style: "bg-amber-50 text-amber-700 border-amber-200", 
     description: "Being reviewed by our team",
     stepKey: "review"
   },
   'reviewed': { 
     text: "Reviewed", 
-    style: "bg-green-100 text-green-800 border-green-200", 
+    style: "bg-emerald-50 text-emerald-700 border-emerald-200", 
     description: "Review completed, ready for confirmation and payment",
     stepKey: "confirm_pay"
   },
   'quoted': { 
     text: "Quoted", 
-    style: "bg-green-100 text-green-800 border-green-200", 
+    style: "bg-emerald-50 text-emerald-700 border-emerald-200", 
     description: "Quote provided, awaiting confirmation",
     stepKey: "confirm_pay"
   },
   'confirmed': { 
     text: "Confirmed", 
-    style: "bg-indigo-100 text-indigo-800 border-indigo-200", 
+    style: "bg-indigo-50 text-indigo-700 border-indigo-200", 
     description: "Order confirmed, ready for payment",
     stepKey: "confirm_pay"
   },
   'paid': { 
     text: "Paid", 
-    style: "bg-emerald-100 text-emerald-800 border-emerald-200", 
+    style: "bg-green-50 text-green-700 border-green-200", 
     description: "Payment received, ready for production",
     stepKey: "confirm_pay"
   },
   'in_production': { 
     text: "In Production", 
-    style: "bg-blue-100 text-blue-800 border-blue-200", 
+    style: "bg-blue-50 text-blue-700 border-blue-200", 
     description: "PCBs being manufactured",
     stepKey: "production"
   },
   'shipped': { 
     text: "Shipped", 
-    style: "bg-cyan-100 text-cyan-800 border-cyan-200", 
+    style: "bg-cyan-50 text-cyan-700 border-cyan-200", 
     description: "Order shipped",
     stepKey: "shipping"
   },
   'delivered': { 
     text: "Delivered", 
-    style: "bg-emerald-100 text-emerald-800 border-emerald-200", 
+    style: "bg-emerald-50 text-emerald-700 border-emerald-200", 
     description: "Order delivered",
     stepKey: "receiving"
   },
   'completed': { 
     text: "Completed", 
-    style: "bg-green-100 text-green-800 border-green-200", 
+    style: "bg-green-50 text-green-700 border-green-200", 
     description: "Order completed",
     stepKey: "complete"
   },
   'cancelled': { 
     text: "Cancelled", 
-    style: "bg-red-100 text-red-800 border-red-200", 
+    style: "bg-red-50 text-red-700 border-red-200", 
     description: "Order cancelled",
     stepKey: "cancelled"
   },
@@ -217,7 +216,6 @@ export default function OrderDetailPage() {
     try {
       setLoading(true);
       
-      // First get the order data
       const { data: orderData, error: orderError } = await supabase
         .from('pcb_quotes')
         .select('*')
@@ -228,7 +226,6 @@ export default function OrderDetailPage() {
       if (orderError) throw orderError;
       if (!orderData) throw new Error('Order not found');
       
-      // Then get the admin order data
       const { data: adminOrderData, error: adminOrderError } = await supabase
         .from('admin_orders')
         .select('*')
@@ -239,7 +236,6 @@ export default function OrderDetailPage() {
         console.warn('Error fetching admin order:', adminOrderError);
       }
 
-      // Combine the data
       const combinedOrder: Order = {
         ...orderData,
         admin_orders: adminOrderData ? [adminOrderData] : []
@@ -247,7 +243,6 @@ export default function OrderDetailPage() {
       
       setOrder(combinedOrder);
 
-      // Parse PCB specifications
       if (orderData.pcb_spec) {
         try {
           const result = quoteSchema.safeParse(orderData.pcb_spec);
@@ -266,7 +261,6 @@ export default function OrderDetailPage() {
         }
       }
 
-      // Initialize edit states
       setEditedAddress(orderData.shipping_address || {});
       setEditedPhone(orderData.phone || '');
       
@@ -290,10 +284,8 @@ export default function OrderDetailPage() {
     }
   }, [user, fetchOrder]);
 
-  // Check if editing is allowed (before payment/production)
+  // Check if editing is allowed
   const canEdit = order && ['created', 'pending', 'reviewed'].includes(order.status || '');
-
-  // Check if cancellation is allowed
   const canCancel = order && ['created', 'pending', 'reviewed'].includes(order.status || '');
 
   // Update order information
@@ -313,7 +305,7 @@ export default function OrderDetailPage() {
         title: 'Success',
         description: 'Order updated successfully'
       });
-      await fetchOrder(); // Refresh data
+      await fetchOrder();
     } catch (err: Error | unknown) {
       console.error('Error updating order:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -325,7 +317,7 @@ export default function OrderDetailPage() {
     }
   };
 
-  // Save address changes
+  // Save handlers
   const handleSaveAddress = async () => {
     if (!editedAddress || !editedAddress.country || !editedAddress.address) {
       toast({
@@ -339,7 +331,6 @@ export default function OrderDetailPage() {
     await updateOrder({ shipping_address: editedAddress });
     setIsEditingAddress(false);
     
-    // If order status is 'reviewed', set back to 'pending' for re-review
     if (order && order.status === 'reviewed') {
       await updateOrder({ status: 'pending' });
       toast({
@@ -349,18 +340,15 @@ export default function OrderDetailPage() {
     }
   };
 
-  // Save phone changes
   const handleSavePhone = async () => {
     await updateOrder({ phone: editedPhone });
     setIsEditingPhone(false);
   };
 
-  // Save PCB specification changes
   const handleSavePcbSpec = async () => {
     await updateOrder({ pcb_spec: editedPcbSpec });
     setIsEditingPcbSpec(false);
     
-    // If order status is 'reviewed', set back to 'pending' for re-review
     if (order && order.status === 'reviewed') {
       await updateOrder({ status: 'pending' });
       toast({
@@ -370,7 +358,6 @@ export default function OrderDetailPage() {
     }
   };
 
-  // Cancel order
   const handleCancelOrder = async () => {
     if (!window.confirm('Are you sure you want to cancel this order? This action cannot be undone.')) {
       return;
@@ -407,7 +394,7 @@ export default function OrderDetailPage() {
         return dim?.length && dim?.width ? `${dim.length} × ${dim.width} cm` : '-';
       },
       singleCount: (v) => `${v} pcs`,
-      delivery: (v) => v === 'standard' ? 'Standard' : 'Urgent',
+      delivery: (v) => v === DeliveryType.Standard ? 'Standard' : 'Urgent',
       surfaceFinish: (v) => {
         const map: Record<string, string> = {
           'HASL': 'HASL Lead Free',
@@ -418,23 +405,8 @@ export default function OrderDetailPage() {
         };
         return map[v as string] || String(v);
       },
-      solderMask: (v) => {
-        const map: Record<string, string> = {
-          'Green': 'Green',
-          'Blue': 'Blue', 
-          'Red': 'Red',
-          'Black': 'Black',
-          'White': 'White'
-        };
-        return map[v as string] || String(v);
-      },
-      silkscreen: (v) => {
-        const map: Record<string, string> = {
-          'White': 'White',
-          'Black': 'Black'
-        };
-        return map[v as string] || String(v);
-      }
+      solderMask: (v) => String(v),
+      silkscreen: (v) => String(v)
     };
 
     return displayMap[key] ? displayMap[key](value) : String(value);
@@ -457,7 +429,7 @@ export default function OrderDetailPage() {
         title: 'Refund Request Submitted',
         description: 'Your refund request has been submitted for admin review.',
       });
-      fetchOrder(); // Refresh order details
+      fetchOrder();
     } catch (err: Error | unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       toast({
@@ -485,7 +457,7 @@ export default function OrderDetailPage() {
         title: 'Success',
         description: data.message,
       });
-      fetchOrder(); // Refresh data
+      fetchOrder();
     } catch (err: Error | unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       toast({
@@ -500,10 +472,16 @@ export default function OrderDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading order details...</p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin border-t-blue-600 mx-auto"></div>
+            <div className="absolute inset-0 w-16 h-16 border-4 border-purple-200 rounded-full animate-ping mx-auto opacity-20"></div>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-gray-900">Loading Order Details</h3>
+            <p className="text-gray-600">Please wait while we fetch your order information...</p>
+          </div>
         </div>
       </div>
     );
@@ -511,12 +489,20 @@ export default function OrderDetailPage() {
 
   if (error || !order) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Order</h2>
-          <p className="text-gray-600 mb-4">{error || 'Order not found'}</p>
-          <Button onClick={() => router.push('/profile/orders')} variant="outline">
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-6 max-w-md">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+            <AlertCircle className="h-10 w-10 text-red-600" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-gray-900">Unable to Load Order</h2>
+            <p className="text-gray-600">{error || 'Order not found'}</p>
+          </div>
+          <Button 
+            onClick={() => router.push('/profile/orders')} 
+            variant="outline"
+            className="bg-white hover:bg-gray-50"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Orders
           </Button>
@@ -526,11 +512,8 @@ export default function OrderDetailPage() {
   }
 
   const statusInfo = ORDER_STATUS_MAP[order.status || 'created'];
-  
-  // Check if the order is ready for payment. Requires admin order, price, and 'reviewed' status.
   const isReadyForPayment = adminOrder && adminOrder.admin_price && adminOrder.status === 'reviewed';
 
-  // Determine the current step for the progress bar
   const getCurrentStep = () => {
     const userStatus = order.status || 'created';
     const isPaid = adminOrder?.payment_status === 'paid';
@@ -542,102 +525,168 @@ export default function OrderDetailPage() {
       return 'production';
     }
 
-    if (isReadyForPayment) {
-      return 'confirm_pay';
-    }
-    
-    // If admin order exists but isn't ready for payment, it's still in the review phase.
-    if (adminOrder) {
-      return 'review';
-    }
+    if (isReadyForPayment) return 'confirm_pay';
+    if (adminOrder) return 'review';
 
-    // Otherwise, base the step on the user's order status.
     switch (userStatus) {
-      case 'created':
-        return 'created';
+      case 'created': return 'created';
       case 'pending':
-      case 'reviewed':
-        return 'review';
-      default:
-        return 'created';
+      case 'reviewed': return 'review';
+      default: return 'created';
     }
   };
 
   const currentStep = getCurrentStep();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-          <div>
-            <div className="flex items-center gap-4 mb-2">
-              <h1 className="text-3xl font-bold text-gray-900">Order Details</h1>
-              <Badge className={`${statusInfo?.style} border text-sm font-medium`}>
-                {statusInfo?.text || order.status}
-              </Badge>
+    <div className="space-y-8">
+      {/* Page Header - Modern Design */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-indigo-600/5 rounded-2xl"></div>
+        <div className="relative p-6 lg:p-8">
+          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <Package className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 tracking-tight">
+                      Order Details
+                    </h1>
+                    <p className="text-gray-600 text-sm lg:text-base font-medium">
+                      #{order.id.slice(-8)}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Badge className={`${statusInfo?.style} border-0 shadow-sm text-sm font-medium px-4 py-2 rounded-full transition-all hover:scale-105`}>
+                    {statusInfo?.text || order.status}
+                  </Badge>
+                  {adminOrder?.payment_status === 'paid' && (
+                    <Badge className="bg-emerald-50 text-emerald-700 border-0 shadow-sm text-sm font-medium px-4 py-2 rounded-full transition-all hover:scale-105">
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Paid
+                    </Badge>
+                  )}
+                  {order.cal_values?.leadTimeDays && (
+                    <Badge variant="outline" className="text-sm font-medium px-4 py-2 rounded-full">
+                      <Zap className="w-4 h-4 mr-1" />
+                      {order.cal_values.leadTimeDays} days
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  <span>Created: {order.created_at ? new Date(order.created_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  }) : '-'}</span>
+                </div>
+                {adminOrder?.due_date && (
+                  <div className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
+                    <Calendar className="w-4 h-4 text-purple-600" />
+                    <span>Due: {new Date(adminOrder.due_date).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric'
+                    })}</span>
+                  </div>
+                )}
+                {order.payment_intent_id && (
+                  <div className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
+                    <CreditCard className="w-4 h-4 text-green-600" />
+                    <span>Payment: {order.payment_intent_id.slice(-8)}</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <p className="text-gray-600">Order ID: #{order.id.slice(-8)}</p>
-            <p className="text-sm text-gray-500">
-              Created: {order.created_at ? new Date(order.created_at).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              }) : '-'}
-            </p>
-          </div>
-          
-          <div className="flex gap-3 mt-4 sm:mt-0">
-            <Button onClick={() => router.push('/profile/orders')} variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Orders
-            </Button>
-            {canCancel && (
-              <Button onClick={handleCancelOrder} variant="destructive">
-                Cancel Order
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button 
+                onClick={() => router.push('/profile/orders')} 
+                variant="outline"
+                className="border-gray-300 hover:border-gray-400 transition-all hover:shadow-sm"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Orders
               </Button>
-            )}
+              {canCancel && (
+                <Button 
+                  onClick={handleCancelOrder} 
+                  variant="destructive"
+                  className="shadow-sm hover:shadow-md transition-all"
+                >
+                  Cancel Order
+                </Button>
+              )}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Order Progress Steps */}
-        <div className="mb-8">
+      {/* Progress Bar - Enhanced Design */}
+      <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50/50 to-purple-50/50">
+        <CardHeader className="pb-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Shield className="w-4 h-4 text-blue-600" />
+            </div>
+            <CardTitle className="text-lg">Order Progress</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-4">
           <OrderStepBar 
             currentStatus={currentStep} 
             steps={ORDER_STEPS}
           />
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Edit Warning */}
-        {canEdit && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <div className="flex items-center gap-2 text-amber-800">
-              <AlertTriangle className="w-5 h-5" />
-              <span className="font-medium">Order Can Be Modified</span>
+      {/* Edit Warning - Enhanced Design */}
+      {canEdit && (
+        <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-amber-900 mb-1">Order Can Be Modified</h3>
+                <p className="text-amber-800 text-sm">
+                  You can edit address and PCB specifications before payment. Changes may require re-review.
+                </p>
+              </div>
             </div>
-            <p className="text-sm text-amber-700 mt-1">
-              You can edit address and PCB specifications before payment. Changes may require re-review.
-            </p>
-          </div>
-        )}
+          </CardContent>
+        </Card>
+      )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Order Status Card */}
-            <Card>
-              <CardHeader className="flex flex-row items-center gap-3">
-                <Package className="h-5 w-5 text-blue-600" />
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* Left Column - Main Content */}
+        <div className="xl:col-span-2 space-y-8">
+          {/* Order Status Card - Enhanced */}
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50/30">
+            <CardHeader className="border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Package className="w-4 h-4 text-blue-600" />
+                </div>
                 <CardTitle>Order Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4 mb-4">
-                  <Badge className={`${statusInfo?.style} border text-sm px-3 py-1`}>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <Badge className={`${statusInfo?.style} border-0 text-sm px-4 py-2 rounded-full font-medium`}>
                     {statusInfo?.text || order.status}
                   </Badge>
-                  <span className="text-gray-600">
+                  <span className="text-gray-600 text-sm">
                     {(() => {
                       const userStatus = order.status || 'created';
                       const isPaid = adminOrder?.payment_status === 'paid';
@@ -655,9 +704,9 @@ export default function OrderDetailPage() {
 
                       if (adminOrder) {
                         if (!adminOrder.admin_price) {
-                          return `Admin is reviewing, waiting for price confirmation. Admin status: ${adminOrder.status}`;
+                          return `Admin is reviewing, waiting for price confirmation.`;
                         }
-                        return `Admin is finalizing your order, waiting for final approval. Admin status: ${adminOrder.status}`;
+                        return `Admin is finalizing your order, waiting for final approval.`;
                       }
 
                       switch (userStatus) {
@@ -666,7 +715,7 @@ export default function OrderDetailPage() {
                         case 'pending':
                           return 'Being reviewed by our team.';
                         case 'reviewed':
-                          return 'Initial review complete, waiting for admin to finalize pricing and details.';
+                          return 'Initial review complete, waiting for admin to finalize pricing.';
                         default:
                           return statusInfo?.description || 'Status unknown';
                       }
@@ -674,308 +723,280 @@ export default function OrderDetailPage() {
                   </span>
                 </div>
                 
-                {/* Admin Order Status */}
                 {adminOrder ? (
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium text-gray-900 mb-2">Admin Processing Status</h4>
+                  <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Star className="w-4 h-4 text-blue-600" />
+                      Admin Processing Status
+                    </h4>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500">Admin Status: </span>
-                        <span className="font-medium">{adminOrder.status || 'Processing'}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {adminOrder.status || 'Processing'}
+                        </Badge>
                       </div>
                       <div>
                         <span className="text-gray-500">Payment Status: </span>
-                        <span className="font-medium">{adminOrder.payment_status || 'Unpaid'}</span>
+                        <Badge variant={(isReadyForPayment || adminOrder.payment_status === 'paid') ? 'default' : 'secondary'} className="text-xs">
+                          {(isReadyForPayment || adminOrder.payment_status === 'paid') ? 'Confirmed' : 'Pending'}
+                        </Badge>
                       </div>
                       <div>
-                        <span className="text-gray-500">Price Status: </span>
-                        <span className="font-medium">
-                          {adminOrder.admin_price ? 'Confirmed' : 'Pending'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Expected Delivery: </span>
-                        <span className="font-medium">
-                          {adminOrder.delivery_date ? new Date(adminOrder.delivery_date).toLocaleDateString('en-US') : '-'}
+                        <span className="text-gray-500">Delivery: </span>
+                        <span className="font-medium text-gray-700">
+                          {adminOrder.delivery_date ? new Date(adminOrder.delivery_date).toLocaleDateString('en-US') : 'TBD'}
                         </span>
                       </div>
                     </div>
                     {adminOrder.admin_note && (
-                      <div className="mt-3">
-                        <span className="text-gray-500 text-sm">Admin Notes: </span>
-                        <div className="mt-1">
-                          <div className="text-sm bg-blue-50 p-2 rounded border-l-2 border-blue-200 whitespace-pre-wrap">
-                            {adminOrder.admin_note}
-                          </div>
+                      <div className="mt-4 pt-4 border-t border-blue-200">
+                        <span className="text-gray-500 text-sm font-medium">Admin Notes:</span>
+                        <div className="mt-2 text-sm bg-white/70 p-3 rounded-lg border border-blue-200 whitespace-pre-wrap">
+                          {adminOrder.admin_note}
                         </div>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="border-t pt-4">
-                    <div className="flex items-center gap-2 text-amber-600">
+                  <div className="bg-amber-50/50 rounded-xl p-4 border border-amber-200">
+                    <div className="flex items-center gap-2 text-amber-700 mb-2">
                       <Clock className="h-4 w-4" />
-                      <span className="text-sm font-medium">Waiting for Admin Review</span>
+                      <span className="text-sm font-semibold">Waiting for Admin Review</span>
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-amber-700">
                       Our team will review your order and create an admin order record with confirmed pricing soon.
                     </p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Price Information Card */}
-            <Card>
-              <CardHeader className="flex flex-row items-center gap-3">
-                <DollarSign className="h-5 w-5 text-green-600" />
-                <CardTitle>Price Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* Final Admin Confirmed Price - Most Important */}
-                {adminOrder?.admin_price && (
-                  <div className="mb-6 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <h4 className="font-semibold text-green-800">Final Confirmed Price</h4>
-                    </div>
-                    <div className="text-2xl font-bold text-green-600 mb-2">
-                      {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price?.toFixed(2) || '0.00'}
-                    </div>
-                    <p className="text-sm text-green-700">
-                      This is the final price confirmed by our team after detailed review.
-                    </p>
-                  </div>
-                )}
-
-                {/* Initial Quote vs Final Price Comparison */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Initial System Quote */}
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <h5 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
-                        <Info className="h-4 w-4" />
-                        Initial Quote
-                      </h5>
-                      {order.cal_values ? (
-                        <div className="space-y-1 text-sm">
-                          <div>
-                            <span className="text-gray-500">PCB Price: </span>
-                            <span>${order.cal_values.pcbPrice?.toFixed(2) || '-'}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Lead Time: </span>
-                            <span>{order.cal_values.leadTimeDays || '-'} days</span>
-                          </div>
-                          {order.cal_values.estimatedFinishDate && (
-                            <div>
-                              <span className="text-gray-500">Est. Completion: </span>
-                              <span>{new Date(order.cal_values.estimatedFinishDate).toLocaleDateString('en-US')}</span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500">Calculating...</p>
-                      )}
-                      <p className="text-xs text-gray-500 mt-2 italic">
-                        * Initial system calculation for reference
-                      </p>
-                    </div>
-
-                    {/* Final Admin Confirmed Details */}
-                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <h5 className="font-medium text-blue-700 mb-2 flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        Final Confirmed
-                      </h5>
-                      {adminOrder ? (
-                        <div className="space-y-1 text-sm">
-                          <div>
-                            <span className="text-gray-500">PCB Price: </span>
-                            <span className="font-medium">
-                              {adminOrder.currency === 'CNY' 
-                                ? `¥${adminOrder.pcb_price?.toFixed(2) || '-'}` 
-                                : `$${adminOrder.pcb_price ? (adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                              }
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Production Days: </span>
-                            <span className="font-medium">{adminOrder.production_days || '-'} days</span>
-                          </div>
-                          {adminOrder.due_date && (
-                            <div>
-                              <span className="text-gray-500">Due Date: </span>
-                              <span className="font-medium">{new Date(adminOrder.due_date).toLocaleDateString('en-US')}</span>
-                            </div>
-                          )}
-                          {adminOrder.delivery_date && (
-                            <div>
-                              <span className="text-gray-500">Delivery Date: </span>
-                              <span className="font-medium">{new Date(adminOrder.delivery_date).toLocaleDateString('en-US')}</span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500">Pending admin review</p>
-                      )}
-                      <p className="text-xs text-blue-600 mt-2 font-medium">
-                        ✓ This is the official final information
-                      </p>
-                    </div>
-                  </div>
+          {/* Price Information Card - Enhanced */}
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-green-50/20">
+            <CardHeader className="border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <DollarSign className="w-4 h-4 text-green-600" />
                 </div>
-                
-                {/* 汇率信息 - 独立显示 */}
-                {adminOrder && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="text-sm">
-                      <span className="text-gray-500">Exchange Rate: </span>
-                      <span className="font-medium">1 USD = {adminOrder.exchange_rate || 7.2} CNY</span>
+                <CardTitle>Price Information</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {/* Final Admin Confirmed Price */}
+              {adminOrder?.admin_price && (isReadyForPayment || adminOrder?.payment_status === 'paid') && (
+                <div className="mb-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl shadow-sm">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
                     </div>
+                    <h4 className="font-bold text-green-800 text-lg">Final Confirmed Price</h4>
                   </div>
-                )}
-                
-                {/* Payment Button - Only show when admin has confirmed price and status is reviewed */}
-                {isReadyForPayment && adminOrder?.payment_status !== 'paid' && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded">
-                      <div className="flex items-center gap-2 text-green-700 text-sm">
-                        <CheckCircle className="h-4 w-4" />
-                        <span className="font-medium">Price Confirmed & Approved - Ready for Payment</span>
+                  <div className="text-3xl font-bold text-green-600 mb-2">
+                    {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price?.toFixed(2) || '0.00'}
+                  </div>
+                  <p className="text-sm text-green-700">
+                    This is the final price confirmed by our team after detailed review.
+                  </p>
+                </div>
+              )}
+
+              {/* Quote vs Final Comparison */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <Info className="w-4 h-4 text-gray-600" />
+                    Initial Quote
+                    <Badge variant="outline" className="text-xs">Reference</Badge>
+                  </h5>
+                  {order.cal_values ? (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">PCB Price:</span>
+                        <span className="font-medium">${order.cal_values.pcbPrice?.toFixed(2) || '-'}</span>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Lead Time:</span>
+                        <span className="font-medium">{order.cal_values.leadTimeDays || '-'} days</span>
+                      </div>
+                      {order.cal_values.estimatedFinishDate && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Est. Completion:</span>
+                          <span className="font-medium text-xs">
+                            {new Date(order.cal_values.estimatedFinishDate).toLocaleDateString('en-US')}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <Button 
-                      onClick={() => router.push(`/payment/${order.id}`)}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      size="lg"
-                    >
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Pay Now - {adminOrder.currency === 'CNY' ? '¥' : '$'}
-                      {adminOrder.admin_price?.toFixed(2)}
-                    </Button>
-                  </div>
-                )}
-                
-                {/* Waiting for Admin Confirmation */}
-                {!isReadyForPayment && adminOrder?.payment_status !== 'paid' && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-amber-700 mb-2">
-                        <Clock className="h-4 w-4" />
-                        <span className="font-medium">
-                          {
-                            !adminOrder ? "Waiting for Admin Review" :
-                            !adminOrder.admin_price ? "Waiting for Price Confirmation" :
-                            "Waiting for Final Admin Approval"
+                  ) : (
+                    <p className="text-sm text-gray-500">Calculating...</p>
+                  )}
+                </div>
+
+                <div className="p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
+                  <h5 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-blue-600" />
+                    Final Confirmed
+                    <Badge className="text-xs bg-blue-600">Official</Badge>
+                  </h5>
+                  {adminOrder ? (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">PCB Price:</span>
+                        <span className="font-bold text-blue-700">
+                          {adminOrder.currency === 'CNY' 
+                            ? `¥${adminOrder.pcb_price?.toFixed(2) || '-'}` 
+                            : `$${adminOrder.pcb_price ? (adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
                           }
                         </span>
                       </div>
-                      <p className="text-sm text-amber-700">
-                        {
-                          !adminOrder ? "Our team will review your order and provide final pricing soon." :
-                          !adminOrder.admin_price ? "Our admin team is calculating the final price for your order." :
-                          "Our admin team has drafted the order details. Once they give the final approval (by changing status to 'reviewed'), you will be able to proceed with payment."
-                        }
-                      </p>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Production Days:</span>
+                        <span className="font-bold text-blue-700">{adminOrder.production_days || '-'} days</span>
+                      </div>
+                      {adminOrder.due_date && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Due Date:</span>
+                          <span className="font-bold text-blue-700 text-xs">
+                            {new Date(adminOrder.due_date).toLocaleDateString('en-US')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Pending admin review</p>
+                  )}
+                </div>
+              </div>
+              
+              {/* Exchange Rate */}
+              {adminOrder && (
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 mb-6">
+                  <div className="text-sm flex justify-between items-center">
+                    <span className="text-gray-500">Exchange Rate:</span>
+                    <span className="font-medium">1 USD = {adminOrder.exchange_rate || 7.2} CNY</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Payment Button */}
+              {isReadyForPayment && adminOrder?.payment_status !== 'paid' && (
+                <div className="space-y-3">
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-green-700 text-sm">
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="font-semibold">Price Confirmed & Approved - Ready for Payment</span>
                     </div>
                   </div>
-                )}
-                
-                {adminOrder?.payment_status === 'paid' && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle className="h-5 w-5" />
-                      <span className="font-medium">Payment Completed</span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">This is the final amount for your order.</p>
+                  <Button 
+                    onClick={() => router.push(`/payment/${order.id}`)}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all"
+                    size="lg"
+                  >
+                    <CreditCard className="h-5 w-5 mr-2" />
+                    Pay Now - {adminOrder.currency === 'CNY' ? '¥' : '$'}
+                    {adminOrder.admin_price?.toFixed(2)}
+                  </Button>
+                </div>
+              )}
+              
+              {/* Waiting Messages */}
+              {!isReadyForPayment && adminOrder?.payment_status !== 'paid' && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-center gap-2 text-amber-700 mb-2">
+                    <Clock className="h-4 w-4" />
+                    <span className="font-semibold">
+                      {!adminOrder ? "Waiting for Admin Review" :
+                       !adminOrder.admin_price ? "Waiting for Price Confirmation" :
+                       "Waiting for Final Admin Approval"}
+                    </span>
                   </div>
-                )}
+                  <p className="text-sm text-amber-700">
+                    {!adminOrder ? "Our team will review your order and provide final pricing soon." :
+                     !adminOrder.admin_price ? "Our admin team is calculating the final price for your order." :
+                     "Once admin gives final approval, you'll be able to proceed with payment."}
+                  </p>
+                </div>
+              )}
 
-                {canRequestRefund && (
-                  <div className="mt-4 pt-4 border-t">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" className="w-full" disabled={isRefunding}>
-                          Request Refund
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action will submit a refund request for administrator review.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleRefundRequest} disabled={isRefunding}>
-                            {isRefunding ? 'Submitting...' : 'Yes, Request Refund'}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                )}
-
-                {adminOrder?.refund_status && adminOrder.refund_status !== 'rejected' && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="flex items-center gap-2 text-blue-600">
-                      <Info className="h-5 w-5" />
-                      <span className="font-medium">Refund Status: {adminOrder.refund_status}</span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Your refund request is being processed. You will be notified of any updates.
-                    </p>
-                  </div>
-                )}
-
-                {adminOrder?.refund_status === 'pending_confirmation' && (
-                  <Card className="mt-4 border-blue-400">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Info className="text-blue-500" />
-                        <span>Action Required: Confirm Your Refund</span>
-                      </CardTitle>
-                      <CardDescription>
-                        Our team has reviewed your refund request. Please confirm the details below to proceed.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <p><strong>Approved Refund Amount:</strong> ${adminOrder.approved_refund_amount?.toFixed(2)}</p>
-                      <p><strong>Admin Note:</strong> {adminOrder.refund_reason || 'N/A'}</p>
-                    </CardContent>
-                    <CardFooter className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleRefundConfirmation('cancel')}
-                        disabled={isConfirmingRefund}
-                      >
-                        Cancel Request
+              {/* Refund Section */}
+              {canRequestRefund && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="w-full" disabled={isRefunding}>
+                        Request Refund
                       </Button>
-                      <Button
-                        onClick={() => handleRefundConfirmation('confirm')}
-                        disabled={isConfirmingRefund}
-                      >
-                        {isConfirmingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm Refund'}
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                )}
-              </CardContent>
-            </Card>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Request Refund</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will submit a refund request for administrator review.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRefundRequest} disabled={isRefunding}>
+                          {isRefunding ? 'Submitting...' : 'Yes, Request Refund'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              )}
 
-            {/* Contact Information Card */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              {/* Refund Status */}
+              {adminOrder?.refund_status === 'pending_confirmation' && (
+                <Card className="mt-6 border-blue-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Info className="text-blue-500" />
+                      <span>Confirm Your Refund</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Please confirm the refund details below.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <p><strong>Amount:</strong> ${adminOrder.approved_refund_amount?.toFixed(2)}</p>
+                    <p><strong>Reason:</strong> {adminOrder.refund_reason || 'N/A'}</p>
+                  </CardContent>
+                  <CardFooter className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleRefundConfirmation('cancel')}
+                      disabled={isConfirmingRefund}
+                    >
+                      Cancel Request
+                    </Button>
+                    <Button
+                      onClick={() => handleRefundConfirmation('confirm')}
+                      disabled={isConfirmingRefund}
+                    >
+                      {isConfirmingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm Refund'}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Contact Information Card */}
+          <Card className="shadow-lg border-0">
+            <CardHeader className="border-b border-gray-100">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-blue-600" />
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                  </div>
                   <CardTitle>Contact Information</CardTitle>
                 </div>
                 {canEdit && (
                   <Dialog open={isEditingPhone} onOpenChange={setIsEditingPhone}>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" className="hover:bg-blue-50">
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -990,46 +1011,61 @@ export default function OrderDetailPage() {
                             id="phone"
                             value={editedPhone}
                             onChange={(e) => setEditedPhone(e.target.value)}
+                            className="mt-1"
                           />
                         </div>
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-2 pt-4">
                           <Button variant="outline" onClick={() => setIsEditingPhone(false)}>
                             Cancel
                           </Button>
                           <Button onClick={handleSavePhone}>
-                            Save
+                            Save Changes
                           </Button>
                         </div>
                       </div>
                     </DialogContent>
                   </Dialog>
                 )}
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-gray-500">Email: </span>
-                    <span className="font-medium">{order.email}</span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-blue-600 font-semibold text-sm">@</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Phone: </span>
+                    <span className="text-gray-500 text-sm block">Email</span>
+                    <span className="font-medium">{order.email}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <span className="text-green-600 font-semibold text-sm">📞</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 text-sm block">Phone</span>
                     <span className="font-medium">{order.phone || 'Not provided'}</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Shipping Address Card */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+          {/* Shipping Address Card */}
+          <Card className="shadow-lg border-0">
+            <CardHeader className="border-b border-gray-100">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-purple-600" />
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <MapPin className="w-4 h-4 text-purple-600" />
+                  </div>
                   <CardTitle>Shipping Address</CardTitle>
                 </div>
                 {canEdit && (
                   <Dialog open={isEditingAddress} onOpenChange={setIsEditingAddress}>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" className="hover:bg-purple-50">
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -1037,7 +1073,7 @@ export default function OrderDetailPage() {
                       <DialogHeader>
                         <DialogTitle>Edit Shipping Address</DialogTitle>
                         <DialogDescription>
-                          Select a saved address, or edit the fields below. Changes here will only apply to this order. To manage your address book permanently, go to your profile.
+                          Select a saved address or edit the fields below. Changes apply only to this order.
                         </DialogDescription>
                       </DialogHeader>
                       
@@ -1058,17 +1094,21 @@ export default function OrderDetailPage() {
                     </DialogContent>
                   </Dialog>
                 )}
-              </CardHeader>
-              <CardContent>
-                {order.shipping_address ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{order.shipping_address.contactName || '-'}</span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {order.shipping_address ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-semibold text-gray-900">{order.shipping_address.contactName || '-'}</span>
                       {order.shipping_address.phone && (
-                        <span className="text-gray-600">({order.shipping_address.phone})</span>
+                        <Badge variant="outline" className="text-xs">
+                          {order.shipping_address.phone}
+                        </Badge>
                       )}
                     </div>
-                    <div className="text-gray-700">
+                    <div className="text-gray-700 text-sm leading-relaxed">
                       {[
                         order.shipping_address.address,
                         order.shipping_address.cityName || order.shipping_address.city,
@@ -1078,28 +1118,40 @@ export default function OrderDetailPage() {
                       ].filter(Boolean).join(', ')}
                     </div>
                     {order.shipping_address.courier && (
-                      <div className="text-sm text-gray-500 mt-2">
-                        <span className="font-semibold">Shipping Method:</span> {order.shipping_address.courierName || order.shipping_address.courier}
+                      <div className="mt-3 pt-3 border-t border-purple-200">
+                        <div className="flex items-center gap-2">
+                          <Truck className="w-4 h-4 text-purple-600" />
+                          <span className="text-sm font-medium">
+                            {order.shipping_address.courierName || order.shipping_address.courier}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
-                ) : (
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <MapPin className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-500">No shipping address provided</p>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            {/* PCB Specifications Card */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+          {/* PCB Specifications Card */}
+          <Card className="shadow-lg border-0">
+            <CardHeader className="border-b border-gray-100">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-orange-600" />
+                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-orange-600" />
+                  </div>
                   <CardTitle>PCB Specifications</CardTitle>
                 </div>
                 {canEdit && (
                   <Dialog open={isEditingPcbSpec} onOpenChange={setIsEditingPcbSpec}>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" className="hover:bg-orange-50">
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -1107,8 +1159,7 @@ export default function OrderDetailPage() {
                       <DialogHeader>
                         <DialogTitle>Edit PCB Specifications</DialogTitle>
                       </DialogHeader>
-                      <div className="space-y-4">
-                        {/* Basic PCB parameters - simplified for user editing */}
+                      <div className="space-y-6 py-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <Label htmlFor="layers">Layers</Label>
@@ -1116,7 +1167,7 @@ export default function OrderDetailPage() {
                               value={String(editedPcbSpec.layers || 2)} 
                               onValueChange={(value) => setEditedPcbSpec({...editedPcbSpec, layers: Number(value)})}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className="mt-1">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1133,52 +1184,21 @@ export default function OrderDetailPage() {
                               type="number"
                               value={editedPcbSpec.singleCount || ''}
                               onChange={(e) => setEditedPcbSpec({...editedPcbSpec, singleCount: Number(e.target.value)})}
+                              className="mt-1"
                             />
                           </div>
                           <div>
-                            <Label htmlFor="length">Length (cm)</Label>
-                            <Input
-                              id="length"
-                              type="number"
-                              step="0.1"
-                              value={editedPcbSpec.singleDimensions?.length || ''}
-                              onChange={(e) => setEditedPcbSpec({
-                                ...editedPcbSpec, 
-                                singleDimensions: {
-                                  ...editedPcbSpec.singleDimensions,
-                                  length: Number(e.target.value)
-                                }
-                              })}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="width">Width (cm)</Label>
-                            <Input
-                              id="width"
-                              type="number"
-                              step="0.1"
-                              value={editedPcbSpec.singleDimensions?.width || ''}
-                              onChange={(e) => setEditedPcbSpec({
-                                ...editedPcbSpec, 
-                                singleDimensions: {
-                                  ...editedPcbSpec.singleDimensions,
-                                  width: Number(e.target.value)
-                                }
-                              })}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="delivery">Delivery</Label>
+                            <Label htmlFor="delivery">Delivery Type</Label>
                             <Select 
-                              value={editedPcbSpec.delivery || 'standard'} 
-                              onValueChange={(value) => setEditedPcbSpec({...editedPcbSpec, delivery: value as 'standard' | 'urgent'})}
+                              value={editedPcbSpec.delivery || DeliveryType.Standard} 
+                              onValueChange={(value) => setEditedPcbSpec({...editedPcbSpec, delivery: value as DeliveryType})}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className="mt-1">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="standard">Standard</SelectItem>
-                                <SelectItem value="urgent">Urgent</SelectItem>
+                                <SelectItem value={DeliveryType.Standard}>Standard</SelectItem>
+                                <SelectItem value={DeliveryType.Urgent}>Urgent</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1188,7 +1208,7 @@ export default function OrderDetailPage() {
                               value={String(editedPcbSpec.thickness || 1.6)} 
                               onValueChange={(value) => setEditedPcbSpec({...editedPcbSpec, thickness: Number(value)})}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className="mt-1">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1200,7 +1220,6 @@ export default function OrderDetailPage() {
                           </div>
                         </div>
                         
-                        {/* Notes */}
                         <div>
                           <Label htmlFor="specialRequests">Special Requests</Label>
                           <Textarea
@@ -1208,10 +1227,11 @@ export default function OrderDetailPage() {
                             value={editedPcbSpec.specialRequests || ''}
                             onChange={(e) => setEditedPcbSpec({...editedPcbSpec, specialRequests: e.target.value})}
                             rows={3}
+                            className="mt-1"
                           />
                         </div>
 
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-3 pt-4">
                           <Button variant="outline" onClick={() => setIsEditingPcbSpec(false)}>
                             Cancel
                           </Button>
@@ -1223,423 +1243,432 @@ export default function OrderDetailPage() {
                     </DialogContent>
                   </Dialog>
                 )}
-              </CardHeader>
-              <CardContent>
-                {pcbFormData ? (
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Material Type: </span>
-                      <span className="font-medium">{getPcbFieldDisplay('pcbType', pcbFormData.pcbType)}</span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {pcbFormData ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    { label: 'Material Type', key: 'pcbType', value: pcbFormData.pcbType },
+                    { label: 'Layers', key: 'layers', value: pcbFormData.layers },
+                    { label: 'Thickness', key: 'thickness', value: pcbFormData.thickness },
+                    { label: 'Dimensions', key: 'singleDimensions', value: pcbFormData.singleDimensions },
+                    { label: 'Quantity', key: 'singleCount', value: pcbFormData.singleCount },
+                    { label: 'Delivery', key: 'delivery', value: pcbFormData.delivery },
+                    { label: 'Surface Finish', key: 'surfaceFinish', value: pcbFormData.surfaceFinish },
+                    { label: 'Solder Mask', key: 'solderMask', value: pcbFormData.solderMask },
+                  ].map(spec => (
+                    <div key={spec.key} className="p-3 bg-gray-50 rounded-lg">
+                      <span className="text-gray-500 text-sm block mb-1">{spec.label}</span>
+                      <span className="font-medium text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</span>
                     </div>
-                    <div>
-                      <span className="text-gray-500">Layers: </span>
-                      <span className="font-medium">{getPcbFieldDisplay('layers', pcbFormData.layers)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Thickness: </span>
-                      <span className="font-medium">{getPcbFieldDisplay('thickness', pcbFormData.thickness)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Dimensions: </span>
-                      <span className="font-medium">{getPcbFieldDisplay('singleDimensions', pcbFormData.singleDimensions)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Quantity: </span>
-                      <span className="font-medium">{getPcbFieldDisplay('singleCount', pcbFormData.singleCount)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Delivery: </span>
-                      <span className="font-medium">{getPcbFieldDisplay('delivery', pcbFormData.delivery)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Surface Finish: </span>
-                      <span className="font-medium">{getPcbFieldDisplay('surfaceFinish', pcbFormData.surfaceFinish)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Solder Mask: </span>
-                      <span className="font-medium">{getPcbFieldDisplay('solderMask', pcbFormData.solderMask)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Silkscreen: </span>
-                      <span className="font-medium">{getPcbFieldDisplay('silkscreen', pcbFormData.silkscreen)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Copper Weight: </span>
-                      <span className="font-medium">{pcbFormData.outerCopperWeight} oz</span>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-500">PCB specifications parsing failed</p>
-                )}
-              </CardContent>
-            </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">PCB specifications not available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            {/* Order Calculation Details Card */}
-            {order.cal_values && (
-              <Card className="border-gray-200 bg-gray-50/30">
-                <CardHeader className="flex flex-row items-center gap-3">
-                  <Info className="h-5 w-5 text-gray-600" />
+          {/* Order Calculation Details Card */}
+          {order.cal_values && (
+            <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50/30 border-gray-200">
+              <CardHeader className="border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Info className="w-4 h-4 text-gray-600" />
+                  </div>
                   <CardTitle className="flex items-center gap-2">
                     Initial System Calculation
                     <Badge variant="outline" className="text-xs border-gray-400 text-gray-600">Reference Only</Badge>
                   </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {/* Price breakdown */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-sm text-gray-500">PCB Price</div>
-                        <div className="text-lg font-semibold text-green-600">
-                          ${order.cal_values.pcbPrice?.toFixed(2) || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500">Unit Price</div>
-                        <div className="text-lg font-semibold">
-                          ${order.cal_values.unitPrice?.toFixed(2) || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500">Total Area</div>
-                        <div className="text-sm">
-                          {order.cal_values.totalArea?.toFixed(4) || '-'} m²
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500">Single PCB Area</div>
-                        <div className="text-sm">
-                          {order.cal_values.singlePcbArea?.toFixed(4) || '-'} m²
-                        </div>
-                      </div>
+                </div>
+                <CardDescription>
+                  These are the initial calculations generated by our system for reference purposes.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                  {/* Price breakdown */}
+                  <div className="p-4 bg-green-50 rounded-xl border border-green-200">
+                    <div className="text-sm text-green-600 mb-1">PCB Price</div>
+                    <div className="text-2xl font-bold text-green-700">
+                      ${order.cal_values.pcbPrice?.toFixed(2) || '-'}
                     </div>
-
-                    {/* Lead time info */}
-                    <div className="border-t pt-4">
-                      <h4 className="font-medium text-gray-900 mb-2">Production Timeline</h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-500">Lead Time: </span>
-                          <span className="font-medium">{order.cal_values.leadTimeDays || '-'} days</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Estimated Completion: </span>
-                          <span className="font-medium">
-                            {order.cal_values.estimatedFinishDate ? 
-                              new Date(order.cal_values.estimatedFinishDate).toLocaleDateString('en-US') : '-'
-                            }
-                          </span>
-                        </div>
-                      </div>
+                    <div className="text-xs text-green-600 mt-1">
+                      Unit: ${order.cal_values.unitPrice?.toFixed(2) || '-'}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
 
-          {/* Right Column - Sidebar */}
-          <div className="space-y-6">
-            {/* File Download Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-indigo-600" />
-                  File Download
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {order.gerber_file_url ? (
-                  <DownloadButton 
-                    filePath={order.gerber_file_url} 
-                    bucket="gerber"
-                    className="w-full"
-                  >
-                    Download Gerber Files
-                  </DownloadButton>
-                ) : (
+                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                    <div className="text-sm text-blue-600 mb-1">Total Area</div>
+                    <div className="text-2xl font-bold text-blue-700">
+                      {order.cal_values.totalArea?.toFixed(4) || '-'}
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">
+                      m² (Single: {order.cal_values.singlePcbArea?.toFixed(4) || '-'} m²)
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
+                    <div className="text-sm text-purple-600 mb-1">Lead Time</div>
+                    <div className="text-2xl font-bold text-purple-700">
+                      {order.cal_values.leadTimeDays || '-'}
+                    </div>
+                    <div className="text-xs text-purple-600 mt-1">
+                      days production
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-orange-50 rounded-xl border border-orange-200">
+                    <div className="text-sm text-orange-600 mb-1">Est. Completion</div>
+                    <div className="text-sm font-bold text-orange-700">
+                      {order.cal_values.estimatedFinishDate ? 
+                        new Date(order.cal_values.estimatedFinishDate).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric'
+                        }) : '-'
+                      }
+                    </div>
+                    <div className="text-xs text-orange-600 mt-1">
+                      estimated date
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <p className="text-sm text-amber-700">
+                    <strong>📌 Important:</strong> These are initial system calculations for reference. 
+                    The final pricing and timeline will be confirmed by our admin team and may differ based on detailed review.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Right Column - Sidebar */}
+        <div className="space-y-6">
+          {/* Quick Summary Card */}
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-blue-50/20">
+            <CardHeader className="border-b border-gray-100">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Package className="w-4 h-4 text-green-600" />
+                </div>
+                Quick Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500 block">Order ID</span>
+                  <span className="font-mono font-medium">#{order.id.slice(-8)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block">Status</span>
+                  <Badge variant="outline" className="text-xs mt-1">
+                    {statusInfo?.text || order.status}
+                  </Badge>
+                </div>
+                {pcbFormData && (
+                  <>
+                    <div>
+                      <span className="text-gray-500 block">Layers</span>
+                      <span className="font-medium">{pcbFormData.layers}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block">Quantity</span>
+                      <span className="font-medium">{pcbFormData.singleCount} pcs</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block">Delivery</span>
+                      <span className="font-medium">
+                        {pcbFormData.delivery === DeliveryType.Standard ? 'Standard' : 'Urgent'}
+                      </span>
+                    </div>
+                  </>
+                )}
+                {adminOrder?.admin_price && (
+                  <div>
+                    <span className="text-gray-500 block">Total Price</span>
+                    <span className="font-bold text-green-600">
+                      {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* File Download Card */}
+          <Card className="shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-indigo-600" />
+                </div>
+                Files & Downloads
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              {order.gerber_file_url ? (
+                <DownloadButton 
+                  filePath={order.gerber_file_url} 
+                  bucket="gerber"
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Download Gerber Files
+                </DownloadButton>
+              ) : (
+                <div className="text-center py-4">
+                  <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-500 text-sm">No files available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Admin Order Details Card */}
+          {adminOrder && (
+            <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-blue-50/20 border-blue-200">
+              <CardHeader className="border-b border-blue-100">
+                <CardTitle className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Shield className="w-4 h-4 text-blue-600" />
+                  </div>
+                  Official Order Details
+                  {(isReadyForPayment || adminOrder?.payment_status === 'paid') ? (
+                    <Badge className="text-xs bg-blue-600">Admin Confirmed</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-50">Under Review</Badge>
+                  )}
+                </CardTitle>
+                {(isReadyForPayment || adminOrder?.payment_status === 'paid') ? (
+                  <CardDescription className="text-blue-700">
+                    ✓ Final confirmed information - This data overrides initial quotes
+                  </CardDescription>
+                ) : (
+                  <CardDescription className="text-amber-700">
+                    Admin is reviewing these details. Information below is subject to change.
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                {/* Status Information */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Star className="w-4 h-4 text-blue-600" />
+                    Status Information
+                  </h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">Admin Status:</span>
+                      <Badge variant="outline" className="text-xs">
+                        {adminOrder.status || 'Pending'}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">Payment Status:</span>
+                      <Badge variant={adminOrder.payment_status === 'paid' ? 'default' : 'secondary'} className="text-xs">
+                        {adminOrder.payment_status || 'Unpaid'}
+                      </Badge>
+                    </div>
+                    {adminOrder.refund_status && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-500">Refund Status:</span>
+                        <Badge variant="outline" className="text-xs">
+                          {adminOrder.refund_status}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Final Pricing Details */}
+                <div className="border-t border-blue-100 pt-4">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    Final Pricing Breakdown
+                    <Badge variant="default" className="text-xs bg-green-600">Official</Badge>
+                  </h4>
+                  <div className="space-y-3 text-sm">
+                    {adminOrder.pcb_price && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">PCB Cost:</span>
+                        <span className="font-medium">
+                          {adminOrder.currency === 'CNY' 
+                            ? `¥${adminOrder.pcb_price.toFixed(2)}` 
+                            : `$${adminOrder.pcb_price ? (adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
+                          }
+                        </span>
+                      </div>
+                    )}
+                    {adminOrder.ship_price && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Shipping:</span>
+                        <span>
+                          {adminOrder.currency === 'CNY' 
+                            ? `¥${adminOrder.ship_price.toFixed(2)}` 
+                            : `$${adminOrder.ship_price ? (adminOrder.ship_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
+                          }
+                        </span>
+                      </div>
+                    )}
+                    {adminOrder.custom_duty && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Custom Duty:</span>
+                        <span>
+                          {adminOrder.currency === 'CNY' 
+                            ? `¥${adminOrder.custom_duty.toFixed(2)}` 
+                            : `$${adminOrder.custom_duty ? (adminOrder.custom_duty / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
+                          }
+                        </span>
+                      </div>
+                    )}
+                    {adminOrder.coupon && adminOrder.coupon > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Discount:</span>
+                        <span className="text-green-600">
+                          -{adminOrder.currency === 'CNY' 
+                            ? `¥${adminOrder.coupon.toFixed(2)}` 
+                            : `$${adminOrder.coupon ? (adminOrder.coupon / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
+                          }
+                        </span>
+                      </div>
+                    )}
+                    {adminOrder.admin_price && (
+                      <div className="flex justify-between border-t border-blue-100 pt-3 font-semibold bg-green-50 p-3 rounded-lg">
+                        <span className="text-gray-900">Final Total:</span>
+                        <span className="text-green-600 font-bold">
+                          {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Timeline */}
+                <div className="border-t border-blue-100 pt-4">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    Production Timeline
+                    <Badge variant="default" className="text-xs bg-blue-600">Confirmed</Badge>
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    {adminOrder.production_days && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Production Days:</span>
+                        <span className="font-medium">{adminOrder.production_days} days</span>
+                      </div>
+                    )}
+                    {adminOrder.due_date && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Due Date:</span>
+                        <span className="font-medium">{new Date(adminOrder.due_date).toLocaleDateString('en-US')}</span>
+                      </div>
+                    )}
+                    {adminOrder.delivery_date && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Delivery Date:</span>
+                        <span className="font-medium">{new Date(adminOrder.delivery_date).toLocaleDateString('en-US')}</span>
+                      </div>
+                    )}
+                  </div>
+                  {(!adminOrder.production_days && !adminOrder.due_date && !adminOrder.delivery_date) && (
+                    <p className="text-sm text-gray-500 italic">Timeline pending admin confirmation</p>
+                  )}
+                </div>
+
+                {/* Admin Notes */}
+                {adminOrder.admin_note && (
+                  <div className="border-t border-blue-100 pt-4">
+                    <h4 className="font-semibold text-gray-900 mb-3">Admin Notes</h4>
+                    <div className="text-sm bg-blue-50 p-3 rounded-lg border-l-4 border-blue-200 whitespace-pre-wrap">
+                      {adminOrder.admin_note}
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
+          )}
 
-            {/* Time Information Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-blue-600" />
-                  Time Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <div className="text-sm text-gray-500">Created</div>
+          {/* Time Information Card */}
+          <Card className="shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                </div>
+                Time Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">Created</div>
                   <div className="text-sm font-medium">
                     {order.created_at ? new Date(order.created_at).toLocaleString('en-US') : '-'}
                   </div>
                 </div>
                 
-                <div>
-                  <div className="text-sm text-gray-500">Last Updated</div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">Last Updated</div>
                   <div className="text-sm font-medium">
                     {order.updated_at ? new Date(order.updated_at).toLocaleString('en-US') : '-'}
                   </div>
                 </div>
                 
                 {adminOrder?.due_date && (
-                  <div>
-                    <div className="text-sm text-gray-500">Expected Completion</div>
-                    <div className="text-sm font-medium">
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-sm text-blue-600 mb-1">Expected Completion</div>
+                    <div className="text-sm font-medium text-blue-700">
                       {new Date(adminOrder.due_date).toLocaleDateString('en-US')}
                     </div>
                   </div>
                 )}
                 
                 {adminOrder?.delivery_date && (
-                  <div>
-                    <div className="text-sm text-gray-500">Expected Delivery</div>
-                    <div className="text-sm font-medium">
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="text-sm text-green-600 mb-1">Expected Delivery</div>
+                    <div className="text-sm font-medium text-green-700">
                       {new Date(adminOrder.delivery_date).toLocaleDateString('en-US')}
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Quick Actions Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Truck className="h-5 w-5 text-purple-600" />
-                  Quick Actions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => router.push('/quote2')}
-                >
-                  Create New Quote
-                </Button>
-                {canEdit && (
-                  <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-                    <strong>Note:</strong> You can edit this order until payment is made.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Admin Order Details Card */}
-            {adminOrder && (
-              <Card className="border-blue-200 bg-blue-50/30">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-blue-600" />
-                    Official Order Details
-                  </CardTitle>
-                  <CardDescription className="text-blue-700">
-                    ✓ Final confirmed information - This data overrides initial quotes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Status Information */}
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Status Information</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Admin Status:</span>
-                        <Badge variant="outline" className="text-xs">
-                          {adminOrder.status || 'Pending'}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Payment Status:</span>
-                        <Badge variant={adminOrder.payment_status === 'paid' ? 'default' : 'secondary'} className="text-xs">
-                          {adminOrder.payment_status || 'Unpaid'}
-                        </Badge>
-                      </div>
-                      {adminOrder.refund_status && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Refund Status:</span>
-                          <Badge variant="outline" className="text-xs">
-                            {adminOrder.refund_status}
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Final Pricing Details */}
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                      Final Pricing Breakdown
-                      <Badge variant="default" className="text-xs bg-green-600">Official</Badge>
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      {adminOrder.pcb_price && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">PCB Cost:</span>
-                          <span className="font-medium">
-                            {adminOrder.currency === 'CNY' 
-                              ? `¥${adminOrder.pcb_price.toFixed(2)}` 
-                              : `$${adminOrder.pcb_price ? (adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                            }
-                          </span>
-                        </div>
-                      )}
-                      {adminOrder.ship_price && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Shipping:</span>
-                          <span>
-                            {adminOrder.currency === 'CNY' 
-                              ? `¥${adminOrder.ship_price.toFixed(2)}` 
-                              : `$${adminOrder.ship_price ? (adminOrder.ship_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                            }
-                          </span>
-                        </div>
-                      )}
-                      {adminOrder.custom_duty && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Custom Duty:</span>
-                          <span>
-                            {adminOrder.currency === 'CNY' 
-                              ? `¥${adminOrder.custom_duty.toFixed(2)}` 
-                              : `$${adminOrder.custom_duty ? (adminOrder.custom_duty / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                            }
-                          </span>
-                        </div>
-                      )}
-                      {adminOrder.coupon && adminOrder.coupon > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Discount:</span>
-                          <span className="text-green-600">
-                            -{adminOrder.currency === 'CNY' 
-                              ? `¥${adminOrder.coupon.toFixed(2)}` 
-                              : `$${adminOrder.coupon ? (adminOrder.coupon / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                            }
-                          </span>
-                        </div>
-                      )}
-                      {adminOrder.surcharges && adminOrder.surcharges.length > 0 && (
-                        <div>
-                          <span className="text-gray-500">Surcharges:</span>
-                          {adminOrder.surcharges.map((surcharge, index) => (
-                            <div key={index} className="flex justify-between ml-4">
-                              <span className="text-xs text-gray-400">{surcharge.name}:</span>
-                              <span className="text-xs">
-                                {adminOrder.currency === 'CNY' 
-                                  ? `¥${surcharge.amount.toFixed(2)}` 
-                                  : `$${surcharge.amount ? (surcharge.amount / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                                }
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {adminOrder.admin_price && (
-                        <div className="flex justify-between border-t pt-2 font-medium bg-green-50 p-2 rounded">
-                          <span className="text-gray-900">Final Total:</span>
-                          <span className="text-green-600 font-bold">
-                            {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price.toFixed(2)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Official Production Timeline */}
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                      Official Production Timeline
-                      <Badge variant="default" className="text-xs bg-blue-600">Confirmed</Badge>
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      {adminOrder.production_days && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Production Days:</span>
-                          <span className="font-medium">{adminOrder.production_days} days</span>
-                        </div>
-                      )}
-                      {adminOrder.due_date && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Due Date:</span>
-                          <span className="font-medium">{new Date(adminOrder.due_date).toLocaleDateString('en-US')}</span>
-                        </div>
-                      )}
-                      {adminOrder.delivery_date && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Delivery Date:</span>
-                          <span className="font-medium">{new Date(adminOrder.delivery_date).toLocaleDateString('en-US')}</span>
-                        </div>
-                      )}
-                    </div>
-                    {(!adminOrder.production_days && !adminOrder.due_date && !adminOrder.delivery_date) && (
-                      <p className="text-sm text-gray-500 italic">Timeline pending admin confirmation</p>
-                    )}
-                  </div>
-
-                  {/* Admin Notes */}
-                  {adminOrder.admin_note && (
-                    <div className="border-t pt-4">
-                      <h4 className="font-medium text-gray-900 mb-2">Admin Notes</h4>
-                      <div className="text-sm bg-blue-50 p-3 rounded border-l-3 border-blue-200 whitespace-pre-wrap">
-                        {adminOrder.admin_note}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Order Summary Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Package className="h-5 w-5 text-green-600" />
-                  Order Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-sm">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-gray-500">Order ID:</span>
-                    <span className="font-mono">#{order.id.slice(-8)}</span>
-                  </div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-gray-500">Status:</span>
-                    <Badge variant="outline" className="text-xs">
-                      {statusInfo?.text || order.status}
-                    </Badge>
-                  </div>
-                  {order.payment_intent_id && (
-                    <div className="flex justify-between mb-2">
-                      <span className="text-gray-500">Payment ID:</span>
-                      <span className="font-mono text-xs">{order.payment_intent_id.slice(-8)}</span>
-                    </div>
-                  )}
-                  {pcbFormData && (
-                    <>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-gray-500">PCB Layers:</span>
-                        <span>{pcbFormData.layers} Layer{(pcbFormData.layers || 0) > 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-gray-500">Quantity:</span>
-                        <span>{pcbFormData.singleCount} pcs</span>
-                      </div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-gray-500">Delivery:</span>
-                        <span>{pcbFormData.delivery === 'standard' ? 'Standard' : 'Urgent'}</span>
-                      </div>
-                    </>
-                  )}
+          {/* Quick Actions Card */}
+          <Card className="shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Truck className="w-4 h-4 text-purple-600" />
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+                Quick Actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-3">
+              <Button 
+                variant="outline" 
+                className="w-full hover:bg-blue-50 hover:border-blue-300 transition-all"
+                onClick={() => router.push('/quote2')}
+              >
+                Create New Quote
+              </Button>
+              {canEdit && (
+                <div className="text-sm text-blue-700 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <strong>✨ Tip:</strong> You can edit this order until payment is made.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
   );
-}
+} 

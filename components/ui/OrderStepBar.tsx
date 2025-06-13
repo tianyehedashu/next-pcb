@@ -21,7 +21,7 @@ export default function OrderStepBar({
   const currentStep = steps.findIndex((s) => s.key === currentStatus);
 
   return (
-    <div className="flex items-center justify-center mt-10 mb-10 px-2 bg-white/80 rounded-xl shadow-sm">
+    <div className="flex items-center justify-center mt-2 mb-2 px-2 bg-white/80 rounded-xl shadow-sm">
       {steps.map((step, idx) => {
         const isDone = idx < currentStep;
         const isActive = idx === currentStep;
