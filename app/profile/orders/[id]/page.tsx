@@ -203,6 +203,7 @@ export default function OrderDetailPage() {
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [isEditingPcbSpec, setIsEditingPcbSpec] = useState(false);
+  const [showPcbDetails, setShowPcbDetails] = useState(false);
   const [editedAddress, setEditedAddress] = useState<AddressFormValue>({
     country: '', state: '', city: '', address: '', zipCode: '', contactName: '', phone: '', courier: ''
   });
@@ -383,18 +384,20 @@ export default function OrderDetailPage() {
 
   // Get PCB field display value
   const getPcbFieldDisplay = (key: string, value: unknown): string => {
-    if (!value) return '-';
+    if (value === null || value === undefined || value === '') return '-';
     
     const displayMap: Record<string, (val: unknown) => string> = {
-      pcbType: (v) => v === 'FR-4' ? 'FR-4 Standard' : String(v),
+      pcbType: (v) => String(v),
       layers: (v) => `${v} Layers`,
-      thickness: (v) => `${v}mm`,
+      thickness: (v) => String(v), // Already formatted as "1.6mm"
       singleDimensions: (v) => {
         const dim = v as { length?: number; width?: number };
-        return dim?.length && dim?.width ? `${dim.length} × ${dim.width} cm` : '-';
+        return dim?.length && dim?.width ? `${dim.length} × ${dim.width} mm` : '-';
       },
-      singleCount: (v) => `${v} pcs`,
-      delivery: (v) => v === DeliveryType.Standard ? 'Standard' : 'Urgent',
+      singleCount: (v) => String(v), // Already formatted as "10 pcs"
+      delivery: (v) => String(v), // Already formatted as "Standard" or "Urgent"
+      shipmentType: (v) => String(v), // Already formatted
+      differentDesignsCount: (v) => `${v} Design${Number(v) === 1 ? '' : 's'}`,
       surfaceFinish: (v) => {
         const map: Record<string, string> = {
           'HASL': 'HASL Lead Free',
@@ -406,7 +409,29 @@ export default function OrderDetailPage() {
         return map[v as string] || String(v);
       },
       solderMask: (v) => String(v),
-      silkscreen: (v) => String(v)
+      silkscreen: (v) => String(v),
+      goldFingers: (v) => String(v), // Already formatted as "Yes"/"No"
+      edgePlating: (v) => String(v), // Already formatted as "Yes"/"No"
+      maskCover: (v) => String(v),
+      hdi: (v) => String(v),
+      tg: (v) => String(v),
+      ipcClass: (v) => String(v),
+      innerCopperWeight: (v) => String(v), // Already formatted as "0.5oz"
+      outerCopperWeight: (v) => String(v), // Already formatted as "1oz"
+      minTrace: (v) => String(v), // Already formatted as "6/6mil"
+      minHole: (v) => String(v), // Already formatted as "0.3mm"
+      impedance: (v) => String(v), // Already formatted as "Yes"/"No"
+      bga: (v) => String(v), // Already formatted as "Yes"/"No"
+      testMethod: (v) => String(v),
+      crossOuts: (v) => String(v),
+      ulMark: (v) => String(v), // Already formatted
+      productReport: (v) => String(v), // Already formatted
+      workingGerber: (v) => String(v),
+      ifDataConflicts: (v) => String(v),
+      blueMask: (v) => String(v), // Already formatted as "Yes"/"No"
+      halfHole: (v) => String(v),
+      holeCu25um: (v) => String(v), // Already formatted as "Yes"/"No"
+      useShengyiMaterial: (v) => String(v) // Already formatted as "Yes"/"No"
     };
 
     return displayMap[key] ? displayMap[key](value) : String(value);
@@ -1069,28 +1094,38 @@ export default function OrderDetailPage() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-4xl">
-                      <DialogHeader>
-                        <DialogTitle>Edit Shipping Address</DialogTitle>
-                        <DialogDescription>
-                          Select a saved address or edit the fields below. Changes apply only to this order.
-                        </DialogDescription>
-                      </DialogHeader>
+                    <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto sm:max-h-[85vh] p-0" draggable>
+                      <div className="sticky top-0 bg-white z-10 border-b border-gray-200">
+                        <DialogHeader className="px-6 py-4">
+                          <DialogTitle className="text-lg font-semibold leading-tight">Edit Shipping Address</DialogTitle>
+                          <DialogDescription className="text-sm text-gray-600 leading-tight mt-1">
+                            Select a saved address or edit the fields below. Changes apply only to this order.
+                          </DialogDescription>
+                        </DialogHeader>
+                      </div>
                       
-                      <AddressFormComponent
-                        userId={user?.id}
-                        value={editedAddress}
-                        onChange={setEditedAddress}
-                      />
+                      <div className="flex-1 overflow-y-auto px-6 py-4">
+                        <div className="space-y-4">
+                          <AddressFormComponent
+                            userId={user?.id}
+                            value={editedAddress}
+                            onChange={setEditedAddress}
+                          />
+                        </div>
+                      </div>
                       
-                      <DialogFooter className="mt-4">
-                        <Button variant="outline" onClick={() => setIsEditingAddress(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleSaveAddress}>
-                          Apply to This Order
-                        </Button>
-                      </DialogFooter>
+                      <div className="sticky bottom-0 bg-white border-t border-gray-200">
+                        <DialogFooter className="px-6 py-4">
+                          <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+                            <Button variant="outline" onClick={() => setIsEditingAddress(false)} className="w-full sm:w-auto">
+                              Cancel
+                            </Button>
+                            <Button onClick={handleSaveAddress} className="w-full sm:w-auto">
+                              Apply to This Order
+                            </Button>
+                          </div>
+                        </DialogFooter>
+                      </div>
                     </DialogContent>
                   </Dialog>
                 )}
@@ -1138,7 +1173,7 @@ export default function OrderDetailPage() {
             </CardContent>
           </Card>
 
-          {/* PCB Specifications Card */}
+                      {/* PCB Specifications Card */}
           <Card className="shadow-lg border-0">
             <CardHeader className="border-b border-gray-100">
               <div className="flex items-center justify-between">
@@ -1148,13 +1183,25 @@ export default function OrderDetailPage() {
                   </div>
                   <CardTitle>PCB Specifications</CardTitle>
                 </div>
-                {canEdit && (
-                  <Dialog open={isEditingPcbSpec} onOpenChange={setIsEditingPcbSpec}>
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="hover:bg-orange-50">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
+                <div className="flex items-center gap-2">
+                  {pcbFormData && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="hover:bg-orange-50 text-orange-600"
+                      onClick={() => setShowPcbDetails(true)}
+                    >
+                      <Info className="h-4 w-4 mr-1" />
+                      View Details
+                    </Button>
+                  )}
+                  {canEdit && (
+                    <Dialog open={isEditingPcbSpec} onOpenChange={setIsEditingPcbSpec}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="hover:bg-orange-50">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
                     <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Edit PCB Specifications</DialogTitle>
@@ -1244,6 +1291,7 @@ export default function OrderDetailPage() {
                   </Dialog>
                 )}
               </div>
+            </div>
             </CardHeader>
             <CardContent className="p-6">
               {pcbFormData ? (
@@ -1669,6 +1717,211 @@ export default function OrderDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* PCB Details Dialog */}
+      <Dialog open={showPcbDetails} onOpenChange={setShowPcbDetails}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">
+          <div className="sticky top-0 bg-white z-10 border-b border-gray-200">
+            <DialogHeader className="px-6 py-4">
+              <DialogTitle className="text-xl font-semibold leading-tight flex items-center gap-3">
+                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-orange-600" />
+                </div>
+                Complete PCB Specifications
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-600 leading-tight mt-1">
+                Detailed technical specifications for your PCB order
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          
+          <div className="px-6 py-4">
+            {pcbFormData ? (
+              <div className="space-y-6">
+                {/* Basic Specifications */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-5 h-5 bg-blue-100 rounded flex items-center justify-center">
+                      <span className="text-blue-600 text-xs font-bold">1</span>
+                    </div>
+                    Basic Specifications
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { label: 'PCB Type', key: 'pcbType', value: pcbFormData.pcbType || 'FR-4' },
+                      { label: 'Layer Count', key: 'layers', value: pcbFormData.layers },
+                      { label: 'Board Thickness', key: 'thickness', value: `${pcbFormData.thickness}mm` },
+                      { label: 'Board Dimensions', key: 'singleDimensions', value: pcbFormData.singleDimensions },
+                      { label: 'Quantity', key: 'singleCount', value: `${pcbFormData.singleCount} pcs` },
+                      { label: 'Delivery Type', key: 'delivery', value: pcbFormData.delivery === 'standard' ? 'Standard' : 'Urgent' },
+                      { label: 'Shipment Type', key: 'shipmentType', value: pcbFormData.shipmentType === 'single' ? 'Single' : 'Panel' },
+                      { label: 'Different Designs', key: 'differentDesignsCount', value: pcbFormData.differentDesignsCount }
+                    ].map(spec => (
+                      <div key={spec.key} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div className="text-sm font-medium text-gray-600 mb-2">{spec.label}</div>
+                        <div className="text-lg font-semibold text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Surface & Finish */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-5 h-5 bg-green-100 rounded flex items-center justify-center">
+                      <span className="text-green-600 text-xs font-bold">2</span>
+                    </div>
+                    Surface & Finish
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { label: 'Surface Finish', key: 'surfaceFinish', value: pcbFormData.surfaceFinish },
+                      { label: 'Solder Mask Color', key: 'solderMask', value: pcbFormData.solderMask },
+                      { label: 'Silkscreen Color', key: 'silkscreen', value: pcbFormData.silkscreen },
+                      { label: 'Gold Fingers', key: 'goldFingers', value: pcbFormData.goldFingers ? 'Yes' : 'No' },
+                      { label: 'Edge Plating', key: 'edgePlating', value: pcbFormData.edgePlating ? 'Yes' : 'No' },
+                      { label: 'Mask Cover', key: 'maskCover', value: pcbFormData.maskCover }
+                    ].map(spec => (
+                      <div key={spec.key} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div className="text-sm font-medium text-gray-600 mb-2">{spec.label}</div>
+                        <div className="text-lg font-semibold text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Technical Specifications */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-5 h-5 bg-purple-100 rounded flex items-center justify-center">
+                      <span className="text-purple-600 text-xs font-bold">3</span>
+                    </div>
+                    Technical Specifications
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { label: 'HDI Type', key: 'hdi', value: pcbFormData.hdi },
+                      { label: 'TG Value', key: 'tg', value: pcbFormData.tg },
+                      { label: 'IPC Class', key: 'ipcClass', value: pcbFormData.ipcClass },
+                      { label: 'Inner Copper Weight', key: 'innerCopperWeight', value: `${pcbFormData.innerCopperWeight}oz` },
+                      { label: 'Outer Copper Weight', key: 'outerCopperWeight', value: `${pcbFormData.outerCopperWeight}oz` },
+                      { label: 'Min Trace/Spacing', key: 'minTrace', value: `${pcbFormData.minTrace}mil` },
+                      { label: 'Min Hole Size', key: 'minHole', value: `${pcbFormData.minHole}mm` },
+                      { label: 'Impedance Control', key: 'impedance', value: pcbFormData.impedance ? 'Yes' : 'No' },
+                      { label: 'BGA Required', key: 'bga', value: pcbFormData.bga ? 'Yes' : 'No' }
+                    ].map(spec => (
+                      <div key={spec.key} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div className="text-sm font-medium text-gray-600 mb-2">{spec.label}</div>
+                        <div className="text-lg font-semibold text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quality & Testing */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-5 h-5 bg-indigo-100 rounded flex items-center justify-center">
+                      <span className="text-indigo-600 text-xs font-bold">4</span>
+                    </div>
+                    Quality & Testing
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { label: 'Test Method', key: 'testMethod', value: pcbFormData.testMethod },
+                      { label: 'Cross-outs Policy', key: 'crossOuts', value: pcbFormData.crossOuts },
+                      { label: 'UL Mark', key: 'ulMark', value: pcbFormData.ulMark ? 'Required' : 'Not Required' },
+                      { label: 'Product Report', key: 'productReport', value: Array.isArray(pcbFormData.productReport) ? pcbFormData.productReport.join(', ') : pcbFormData.productReport },
+                      { label: 'Working Gerber', key: 'workingGerber', value: pcbFormData.workingGerber },
+                      { label: 'Data Conflicts', key: 'ifDataConflicts', value: pcbFormData.ifDataConflicts }
+                    ].map(spec => (
+                      <div key={spec.key} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div className="text-sm font-medium text-gray-600 mb-2">{spec.label}</div>
+                        <div className="text-lg font-semibold text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Special Options */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-5 h-5 bg-orange-100 rounded flex items-center justify-center">
+                      <span className="text-orange-600 text-xs font-bold">5</span>
+                    </div>
+                    Special Options
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { label: 'Blue Mask', key: 'blueMask', value: pcbFormData.blueMask ? 'Yes' : 'No' },
+                      { label: 'Half Hole', key: 'halfHole', value: pcbFormData.halfHole || 'None' },
+                      { label: 'Hole Cu 25μm', key: 'holeCu25um', value: pcbFormData.holeCu25um ? 'Yes' : 'No' },
+                      { label: 'Shengyi Material', key: 'useShengyiMaterial', value: pcbFormData.useShengyiMaterial ? 'Yes' : 'No' }
+                    ].map(spec => (
+                      <div key={spec.key} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div className="text-sm font-medium text-gray-600 mb-2">{spec.label}</div>
+                        <div className="text-lg font-semibold text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notes & Comments */}
+                {(pcbFormData.specialRequests || pcbFormData.pcbNote || pcbFormData.userNote || pcbFormData.customsNote) && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <div className="w-5 h-5 bg-amber-100 rounded flex items-center justify-center">
+                        <span className="text-amber-600 text-xs font-bold">6</span>
+                      </div>
+                      Notes & Comments
+                    </h3>
+                    <div className="space-y-4">
+                      {pcbFormData.specialRequests && (
+                        <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                          <div className="text-sm font-medium text-amber-800 mb-2">Special Requests</div>
+                          <div className="text-gray-700 whitespace-pre-wrap">{pcbFormData.specialRequests}</div>
+                        </div>
+                      )}
+                      {pcbFormData.pcbNote && (
+                        <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                          <div className="text-sm font-medium text-blue-800 mb-2">PCB Note</div>
+                          <div className="text-gray-700 whitespace-pre-wrap">{pcbFormData.pcbNote}</div>
+                        </div>
+                      )}
+                      {pcbFormData.userNote && (
+                        <div className="p-4 bg-green-50 rounded-xl border border-green-200">
+                          <div className="text-sm font-medium text-green-800 mb-2">User Note</div>
+                          <div className="text-gray-700 whitespace-pre-wrap">{pcbFormData.userNote}</div>
+                        </div>
+                      )}
+                      {pcbFormData.customsNote && (
+                        <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
+                          <div className="text-sm font-medium text-purple-800 mb-2">Customs Note</div>
+                          <div className="text-gray-700 whitespace-pre-wrap">{pcbFormData.customsNote}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">No PCB Specifications Available</h3>
+                <p className="text-gray-500">PCB specification data is not available for this order.</p>
+              </div>
+            )}
+          </div>
+          
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4">
+            <div className="flex justify-end">
+              <Button onClick={() => setShowPcbDetails(false)} className="bg-orange-600 hover:bg-orange-700">
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

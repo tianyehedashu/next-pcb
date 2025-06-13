@@ -709,10 +709,10 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
 
       {/* 地址表单 */}
       <Card className="w-full">
-        <CardContent className="pt-6 space-y-4">
+        <CardContent className="pt-4 space-y-3">
           {/* 保存消息提示 */}
           {saveMessage && (
-            <div className={`p-3 rounded-lg text-sm ${
+            <div className={`p-2.5 rounded-lg text-sm leading-tight ${
               saveMessage.includes('Failed') 
                 ? 'bg-red-50 text-red-700 border border-red-200' 
                 : 'bg-green-50 text-green-700 border border-green-200'
@@ -721,10 +721,10 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
             {/* Preferred Courier - 移到第一列 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Preferred Courier <span className="text-red-500">*</span>
               </label>
               <ReactSelect
@@ -769,7 +769,7 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
 
             {/* Country */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Country <span className="text-red-500">*</span>
               </label>
               <ReactSelect
@@ -789,7 +789,7 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
 
             {/* State/Province */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 State/Province <span className="text-red-500">*</span>
               </label>
               <ReactSelect
@@ -810,7 +810,7 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
 
             {/* City */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 City <span className="text-red-500">*</span>
               </label>
               <ReactSelect
@@ -831,68 +831,71 @@ export function AddressFormComponent({ value, onChange, userId }: AddressFormCom
 
             {/* ZIP Code */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 ZIP/Postal Code <span className="text-red-500">*</span>
               </label>
               <Input
                 value={value?.zipCode || ''}
                 onChange={(e) => handleFieldChange('zipCode', e.target.value)}
                 placeholder="Enter ZIP/postal code"
+                className="h-9"
               />
             </div>
 
             {/* Contact Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Contact Name <span className="text-red-500">*</span>
               </label>
               <Input
                 value={value?.contactName || ''}
                 onChange={(e) => handleFieldChange('contactName', e.target.value)}
                 placeholder="Enter contact name"
+                className="h-9"
               />
             </div>
 
             {/* Phone */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Phone Number <span className="text-red-500">*</span>
               </label>
               <Input
                 value={value?.phone || ''}
                 onChange={(e) => handleFieldChange('phone', e.target.value)}
                 placeholder="Enter phone number"
+                className="h-9"
               />
             </div>
 
             {/* Detailed Address */}
-            <div className="col-span-1 sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="col-span-1 md:col-span-2 lg:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Detailed Address <span className="text-red-500">*</span>
               </label>
               <Input
                 value={value?.address || ''}
                 onChange={(e) => handleFieldChange('address', e.target.value)}
                 placeholder="Enter your detailed address"
-                className="text-sm sm:text-base"
+                className="text-sm h-9"
               />
             </div>
           </div>
 
           {/* 地址操作按钮 */}
           {userId && (
-            <div className="pt-4 border-t">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+            <div className="pt-3 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 {/* Address Label - 移到这里与 Set as default 同列 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Address Label (Optional)
                   </label>
                   <Input
                     value={addressLabel}
                     onChange={(e) => setAddressLabel(e.target.value)}
                     placeholder="e.g., Home, Office, etc."
-                    className="text-sm sm:text-base"
+                    className="text-sm h-9"
                   />
                 </div>
                 
