@@ -10,6 +10,7 @@ import {
   User,
   ChevronLeft,
   CreditCard,
+  MapPin,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { useState } from "react";
@@ -27,6 +28,7 @@ const menu = [
     title: "Account",
     items: [
       { label: "Profile", href: "/profile", icon: User },
+      { label: "Shipping Addresses", href: "/profile/address", icon: MapPin },
       { label: "Change Password", href: "/profile/password", icon: Lock },
     ],
   },

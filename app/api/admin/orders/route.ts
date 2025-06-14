@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
     const keyword = searchParams.get('keyword') || '';
     const status = searchParams.get('status') || '';
+    const userId = searchParams.get('userId') || '';
 
     if (id) {
       // 详情
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false });
 
       if (status && status !== 'all') query = query.eq('status', status);
+      if (userId) query = query.eq('user_id', userId);
       if (keyword) {
         query = query.or(`email.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
       }

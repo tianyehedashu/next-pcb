@@ -180,3 +180,12 @@ $$;
 create index if not exists idx_pcb_quotes_user_auth on pcb_quotes(user_id) where user_id = auth.uid();
 create index if not exists idx_user_addresses_user_auth on user_addresses(user_id) where user_id = auth.uid();
 create index if not exists idx_orders_user_auth on orders(user_id) where user_id = auth.uid();
+
+-- Function to count total users
+create or replace function count_users()
+returns integer
+language sql
+security definer
+as $$
+  select count(*)::integer from auth.users;
+$$;
