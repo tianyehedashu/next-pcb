@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatwoot Pure HTML Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 2em; line-height: 1.6; }
+    h1 { color: #333; }
+    #status { padding: 1em; border-radius: 8px; margin-top: 1em; }
+    .success { background-color: #e6ffed; border: 1px solid #b7e1c8; color: #006b2e; }
+    .error { background-color: #fff0f0; border: 1px solid #ffb3b3; color: #c00; }
+    code { background-color: #f0f0f0; padding: 0.2em 0.4em; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <h1>Chatwoot 纯 HTML 加载测试</h1>
+  <p>这个页面将尝试用最简单的方式加载 Chatwoot SDK。</p>
+  <p>请打开浏览器开发者工具 (F12)，查看 Console 和 Network 标签页的输出。</p>
+  
+  <div id="status">正在加载...</div>
+
+  <script>
+    // 请在这里填入你的真实 Website Token
+    const WEBSITE_TOKEN = "fodaY99Yfs8rumjH1JAKMj21";
+    const BASE_URL = "https://app.chatwoot.com";
+
+    const statusDiv = document.getElementById('status');
+
+    // 检查 Token 是否已填写
+    if (WEBSITE_TOKEN.includes('请在这里填入')) {
+      statusDiv.innerHTML = '🔴 错误: 请在脚本中填入你的真实 Website Token！';
+      statusDiv.className = 'error';
+      throw new Error("Chatwoot Token not set.");
+    }
+
+    // 1. 设置 Chatwoot 全局配置
+    window.chatwootSettings = {
+      hideMessageBubble: false,
+      position: 'right',
+      locale: 'en',
+      type: 'standard',
+      showPopoutButton: false, // 确保这个是 false
+    };
+
+    // 2. 创建并加载脚本
+    const script = document.createElement('script');
+    script.async = true;
+    script.defer = true;
+    const cleanBaseUrl = BASE_URL.replace(/\/$/, '');
+    script.src = `${cleanBaseUrl}/packs/js/sdk.js`;
+
+    console.log(`正在从 ${script.src} 加载脚本...`);
+
+    // 3. 监听加载成功事件
+    script.onload = function() {
+      console.log('✅ Chatwoot 脚本加载成功 (onload 事件触发)');
+      statusDiv.innerHTML = '✅ 脚本加载成功！正在初始化...';
+      statusDiv.className = 'success';
+      
+      // 4. 初始化 SDK
+      window.chatwootSDK.run({
+        websiteToken: WEBSITE_TOKEN,
+        baseUrl: cleanBaseUrl,
+      });
+
+      // 监听 Chatwoot ready 事件
+      window.addEventListener('chatwoot:ready', function () {
+        console.log('✅ Chatwoot SDK 初始化完成 (ready 事件触发)');
+        statusDiv.innerHTML = '✅ 脚本加载并初始化成功！你应该能看到聊天按钮了。';
+        statusDiv.className = 'success';
+      });
+    };
+
+    // 5. 监听加载失败事件
+    script.onerror = function(error) {
+      console.error('🔴 Chatwoot 脚本加载失败 (onerror 事件触发)', error);
+      statusDiv.innerHTML = `🔴 脚本加载失败。请检查浏览器控制台的 Network 标签页，看看 <code>sdk.js</code> 的请求状态。`;
+      statusDiv.className = 'error';
+    };
+
+    // 6. 将脚本添加到页面
+    document.head.appendChild(script);
+
+  </script>
+</body>
+</html> 

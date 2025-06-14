@@ -6,7 +6,7 @@ export const CHATWOOT_CONFIG = {
   type: 'standard',
   launcherTitle: 'Customer Support',
   hideMessageBubble: true,
-  showPopoutButton: true,
+  showPopoutButton: false, // 修复: 禁用弹出按钮以避免 X-Frame-Options 错误
   enabledFeatures: ['emoji_picker', 'file_upload', 'attachments'],
 } as const;
 

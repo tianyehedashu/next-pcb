@@ -2,11 +2,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
-import { ChatwootWidget } from "@/components/ChatwootWidget";
-import { FloatingCustomerServiceButton } from "@/components/FloatingCustomerServiceButton";
 import { Toaster } from "sonner";
 
 import Providers from '@/app/components/Providers';
+import { ChatwootProvider } from "./components/ChatwootProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,8 +35,7 @@ export default function RootLayout({
           {children}
         </Providers>
         <Footer />
-        <ChatwootWidget />
-        <FloatingCustomerServiceButton />
+        <ChatwootProvider />
         <Toaster />
       </body>
     </html>
