@@ -34,6 +34,7 @@ export default function AdminUsersPage() {
         throw new Error(errorData.error || 'Failed to fetch users');
       }
       const data = await response.json();
+      
       setUsers(data.items || []);
       setPagination(p => ({ ...p, total: data.total || 0 }));
     } catch (err: unknown) {
@@ -63,9 +64,14 @@ export default function AdminUsersPage() {
     setRefreshing(false);
   };
 
+  const handleUserUpdated = () => {
+    fetchUsers();
+  };
+
   const totalUsers = pagination.total;
   const activeUsers = users.filter(user => user.email_confirmed_at).length;
   const unverifiedUsers = users.filter(user => !user.email_confirmed_at).length;
+  const adminUsers = users.filter(user => user.user_metadata?.role === 'admin' || user.role === 'admin').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">
@@ -99,7 +105,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="border-0 shadow-md bg-white/80 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -137,6 +143,20 @@ export default function AdminUsersPage() {
                 </div>
                 <div className="p-3 bg-orange-100 rounded-full">
                   <Badge className="bg-orange-500 text-white">!</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-0 shadow-md bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Admins</p>
+                  <p className="text-2xl font-bold text-purple-600">{adminUsers}</p>
+                </div>
+                <div className="p-3 bg-purple-100 rounded-full">
+                  <Badge className="bg-purple-500 text-white">👑</Badge>
                 </div>
               </div>
             </CardContent>
@@ -187,7 +207,7 @@ export default function AdminUsersPage() {
             {!loading && !error && (
               <>
                 <div className="overflow-hidden">
-                  <UserTable users={users} />
+                  <UserTable users={users} onUserUpdated={handleUserUpdated} />
                 </div>
                 
                 {/* Pagination */}

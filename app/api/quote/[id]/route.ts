@@ -291,6 +291,17 @@ export async function PUT(
       );
     }
 
+    // 如果是用户修改订单且状态发生变化，发送通知给管理员
+    if (!isAdmin && newStatus !== existingQuote.status) {
+      await notifyAdminsOfOrderChange(
+        updatedQuote,
+        existingQuote.status,
+        newStatus,
+        user,
+        supabase
+      );
+    }
+
     return NextResponse.json(updatedQuote);
   } catch (error) {
     console.error('Error updating quote:', error);
@@ -378,9 +389,16 @@ function calculateNewStatus(
     return requestedStatus;
   }
 
-  // 用户编辑已报价的订单，状态改为待审核
-  if (!isAdmin && currentStatus === QuoteStatus.QUOTED) {
-    return QuoteStatus.PENDING;
+  // 用户编辑订单的状态转换逻辑
+  if (!isAdmin) {
+    // 用户编辑已报价的订单，状态改为待审核
+    if (currentStatus === QuoteStatus.QUOTED) {
+      return QuoteStatus.PENDING;
+    }
+    // 用户编辑已审核的订单，状态也改为待审核（需要重新审核）
+    if (currentStatus === QuoteStatus.REVIEWED) {
+      return QuoteStatus.PENDING;
+    }
   }
 
   // 其他情况保持原状态
@@ -456,6 +474,108 @@ async function recordStatusChange(
       });
   } catch (error) {
     console.error('Error recording status change:', error);
+    // 不阻断主流程
+  }
+}
+
+// 通知管理员订单变更
+async function notifyAdminsOfOrderChange(
+  updatedQuote: any,
+  fromStatus: string,
+  toStatus: string,
+  user: any,
+  supabase: any
+): Promise<void> {
+  try {
+    const statusDisplayMap: Record<string, string> = {
+      'draft': '草稿',
+      'created': '已创建',
+      'pending': '待审核',
+      'reviewed': '已审核',
+      'quoted': '已报价',
+      'unpaid': '待付款',
+      'payment_pending': '付款处理中',
+      'paid': '已付款',
+      'in_production': '生产中',
+      'shipped': '已发货',
+      'delivered': '已交付',
+      'completed': '已完成',
+      'cancelled': '已取消',
+      'rejected': '已拒绝',
+      'refunded': '已退款'
+    };
+
+    const fromStatusDisplay = statusDisplayMap[fromStatus] || fromStatus;
+    const toStatusDisplay = statusDisplayMap[toStatus] || toStatus;
+    
+    const subject = `🔄 订单修改通知 - ${updatedQuote.id.slice(0, 8)}...`;
+    
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">
+          📋 用户订单修改通知
+        </h2>
+        
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #374151; margin-top: 0;">订单信息</h3>
+          <p><strong>订单ID:</strong> ${updatedQuote.id}</p>
+          <p><strong>用户邮箱:</strong> ${updatedQuote.email}</p>
+          <p><strong>修改时间:</strong> ${new Date().toLocaleString('zh-CN')}</p>
+        </div>
+        
+        <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+          <h3 style="color: #92400e; margin-top: 0;">⚠️ 状态变更</h3>
+          <p style="font-size: 16px;">
+            <span style="background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px;">${fromStatusDisplay}</span>
+            <span style="margin: 0 10px;">→</span>
+            <span style="background-color: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px;">${toStatusDisplay}</span>
+          </p>
+          ${toStatus === 'pending' ? '<p style="color: #92400e; font-weight: bold;">⚡ 此订单需要重新审核</p>' : ''}
+        </div>
+        
+        <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #1e40af; margin-top: 0;">📝 操作建议</h3>
+          <ul style="color: #374151;">
+            <li>请及时查看订单详情，了解用户的修改内容</li>
+            <li>如果订单状态变为"待审核"，请重新审核订单规格和价格</li>
+            <li>必要时可联系用户确认修改原因</li>
+          </ul>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL}/admin/orders/${updatedQuote.id}" 
+             style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            查看订单详情
+          </a>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+        <p style="color: #6b7280; font-size: 14px; text-align: center;">
+          这是一封自动发送的邮件，请勿直接回复。<br>
+          如有问题，请登录管理后台查看详情。
+        </p>
+      </div>
+    `;
+
+    // 调用通知API
+    const notifyResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/notify-customer-service`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subject,
+        html
+      })
+    });
+
+    if (!notifyResponse.ok) {
+      console.error('Failed to send notification email:', await notifyResponse.text());
+    } else {
+      console.log('Admin notification sent successfully for order:', updatedQuote.id);
+    }
+  } catch (error) {
+    console.error('Error sending admin notification:', error);
     // 不阻断主流程
   }
 } 

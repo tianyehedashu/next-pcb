@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
+import * as nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: NextRequest) {
@@ -10,20 +10,37 @@ export async function POST(req: NextRequest) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-  // 查询所有管理员邮箱（profiles join users）
-  const { data: admins, error } = await adminClient
+  // 查询所有管理员用户ID
+  const { data: adminProfiles, error: profileError } = await adminClient
     .from('profiles')
-    .select('id, role, users(email)')
+    .select('id, role')
     .eq('role', 'admin');
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  
+  if (profileError) {
+    return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
-  type AdminWithEmail = { id: string; role: string; users?: { email?: string } };
-  const to = (admins as AdminWithEmail[])
-    .map((admin) => admin.users?.email)
-    .filter((email): email is string => !!email)
-    .join(',');
+
+  if (!adminProfiles || adminProfiles.length === 0) {
+    console.error('No admin profiles found');
+    return NextResponse.json({ error: 'No admin profiles found' }, { status: 500 });
+  }
+
+  // 获取管理员邮箱
+  const adminIds = adminProfiles.map(profile => profile.id);
+  const { data: adminUsers, error: userError } = await adminClient.auth.admin.listUsers();
+  
+  if (userError) {
+    return NextResponse.json({ error: userError.message }, { status: 500 });
+  }
+
+  const adminEmails = adminUsers.users
+    .filter(user => adminIds.includes(user.id))
+    .map(user => user.email)
+    .filter(email => email);
+
+  const to = adminEmails.join(',');
   if (!to) {
+    console.error('No admin emails found');
     return NextResponse.json({ error: 'No admin emails found' }, { status: 500 });
   }
 
