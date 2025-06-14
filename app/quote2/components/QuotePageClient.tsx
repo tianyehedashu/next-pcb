@@ -2,13 +2,17 @@
 
 import React from "react";
 import QuoteForm from "./QuoteForm";
-import PriceSummary from "./PriceSummary";import { FileUploadSection } from "./FileUploadSection";
+import PriceSummary from "./PriceSummary";
 import { FormStepNavigation } from "./FormStepNavigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield } from "lucide-react";
 import { fieldGroups } from "../schema/pcbFormilySchema";
 
-export function QuotePageClient() {
+interface QuotePageClientProps {
+  editId?: string;
+}
+
+export function QuotePageClient({ editId }: QuotePageClientProps) {
   const [currentStep, setCurrentStep] = React.useState(0);
 
   // 滚动到指定步骤
@@ -63,7 +67,7 @@ export function QuotePageClient() {
               {/* 表单区域 */}
               <Card className="bg-white/70 backdrop-blur-sm border-white/20 shadow-xl hover:shadow-2xl transition-all duration-500 h-fit">
                 <CardContent className="p-0">
-                  <QuoteForm />
+                  <QuoteForm editId={editId} />
                 </CardContent>
               </Card>
             </div>

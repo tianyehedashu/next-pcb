@@ -641,6 +641,19 @@ export default function OrderDetailPage() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Orders
               </Button>
+              
+              {/* 用户编辑订单按钮 */}
+              {canEdit && (
+                <Button 
+                  onClick={() => router.push(`/quote2?edit=${order.id}`)}
+                  variant="default"
+                  className="bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md transition-all"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit Order
+                </Button>
+              )}
+              
               {canCancel && (
                 <Button 
                   onClick={handleCancelOrder} 
@@ -673,19 +686,59 @@ export default function OrderDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Warning - Enhanced Design */}
-      {canEdit && (
+      {/* Edit Status Card - Enhanced Design */}
+      {canEdit ? (
         <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 shadow-sm">
           <CardContent className="p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-amber-900 mb-1">Order Can Be Modified</h3>
+                  <p className="text-amber-800 text-sm">
+                    You can edit address and PCB specifications before payment. Changes may require re-review.
+                  </p>
+                  <div className="mt-2 text-xs text-amber-700">
+                    ✓ Editable statuses: Created, Under Review, Reviewed
+                  </div>
+                </div>
+              </div>
+              <Button 
+                onClick={() => router.push(`/quote2?edit=${order.id}`)}
+                variant="outline"
+                size="sm"
+                className="border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400 flex-shrink-0"
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit Now
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50 shadow-sm">
+          <CardContent className="p-6">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Info className="w-5 h-5 text-gray-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-amber-900 mb-1">Order Can Be Modified</h3>
-                <p className="text-amber-800 text-sm">
-                  You can edit address and PCB specifications before payment. Changes may require re-review.
+                <h3 className="font-semibold text-gray-900 mb-1">Order Status: {statusInfo?.text || order.status}</h3>
+                <p className="text-gray-700 text-sm">
+                  {(() => {
+                    const isPaid = adminOrder?.payment_status === 'paid';
+                    if (isPaid) return 'Order has been paid and cannot be modified. Contact support if changes are needed.';
+                    if (['quoted', 'confirmed'].includes(order.status || '')) return 'Order is ready for payment. Editing is no longer available.';
+                    if (['shipped', 'delivered', 'completed'].includes(order.status || '')) return 'Order is in final stages and cannot be modified.';
+                    if (order.status === 'cancelled') return 'This order has been cancelled.';
+                    return 'Order editing is not available in the current status.';
+                  })()}
                 </p>
+                <div className="mt-2 text-xs text-gray-600">
+                  ℹ️ Orders can only be edited in: Created, Under Review, or Reviewed status
+                </div>
               </div>
             </div>
           </CardContent>

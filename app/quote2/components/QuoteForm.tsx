@@ -370,7 +370,7 @@ const LoginSuggestDialog = React.memo(({
 ));
 LoginSuggestDialog.displayName = 'LoginSuggestDialog';
 
-export function QuoteForm() {
+export function QuoteForm({ editId }: { editId?: string }) {
   const { updateFormData, resetForm } = useQuoteStore();
   const user = useUserStore((state) => state.user);
   const router = useRouter();
@@ -380,6 +380,12 @@ export function QuoteForm() {
   const { uploadState } = useFileUpload();
   const calculated = useQuoteCalculated();
   const calValues = useQuoteCalValues();
+  
+  // 编辑模式相关状态
+  const [isEditMode] = React.useState(!!editId);
+  const [editData, setEditData] = React.useState<Record<string, any> | null>(null);
+  const [isLoadingEditData, setIsLoadingEditData] = React.useState(!!editId);
+  const [editPermissionError, setEditPermissionError] = React.useState<string | null>(null);
   
   // 防抖相关状态
   const lastSubmitTimeRef = React.useRef<number>(0);
@@ -392,11 +398,112 @@ export function QuoteForm() {
   const [showLoginSuggestDialog, setShowLoginSuggestDialog] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [showErrorDialog, setShowErrorDialog] = React.useState(false);
- 
+
+  // 加载编辑数据
+  React.useEffect(() => {
+    if (editId && !editData) {
+      loadEditData();
+    }
+  }, [editId, editData]);
+
+  const loadEditData = async () => {
+    if (!editId) return;
+    
+    setIsLoadingEditData(true);
+    setEditPermissionError(null);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const access_token = session?.access_token;
+
+      const response = await fetch(`/api/quote/${editId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(access_token && { 'Authorization': `Bearer ${access_token}` })
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          setEditPermissionError('You do not have permission to edit this quote.');
+        } else if (response.status === 404) {
+          setEditPermissionError('Quote not found.');
+        } else {
+          setEditPermissionError('Failed to load quote data.');
+        }
+        return;
+      }
+
+      const data = await response.json();
+      setEditData(data);
+      
+      // 编辑模式下不需要更新 store，表单会直接使用数据库数据初始化
+      // 但需要设置 gerber 文件 URL 到 store 中以便文件上传组件使用
+      if (data.gerber_file_url) {
+        updateFormData({ gerberUrl: data.gerber_file_url });
+      }
+      
+      // 设置联系信息（如果是游客编辑）
+      if (!user && data.email) {
+        setGuestEmail(data.email);
+        setGuestPhone(data.phone || '');
+      }
+      
+    } catch (error) {
+      console.error('Error loading edit data:', error);
+      setEditPermissionError('Failed to load quote data.');
+    } finally {
+      setIsLoadingEditData(false);
+    }
+  };
+
+  // 检查编辑权限
+  const canEdit = React.useMemo(() => {
+    if (!editData) return false;
+    
+    // 管理员可以编辑所有订单
+    if (user?.role === 'admin') {
+      return true;
+    }
+    
+    // 用户只能编辑自己的订单，且订单状态允许编辑
+    if (user && editData.user_id === user.id) {
+      // 检查订单状态是否允许用户编辑
+      const allowedStatuses = ['pending', 'draft', 'created'];
+      return allowedStatuses.includes(editData.status);
+    }
+    
+    // 游客可以编辑自己的订单（通过邮箱匹配）
+    if (!user && !editData.user_id && editData.email) {
+      const allowedStatuses = ['pending', 'draft', 'created'];
+      return allowedStatuses.includes(editData.status);
+    }
+    
+    return false;
+  }, [editData, user]);
+
+  // 获取更新后的状态
+  const getUpdatedStatus = (currentStatus: string, isAdmin: boolean) => {
+    if (isAdmin) {
+      // 管理员修改后保持原状态或设置为需要的状态
+      return currentStatus;
+    } else {
+      // 用户修改后，如果原状态是quoted（已报价），则改为pending（待审核）
+      if (currentStatus === 'quoted') {
+        return 'pending';
+      }
+      return currentStatus;
+    }
+  };
 
   // 使用 useMemo 缓存表单实例
   const formInstance = React.useMemo(() => {
-    const initialValues = useQuoteStore.getState().formData;
+    // 编辑模式下使用数据库数据，否则使用 store 数据
+    const initialValues = isEditMode && editData?.pcb_spec 
+      ? editData.pcb_spec 
+      : useQuoteStore.getState().formData;
+      
     const newForm = createForm({
       initialValues,
       validateFirst: true, // 优化验证性能
@@ -407,6 +514,9 @@ export function QuoteForm() {
           requestAnimationFrame(() => {
             const storeData = useQuoteStore.getState().formData;
             const formValues = formInstance.values;
+            
+            // 编辑模式下不自动同步到 store，避免覆盖数据库数据
+            if (isEditMode) return;
             
             // 检查是否真的有变化
             if (JSON.stringify(formValues) !== JSON.stringify(storeData)) {
@@ -433,13 +543,23 @@ export function QuoteForm() {
     });
 
     return newForm;
-  }, [user?.id, updateFormData]);
+  }, [user?.id, updateFormData, isEditMode, editData]);
 
   // 使用 useEffect 处理表单实例的更新
   React.useEffect(() => {
     setForm(formInstance);
 
+    // 编辑模式下，如果数据已加载，直接设置表单值
+    if (isEditMode && editData?.pcb_spec && !isLoadingEditData) {
+      isUpdatingFromHydrationRef.current = true;
+      formInstance.setValues(editData.pcb_spec, undefined);
+      isUpdatingFromHydrationRef.current = false;
+    }
+
     const unsubscribe = useQuoteStore.persist.onFinishHydration(() => {
+      // 编辑模式下不使用 store 数据覆盖表单
+      if (isEditMode) return;
+      
       isUpdatingFromHydrationRef.current = true;
       const storeData = useQuoteStore.getState().formData;
       
@@ -452,7 +572,33 @@ export function QuoteForm() {
     return () => {
       unsubscribe();
     };
-  }, [formInstance, uploadState.file, uploadState.uploadStatus, uploadState.uploadUrl]); // 添加 uploadState 依赖
+  }, [formInstance, uploadState.file, uploadState.uploadStatus, uploadState.uploadUrl, isEditMode, editData, isLoadingEditData]); // 添加编辑相关依赖
+
+  // 专门处理编辑数据加载完成后的表单初始化
+  React.useEffect(() => {
+    if (isEditMode && editData?.pcb_spec && form && !isLoadingEditData) {
+      isUpdatingFromHydrationRef.current = true;
+      
+      // 设置表单值为数据库中的数据
+      form.setValues(editData.pcb_spec, undefined);
+      
+      // 如果有 gerber 文件 URL，也设置到表单中
+      if (editData.gerber_file_url) {
+        form.setFieldState('gerberUrl', state => {
+          state.value = editData.gerber_file_url;
+        });
+      }
+      
+      // 设置地址信息
+      if (editData.shipping_address) {
+        form.setFieldState('shippingAddress', state => {
+          state.value = editData.shipping_address;
+        });
+      }
+      
+      isUpdatingFromHydrationRef.current = false;
+    }
+  }, [isEditMode, editData, form, isLoadingEditData]);
 
   // 专门监控 uploadState 的变化，确保 gerberUrl 被正确同步
   React.useEffect(() => {
@@ -504,7 +650,10 @@ export function QuoteForm() {
         const storeData = useQuoteStore.getState().formData;
         const gerberFileUrl = uploadState.uploadUrl || storeData.gerberUrl || form.values.gerberUrl;
         
-        if (!gerberFileUrl || gerberFileUrl.trim() === '') {
+        // 编辑模式下，如果数据库中已有文件URL，则不强制要求重新上传
+        const hasExistingFile = isEditMode && editData?.gerber_file_url;
+        
+        if (!hasExistingFile && (!gerberFileUrl || gerberFileUrl.trim() === '')) {
           throw [{
             title: 'Gerber File',
             message: 'Gerber file is required for logged-in users',
@@ -540,6 +689,9 @@ export function QuoteForm() {
           gerberFileUrl = storeData.gerberUrl;
         } else if (values.gerberUrl && values.gerberUrl.trim() !== '') {
           gerberFileUrl = values.gerberUrl;
+        } else if (isEditMode && editData?.gerber_file_url) {
+          // 编辑模式下，如果没有新上传的文件，使用数据库中的现有文件URL
+          gerberFileUrl = editData.gerber_file_url;
         } else {
           gerberFileUrl = null;
         }
@@ -559,32 +711,47 @@ export function QuoteForm() {
           const access_token = session?.access_token;
 
           if (access_token) {
-            const response = await fetch('/api/quote', {
-              method: 'POST',
+                         // 编辑模式或新建模式
+             const isAdmin = user.role === 'admin';
+            const apiUrl = isEditMode && editId ? `/api/quote/${editId}` : '/api/quote';
+            const method = isEditMode && editId ? 'PUT' : 'POST';
+            
+                         // 准备请求数据
+             const requestData: Record<string, any> = {
+              email: user.email,
+              phone: userPhone || null,
+              shippingAddress,
+              gerberFileUrl,
+              ...pcbSpecData,
+              cal_values,
+            };
+            
+            // 如果是编辑模式，添加状态更新逻辑
+            if (isEditMode && editData) {
+              requestData.status = getUpdatedStatus(editData.status, isAdmin);
+            }
+
+            const response = await fetch(apiUrl, {
+              method,
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${access_token}`
               },
-              body: JSON.stringify({
-                email: user.email,
-                phone: userPhone || null,
-                shippingAddress,
-                gerberFileUrl,
-                ...pcbSpecData,
-                cal_values,
-              })
+              body: JSON.stringify(requestData)
             });
 
             if (response.ok) {
               const result = await response.json();
-              toast.success('Quote saved successfully!');
+              const successMessage = isEditMode ? 'Quote updated successfully!' : 'Quote saved successfully!';
+              toast.success(successMessage);
               router.push(`/profile/orders/${result.id}`);
             } else {
               const errorData = await response.json().catch(() => ({}));
               if (response.status === 429) {
                 throw new Error(errorData.error || 'Too many requests. Please wait before submitting again.');
               }
-              throw new Error(errorData.error || 'Failed to save quote');
+              const errorMessage = isEditMode ? 'Failed to update quote' : 'Failed to save quote';
+              throw new Error(errorData.error || errorMessage);
             }
           }
         } else {
@@ -760,6 +927,62 @@ export function QuoteForm() {
     router.push("/auth?redirect=/quote2");
   }, [router]);
 
+  // 编辑模式加载状态
+  if (isEditMode && isLoadingEditData) {
+    return (
+      <div className="quote-form p-6 lg:p-8 space-y-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-pulse text-center">
+            <div className="h-8 w-48 bg-gray-200 rounded mb-4 mx-auto"></div>
+            <div className="h-4 w-32 bg-gray-200 rounded mx-auto"></div>
+            <p className="text-gray-600 mt-4">Loading quote data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 编辑权限错误
+  if (isEditMode && editPermissionError) {
+    return (
+      <div className="quote-form p-6 lg:p-8 space-y-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="text-red-600 text-lg font-semibold mb-2">Access Denied</div>
+            <p className="text-gray-600 mb-4">{editPermissionError}</p>
+            <Button onClick={() => router.push('/quote2')} variant="outline">
+              Create New Quote
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 编辑模式权限检查
+  if (isEditMode && editData && !canEdit) {
+    return (
+      <div className="quote-form p-6 lg:p-8 space-y-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="text-yellow-600 text-lg font-semibold mb-2">Cannot Edit</div>
+            <p className="text-gray-600 mb-4">
+              This quote cannot be edited in its current status: <strong>{editData.status}</strong>
+            </p>
+            <div className="space-x-2">
+              <Button onClick={() => router.push('/quote2')} variant="outline">
+                Create New Quote
+              </Button>
+              <Button onClick={() => router.push(`/profile/orders/${editId}`)} variant="default">
+                View Quote
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 在表单未初始化时显示加载状态
   if (!form) {
     return (
@@ -794,8 +1017,15 @@ export function QuoteForm() {
         {/* 表单顶部操作区域 */}
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">PCB Quote Request</h2>
-            <p className="text-blue-600 font-medium mt-2 text-base">For reference only, final price is subject to review.</p>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {isEditMode ? 'Edit PCB Quote' : 'PCB Quote Request'}
+            </h2>
+            <p className="text-blue-600 font-medium mt-2 text-base">
+              {isEditMode 
+                ? 'Modify your quote specifications below.' 
+                : 'For reference only, final price is subject to review.'
+              }
+            </p>
           </div>
           <Button
             type="button"

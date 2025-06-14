@@ -922,17 +922,45 @@ export default function AdminOrderDetailPage() {
       <div className="max-w-[1600px] mx-auto px-2 py-6 w-full">
         {/* 页面标题区 */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">📋</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">📋</span>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">订单详情</h1>
+              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {order.status}
+              </div>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">订单详情</h1>
-            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-              order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-              order.status === 'completed' ? 'bg-green-100 text-green-800' :
-              'bg-gray-100 text-gray-800'
-            }`}>
-              {order.status}
+            
+            {/* 管理员操作按钮 */}
+            <div className="flex items-center gap-3">
+              {(() => {
+                const adminOrder = order ? getAdminOrders(order.admin_orders)[0] : null;
+                // 管理员可以编辑除了已完成、已取消、已交付状态外的所有订单
+                const canAdminEdit = !['completed', 'cancelled', 'delivered'].includes(order.status || '') && 
+                                   (!adminOrder || !['completed', 'cancelled', 'delivered'].includes(adminOrder.status || ''));
+                
+                if (canAdminEdit) {
+                  return (
+                    <Button 
+                      onClick={() => window.open(`/quote2?edit=${order.id}`, '_blank')}
+                      variant="default"
+                      className="bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md transition-all"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      编辑订单
+                    </Button>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-1">

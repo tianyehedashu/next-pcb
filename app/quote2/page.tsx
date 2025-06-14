@@ -12,12 +12,19 @@ export const metadata: Metadata = {
   },
 };
 
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
 // 服务端组件 - 静态内容和 SEO
-export default function Quote2Page() {
+export default async function Quote2Page({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const editId = typeof params.edit === 'string' ? params.edit : undefined;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 relative">
       <div className="relative z-10">
-        <QuotePageClient />
+        <QuotePageClient editId={editId} />
       </div>
     </div>
   );
