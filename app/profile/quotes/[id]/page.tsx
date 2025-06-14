@@ -6,11 +6,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabaseClient";
-import { Layers, Settings, UserCheck, FileEdit, ShoppingCart, Mail, Phone, Calendar, DollarSign } from "lucide-react";
+import { Layers, Settings, UserCheck, FileEdit, ShoppingCart, Mail, Phone, Calendar, DollarSign, UserPlus } from "lucide-react";
 import { fieldMap } from "@/lib/fieldMap";
 import { PcbQuoteForm } from "@/types/pcbQuoteForm";
 import { ShipmentType } from "@/types/form";
 import { Database } from "@/types/supabase";
+import { useUserStore } from "@/lib/userStore";
+import { toast } from "sonner";
 
 type Quote = Database["public"]["Tables"]["pcb_quotes"]["Row"];
 
@@ -70,10 +72,12 @@ export default function QuoteDetailPage() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id;
+  const user = useUserStore((state) => state.user);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [pcbSpec, setPcbSpec] = useState<PcbQuoteForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
     async function fetchQuote() {
@@ -115,6 +119,46 @@ export default function QuoteDetailPage() {
     return 0;
   };
 
+  const handleClaimQuote = async () => {
+    if (!quote || !user || claiming) return;
+    
+    setClaiming(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const access_token = session?.access_token;
+      
+      if (!access_token) {
+        toast.error("Please login to claim this quote.");
+        return;
+      }
+
+      const response = await fetch(`/api/quote/${id}/claim`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`
+        }
+      });
+
+      if (response.ok) {
+        toast.success("Quote claimed successfully! This quote is now linked to your account.");
+        // 刷新页面数据
+        window.location.reload();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || "Failed to claim quote.");
+      }
+    } catch (error) {
+      console.error("Error claiming quote:", error);
+      toast.error("Failed to claim quote. Please try again.");
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  // 判断是否为游客报价（user_id为空）
+  const isGuestQuote = quote && !quote.user_id;
+
   if (loading) return <div className="flex justify-center items-center min-h-[60vh]">Loading...</div>;
   if (error) return <div className="flex justify-center items-center min-h-[60vh] text-destructive">{error}</div>;
   if (!quote) return <div className="flex justify-center items-center min-h-[60vh] text-muted-foreground">No quote found.</div>;
@@ -125,7 +169,9 @@ export default function QuoteDetailPage() {
         <CardHeader className="flex flex-row items-center gap-4">
           <Layers className="text-blue-600" size={28} />
           <div className="flex-1">
-            <CardTitle className="text-2xl font-bold tracking-wide">Guest Quote #{quote.id}</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-wide">
+              {isGuestQuote ? `Guest Quote #${quote.id}` : `Quote #${quote.id}`}
+            </CardTitle>
             <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
                 <Calendar size={14} />
@@ -140,9 +186,26 @@ export default function QuoteDetailPage() {
                   ${getQuoteAmount().toFixed(2)}
                 </div>
               )}
+              {isGuestQuote && (
+                <Badge variant="outline" className="text-orange-600 border-orange-300">
+                  Guest Quote
+                </Badge>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
+            {isGuestQuote && (
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700" 
+                onClick={handleClaimQuote}
+                disabled={claiming}
+              >
+                <UserPlus size={16} />
+                {claiming ? "Claiming..." : "Claim Quote"}
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={() => router.push(`/quote2?edit=${id}`)}>
               <FileEdit size={16} /> Edit Quote
             </Button>
@@ -154,6 +217,26 @@ export default function QuoteDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6 mt-1 px-6 py-4">
+          {/* Claim Quote Notice */}
+          {isGuestQuote && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <UserPlus className="text-blue-600 mt-0.5" size={20} />
+                <div>
+                  <h3 className="font-semibold text-blue-900 mb-1">Claim This Quote</h3>
+                                     <p className="text-sm text-blue-800 mb-3">
+                     This quote was submitted as a guest. Click &quot;Claim Quote&quot; to link it to your account for easier tracking and management.
+                   </p>
+                  <ul className="text-xs text-blue-700 space-y-1">
+                    <li>• Track quote status and updates</li>
+                    <li>• Access quote history anytime</li>
+                    <li>• Faster reordering process</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Contact Information */}
           <div>
             <div className="flex items-center gap-2 mb-3">
@@ -199,7 +282,7 @@ export default function QuoteDetailPage() {
                       <span className="break-all text-sm flex-1">{pcbSpec.singleCount} <span className="text-xs text-muted-foreground">{getCountUnit(pcbSpec.shipmentType)}</span></span>
                     </div>
                   )}
-                                     {pcbSpec?.panelDimensions && (pcbSpec.shipmentType === ShipmentType.PanelByGerber || pcbSpec.shipmentType === ShipmentType.PanelBySpeedx) && (
+                  {pcbSpec?.panelDimensions && (pcbSpec.shipmentType === ShipmentType.PanelByGerber || pcbSpec.shipmentType === ShipmentType.PanelBySpeedx) && (
                     <div className="flex flex-row items-center mb-1">
                       <span className="font-semibold text-muted-foreground text-xs w-36 truncate">Panel Size (pcs)</span>
                       <span className="break-all text-sm flex-1">{pcbSpec.panelDimensions.row} × {pcbSpec.panelDimensions.column} <span className="text-xs text-muted-foreground">pcs</span></span>
