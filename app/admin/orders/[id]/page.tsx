@@ -17,6 +17,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { AdminReviewChecklist } from "@/app/admin/components/AdminReviewChecklist";
 
 function getAdminOrders(admin_orders: unknown): AdminOrder[] {
   if (!admin_orders) return [];
@@ -1055,6 +1056,9 @@ export default function AdminOrderDetailPage() {
 
           {/* 右侧信息区 */}
           <div className="xl:col-span-2 space-y-6">
+            {/* 管理员审核清单 */}
+            <AdminReviewChecklist />
+
             {/* 价格明细卡片 */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4">
