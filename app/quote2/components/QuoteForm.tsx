@@ -729,7 +729,7 @@ export function QuoteForm() {
       if (response.ok) {
         const result = await response.json();
         toast.success(result.message);
-        router.push(`/profile/quotes/success?id=${result.id}`);
+        router.push(`/quote2/success?id=${result.id}`);
         resetForm();
       } else {
         const errorData = await response.json().catch(() => ({}));

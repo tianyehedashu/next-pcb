@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabaseClient";
-import { Layers, Settings, UserCheck, FileEdit, ShoppingCart } from "lucide-react";
+import { Layers, Settings, UserCheck, FileEdit, ShoppingCart, Mail, Phone, Calendar, DollarSign } from "lucide-react";
 import { fieldMap } from "@/lib/fieldMap";
 import { PcbQuoteForm } from "@/types/pcbQuoteForm";
 import { ShipmentType } from "@/types/form";
+import { Database } from "@/types/supabase";
+
+type Quote = Database["public"]["Tables"]["pcb_quotes"]["Row"];
 
 const BASIC_FIELDS: (keyof PcbQuoteForm)[] = [
   "pcbType", "layers", "thickness", "hdi", "tg", "panelSet", "shipmentType", "border", "differentDesignsCount"
@@ -20,18 +24,29 @@ const SERVICE_FIELDS: (keyof PcbQuoteForm)[] = [
   "testMethod", "prodCap", "productReport", "yyPin", "customerCode", "payMethod", "qualityAttach", "smt", "useShengyiMaterial", "holeCount", "bga", "workingGerber", "ulMark", "crossOuts", "ipcClass", "ifDataConflicts", "specialRequests", "pcbNote", "userNote"
 ];
 
+const statusVariant: {
+  [key: string]: "default" | "secondary" | "success" | "warning" | "outline";
+} = {
+  pending: "outline",
+  quoted: "secondary",
+  accepted: "success",
+  expired: "warning",
+  paid: "success",
+  draft: "outline",
+};
+
 // 反向映射：后端字段名 => 前端字段名
 const backendToFrontendMap = Object.fromEntries(
   Object.entries(fieldMap).map(([k, v]) => [v, k])
 );
 
-function mapBackendToFrontend(data: Record<string, any>): PcbQuoteForm {
+function mapBackendToFrontend(data: Record<string, unknown>): PcbQuoteForm {
   return Object.fromEntries(
     Object.entries(data).map(([k, v]) => [backendToFrontendMap[k] || k, v])
-  ) as PcbQuoteForm;
+  ) as unknown as PcbQuoteForm;
 }
 
-function renderField(label: string, value: any) {
+function renderField(label: string, value: unknown) {
   if (Array.isArray(value)) value = value.join(", ");
   return (
     <div className="flex flex-row items-center mb-1" key={label}>
@@ -55,7 +70,8 @@ export default function QuoteDetailPage() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id;
-  const [quote, setQuote] = useState<PcbQuoteForm | null>(null);
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [pcbSpec, setPcbSpec] = useState<PcbQuoteForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -79,11 +95,25 @@ export default function QuoteDetailPage() {
         return;
       }
       const result = await res.json();
-      setQuote(mapBackendToFrontend(result.data));
+      setQuote(result.data);
+      if (result.data.pcb_spec) {
+        setPcbSpec(mapBackendToFrontend(result.data.pcb_spec));
+      }
       setLoading(false);
     }
     if (id) fetchQuote();
   }, [id]);
+
+  const getQuoteAmount = () => {
+    if (!quote) return 0;
+    
+    // 从cal_values中获取价格信息
+    if (quote.cal_values && typeof quote.cal_values === 'object') {
+      const calValues = quote.cal_values as { totalPrice?: number; pcbPrice?: number };
+      return calValues.totalPrice || calValues.pcbPrice || 0;
+    }
+    return 0;
+  };
 
   if (loading) return <div className="flex justify-center items-center min-h-[60vh]">Loading...</div>;
   if (error) return <div className="flex justify-center items-center min-h-[60vh] text-destructive">{error}</div>;
@@ -91,69 +121,133 @@ export default function QuoteDetailPage() {
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-background">
-      <Card className="w-full max-w-3xl shadow-lg">
+      <Card className="w-full max-w-4xl shadow-lg">
         <CardHeader className="flex flex-row items-center gap-4">
           <Layers className="text-blue-600" size={28} />
-          <CardTitle className="text-2xl font-bold tracking-wide flex-1">Quote Detail</CardTitle>
-          <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={() => router.push(`/quote/${id}/edit`)}>
-            <FileEdit size={16} /> Supplement Info
-          </Button>
-          <Button variant="default" size="sm" className="flex items-center gap-2" onClick={() => alert('Order placed! (TODO: implement order logic)')}>
-            <ShoppingCart size={16} /> Place Order
-          </Button>
+          <div className="flex-1">
+            <CardTitle className="text-2xl font-bold tracking-wide">Guest Quote #{quote.id}</CardTitle>
+            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Calendar size={14} />
+                {new Date(quote.created_at!).toLocaleDateString()}
+              </div>
+              <Badge variant={statusVariant[quote.status!] || "default"}>
+                {quote.status}
+              </Badge>
+              {getQuoteAmount() > 0 && (
+                <div className="flex items-center gap-1">
+                  <DollarSign size={14} />
+                  ${getQuoteAmount().toFixed(2)}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={() => router.push(`/quote2?edit=${id}`)}>
+              <FileEdit size={16} /> Edit Quote
+            </Button>
+            {quote.status === 'quoted' && (
+              <Button variant="default" size="sm" className="flex items-center gap-2" onClick={() => alert('Order functionality coming soon!')}>
+                <ShoppingCart size={16} /> Place Order
+              </Button>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4 mt-1 px-4 py-2">
-          {/* Basic Info */}
+        <CardContent className="space-y-6 mt-1 px-6 py-4">
+          {/* Contact Information */}
           <div>
-            <div className="flex items-center gap-1 mb-1">
-              <Layers className="text-blue-600" size={16} />
-              <span className="font-semibold text-sm">Basic Information</span>
+            <div className="flex items-center gap-2 mb-3">
+              <Mail className="text-blue-600" size={16} />
+              <span className="font-semibold text-base">Contact Information</span>
             </div>
-            <div className="grid grid-cols-3 gap-x-2 gap-y-1">
-              {BASIC_FIELDS.filter(f => quote[f] !== undefined).map(f => {
-                if (f === "singleDimensions" || f === "singleCount" || f === "panelDimensions") return null;
-                return renderField(f, quote[f]);
-              })}
-              {quote?.singleDimensions && (
-                <div>
-                  <span className="font-semibold text-muted-foreground text-xs w-36 truncate">{getSizeLabel(quote.shipmentType)}</span>
-                  <span className="break-all text-sm flex-1">{quote.singleDimensions.length} × {quote.singleDimensions.width} <span className="text-xs text-muted-foreground">cm</span></span>
-                </div>
-              )}
-              {quote?.singleCount !== undefined && quote?.singleCount !== null && (
-                <div>
-                  <span className="font-semibold text-muted-foreground text-xs w-36 truncate">{getCountLabel(quote.shipmentType)}</span>
-                  <span className="break-all text-sm flex-1">{quote.singleCount} <span className="text-xs text-muted-foreground">{getCountUnit(quote.shipmentType)}</span></span>
-                </div>
-              )}
-              {quote?.panelDimensions && (quote.shipmentType === ShipmentType.PanelByCustom || quote.shipmentType === ShipmentType.PanelBySpeedx) && (
-                <div>
-                  <span className="font-semibold text-muted-foreground text-xs w-36 truncate">Panel Size (pcs)</span>
-                  <span className="break-all text-sm flex-1">{quote.panelDimensions.row} × {quote.panelDimensions.column} <span className="text-xs text-muted-foreground">pcs</span></span>
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Mail size={14} className="text-muted-foreground" />
+                <span className="text-sm">{quote.email}</span>
+              </div>
+              {quote.phone && (
+                <div className="flex items-center gap-2">
+                  <Phone size={14} className="text-muted-foreground" />
+                  <span className="text-sm">{quote.phone}</span>
                 </div>
               )}
             </div>
           </div>
-          {/* Process Info */}
-          <div>
-            <div className="flex items-center gap-1 mb-1">
-              <Settings className="text-blue-600" size={16} />
-              <span className="font-semibold text-sm">Process Information</span>
+
+          {pcbSpec && (
+            <>
+              {/* Basic Info */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Layers className="text-blue-600" size={16} />
+                  <span className="font-semibold text-base">Basic Information</span>
+                </div>
+                <div className="grid grid-cols-3 gap-x-4 gap-y-2 p-4 bg-gray-50 rounded-lg">
+                  {BASIC_FIELDS.filter(f => pcbSpec[f] !== undefined).map(f => {
+                    if (f === "singleDimensions" || f === "singleCount" || f === "panelDimensions") return null;
+                    return renderField(f, pcbSpec[f]);
+                  })}
+                  {pcbSpec?.singleDimensions && (
+                    <div className="flex flex-row items-center mb-1">
+                      <span className="font-semibold text-muted-foreground text-xs w-36 truncate">{getSizeLabel(pcbSpec.shipmentType)}</span>
+                      <span className="break-all text-sm flex-1">{pcbSpec.singleDimensions.length} × {pcbSpec.singleDimensions.width} <span className="text-xs text-muted-foreground">cm</span></span>
+                    </div>
+                  )}
+                  {pcbSpec?.singleCount !== undefined && pcbSpec?.singleCount !== null && (
+                    <div className="flex flex-row items-center mb-1">
+                      <span className="font-semibold text-muted-foreground text-xs w-36 truncate">{getCountLabel(pcbSpec.shipmentType)}</span>
+                      <span className="break-all text-sm flex-1">{pcbSpec.singleCount} <span className="text-xs text-muted-foreground">{getCountUnit(pcbSpec.shipmentType)}</span></span>
+                    </div>
+                  )}
+                                     {pcbSpec?.panelDimensions && (pcbSpec.shipmentType === ShipmentType.PanelByGerber || pcbSpec.shipmentType === ShipmentType.PanelBySpeedx) && (
+                    <div className="flex flex-row items-center mb-1">
+                      <span className="font-semibold text-muted-foreground text-xs w-36 truncate">Panel Size (pcs)</span>
+                      <span className="break-all text-sm flex-1">{pcbSpec.panelDimensions.row} × {pcbSpec.panelDimensions.column} <span className="text-xs text-muted-foreground">pcs</span></span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Process Info */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Settings className="text-blue-600" size={16} />
+                  <span className="font-semibold text-base">Process Information</span>
+                </div>
+                <div className="grid grid-cols-3 gap-x-4 gap-y-2 p-4 bg-gray-50 rounded-lg">
+                  {PROCESS_FIELDS.filter(f => pcbSpec[f] !== undefined).map(f => renderField(f, pcbSpec[f]))}
+                </div>
+              </div>
+
+              {/* Service Info */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <UserCheck className="text-blue-600" size={16} />
+                  <span className="font-semibold text-base">Service Information</span>
+                </div>
+                <div className="grid grid-cols-3 gap-x-4 gap-y-2 p-4 bg-gray-50 rounded-lg">
+                  {SERVICE_FIELDS.filter(f => pcbSpec[f] !== undefined).map(f => renderField(f, pcbSpec[f]))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Gerber File */}
+          {quote.gerber_file_url && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <FileEdit className="text-blue-600" size={16} />
+                <span className="font-semibold text-base">Gerber File</span>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <Button variant="outline" size="sm" asChild>
+                  <a href={quote.gerber_file_url} target="_blank" rel="noopener noreferrer">
+                    Download Gerber File
+                  </a>
+                </Button>
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-x-2 gap-y-1">
-              {PROCESS_FIELDS.filter(f => quote[f] !== undefined).map(f => renderField(f, quote[f]))}
-            </div>
-          </div>
-          {/* Service Info */}
-          <div>
-            <div className="flex items-center gap-1 mb-1">
-              <UserCheck className="text-blue-600" size={16} />
-              <span className="font-semibold text-sm">Service Information</span>
-            </div>
-            <div className="grid grid-cols-3 gap-x-2 gap-y-1">
-              {SERVICE_FIELDS.filter(f => quote[f] !== undefined).map(f => renderField(f, quote[f]))}
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

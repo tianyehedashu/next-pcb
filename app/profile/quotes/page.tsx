@@ -35,6 +35,7 @@ const statusVariant: {
   draft: "outline",
   pending: "outline",
   quoted: "secondary",
+  paid: "success",
 };
 
 export default function QuotesPage() {
@@ -44,7 +45,7 @@ export default function QuotesPage() {
 
   useEffect(() => {
     const fetchQuotes = async () => {
-      if (!user) {
+      if (!user?.email) {
         setLoading(false);
         return;
       }
@@ -53,49 +54,48 @@ export default function QuotesPage() {
         const { data, error } = await supabase
           .from("pcb_quotes")
           .select("*")
-          .eq("user_id", user.id)
+          .is("user_id", null)
+          .eq("email", user.email)
           .order("created_at", { ascending: false });
 
         if (error) throw error;
         setQuotes(data || []);
       } catch (error) {
-        console.error("Error fetching quotes:", error);
+        console.error("Error fetching guest quotes:", error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchQuotes();
-  }, [user, supabase]);
+  }, [user]);
 
   const getQuoteAmount = (quote: Quote) => {
-    // Assuming the price is in the pcb_spec jsonb field for now
-    // This will need to be adjusted based on the final schema
-    if (quote.pcb_spec && typeof quote.pcb_spec === 'object') {
-        const spec = quote.pcb_spec as { price?: number };
-        return spec.price || 0;
+    if (quote.cal_values && typeof quote.cal_values === 'object') {
+      const calValues = quote.cal_values as { totalPrice?: number; pcbPrice?: number };
+      return calValues.totalPrice || calValues.pcbPrice || 0;
     }
     return 0;
-  }
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>My Quotes</CardTitle>
+        <CardTitle>Guest Quotes</CardTitle>
         <CardDescription>
-          Here is a list of your recent quotes.
+          Here are the quotes you submitted as a guest before registering.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {loading ? (
           <div className="flex justify-center items-center py-12">
-            <p>Loading quotes...</p>
+            <p>Loading guest quotes...</p>
           </div>
         ) : quotes.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Inbox className="mx-auto h-12 w-12" />
-            <h3 className="mt-2 text-sm font-medium">No quotes found</h3>
-            <p className="mt-1 text-sm">You have not requested any quotes yet.</p>
+            <h3 className="mt-2 text-sm font-medium">No guest quotes found</h3>
+            <p className="mt-1 text-sm">You have not submitted any quotes as a guest.</p>
           </div>
         ) : (
           <Table>

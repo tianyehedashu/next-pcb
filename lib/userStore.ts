@@ -16,6 +16,9 @@ export interface UserInfo {
   phone?: string;
   address?: string;
   last_login?: string;
+  bio?: string;
+  website?: string;
+  location?: string;
   [key: string]: unknown;
 }
 

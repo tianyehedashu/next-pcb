@@ -22,7 +22,17 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-    const { data, error } = await supabase.from('pcb_quotes').select('*').eq('id', id).single();
+
+    // 查询报价，支持两种情况：
+    // 1. 用户自己的报价 (user_id = user.id)
+    // 2. 游客报价 (user_id is null and email = user.email)
+    const { data, error } = await supabase
+      .from('pcb_quotes')
+      .select('*')
+      .eq('id', id)
+      .or(`user_id.eq.${user.id},and(user_id.is.null,email.eq.${user.email})`)
+      .single();
+
     if (error || !data) {
       return NextResponse.json({ error: 'Quote not found or no permission' }, { status: 404 });
     }
