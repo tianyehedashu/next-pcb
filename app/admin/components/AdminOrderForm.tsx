@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createForm, onFieldValueChange } from "@formily/core";
 import { FormProvider, createSchemaField, useForm } from "@formily/react";
 import { formilyComponents } from "@/app/quote2/components/FormilyComponents";
-import FormFieldLayout from "@/app/quote2/components/FormFieldLayout";
 import { Trash2, Plus, Clock, CheckCircle, AlertTriangle, Mail, Send } from "lucide-react";
 import OrderStepBar from "@/components/ui/OrderStepBar";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
@@ -26,7 +24,7 @@ import {
   SelectItem as ShadSelectItem,
   SelectTrigger as ShadSelectTrigger,
   SelectValue as ShadSelectValue,
-} from "@/components/ui/select";
+  } from "@/components/ui/select";
 
 // 加价项类型定义
 interface SurchargeItem {
@@ -416,7 +414,17 @@ const SurchargesInput = ({ value, onChange }: {
   );
 };
 
-// 管理员订单表单schema
+// 创建SchemaField，使用原有组件但应用自定义样式
+const SchemaField = createSchemaField({
+  components: {
+    ...formilyComponents,
+    CurrencySelect,
+    ExchangeRateInput,
+    SurchargesInput,
+  }
+});
+
+// 简化的表单schema，不使用decorator
 const adminOrderSchema = {
   type: "object",
   properties: {
@@ -445,8 +453,7 @@ const adminOrderSchema = {
           { label: "🚫 已拒绝", value: "rejected" },
           { label: "💵 已退款", value: "refunded" }
         ]
-      },
-      "x-decorator": "FormFieldLayout"
+      }
     },
     payment_status: {
       type: "string",
@@ -463,44 +470,39 @@ const adminOrderSchema = {
           { label: "🚫 已取消", value: "cancelled" },
           { label: "💵 已退款", value: "refunded" }
         ]
-      },
-      "x-decorator": "FormFieldLayout"
+      }
     },
     due_date: {
       type: "string",
       title: "到期日",
-      "x-component-props": { type: "date" },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "Input"
+      "x-component": "Input",
+      "x-component-props": { type: "date" }
     },
     pay_time: {
       type: "string",
       title: "支付时间 🔒",
+      "x-component": "Input",
       "x-component-props": { 
         type: "datetime-local", 
         readonly: true,
         placeholder: "系统自动记录"
-      },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "Input"
+      }
     },
     pcb_price: {
       type: "number",
       title: "PCB价格",
-      "x-component-props": { step: 0.01, placeholder: "可手动输入或通过重新计算获得" },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "Input"
+      "x-component": "Input",
+      "x-component-props": { step: 0.01, placeholder: "可手动输入或通过重新计算获得" }
     },
     admin_price: {
       type: "number",
       title: "管理员价格 📊",
+      "x-component": "Input",
       "x-component-props": { 
         step: 0.01, 
         readonly: true,
         placeholder: "自动计算"
-      },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "Input"
+      }
     },
     currency: {
       type: "string",
@@ -508,8 +510,7 @@ const adminOrderSchema = {
       "x-component": "CurrencySelect",
       "x-component-props": {
         placeholder: "请选择币种"
-      },
-      "x-decorator": "FormFieldLayout"
+      }
     },
     exchange_rate: {
       type: "number",
@@ -518,74 +519,65 @@ const adminOrderSchema = {
       "x-component-props": {
         step: 0.01,
         min: 0
-      },
-      "x-decorator": "FormFieldLayout"
+      }
     },
     coupon: {
       type: "number",
       title: "优惠券",
-      "x-component-props": { step: 0.01, min: 0 },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "Input"
+      "x-component": "Input",
+      "x-component-props": { step: 0.01, min: 0 }
     },
     ship_price: {
       type: "number",
       title: "运费",
-      "x-component-props": { step: 0.01, min: 0 },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "Input"
+      "x-component": "Input",
+      "x-component-props": { step: 0.01, min: 0 }
     },
     custom_duty: {
       type: "number",
       title: "关税",
-      "x-component-props": { step: 0.01, min: 0 },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "Input"
+      "x-component": "Input",
+      "x-component-props": { step: 0.01, min: 0 }
     },
     cny_price: {
       type: "number",
       title: "CNY价格 💴",
+      "x-component": "Input",
       "x-component-props": { 
         step: 0.01, 
         min: 0, 
         readonly: true,
         placeholder: "自动计算"
-      },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "Input"
+      }
     },
     production_days: {
       type: "number",
       title: "生产天数",
-      "x-component-props": { min: 1, placeholder: "可手动输入或通过交期计算获得" },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "Input"
+      "x-component": "Input",
+      "x-component-props": { min: 1, placeholder: "可手动输入或通过交期计算获得" }
     },
     delivery_date: {
       type: "string",
       title: "预计交期 📅",
+      "x-component": "Input",
       "x-component-props": { 
         type: "date", 
         placeholder: "可手动输入或自动联动"
-      },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "Input"
+      }
     },
     admin_note: {
       type: "string",
       title: "管理员备注",
+      "x-component": "TextArea",
       "x-component-props": {
         rows: 3,
         placeholder: "请输入管理员备注..."
-      },
-      "x-decorator": "FormFieldLayout",
-      "x-component": "TextArea"
+      }
     },
     surcharges: {
       type: "array",
       title: "加价项",
-      "x-component": "SurchargesInput",
-      "x-decorator": "FormFieldLayout"
+      "x-component": "SurchargesInput"
     }
   }
 };
@@ -704,16 +696,6 @@ const OrderStatusVisualization = ({ status, paymentStatus }: {
   );
 };
 
-const SchemaField = createSchemaField({
-  components: {
-    ...formilyComponents,
-    FormFieldLayout,
-    SurchargesInput,
-    CurrencySelect,
-    ExchangeRateInput
-  }
-});
-
 interface AdminOrderFormProps {
   initialValues: Record<string, unknown>;
   onSave: (values: Record<string, unknown>, options?: { sendNotification?: boolean; notificationType?: string }) => Promise<void>;
@@ -830,129 +812,249 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
   }, [initialValues, form]);
 
   return (
-    <Card className="sticky top-24">
-      <CardHeader className="space-y-3">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-24">
+      {/* 优化的头部区域 */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
         <div className="flex flex-row justify-between items-center">
-          <CardTitle>管理员订单</CardTitle>
-          <Button variant="outline" onClick={() => setIsEdit(e => !e)}>
-            {isEdit ? "只读" : "编辑"}
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">⚙️</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">管理员订单</h3>
+              <p className="text-blue-100 text-sm">Order Management Panel</p>
+            </div>
+          </div>
+          <Button 
+            variant="secondary" 
+            size="sm"
+            onClick={() => setIsEdit(e => !e)}
+            className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+          >
+            {isEdit ? (
+              <>
+                <span className="mr-1">👁️</span>
+                只读模式
+              </>
+            ) : (
+              <>
+                <span className="mr-1">✏️</span>
+                编辑模式
+              </>
+            )}
           </Button>
         </div>
         
-        {/* 计算按钮组 */}
+        {/* 优化的计算按钮组 */}
         {!hideActionButtons && (
-          <div className="flex gap-2 justify-center flex-wrap">
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm" 
-              onClick={async () => {
-                try {
-                  setIsCalculating(true);
-                  onCalcPCB?.(form.values);
-                } finally {
-                  // 设置短暂延迟，让用户看到loading状态
-                  setTimeout(() => setIsCalculating(false), 500);
-                }
-              }} 
-              disabled={!isEdit || isCalculating || isSaving}
-            >
-              {isCalculating ? "计算中..." : "🔧 PCB计算"}
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm" 
-              onClick={async () => {
-                try {
-                  setIsCalculating(true);
-                  onCalcDelivery?.(form.values);
-                } finally {
-                  setTimeout(() => setIsCalculating(false), 500);
-                }
-              }} 
-              disabled={!isEdit || isCalculating || isSaving}
-            >
-              {isCalculating ? "计算中..." : "📅 交期计算"}
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm" 
-              onClick={async () => {
-                try {
-                  setIsCalculating(true);
-                  onCalcShipping?.(form.values);
-                } finally {
-                  setTimeout(() => setIsCalculating(false), 500);
-                }
-              }} 
-              disabled={!isEdit || isCalculating || isSaving}
-            >
-              {isCalculating ? "计算中..." : "🚚 运费计算"}
-            </Button>
-            <Button 
-              type="button" 
-              variant="secondary" 
-              size="sm" 
-              onClick={async () => {
-                try {
-                  setIsCalculating(true);
-                  onRecalc(form.values);
-                } finally {
-                  setTimeout(() => setIsCalculating(false), 800);
-                }
-              }} 
-              disabled={!isEdit || isCalculating || isSaving}
-            >
-              {isCalculating ? "计算中..." : "🔄 全部重算"}
-            </Button>
+          <div className="mt-4 pt-4 border-t border-white/20">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+              <Button 
+                type="button" 
+                variant="secondary" 
+                size="sm" 
+                onClick={async () => {
+                  try {
+                    setIsCalculating(true);
+                    onCalcPCB?.(form.values);
+                  } finally {
+                    setTimeout(() => setIsCalculating(false), 500);
+                  }
+                }} 
+                disabled={!isEdit || isCalculating || isSaving}
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs"
+              >
+                {isCalculating ? (
+                  <>
+                    <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                    计算中
+                  </>
+                ) : (
+                  <>
+                    🔧 PCB计算
+                  </>
+                )}
+              </Button>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                size="sm" 
+                onClick={async () => {
+                  try {
+                    setIsCalculating(true);
+                    onCalcDelivery?.(form.values);
+                  } finally {
+                    setTimeout(() => setIsCalculating(false), 500);
+                  }
+                }} 
+                disabled={!isEdit || isCalculating || isSaving}
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs"
+              >
+                {isCalculating ? (
+                  <>
+                    <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                    计算中
+                  </>
+                ) : (
+                  <>
+                    📅 交期计算
+                  </>
+                )}
+              </Button>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                size="sm" 
+                onClick={async () => {
+                  try {
+                    setIsCalculating(true);
+                    onCalcShipping?.(form.values);
+                  } finally {
+                    setTimeout(() => setIsCalculating(false), 500);
+                  }
+                }} 
+                disabled={!isEdit || isCalculating || isSaving}
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs"
+              >
+                {isCalculating ? (
+                  <>
+                    <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                    计算中
+                  </>
+                ) : (
+                  <>
+                    🚚 运费计算
+                  </>
+                )}
+              </Button>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                size="sm" 
+                onClick={async () => {
+                  try {
+                    setIsCalculating(true);
+                    onRecalc(form.values);
+                  } finally {
+                    setTimeout(() => setIsCalculating(false), 800);
+                  }
+                }} 
+                disabled={!isEdit || isCalculating || isSaving}
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs font-medium"
+              >
+                {isCalculating ? (
+                  <>
+                    <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                    计算中
+                  </>
+                ) : (
+                  <>
+                    🔄 全部重算
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         )}
-      </CardHeader>
-      <CardContent>
+      </div>
+      {/* 优化的内容区域 */}
+      <div className="p-6">
         <FormProvider form={form}>
           {/* 订单状态可视化 */}
-          <OrderStatusVisualization 
-            status={form.values.status as string} 
-            paymentStatus={form.values.payment_status as string} 
-          />
+          <div className="mb-6">
+            <OrderStatusVisualization 
+              status={form.values.status as string} 
+              paymentStatus={form.values.payment_status as string} 
+            />
+          </div>
           
-          {formGroups.map(group => (
-            <div key={group.title} className="mb-4">
-              {/* 只为非加价项组显示标题 */}
-              {group.title !== "加价项" && (
-                <div className="font-semibold mb-2 flex items-center gap-2">
-                  {group.title}
-                  {group.title === "价格管理" && (
-                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                      💱 币种汇率联动 | 💡 价格自动计算 | 🔧 PCB可单独计算
-                    </span>
-                  )}
-                  {group.title === "费用明细" && (
-                    <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                      📅 交期运费可计算
-                    </span>
-                  )}
-                </div>
-              )}
-              <div className={group.layout === "single" ? "space-y-4" : "grid grid-cols-2 gap-4"}>
-                {group.fields.map(field => (
-                  <SchemaField 
-                    key={field} 
-                    name={field} 
+          {/* 优化的表单分组 */}
+          <div className="space-y-6">
+            {formGroups.map((group, groupIndex) => (
+              <div key={group.title} className="group">
+                {/* 优化的分组标题 */}
+                {group.title !== "加价项" && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white ${
+                        groupIndex === 0 ? 'bg-gradient-to-r from-green-500 to-emerald-600' :
+                        groupIndex === 1 ? 'bg-gradient-to-r from-blue-500 to-cyan-600' :
+                        groupIndex === 2 ? 'bg-gradient-to-r from-purple-500 to-violet-600' :
+                        'bg-gradient-to-r from-orange-500 to-red-600'
+                      }`}>
+                        {groupIndex + 1}
+                      </div>
+                      <h4 className="text-lg font-semibold text-gray-800">{group.title}</h4>
+                    </div>
+                    
+                    {/* 功能提示标签 */}
+                    {group.title === "价格管理" && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
+                          💱 币种汇率联动
+                        </span>
+                        <span className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
+                          💡 价格自动计算
+                        </span>
+                        <span className="inline-flex items-center px-2 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-medium">
+                          🔧 PCB可单独计算
+                        </span>
+                      </div>
+                    )}
+                    {group.title === "费用明细" && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        <span className="inline-flex items-center px-2 py-1 bg-violet-50 text-violet-700 rounded-full text-xs font-medium">
+                          📅 交期运费可计算
+                        </span>
+                        <span className="inline-flex items-center px-2 py-1 bg-orange-50 text-orange-700 rounded-full text-xs font-medium">
+                          🚚 智能运费估算
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* 优化的表单字段布局 */}
+                <div className={`${
+                  group.layout === "single" 
+                    ? "space-y-4" 
+                    : "grid grid-cols-1 lg:grid-cols-2 gap-4"
+                } ${
+                  group.title !== "加价项" 
+                    ? "p-4 bg-gray-50/50 rounded-xl border border-gray-100" 
+                    : "p-4 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-200"
+                }`}>
+                  {group.fields.map(field => {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    schema={(adminOrderSchema.properties as any)[field]} 
-                  />
-                ))}
+                    const fieldSchema = (adminOrderSchema.properties as any)[field];
+                    const title = fieldSchema?.title || field;
+                    
+                    return (
+                      <div key={field} className={group.layout === "single" ? "col-span-full" : ""}>
+                        {/* 自定义字段标签 */}
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700 block">
+                            {title}
+                          </label>
+                          <div className="relative">
+                            <SchemaField 
+                              name={field} 
+                              schema={fieldSchema} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
 
+          {/* 优化的操作按钮区域 */}
           {!hideActionButtons && (
-            <div className="sticky bottom-0 bg-white py-4 px-2 border-t z-10">
-              {/* 主要操作按钮 */}
-              <div className="flex gap-2 justify-end">
+            <div className="sticky bottom-0 bg-white py-4 px-2 border-t border-gray-200 z-10 rounded-b-2xl">
+              <div className="flex gap-3 justify-end">
                 <Button 
                   variant="outline" 
                   type="button" 
@@ -967,7 +1069,7 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
                     }
                   }} 
                   disabled={!isEdit || isSaving}
-                  className={isSaving ? "opacity-70" : ""}
+                  className={`border-gray-300 hover:bg-gray-50 ${isSaving ? "opacity-70" : ""}`}
                 >
                   {isSaving ? (
                     <>
@@ -975,7 +1077,10 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
                       保存中...
                     </>
                   ) : (
-                    submitButtonText || '仅保存'
+                    <>
+                      <span className="mr-1">💾</span>
+                      {submitButtonText || '仅保存'}
+                    </>
                   )}
                 </Button>
 
@@ -986,7 +1091,7 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
                       await onSave(form.values, { sendNotification: true, notificationType });
                     } catch (error) {
                       console.error('保存并通知失败:', error);
-                      throw error; // 重新抛出错误，让对话框处理
+                      throw error;
                     } finally {
                       setIsSaving(false);
                     }
@@ -995,7 +1100,7 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
                   <Button 
                     type="button" 
                     disabled={!isEdit || isSaving} 
-                    className={`bg-blue-600 hover:bg-blue-700 ${isSaving ? "opacity-70" : ""}`}
+                    className={`bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg ${isSaving ? "opacity-70" : ""}`}
                   >
                     <Mail className="mr-2 h-4 w-4" />
                     {submitButtonText ? `${submitButtonText}并通知` : '保存并通知'}
@@ -1005,8 +1110,8 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
             </div>
           )}
         </FormProvider>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

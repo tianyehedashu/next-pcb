@@ -25,6 +25,7 @@ const checklistItems = [
     { id: "quality-standard", label: "质量等级: 检查IPC或其它质量等级要求。" },
     { id: "shipping-fee", label: "运费检查: 核实计算的运费是否准确。" },
     { id: "gerber-notes", label: "Gerber备注: 检查Gerber文件中是否有特殊备注或说明。" },
+    { id: "delivery", label: "交期检查: 检查交期是否符合要求,是否需要加急费，设置合理的到期日" },
 ];
 
 export function AdminReviewChecklist() {

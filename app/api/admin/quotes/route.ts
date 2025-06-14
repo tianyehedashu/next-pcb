@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
     // 构建查询
     let query = supabase
       .from("pcb_quotes")
-      .select("*", { count: "exact" });
+      .select("*", { count: "exact" })
+      .is("user_id", null);
 
     // 添加状态筛选
     if (status !== "all") {

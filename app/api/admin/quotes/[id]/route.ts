@@ -6,13 +6,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient(false);
+    const supabase = await createSupabaseServerClient();
     const { id } = await params;
 
     const { data: quote, error } = await supabase
       .from("pcb_quotes")
       .select("*")
       .eq("id", id)
+      .is("user_id", null)
       .single();
 
     if (error) {

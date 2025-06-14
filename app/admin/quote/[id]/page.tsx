@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -80,9 +80,9 @@ const FIELD_GROUPS: { title: string; fields: { key: keyof PcbQuoteForm; label: s
 ];
 
 interface QuoteDetailProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function QuoteDetailPage({ params }: QuoteDetailProps) {
@@ -92,11 +92,14 @@ export default function QuoteDetailPage({ params }: QuoteDetailProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editedQuote, setEditedQuote] = useState<Partial<Quote>>({});
+  
+  // 解包 params Promise
+  const resolvedParams = use(params);
 
   useEffect(() => {
     const fetchQuote = async () => {
       try {
-        const response = await fetch(`/api/admin/quotes/${params.id}`);
+        const response = await fetch(`/api/admin/quotes/${resolvedParams.id}`);
         const data = await response.json();
         setQuote(data);
         setEditedQuote(data);
@@ -113,11 +116,11 @@ export default function QuoteDetailPage({ params }: QuoteDetailProps) {
     };
 
     fetchQuote();
-  }, [params.id, toast]);
+  }, [resolvedParams.id, toast]);
 
   const handleSave = async () => {
     try {
-      const response = await fetch(`/api/admin/quotes/${params.id}`, {
+      const response = await fetch(`/api/admin/quotes/${resolvedParams.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
