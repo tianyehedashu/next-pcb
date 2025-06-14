@@ -72,22 +72,56 @@ export interface Order {
     contactName: string;
   } | null;
   cal_values?: {
-    price: number;
+    pcbPrice: number;
+    totalPrice: number;
     totalArea: number;
+    unitPrice: number;
     priceNotes: string[];
-    priceDetail: {
-      engFee: number;
+    breakdown: {
       basePrice: number;
-      thickness: number;
       testMethod: number;
       multilayerCopperWeight: number;
+      [key: string]: number;
     };
     leadTimeDays: number;
     singlePcbArea: number;
-    totalQuantity: number;
-    leadTimeReason: string[];
+    totalCount: number;
+    leadTimeResult: {
+      reason: string[];
+      cycleDays: number;
+    };
+    minOrderQty: number;
+    shippingCost: number;
+    courierDays: string;
+    estimatedFinishDate: string;
+    courier?: string;
+    tax?: number;
+    discount?: number;
+    shippingWeight?: number;
+    shippingActualWeight?: number;
+    shippingVolumetricWeight?: number;
   } | null;
-  admin_orders?: Array<unknown>;
+  admin_orders?: {
+    id: string;
+    status: string;
+    admin_price: number;
+    currency: string;
+    payment_status: string;
+    production_days: number;
+    delivery_date: string;
+    due_date: string;
+    admin_note: string;
+    pcb_price: number;
+    cny_price: number;
+    exchange_rate: number;
+    ship_price: number;
+    custom_duty: number;
+    coupon: number;
+    surcharges: SurchargeItem[];
+    refund_status: string;
+    requested_refund_amount: number;
+    approved_refund_amount: number;
+  } | null;
   pcb_spec?: {
     tg: string;
     bga: boolean;
@@ -142,4 +176,5 @@ export interface Order {
       courier: string;
     };
   } | null;
+  type?: 'Order' | 'Inquiry';
 } 

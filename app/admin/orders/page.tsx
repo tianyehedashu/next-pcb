@@ -44,10 +44,17 @@ export default function AdminOrdersPage() {
         throw new Error(errorData.error || 'Failed to fetch orders');
       }
       const data = await response.json();
-      const ordersWithType = (data.items || []).map((item: Order) => ({
-        ...item,
-        type: item.user_id ? 'Order' : 'Inquiry',
-      }));
+      const ordersWithType = (data.items || []).map((item: unknown) => {
+        const orderItem = item as Record<string, unknown>;
+        return {
+          ...orderItem,
+          type: orderItem.user_id ? 'Order' : 'Inquiry',
+          // 标准化 admin_orders 字段
+          admin_orders: Array.isArray(orderItem.admin_orders) 
+            ? (orderItem.admin_orders.length > 0 ? orderItem.admin_orders[0] : null)
+            : orderItem.admin_orders,
+        } as Order;
+      });
       setOrders(ordersWithType);
       setPagination(p => ({ ...p, total: data.total || 0 }));
     } catch (err: unknown) {

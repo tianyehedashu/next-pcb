@@ -68,16 +68,64 @@ export default function PriceSummary() {
 
   // 运费计算逻辑
   const shippingInfo = useMemo((): ShippingInfo => {
-    if (!isClient || !formData.shippingAddress?.courier || !formData.shippingAddress?.country) {
+    if (!isClient) {
       return { cost: 0, days: "", courierName: "", weight: 0, actualWeight: 0, volumetricWeight: 0, error: null };
     }
 
+    // 优先使用 shippingAddress，如果没有则使用 shippingCostEstimation
+    const hasShippingAddress = formData.shippingAddress?.country && formData.shippingAddress?.courier;
+    const hasShippingEstimation = formData.shippingCostEstimation?.country && formData.shippingCostEstimation?.courier;
+    
+    if (!hasShippingAddress && !hasShippingEstimation) {
+      return { 
+        cost: 0, 
+        days: "", 
+        courierName: "", 
+        weight: 0, 
+        actualWeight: 0, 
+        volumetricWeight: 0, 
+        error: "Please select shipping country and courier to calculate shipping cost" 
+      };
+    }
+
+    // 检查是否有足够的PCB信息进行重量计算
+    if (calculated.totalQuantity === 0) {
+      return { 
+        cost: 0, 
+        days: "", 
+        courierName: hasShippingAddress ? formData.shippingAddress.courier : formData.shippingCostEstimation?.courier || "", 
+        weight: 0, 
+        actualWeight: 0, 
+        volumetricWeight: 0, 
+        error: "Please enter PCB quantity to calculate shipping cost" 
+      };
+    }
+
     try {
-      // 确保 formData 符合 PcbQuoteForm 类型
-      const pcbFormData = formData as PcbQuoteForm;
-      const { finalCost, deliveryTime, chargeableWeight, actualWeight, volumetricWeight } = calculateShippingCost(pcbFormData);
+      // 创建一个临时的 formData 对象，确保 shippingAddress 有正确的数据
+      let tempFormData = formData;
       
-      const courier = formData.shippingAddress.courier;
+      if (!hasShippingAddress && hasShippingEstimation) {
+        // 如果没有完整的 shippingAddress，但有 shippingCostEstimation，则使用估算数据
+        tempFormData = {
+          ...formData,
+          shippingAddress: {
+            country: formData.shippingCostEstimation?.country || "",
+            courier: formData.shippingCostEstimation?.courier || "",
+            // 其他字段使用默认值，因为运费计算只需要 country 和 courier
+            state: "",
+            city: "",
+            address: "",
+            zipCode: "",
+            phone: "",
+            contactName: "",
+          }
+        };
+      }
+      
+      const { finalCost, deliveryTime, chargeableWeight, actualWeight, volumetricWeight } = calculateShippingCost(tempFormData as PcbQuoteForm);
+      
+      const courier = tempFormData.shippingAddress?.courier || "";
       const courierInfo: Record<string, { courierName: string }> = {
         "dhl": { courierName: "DHL" },
         "fedex": { courierName: "FedEx" },
@@ -95,17 +143,18 @@ export default function PriceSummary() {
         error: null,
       };
     } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : "Shipping calculation failed";
       return {
         cost: 0,
         days: "N/A",
-        courierName: formData.shippingAddress.courier,
+        courierName: hasShippingAddress ? formData.shippingAddress.courier : formData.shippingCostEstimation?.courier || "",
         weight: 0,
         actualWeight: 0,
         volumetricWeight: 0,
-        error: e instanceof Error ? e.message : "Shipping calculation failed",
+        error: errorMessage,
       };
     }
-  }, [formData, isClient]);
+  }, [formData, isClient, calculated.totalQuantity]);
 
   // 使用 calcPcbPriceV3 进行价格计算（只做纯计算，不做副作用）
   const priceBreakdown = useMemo((): PriceBreakdown => {
@@ -317,9 +366,17 @@ export default function PriceSummary() {
             {!isClient ? (
               <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
             ) : shippingInfo.error ? (
-              <span className="text-red-500 text-sm" title={shippingInfo.error}>Calculation Error</span>
+              <div className="flex flex-col items-end">
+                <span className="text-amber-600 text-xs bg-amber-50 px-2 py-1 rounded border border-amber-200" title={shippingInfo.error}>
+                  Need Info
+                </span>
+                <span className="text-xs text-gray-500 mt-1 max-w-32 text-right leading-tight">
+                  {shippingInfo.error.includes("country") || shippingInfo.error.includes("courier") ? "Select shipping options" : 
+                   shippingInfo.error.includes("quantity") ? "Enter quantity" : "Missing info"}
+                </span>
+              </div>
             ) : shippingInfo.cost === 0 ? (
-              <span className="text-gray-400 text-sm">Select courier to calculate</span>
+              <span className="text-gray-400 text-sm">Calculating...</span>
             ) : (
               <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">${shippingInfo.cost.toFixed(2)}</span>
             )}
@@ -423,15 +480,24 @@ export default function PriceSummary() {
               </div>
               
               {/* Shipping Time */}
-              {isClient && shippingInfo.cost > 0 && shippingInfo.courierName && (
+              {isClient && (
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700 flex items-center">
                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
                     Shipping Time
                   </span>
-                  <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                    {shippingInfo.days} via {shippingInfo.courierName}
-                  </span>
+                  {shippingInfo.error ? (
+                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                      {shippingInfo.error.includes("country") || shippingInfo.error.includes("courier") ? "Select shipping options" : 
+                       shippingInfo.error.includes("quantity") ? "Enter quantity" : "Need shipping info"}
+                    </span>
+                  ) : shippingInfo.cost > 0 && shippingInfo.courierName ? (
+                    <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                      {shippingInfo.days} via {shippingInfo.courierName}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-500">Calculating...</span>
+                  )}
                 </div>
               )}
 

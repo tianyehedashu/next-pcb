@@ -25,6 +25,7 @@ export function OrderTable({
   const router = useRouter();
   const allIds = data.map(order => order.id);
   const allSelected = allIds.length > 0 && allIds.every(id => selectedIds.includes(id));
+  
   const toggleAll = () => {
     if (allSelected) {
       onSelectChange([]);
@@ -32,12 +33,51 @@ export function OrderTable({
       onSelectChange(allIds);
     }
   };
+  
   const toggleOne = (id: string) => {
     if (selectedIds.includes(id)) {
       onSelectChange(selectedIds.filter(i => i !== id));
     } else {
       onSelectChange([...selectedIds, id]);
     }
+  };
+
+  // 获取 PCB 价格
+  const getPcbPrice = (order: Order) => {
+    if (order.cal_values?.pcbPrice) {
+      return `$${order.cal_values.pcbPrice.toFixed(2)}`;
+    }
+    return '-';
+  };
+
+  // 获取 PCB 交期
+  const getPcbLeadTime = (order: Order) => {
+    if (order.cal_values?.leadTimeDays) {
+      return `${order.cal_values.leadTimeDays} days`;
+    }
+    return '-';
+  };
+
+  // 获取管理订单状态
+  const getAdminOrderStatus = (order: Order) => {
+    return order.admin_orders?.status || '-';
+  };
+
+  // 获取管理订单价格
+  const getAdminOrderPrice = (order: Order) => {
+    if (order.admin_orders?.admin_price) {
+      const currency = order.admin_orders.currency || 'USD';
+      return `${currency === 'USD' ? '$' : '¥'}${order.admin_orders.admin_price.toFixed(2)}`;
+    }
+    return '-';
+  };
+
+  // 获取管理订单交期
+  const getAdminOrderLeadTime = (order: Order) => {
+    if (order.admin_orders?.production_days) {
+      return `${order.admin_orders.production_days} days`;
+    }
+    return '-';
   };
 
   return (
@@ -54,6 +94,7 @@ export function OrderTable({
           Delete Selected
         </Button>
       </div>
+      
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1200px]">
           <thead>
@@ -98,14 +139,14 @@ export function OrderTable({
                 </td>
                 <td className="py-2 px-2">{order.type === 'Order' ? 'Order' : 'Inquiry'}</td>
                 <td className="py-2 px-2">{order.status}</td>
-                <td className="py-2 px-2">{order.pcb_price ?? '-'}</td>
-                <td className="py-2 px-2">{order.pcb_lead_time ?? '-'}</td>
-                <td className="py-2 px-2">{order.pcb_status ?? '-'}</td>
-                <td className="py-2 px-2">{order.admin_order_status ?? '-'}</td>
-                <td className="py-2 px-2">{order.admin_order_price ?? '-'}</td>
-                <td className="py-2 px-2">{order.admin_order_lead_time ?? '-'}</td>
+                <td className="py-2 px-2">{getPcbPrice(order)}</td>
+                <td className="py-2 px-2">{getPcbLeadTime(order)}</td>
+                <td className="py-2 px-2">{order.status}</td>
+                <td className="py-2 px-2">{getAdminOrderStatus(order)}</td>
+                <td className="py-2 px-2">{getAdminOrderPrice(order)}</td>
+                <td className="py-2 px-2">{getAdminOrderLeadTime(order)}</td>
                 <td className="py-2 px-2 text-gray-500">{order.created_at ? format(new Date(order.created_at), 'yyyy-MM-dd HH:mm:ss') : '-'}</td>
-                <td className="py-2 px-2 flex gap-2">
+                <td className="py-2 px-2">
                   <Button variant="outline" size="sm" onClick={() => router.push(`/admin/orders/${order.id}`)}>Detail</Button>
                 </td>
               </tr>

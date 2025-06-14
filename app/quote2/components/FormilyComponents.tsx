@@ -420,10 +420,10 @@ export const formilyComponents = {
 
     // 快递公司列表
     const couriers = [
-      { id: "dhl", name: "DHL", icon: "📦", estimatedCost: 25.00, estimatedDays: "3-5" },
-      { id: "fedex", name: "FedEx", icon: "📮", estimatedCost: 28.00, estimatedDays: "2-4" },
-      { id: "ups", name: "UPS", icon: "📫", estimatedCost: 22.00, estimatedDays: "4-6" },
-      { id: "standard", name: "Standard Shipping", icon: "📪", estimatedCost: 15.00, estimatedDays: "7-14" },
+      { id: "dhl", name: "DHL", icon: "📦" },
+      { id: "fedex", name: "FedEx", icon: "📮" },
+      { id: "ups", name: "UPS", icon: "📫" },
+      { id: "standard", name: "Standard Shipping", icon: "📪" },
     ];
 
     const selectedCountry = countries.find(c => c.code === shippingData.country);
@@ -445,10 +445,13 @@ export const formilyComponents = {
             </label>
             <UISelect 
               value={shippingData.country || ""} 
-              onValueChange={(value) => props.onChange?.({
-                ...shippingData,
-                country: value
-              })}
+              onValueChange={(value) => {
+                const newShippingData = {
+                  ...shippingData,
+                  country: value
+                };
+                props.onChange?.(newShippingData);
+              }}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select country">
@@ -480,10 +483,13 @@ export const formilyComponents = {
             </label>
             <UISelect 
               value={shippingData.courier || ""} 
-              onValueChange={(value) => props.onChange?.({
-                ...shippingData,
-                courier: value
-              })}
+              onValueChange={(value) => {
+                const newShippingData = {
+                  ...shippingData,
+                  courier: value
+                };
+                props.onChange?.(newShippingData);
+              }}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select courier">
@@ -509,22 +515,22 @@ export const formilyComponents = {
           </div>
         </div>
 
-        {/* Estimation Result */}
+        {/* Status Display */}
         {shippingData.country && shippingData.courier ? (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-lg">📦</span>
+                <span className="text-lg">✅</span>
                 <span className="text-sm font-medium text-green-700">
-                  Estimated Shipping Cost
+                  Ready for Shipping Calculation
                 </span>
               </div>
               <div className="text-right">
-                <div className="text-lg font-bold text-green-700">
-                  ${selectedCourier?.estimatedCost.toFixed(2) || '0.00'}
+                <div className="text-sm text-green-600">
+                  {selectedCountry?.name} via {selectedCourier?.name}
                 </div>
-                <div className="text-xs text-green-600">
-                  {selectedCourier?.estimatedDays} business days
+                <div className="text-xs text-green-500">
+                  Check Order Summary for precise cost
                 </div>
               </div>
             </div>
@@ -532,14 +538,14 @@ export const formilyComponents = {
         ) : (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
             <div className="text-gray-500 text-sm">
-              Please select country and courier to estimate shipping cost.
+              Please select country and courier to enable shipping cost calculation.
             </div>
           </div>
         )}
 
         {/* Additional Info */}
         <div className="text-xs text-gray-500 text-center mt-3">
-          * Shipping costs are estimates and may vary based on package weight and dimensions.
+          * Precise shipping costs will be calculated based on your PCB specifications and displayed in the Order Summary.
         </div>
       </div>
     );
