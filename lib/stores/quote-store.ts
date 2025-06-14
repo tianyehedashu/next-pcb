@@ -40,6 +40,9 @@ interface CalValues {
   totalPrice: number;
   pcbPrice: number;
   shippingCost: number;
+  shippingWeight: number; // Chargeable weight
+  shippingActualWeight: number;
+  shippingVolumetricWeight: number;
   tax: number;
   discount: number;
   unitPrice: number;
@@ -209,6 +212,9 @@ const DEFAULT_CAL_VALUES: CalValues = {
   totalPrice: 0,
   pcbPrice: 0,
   shippingCost: 0,
+  shippingWeight: 0,
+  shippingActualWeight: 0,
+  shippingVolumetricWeight: 0,
   tax: 0,
   discount: 0,
   unitPrice: 0,

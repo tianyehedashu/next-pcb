@@ -1,5 +1,7 @@
 import type { QuoteFormData as PcbQuoteForm } from '@/app/quote2/schema/quoteSchema';
 import { calculateTotalPcbArea } from './utils/precision';
+import { ShipmentType } from '@/types/form';
+import { shippingZones } from './shipping-constants';
 
 interface Dimensions {
   length: number;
@@ -18,99 +20,6 @@ interface PCBSpecs {
   quantity: number;
   panelCount: number;
 }
-
-interface ShippingZone {
-  name: string;
-  countries: string[];
-  dhl: {
-    baseRate: number;
-    pricePerKg: number;
-    fuelSurcharge: number;
-    peak: number; // 旺季附加费
-  };
-  fedex: {
-    baseRate: number;
-    pricePerKg: number;
-    fuelSurcharge: number;
-    peak: number;
-  };
-  ups: {
-    baseRate: number;
-    pricePerKg: number;
-    fuelSurcharge: number;
-    peak: number;
-  };
-}
-
-// 定义运输区域和各快递公司的价格
-export const shippingZones: ShippingZone[] = [
-  {
-    name: 'Zone 1 - North America',
-    countries: ['us', 'ca'],
-    dhl: {
-      baseRate: 45,
-      pricePerKg: 8.5,
-      fuelSurcharge: 0.16,
-      peak: 0.20
-    },
-    fedex: {
-      baseRate: 48,
-      pricePerKg: 9.0,
-      fuelSurcharge: 0.18,
-      peak: 0.22
-    },
-    ups: {
-      baseRate: 46,
-      pricePerKg: 8.8,
-      fuelSurcharge: 0.17,
-      peak: 0.21
-    }
-  },
-  {
-    name: 'Zone 2 - Europe',
-    countries: ['uk', 'de', 'fr', 'it', 'es', 'nl', 'be', 'ch', 'se', 'no', 'dk', 'fi'],
-    dhl: {
-      baseRate: 50,
-      pricePerKg: 9.5,
-      fuelSurcharge: 0.18,
-      peak: 0.22
-    },
-    fedex: {
-      baseRate: 52,
-      pricePerKg: 10.0,
-      fuelSurcharge: 0.19,
-      peak: 0.23
-    },
-    ups: {
-      baseRate: 51,
-      pricePerKg: 9.8,
-      fuelSurcharge: 0.185,
-      peak: 0.225
-    }
-  },
-  {
-    name: 'Zone 3 - Asia Pacific',
-    countries: ['au', 'jp', 'kr', 'sg', 'my', 'th', 'vn', 'id', 'ph', 'nz', 'cn'],
-    dhl: {
-      baseRate: 40,
-      pricePerKg: 7.5,
-      fuelSurcharge: 0.15,
-      peak: 0.18
-    },
-    fedex: {
-      baseRate: 42,
-      pricePerKg: 8.0,
-      fuelSurcharge: 0.16,
-      peak: 0.19
-    },
-    ups: {
-      baseRate: 41,
-      pricePerKg: 7.8,
-      fuelSurcharge: 0.155,
-      peak: 0.185
-    }
-  }
-];
 
 // 快递服务类型系数
 const serviceTypeMultipliers = {
@@ -211,17 +120,36 @@ export function calculateShippingCost(
   fuelSurcharge: number;
   peakCharge: number;
   finalCost: number;
+  deliveryTime: string;
 } {
-  // 计算实际重量（千克）
-  // 计算总数量
-  let totalCount = 1;
-  if ( specs.shipmentType === 'panel_by_speedx') {
-    totalCount = (specs.panelDimensions?.row || 1) * (specs.panelDimensions?.column || 1) * (specs.panelSet || 0);
-  } else if (specs.shipmentType === 'single') {
-    totalCount = specs.singleCount || 1;
-  } else if (specs.shipmentType === 'panel_by_gerber') {
-    totalCount   = specs.panelSet || 1;
+  // 计算总数量，与 quote-store 保持一致
+  let totalCount = 0;
+  if (specs.shipmentType === ShipmentType.Single) {
+    totalCount = (specs.singleCount || 0) * (specs.differentDesignsCount || 1);
+  } else if (
+    specs.shipmentType === ShipmentType.PanelByGerber ||
+    specs.shipmentType === ShipmentType.PanelBySpeedx
+  ) {
+    const row = specs.panelDimensions?.row ?? 0;
+    const column = specs.panelDimensions?.column ?? 0;
+    const panelSet = specs.panelSet ?? 0;
+    totalCount = row * column * panelSet;
   }
+  
+  // 如果总数为0，则无法计算运费
+  if (totalCount === 0) {
+    return {
+      actualWeight: 0,
+      volumetricWeight: 0,
+      chargeableWeight: 0,
+      baseCost: 0,
+      fuelSurcharge: 0,
+      peakCharge: 0,
+      finalCost: 0,
+      deliveryTime: 'N/A',
+    };
+  }
+
   const singleWeight = calculateSinglePCBWeight(specs);
   const totalWeight = (singleWeight * totalCount) / 1000;
 
@@ -287,6 +215,7 @@ export function calculateShippingCost(
     baseCost: Math.round(baseCost * 100) / 100,
     fuelSurcharge: Math.round(fuelSurcharge * 100) / 100,
     peakCharge: Math.round(peakCharge * 100) / 100,
-    finalCost: Math.round(finalCost * 100) / 100
+    finalCost: Math.round(finalCost * 100) / 100,
+    deliveryTime: courierRates.deliveryTime,
   };
 } 

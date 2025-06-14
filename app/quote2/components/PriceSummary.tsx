@@ -9,6 +9,8 @@ import { useQuoteFormData, useQuoteCalculated } from "@/lib/stores/quote-store";
 import { calculateLeadTime } from '@/lib/stores/quote-calculations';
 import { useQuoteStore } from "@/lib/stores/quote-store";
 import { useExchangeRate } from '@/lib/hooks/useExchangeRate';
+import { calculateShippingCost } from "@/lib/shipping-calculator";
+import { QuoteFormData as PcbQuoteForm } from "@/app/quote2/schema/quoteSchema";
 
 interface PriceBreakdown {
   totalPrice: number;
@@ -18,6 +20,16 @@ interface PriceBreakdown {
   minOrderQty: number;
   leadTime: string;
   totalCount: number;
+}
+
+interface ShippingInfo {
+  cost: number;
+  days: string;
+  courierName: string;
+  weight: number; // Chargeable weight
+  actualWeight: number;
+  volumetricWeight: number;
+  error: string | null;
 }
 
 export default function PriceSummary() {
@@ -47,20 +59,6 @@ export default function PriceSummary() {
     }
   }, [isClient, cnyToUsdRate]);
 
-  // 获取运费的辅助函数 - 移到 useMemo 之前（运费已经是USD）
-  const getShippingCost = (courier?: string): number => {
-    if (!courier) return 0;
-    
-    const courierCosts: Record<string, number> = {
-      "dhl": 25.00,   // USD
-      "fedex": 28.00, // USD
-      "ups": 22.00,   // USD
-      "standard": 15.00, // USD
-    };
-    
-    return courierCosts[courier] || 0;
-  };
-
   // CNY 转 USD 的辅助函数 - 使用实时汇率
   const convertCnyToUsd = (cnyAmount: number): number => {
     // 如果汇率无效，使用默认汇率 0.14
@@ -68,28 +66,46 @@ export default function PriceSummary() {
     return cnyAmount * rate;
   };
 
-  // 获取运费信息的辅助函数 - 移到 useMemo 之前
-  const getShippingInfo = () => {
-    const courier = formData.shippingCostEstimation?.courier;
-    const country = formData.shippingCostEstimation?.country;
-    
-    if (!courier || !country) {
+  // 运费计算逻辑
+  const shippingInfo = useMemo((): ShippingInfo => {
+    if (!isClient || !formData.shippingAddress?.courier || !formData.shippingAddress?.country) {
+      return { cost: 0, days: "", courierName: "", weight: 0, actualWeight: 0, volumetricWeight: 0, error: null };
+    }
+
+    try {
+      // 确保 formData 符合 PcbQuoteForm 类型
+      const pcbFormData = formData as PcbQuoteForm;
+      const { finalCost, deliveryTime, chargeableWeight, actualWeight, volumetricWeight } = calculateShippingCost(pcbFormData);
+      
+      const courier = formData.shippingAddress.courier;
+      const courierInfo: Record<string, { courierName: string }> = {
+        "dhl": { courierName: "DHL" },
+        "fedex": { courierName: "FedEx" },
+        "ups": { courierName: "UPS" },
+        "standard": { courierName: "Standard Shipping" },
+      };
+      
+      return {
+        cost: finalCost,
+        days: deliveryTime,
+        courierName: courierInfo[courier]?.courierName || courier,
+        weight: chargeableWeight,
+        actualWeight: actualWeight,
+        volumetricWeight: volumetricWeight,
+        error: null,
+      };
+    } catch (e) {
       return {
         cost: 0,
-        days: "",
-        courierName: ""
+        days: "N/A",
+        courierName: formData.shippingAddress.courier,
+        weight: 0,
+        actualWeight: 0,
+        volumetricWeight: 0,
+        error: e instanceof Error ? e.message : "Shipping calculation failed",
       };
     }
-    
-    const courierInfo: Record<string, { courierName: string; days: string; cost: number }> = {
-      "dhl": { courierName: "DHL", days: "3-5", cost: 25.00 },
-      "fedex": { courierName: "FedEx", days: "2-4", cost: 28.00 },
-      "ups": { courierName: "UPS", days: "4-6", cost: 22.00 },
-      "standard": { courierName: "Standard Shipping", days: "7-14", cost: 15.00 },
-    };
-    
-    return courierInfo[courier] || { cost: 0, days: "", courierName: "" };
-  };
+  }, [formData, isClient]);
 
   // 使用 calcPcbPriceV3 进行价格计算（只做纯计算，不做副作用）
   const priceBreakdown = useMemo((): PriceBreakdown => {
@@ -116,7 +132,6 @@ export default function PriceSummary() {
       const pcbCostUsd = convertCnyToUsd(total); // 转换为 USD
       const unitPrice = totalCount > 0 ? pcbCostUsd / totalCount : 0;
       const leadTimeResult = calculateLeadTime(formData, new Date(), formData.delivery);
-      const shippingCost = getShippingCost(formData.shippingCostEstimation?.courier); // 已经是 USD
       
       // 转换detail中的价格
       const detailUsd: Record<string, number> = {};
@@ -129,7 +144,7 @@ export default function PriceSummary() {
         unitPrice,
         detail: {
           "PCB Cost": pcbCostUsd,
-          "Shipping": shippingCost,
+          "Shipping": shippingInfo.cost,
           "Tax": 0,
           "Discount": 0,
           ...detailUsd
@@ -156,7 +171,7 @@ export default function PriceSummary() {
         totalCount: 0
       };
     }
-  }, [formData, calculated.totalQuantity, isClient, cnyToUsdRate]);
+  }, [formData, calculated.totalQuantity, isClient, cnyToUsdRate, shippingInfo]);
 
   // 计算 calValues 并写入 store（副作用）
   useEffect(() => {
@@ -167,9 +182,12 @@ export default function PriceSummary() {
       const pcbCostUsd = convertCnyToUsd(total); // 转换为 USD
       const unitPrice = totalCount > 0 ? pcbCostUsd / totalCount : 0;
       const leadTimeResult = calculateLeadTime(formData, new Date(), formData.delivery);
-      const shippingCost = getShippingCost(formData.shippingCostEstimation?.courier); // 已经是 USD
-      const courier = formData.shippingCostEstimation?.courier || "";
-      const courierDays = getShippingInfo().days || "";
+      const shippingCost = shippingInfo.cost;
+      const shippingWeight = shippingInfo.weight;
+      const actualWeight = shippingInfo.actualWeight;
+      const volumetricWeight = shippingInfo.volumetricWeight;
+      const courier = formData.shippingAddress?.courier || "";
+      const courierDays = shippingInfo.days || "";
       const estimatedFinishDate = getRealDeliveryDate(new Date(), leadTimeResult.cycleDays).toISOString().slice(0, 10);
 
       // 转换detail中的价格为USD
@@ -182,6 +200,9 @@ export default function PriceSummary() {
         totalPrice: pcbCostUsd + shippingCost, // 总价：PCB(USD) + 运费(USD)
         pcbPrice: pcbCostUsd, // PCB价格转换为USD
         shippingCost, // 运费已经是USD
+        shippingWeight,
+        shippingActualWeight: actualWeight,
+        shippingVolumetricWeight: volumetricWeight,
         tax: 0,
         discount: 0,
         unitPrice, // 单价基于USD
@@ -203,9 +224,7 @@ export default function PriceSummary() {
     } catch {
       // 可选：错误处理
     }
-  }, [formData, calculated.totalQuantity, isClient, calculated.singlePcbArea, calculated.totalArea, setCalValues, cnyToUsdRate]);
-
-  const shippingInfo = getShippingInfo();
+  }, [formData, calculated.totalQuantity, isClient, calculated.singlePcbArea, calculated.totalArea, setCalValues, cnyToUsdRate, shippingInfo]);
 
   // 获取生产周期信息
   const getProductionCycle = () => {
@@ -293,6 +312,8 @@ export default function PriceSummary() {
             <span className="text-blue-600 font-medium">Shipping</span>
             {!isClient ? (
               <span className="text-gray-400 text-sm italic">Loading...</span>
+            ) : shippingInfo.error ? (
+              <span className="text-red-500 text-sm italic" title={shippingInfo.error}>Calculation Error</span>
             ) : shippingInfo.cost === 0 ? (
               <span className="text-gray-400 text-sm italic">Select courier to calculate</span>
             ) : (
@@ -339,7 +360,7 @@ export default function PriceSummary() {
             {isClient && shippingInfo.cost > 0 && shippingInfo.courierName && (
               <div className="flex justify-between items-center mt-1">
                 <span className="text-sm text-gray-500">via {shippingInfo.courierName}</span>
-                <span className="text-sm text-gray-600">{shippingInfo.days} days</span>
+                <span className="text-sm text-gray-600">{shippingInfo.days} </span>
               </div>
             )}
           </div>
@@ -546,38 +567,6 @@ export default function PriceSummary() {
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="pt-4 border-t border-gray-200 space-y-3">
-          {/* Save as Draft Button */}
-          <Button
-            variant="outline"
-            onClick={() => {
-              // TODO: Implement save as draft functionality
-              console.log('Saving as draft...');
-            }}
-            className="w-full"
-            disabled={!isClient || calculated.totalQuantity === 0}
-          >
-            Save as Draft
-          </Button>
-
-          {/* Request Quote Button */}
-          <Button
-            onClick={() => {
-              // TODO: Implement request quote functionality
-              console.log('Requesting quote...');
-            }}
-            className="w-full bg-blue-600 hover:bg-blue-700"
-            disabled={!isClient || calculated.totalQuantity === 0}
-          >
-            Request Quote
-            {isClient && calculated.totalQuantity > 0 && (
-              <span className="ml-2 text-blue-100">
-                (${priceBreakdown.totalPrice.toFixed(2)})
-              </span>
-            )}
-          </Button>
-        </div>
 
         {/* Disclaimer */}
         <div className="text-sm text-gray-500 text-center">
@@ -626,6 +615,36 @@ export default function PriceSummary() {
                 <span className="text-gray-400 italic">-</span>
               ) : (
                 <span className="font-medium">{isClient ? `${calculated.totalArea.toFixed(4)} m²` : 'Loading...'}</span>
+              )}
+            </div>
+            <div className="flex justify-between col-span-2">
+              <span className="text-gray-600">Chargeable Weight:</span>
+              {!isClient ? (
+                <span className="text-gray-400 italic">Loading...</span>
+              ) : shippingInfo.weight > 0 ? (
+                <span className="font-medium">{shippingInfo.weight.toFixed(2)} kg</span>
+              ) : (
+                <span className="text-gray-400 italic">-</span>
+              )}
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Actual Weight:</span>
+              {!isClient ? (
+                <span className="text-gray-400 italic">Loading...</span>
+              ) : shippingInfo.actualWeight > 0 ? (
+                <span className="font-medium">{shippingInfo.actualWeight.toFixed(2)} kg</span>
+              ) : (
+                <span className="text-gray-400 italic">-</span>
+              )}
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Volume Weight:</span>
+              {!isClient ? (
+                <span className="text-gray-400 italic">Loading...</span>
+              ) : shippingInfo.volumetricWeight > 0 ? (
+                <span className="font-medium">{shippingInfo.volumetricWeight.toFixed(2)} kg</span>
+              ) : (
+                <span className="text-gray-400 italic">-</span>
               )}
             </div>
           </div>
