@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Order } from '../types/order';
 import { OrderTable } from '../components/OrderTable';
 import { OrderDetailModal } from '../components/OrderDetailModal';
@@ -26,6 +26,8 @@ export default function AdminOrdersPage() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sortField, setSortField] = useState<string>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // 获取订单
   const fetchOrders = useCallback(async () => {
@@ -66,6 +68,44 @@ export default function AdminOrdersPage() {
     }
   }, [filter, pagination.page, pagination.pageSize]);
 
+  // 前端排序函数
+  const sortOrders = useCallback((orders: Order[], field: string, direction: 'asc' | 'desc') => {
+    return [...orders].sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+
+      switch (field) {
+        case 'created_at':
+          aValue = new Date(a.created_at).getTime();
+          bValue = new Date(b.created_at).getTime();
+          break;
+        case 'status':
+          aValue = a.status || '';
+          bValue = b.status || '';
+          break;
+        case 'email':
+          aValue = a.email || '';
+          bValue = b.email || '';
+          break;
+        case 'type':
+          aValue = a.type || '';
+          bValue = b.type || '';
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, []);
+
+  // 获取排序后的订单列表
+  const sortedOrders = useMemo(() => {
+    return sortOrders(orders, sortField, sortDirection);
+  }, [orders, sortField, sortDirection, sortOrders]);
+
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
@@ -84,6 +124,19 @@ export default function AdminOrdersPage() {
   // 分页切换
   const handlePageChange = (page: number) => {
     setPagination(p => ({ ...p, page }));
+  };
+
+  // 处理排序
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      // 如果点击的是当前排序字段，切换排序方向
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // 如果点击的是新字段，设置为该字段并默认降序
+      setSortField(field);
+      setSortDirection('desc');
+    }
+    // 前端排序不需要重置页面
   };
 
   // 批量删除订单
@@ -144,11 +197,14 @@ export default function AdminOrdersPage() {
         </div>
         <div className="overflow-x-auto rounded-xl shadow-lg bg-white">
           <OrderTable
-            data={orders}
+            data={sortedOrders}
             selectedIds={selectedOrderIds}
             onSelectChange={setSelectedOrderIds}
             onDeleteSelected={() => setDeleteDialogOpen(true)}
             deleting={deleting}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onSort={handleSort}
           />
         </div>
         <div className="flex justify-center mt-8">

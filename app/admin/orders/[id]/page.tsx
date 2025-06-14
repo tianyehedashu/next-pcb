@@ -90,11 +90,25 @@ export default function AdminOrderDetailPage() {
       const data: Order = await response.json();
       setOrder(data);
       if (data.pcb_spec && typeof data.pcb_spec === 'object') {
-        const result = quoteSchema.safeParse(data.pcb_spec);
+        // 将顶层的 shipping_address 合并到 pcb_spec 中，以便表单和计算函数可以访问它
+        const specForForm = {
+          ...data.pcb_spec,
+          shippingAddress: data.shipping_address || (data.pcb_spec as any).shippingAddress,
+        };
+
+        let result = quoteSchema.safeParse(specForForm);
+
+        // 如果合并后解析失败，则回退到原始 pcb_spec
+        if (!result.success) {
+          console.error("解析合并的 pcb_spec 失败，正在回退:", result.error);
+          result = quoteSchema.safeParse(data.pcb_spec);
+        }
+        
         if (result.success) {
           setPcbFormData(result.data);
         } else {
           setPcbFormData(null);
+          console.error("解析 pcb_spec 失败:", result.error);
         }
       } else {
         setPcbFormData(null);
@@ -297,7 +311,7 @@ export default function AdminOrderDetailPage() {
       setShowCalculationNotes(true);
       
       toast.success(`🔧 PCB价格计算完成`, {
-        description: `PCB价格：¥${pcb_price}，总价已更新：¥${cny_price}`,
+        description: `PCB价格：¥${Number(pcb_price).toFixed(2)}，总价已更新：¥${Number(cny_price).toFixed(2)}`,
         duration: 3000
       });
       
@@ -347,7 +361,7 @@ export default function AdminOrderDetailPage() {
                 `基础运费：$${shippingResult.baseCost.toFixed(2)}`,
                 `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}`,
                 `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`,
-                `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`
+                `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${Number(finalShippingCost).toFixed(2)})`
               ]
             });
             
@@ -362,7 +376,7 @@ export default function AdminOrderDetailPage() {
             ]);
             
             toast.success(`📅 交期和运费计算完成`, {
-              description: `交期：${newProductionDays}天（${deliveryDate}）\n运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`,
+              description: `交期：${newProductionDays}天（${deliveryDate}）\n运费：$${shippingResult.finalCost.toFixed(2)} (¥${Number(finalShippingCost).toFixed(2)})`,
               duration: 3000
             });
           }).catch(() => {
@@ -395,7 +409,7 @@ export default function AdminOrderDetailPage() {
         weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
         costBreakdown: [
           `包裹类型：${shippingDetails}`,
-          `估算运费：¥${estimatedShippingCost}`
+          `估算运费：¥${Number(estimatedShippingCost).toFixed(2)}`
         ]
       });
       
@@ -447,7 +461,7 @@ export default function AdminOrderDetailPage() {
     ]);
     
     toast.success(`📅 交期和运费估算完成`, {
-      description: `交期：${newProductionDays}天（${deliveryDate}）\n运费估算：¥${estimatedShippingCost}${shippingDetails ? ` (${shippingDetails})` : ''}`,
+      description: `交期：${newProductionDays}天（${deliveryDate}）\n运费估算：¥${Number(estimatedShippingCost).toFixed(2)}${shippingDetails ? ` (${shippingDetails})` : ''}`,
       duration: 3000
     });
     setShowDeliveryNotes(true);
@@ -483,7 +497,7 @@ export default function AdminOrderDetailPage() {
               `基础运费：$${shippingResult.baseCost.toFixed(2)}`,
               `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}`,
               `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`,
-              `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})`
+              `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${Number(finalShippingCost).toFixed(2)})`
             ]
           });
           setShowShippingNotes(true);
@@ -497,7 +511,7 @@ export default function AdminOrderDetailPage() {
           ]);
           
           toast.success(`🚚 运费计算完成`, {
-            description: `运费：$${shippingResult.finalCost.toFixed(2)} (¥${finalShippingCost})\n快递：${courierDisplay?.toUpperCase()} → ${countryDisplay}`,
+            description: `运费：$${shippingResult.finalCost.toFixed(2)} (¥${Number(finalShippingCost).toFixed(2)})\n快递：${courierDisplay?.toUpperCase()} → ${countryDisplay}`,
             duration: 3000
           });
         }).catch((error) => {
@@ -535,7 +549,7 @@ export default function AdminOrderDetailPage() {
         weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
         costBreakdown: [
           `包裹类型：${shippingDetails}`,
-          `估算运费：¥${estimatedShippingCost}`
+          `估算运费：¥${Number(estimatedShippingCost).toFixed(2)}`
         ]
       });
       setShowShippingNotes(true);
@@ -549,7 +563,7 @@ export default function AdminOrderDetailPage() {
       ]);
       
       toast.success(`🚚 运费估算完成`, {
-        description: `运费：¥${estimatedShippingCost} (${shippingDetails})\nPCB面积：${totalArea.toFixed(4)}㎡`,
+        description: `运费：¥${Number(estimatedShippingCost).toFixed(2)} (${shippingDetails})\nPCB面积：${totalArea.toFixed(4)}㎡`,
         duration: 3000
       });
       
@@ -1056,48 +1070,57 @@ export default function AdminOrderDetailPage() {
                       <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
                         <div className="text-sm text-emerald-600 font-medium mb-1">总价</div>
                         <div className="text-2xl font-bold text-emerald-700">
-                          ${(order.cal_values as any)?.totalPrice || order.cal_values.price || '0'}
+                          ${Number((order.cal_values as any)?.totalPrice || (order.cal_values as any)?.price || 0).toFixed(2)}
                         </div>
                       </div>
                       
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                         <div className="text-sm text-blue-600 font-medium mb-1">PCB价格</div>
                         <div className="text-xl font-bold text-blue-700">
-                          ${(order.cal_values as any)?.pcbPrice || order.cal_values.price || '0'}
+                          ${Number(order.cal_values.pcbPrice || 0).toFixed(2)}
                         </div>
                       </div>
                       
                       <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
                         <div className="text-sm text-purple-600 font-medium mb-1">单价</div>
                         <div className="text-xl font-bold text-purple-700">
-                          ${(order.cal_values as any)?.unitPrice || (order.cal_values.price && order.cal_values.totalQuantity ? (order.cal_values.price / order.cal_values.totalQuantity).toFixed(2) : '0')}
+                          ${Number(order.cal_values.unitPrice || 0).toFixed(2)}
                         </div>
                       </div>
                       
                       <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
                         <div className="text-sm text-orange-600 font-medium mb-1">数量</div>
                         <div className="text-xl font-bold text-orange-700">
-                          {(order.cal_values as any)?.totalCount || order.cal_values.totalQuantity || '0'} 片
+                          {(order.cal_values as any)?.totalCount || (order.cal_values as any)?.totalQuantity || '0'} 片
                         </div>
                       </div>
                       
                       <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-100">
                         <div className="text-sm text-cyan-600 font-medium mb-1">面积</div>
                         <div className="text-xl font-bold text-cyan-700">
-                          {order.cal_values.totalArea || '0'} ㎡
+                          {Number(order.cal_values.totalArea || 0).toFixed(4)} ㎡
                         </div>
                       </div>
                       
                       <div className="bg-pink-50 p-4 rounded-lg border border-pink-100">
                         <div className="text-sm text-pink-600 font-medium mb-1">交期</div>
                         <div className="text-xl font-bold text-pink-700">
-                          {order.cal_values.leadTimeDays || '0'} 天
+                          {(order.cal_values as any)?.leadTimeDays || '0'} 天
                         </div>
                       </div>
+                      
+                      {(order.cal_values as any)?.shippingActualWeight && (
+                        <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                          <div className="text-sm text-indigo-600 font-medium mb-1">运费重量</div>
+                          <div className="text-xl font-bold text-indigo-700">
+                            {Number((order.cal_values as any).shippingActualWeight).toFixed(3)} kg
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* 其他详细信息 */}
-                    {order.cal_values.priceDetail && (
+                    {(order.cal_values as any)?.priceDetail && (
                       <div>
                         <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                           📊 费用分解
@@ -1105,15 +1128,15 @@ export default function AdminOrderDetailPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                             <span className="text-gray-600">基础价格</span>
-                            <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.basePrice || '0'}</span>
+                            <span className="font-semibold text-gray-900">¥{Number((order.cal_values as any)?.priceDetail?.basePrice || 0).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                             <span className="text-gray-600">测试费用</span>
-                            <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.testMethod || '0'}</span>
+                            <span className="font-semibold text-gray-900">¥{Number((order.cal_values as any)?.priceDetail?.testMethod || 0).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                             <span className="text-gray-600">工程费用</span>
-                            <span className="font-semibold text-gray-900">¥{order.cal_values.priceDetail.engFee || '0'}</span>
+                            <span className="font-semibold text-gray-900">¥{Number((order.cal_values as any)?.priceDetail?.engFee || 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 
 interface OrderTableProps {
   data: Order[];
@@ -13,6 +14,9 @@ interface OrderTableProps {
   onSelectChange: (ids: string[]) => void;
   onDeleteSelected: () => void;
   deleting?: boolean;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  onSort?: (field: string) => void;
 }
 
 export function OrderTable({
@@ -21,6 +25,9 @@ export function OrderTable({
   onSelectChange,
   onDeleteSelected,
   deleting = false,
+  sortField,
+  sortDirection,
+  onSort,
 }: OrderTableProps) {
   const router = useRouter();
   const allIds = data.map(order => order.id);
@@ -39,6 +46,27 @@ export function OrderTable({
       onSelectChange(selectedIds.filter(i => i !== id));
     } else {
       onSelectChange([...selectedIds, id]);
+    }
+  };
+
+  // 渲染排序图标
+  const renderSortIcon = (field: string) => {
+    if (!onSort) return null;
+    
+    if (sortField === field) {
+      return sortDirection === 'asc' ? (
+        <ChevronUp className="w-4 h-4" />
+      ) : (
+        <ChevronDown className="w-4 h-4" />
+      );
+    }
+    return <ChevronsUpDown className="w-4 h-4 opacity-50" />;
+  };
+
+  // 处理排序点击
+  const handleSort = (field: string) => {
+    if (onSort) {
+      onSort(field);
     }
   };
 
@@ -102,16 +130,48 @@ export function OrderTable({
               <th className="py-3 px-2 text-left font-semibold text-gray-700">
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} />
               </th>
-              <th className="py-3 px-2 text-left font-semibold text-gray-700">User</th>
-              <th className="py-3 px-2 text-left font-semibold text-gray-700">Type</th>
-              <th className="py-3 px-2 text-left font-semibold text-gray-700">Status</th>
+              <th 
+                className={`py-3 px-2 text-left font-semibold text-gray-700 ${onSort ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
+                onClick={() => handleSort('email')}
+              >
+                <div className="flex items-center gap-1">
+                  User
+                  {renderSortIcon('email')}
+                </div>
+              </th>
+              <th 
+                className={`py-3 px-2 text-left font-semibold text-gray-700 ${onSort ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
+                onClick={() => handleSort('type')}
+              >
+                <div className="flex items-center gap-1">
+                  Type
+                  {renderSortIcon('type')}
+                </div>
+              </th>
+              <th 
+                className={`py-3 px-2 text-left font-semibold text-gray-700 ${onSort ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
+                onClick={() => handleSort('status')}
+              >
+                <div className="flex items-center gap-1">
+                  Status
+                  {renderSortIcon('status')}
+                </div>
+              </th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">PCB Price</th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">PCB Lead Time</th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">PCB Status</th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">Admin Order Status</th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">Admin Order Price</th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">Admin Order Lead Time</th>
-              <th className="py-3 px-2 text-left font-semibold text-gray-700">Created</th>
+              <th 
+                className={`py-3 px-2 text-left font-semibold text-gray-700 ${onSort ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
+                onClick={() => handleSort('created_at')}
+              >
+                <div className="flex items-center gap-1">
+                  Created
+                  {renderSortIcon('created_at')}
+                </div>
+              </th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">Actions</th>
             </tr>
           </thead>
