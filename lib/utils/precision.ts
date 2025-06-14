@@ -83,9 +83,14 @@ export function formatArea(area: number): string {
 
 /**
  * 统一的PCB总面积计算函数
- * 支持single、panel_by_gerber、panel_by_speedx三种出货方式
- * @param form 包含shipmentType、singleDimensions、singleCount、panelDimensions、panelSet、panelRow、panelColumn、border、breakAwayRail等字段
- * @returns { singleArea: number; totalArea: number } 单片面积和总面积（单位m²）
+ * @description 根据不同的出货方式（Single, Panel by Gerber, Panel by SpeedX）计算单片面积和总面积。
+ * - **Single**: 直接使用单片尺寸和数量计算总面积。`singleArea` 返回的是单片PCB的面积。
+ * - **Panel by SpeedX**: 此方式下，函数会首先根据单片的尺寸、拼版的行列数以及指定的工艺边（breakAwayRail 和 border）计算出 **整个拼版（含工艺边）** 的尺寸。然后将这个拼版的面积作为 `singleArea` 返回。总面积 `totalArea` 则是这个拼版面积乘以拼版套数（panelSet）。
+ * - **Panel by Gerber**: 此方式下，`singleArea` 返回的是单片PCB的面积（基于 singleDimensions）。总面积 `totalArea` 则是这个单片面积乘以拼版套数（panelSet），这个计算假设一套拼版中只含一个单片设计，或Gerber文件本身已处理好布局。
+ * @param form 包含出货所需参数的表单数据对象。
+ * @returns {{singleArea: number, totalArea: number}}
+ * - `singleArea`: 单片面积（m²）。请注意，对于 `PanelBySpeedx`，这代表的是 **整个拼版** 的面积。
+ * - `totalArea`: 基于上述逻辑计算的总面积（m²）。
  */
 export function calculateTotalPcbArea(form: {
   shipmentType: string;
@@ -104,8 +109,8 @@ export function calculateTotalPcbArea(form: {
     singleCount = 0,
     panelDimensions = {},
     panelSet = 0,
-    border = 'None',
-    breakAwayRail = 'None',
+    border = BorderType.Five,
+    breakAwayRail = BreakAwayRail.None,
   } = form;
 
   // 工艺边宽度辅助函数
@@ -121,11 +126,11 @@ export function calculateTotalPcbArea(form: {
     length = length * (panelDimensions.row || 1); 
     width = width * (panelDimensions.column || 1);
     const borderWidth = getBorderWidth(border); // 已经是mm单位
-    if (breakAwayRail !== 'None') {
-      if (breakAwayRail === 'TopBottom' || breakAwayRail === 'All') {
+    if (breakAwayRail !== BreakAwayRail.None) {
+      if (breakAwayRail === BreakAwayRail.TopBottom || breakAwayRail === BreakAwayRail.All) {
         length += 2 * borderWidth;
       }
-      if (breakAwayRail === 'LeftRight' || breakAwayRail === 'All') {
+      if (breakAwayRail === BreakAwayRail.LeftRight || breakAwayRail === BreakAwayRail.All) {
         width += 2 * borderWidth;
       }
     }

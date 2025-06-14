@@ -8,7 +8,6 @@ import { getRealDeliveryDate } from "@/lib/productCycleCalc-v3";
 import { useQuoteFormData, useQuoteCalculated } from "@/lib/stores/quote-store";
 import { calculateLeadTime } from '@/lib/stores/quote-calculations';
 import { useQuoteStore } from "@/lib/stores/quote-store";
-import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
 import { useExchangeRate } from '@/lib/hooks/useExchangeRate';
 
 interface PriceBreakdown {
@@ -208,34 +207,6 @@ export default function PriceSummary() {
 
   const shippingInfo = getShippingInfo();
 
-  // 专门的调试函数
-  const debugQuantityCalculation = () => {
-    console.log('=== Quantity Calculation Debug ===');
-    console.log('Form Data:', {
-      shipmentType: formData.shipmentType,
-      singleCount: formData.singleCount,
-      panelSet: formData.panelSet,
-      panelDimensions: formData.panelDimensions
-    });
-    
-    // 手动计算 totalCount
-    let manualTotalCount = 0;
-    if (formData.shipmentType === 'single') {
-      manualTotalCount = formData.singleCount || 0;
-    } else if (formData.shipmentType === 'panel_by_gerber' || formData.shipmentType === 'panel_by_speedx') {
-      manualTotalCount = (formData.panelDimensions?.row || 1) * (formData.panelDimensions?.column || 1) * (formData.panelSet || 0);
-    }
-    
-    console.log('Manual Total Count:', manualTotalCount);
-    console.log('Store Calculated Total Quantity:', calculated.totalQuantity);
-    
-    // 直接调用 calcProductionCycle 来测试
-    const testResult = calcProductionCycle(formData, new Date(), 'standard');
-    console.log('Direct calcProductionCycle result:', testResult);
-    
-    return manualTotalCount;
-  };
-
   // 获取生产周期信息
   const getProductionCycle = () => {
     if (!isClient) {
@@ -249,12 +220,9 @@ export default function PriceSummary() {
         }
       };
     }
-
-    // 调用调试函数
-    const manualTotalCount = debugQuantityCalculation();
     
     // 检查数量是否为0
-    if (manualTotalCount === 0) {
+    if (calculated.totalQuantity === 0) {
       return {
         standard: {
           type: "Standard",
@@ -272,20 +240,22 @@ export default function PriceSummary() {
     const standardFinish = getRealDeliveryDate(now, leadTimeData.cycleDays);
     
     // 添加调试信息
-    console.log('Production Cycle Debug:', {
-      totalQuantity: calculated.totalQuantity,
-      singleCount: formData.singleCount,
-      shipmentType: formData.shipmentType,
-      panelSet: formData.panelSet,
-      panelDimensions: formData.panelDimensions,
-      leadTimeData,
-      cycleDays: leadTimeData.cycleDays,
-      storeState: {
-        hasHydrated: useQuoteStore.persist.hasHydrated(),
-        isDirty: useQuoteStore.getState().isDirty,
-        hasChanges: useQuoteStore.getState().hasChanges
-      }
-    });
+    if (process.env.NODE_ENV === 'development') {
+        console.log('Production Cycle Debug:', {
+        totalQuantity: calculated.totalQuantity,
+        singleCount: formData.singleCount,
+        shipmentType: formData.shipmentType,
+        panelSet: formData.panelSet,
+        panelDimensions: formData.panelDimensions,
+        leadTimeData,
+        cycleDays: leadTimeData.cycleDays,
+        storeState: {
+            hasHydrated: useQuoteStore.persist.hasHydrated(),
+            isDirty: useQuoteStore.getState().isDirty,
+            hasChanges: useQuoteStore.getState().hasChanges
+        }
+        });
+    }
     
     return {
       standard: {

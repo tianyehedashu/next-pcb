@@ -229,9 +229,15 @@ const DEFAULT_CAL_VALUES: CalValues = {
 const calculateProperties = (formData: QuoteFormData): CalculatedProperties => {
   let totalQuantity = 0;
   if (formData.shipmentType === ShipmentType.Single) {
-    totalQuantity = formData.singleCount || 0;
-  } else if (formData.shipmentType === ShipmentType.PanelByGerber || formData.shipmentType === ShipmentType.PanelBySpeedx) {
-    totalQuantity = (formData.panelDimensions?.row || 1) * (formData.panelDimensions?.column || 1) * (formData.panelSet || 0);
+    totalQuantity = (formData.singleCount || 0) * (formData.differentDesignsCount || 1);
+  } else if (
+    formData.shipmentType === ShipmentType.PanelByGerber ||
+    formData.shipmentType === ShipmentType.PanelBySpeedx
+  ) {
+    const row = formData.panelDimensions?.row ?? 0;
+    const column = formData.panelDimensions?.column ?? 0;
+    const panelSet = formData.panelSet ?? 0;
+    totalQuantity = row * column * panelSet;
   }
   const { singleArea, totalArea } = calculateTotalPcbArea(formData);
   return {
