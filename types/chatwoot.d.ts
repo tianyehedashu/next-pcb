@@ -1,37 +1,34 @@
+export interface ChatwootSDK {
+  run: (config: { websiteToken: string; baseUrl: string }) => void;
+  setUser: (identifier: string, user: { name?: string; email?: string; avatar_url?: string }) => void;
+  setCustomAttributes: (attributes: Record<string, string | number>) => void;
+  toggle: (state?: 'open' | 'close') => void;
+  setLocale: (locale: string) => void;
+  reset: () => void;
+  [key: string]: unknown;
+}
+
 export interface ChatwootSettings {
-    hideMessageBubble?: boolean;
-    position?: 'left' | 'right';
-    locale?: string;
-    type?: 'standard' | 'expanded_bubble';
-    launcherTitle?: string;
-    showPopoutButton?: boolean;
+  hideMessageBubble?: boolean;
+  position?: 'left' | 'right';
+  locale?: string;
+  type?: 'standard' | 'expanded_bubble';
+  launcherTitle?: string;
+  showPopoutButton?: boolean;
+}
+
+export interface ChatwootUser {
+  identifier?: string;
+  name?: string;
+  email?: string;
+  avatar_url?: string;
+  phone_number?: string;
+}
+
+declare global {
+  interface Window {
+    chatwootSDK?: ChatwootSDK;
+    $chatwoot?: ChatwootSDK;
+    chatwootSettings?: ChatwootSettings;
   }
-  
-  export interface ChatwootSDK {
-    run: (config: { websiteToken: string; baseUrl: string }) => void;
-    toggle: (state?: 'open' | 'close') => void;
-    popoutChatWindow: () => void;
-    setUser: (user: ChatwootUser) => void;
-    setCustomAttributes: (attributes: Record<string, any>) => void;
-    deleteCustomAttribute: (key: string) => void;
-    setLabel: (label: string) => void;
-    removeLabel: (label: string) => void;
-    setLocale: (locale: string) => void;
-    reset: () => void;
-  }
-  
-  export interface ChatwootUser {
-    identifier?: string;
-    name?: string;
-    email?: string;
-    avatar_url?: string;
-    phone_number?: string;
-  }
-  
-  declare global {
-    interface Window {
-      chatwootSettings?: ChatwootSettings;
-      chatwootSDK?: ChatwootSDK;
-      $chatwoot?: ChatwootSDK;
-    }
-  }
+}

@@ -3,6 +3,8 @@
 import { useBridgeUser } from '@/lib/userStore';
 import { ReactNode, useEffect } from 'react';
 import { checkVersion } from '@/lib/versionCheck';
+import { ChatwootUserSyncer } from './ChatwootUserSyncer';
+import ChatwootWidget from './ChatwootWidget';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -15,11 +17,11 @@ export default function Providers({ children }: ProvidersProps) {
     checkVersion();
   }, []);
 
-  // 可以在这里添加其他客户端 Provider，比如主题 Provider 等
-
   return (
     <>
       {children}
+      <ChatwootUserSyncer />
+      <ChatwootWidget />
     </>
   );
 } 

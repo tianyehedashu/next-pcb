@@ -1,91 +1,87 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { CHATWOOT_CONFIG } from '@/lib/chatwoot';
-import { ChatwootSDK, ChatwootSettings } from '@/types/chatwoot';
-import { FloatingCustomerServiceButton } from '@/components/FloatingCustomerServiceButton';
+import { createContext, useContext, useEffect, useState, ReactNode, useMemo, useRef } from 'react';
+import { loadChatwootSdk } from '@/lib/chatwoot-sdk-loader';
+import { CHATWOOT_CONFIG } from '@/lib/constants/chatwoot';
+import type { ChatwootSDK } from '@/types/chatwoot';
 
-declare global {
-  interface Window {
-    chatwootSettings?: ChatwootSettings;
-    chatwootSDK?: ChatwootSDK;
-    $chatwoot?: ChatwootSDK;
-  }
+interface ChatwootContextType {
+  sdk: ChatwootSDK | null;
+  isLoading: boolean;
+  error: Error | null;
 }
 
-export const ChatwootProvider = () => {
-  const isLoaded = useRef(false);
+const ChatwootContext = createContext<ChatwootContextType | undefined>(undefined);
+
+export function ChatwootProvider({ children }: { children: ReactNode }) {
+  const [sdk, setSdk] = useState<ChatwootSDK | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const initializationRef = useRef<boolean>(false);
 
   useEffect(() => {
-    // 检查是否已经加载过，防止重复执行
-    if (isLoaded.current || window.$chatwoot || window.chatwootSDK) {
-      console.log('🔵 ChatwootProvider: Already loaded. Skipping.');
+    // Prevent double initialization in React Strict Mode
+    if (initializationRef.current) {
+      console.log('[ChatwootProvider] Skipping duplicate initialization');
+      return;
+    }
+    
+    initializationRef.current = true;
+    
+    const { websiteToken, baseUrl, ...settings } = CHATWOOT_CONFIG;
+    
+    if (!websiteToken || !baseUrl) {
+      const msg = 'Chatwoot is not configured correctly. Check environment variables.';
+      console.error(`[ChatwootProvider] ${msg}`);
+      setError(new Error(msg));
+      setIsLoading(false);
       return;
     }
 
-    // 检查配置
-    if (!CHATWOOT_CONFIG.websiteToken) {
-      console.warn('🔵 ChatwootProvider: Website token is missing.');
-      return;
-    }
-    if (!CHATWOOT_CONFIG.baseUrl) {
-      console.warn('🔵 ChatwootProvider: Base URL is missing.');
-      return;
-    }
+    let isMounted = true;
 
-    console.log('🔵 ChatwootProvider: Initializing...');
-
-    // 设置 Chatwoot 配置
-    window.chatwootSettings = {
-      hideMessageBubble: CHATWOOT_CONFIG.hideMessageBubble,
-      position: CHATWOOT_CONFIG.position,
-      locale: CHATWOOT_CONFIG.locale,
-      type: CHATWOOT_CONFIG.type,
-      launcherTitle: CHATWOOT_CONFIG.launcherTitle,
-      showPopoutButton: CHATWOOT_CONFIG.showPopoutButton,
-    };
-
-    // 创建并加载脚本
-    const script = document.createElement('script');
-    script.async = true;
-    script.defer = true;
-    
-    // 最终方案：直接从 public 目录加载本地脚本
-    script.src = '/chatwoot-sdk.js';
-    
-    console.log('🔵 ChatwootProvider: Loading local script from:', script.src);
-    
-    script.onload = () => {
-      console.log('🟢 ChatwootProvider: Script loaded successfully.');
+    async function init() {
       try {
-        window.chatwootSDK?.run({
-          websiteToken: CHATWOOT_CONFIG.websiteToken,
-          baseUrl: CHATWOOT_CONFIG.baseUrl, // 这里的 baseUrl 仍然需要指向真实的 Chatwoot 服务器
-        });
-        console.log('🟢 ChatwootProvider: SDK initialized.');
-        isLoaded.current = true; // 标记为已加载
-      } catch (error) {
-        console.error('🔴 ChatwootProvider: Failed to initialize SDK:', error);
+        console.log('[ChatwootProvider] Initializing Chatwoot SDK...');
+        const { sdk: loadedSdk } = await loadChatwootSdk(baseUrl, websiteToken, settings);
+        if (isMounted) {
+          console.log('[ChatwootProvider] SDK loaded successfully');
+          setSdk(loadedSdk);
+        }
+      } catch (e) {
+        if (isMounted) {
+          console.error('[ChatwootProvider] Failed to load SDK:', e);
+          setError(e instanceof Error ? e : new Error('Failed to initialize Chatwoot SDK'));
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    };
+    }
 
-    script.onerror = (error) => {
-      console.error('🔴 ChatwootProvider: Failed to load script:', error);
-    };
+    // Add a small delay in development mode to avoid race conditions
+    const isDev = process.env.NODE_ENV === 'development';
+    const delay = isDev ? 100 : 0;
+    
+    const timeoutId = setTimeout(init, delay);
 
-    document.head.appendChild(script);
-
-    // 返回一个清理函数
     return () => {
-      console.log('🟡 ChatwootProvider: Cleanup triggered.');
-      // 在实际应用中，我们通常不希望在导航时卸载 Chatwoot
-      // 但为了防止意外，可以添加清理逻辑
-      if (script.parentNode) {
-        // script.parentNode.removeChild(script); // 谨慎使用，可能导致重载问题
-      }
+      isMounted = false;
+      clearTimeout(timeoutId);
+      initializationRef.current = false;
     };
-  }, []); // 空依赖数组确保只运行一次
+  }, []);
 
-  // 将浮动按钮也移到这里，以确保它和 Chatwoot 的生命周期一致
-  return <FloatingCustomerServiceButton />;
-}; 
+  const value = useMemo(() => ({ sdk, isLoading, error }), [sdk, isLoading, error]);
+
+  return <ChatwootContext.Provider value={value}>{children}</ChatwootContext.Provider>;
+}
+
+export function useChatwoot() {
+  const context = useContext(ChatwootContext);
+  if (context === undefined) {
+    throw new Error('useChatwoot must be used within a ChatwootProvider');
+  }
+  return context;
+} 

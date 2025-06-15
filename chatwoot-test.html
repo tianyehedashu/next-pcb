@@ -10,79 +10,235 @@
     #status { padding: 1em; border-radius: 8px; margin-top: 1em; }
     .success { background-color: #e6ffed; border: 1px solid #b7e1c8; color: #006b2e; }
     .error { background-color: #fff0f0; border: 1px solid #ffb3b3; color: #c00; }
+    .warning { background-color: #fff8e1; border: 1px solid #ffcc02; color: #b8860b; }
     code { background-color: #f0f0f0; padding: 0.2em 0.4em; border-radius: 4px; }
+    .log { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 1em; border-radius: 8px; margin-top: 1em; max-height: 300px; overflow-y: auto; }
+    .log-entry { margin: 0.5em 0; font-family: monospace; font-size: 0.9em; }
+    .test-section { margin: 2em 0; padding: 1em; border: 1px solid #ddd; border-radius: 8px; }
+    button { padding: 0.5em 1em; margin: 0.5em; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-primary { background-color: #007bff; color: white; }
+    .btn-danger { background-color: #dc3545; color: white; }
   </style>
 </head>
 <body>
 
-  <h1>Chatwoot 纯 HTML 加载测试</h1>
-  <p>这个页面将尝试用最简单的方式加载 Chatwoot SDK。</p>
-  <p>请打开浏览器开发者工具 (F12)，查看 Console 和 Network 标签页的输出。</p>
+  <h1>Chatwoot 详细诊断测试</h1>
+  <p>这个页面将详细测试 Chatwoot 的加载过程，并诊断 429 错误。</p>
   
-  <div id="status">正在加载...</div>
+  <div id="status">准备开始测试...</div>
+
+  <div class="test-section">
+    <h3>🔧 测试控制</h3>
+    <button class="btn-primary" onclick="startTest()">开始测试</button>
+    <button class="btn-danger" onclick="clearLogs()">清空日志</button>
+    <button class="btn-primary" onclick="testRateLimit()">测试速率限制</button>
+  </div>
+
+  <div class="log" id="logContainer">
+    <div class="log-entry">等待测试开始...</div>
+  </div>
 
   <script>
     // 请在这里填入你的真实 Website Token
-    const WEBSITE_TOKEN = "fodaY99Yfs8rumjH1JAKMj21";
-    const BASE_URL = "https://app.chatwoot.com";
+    const WEBSITE_TOKEN = "HKGUzvw8ErEE8zHueiyVSEAn";
+    const BASE_URL = "http://www.leodennis.top:3000";
 
     const statusDiv = document.getElementById('status');
+    const logContainer = document.getElementById('logContainer');
+    let testStarted = false;
 
-    // 检查 Token 是否已填写
-    if (WEBSITE_TOKEN.includes('请在这里填入')) {
-      statusDiv.innerHTML = '🔴 错误: 请在脚本中填入你的真实 Website Token！';
-      statusDiv.className = 'error';
-      throw new Error("Chatwoot Token not set.");
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log-entry';
+      logEntry.style.color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : type === 'warning' ? '#ffc107' : '#333';
+      logEntry.textContent = `[${timestamp}] ${message}`;
+      logContainer.appendChild(logEntry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+      console.log(`[${timestamp}] ${message}`);
     }
 
-    // 1. 设置 Chatwoot 全局配置
-    window.chatwootSettings = {
-      hideMessageBubble: false,
-      position: 'right',
-      locale: 'en',
-      type: 'standard',
-      showPopoutButton: false, // 确保这个是 false
-    };
+    function clearLogs() {
+      logContainer.innerHTML = '<div class="log-entry">日志已清空...</div>';
+    }
 
-    // 2. 创建并加载脚本
-    const script = document.createElement('script');
-    script.async = true;
-    script.defer = true;
-    const cleanBaseUrl = BASE_URL.replace(/\/$/, '');
-    script.src = `${cleanBaseUrl}/packs/js/sdk.js`;
+    function updateStatus(message, className) {
+      statusDiv.innerHTML = message;
+      statusDiv.className = className;
+    }
 
-    console.log(`正在从 ${script.src} 加载脚本...`);
-
-    // 3. 监听加载成功事件
-    script.onload = function() {
-      console.log('✅ Chatwoot 脚本加载成功 (onload 事件触发)');
-      statusDiv.innerHTML = '✅ 脚本加载成功！正在初始化...';
-      statusDiv.className = 'success';
+    // 测试速率限制
+    async function testRateLimit() {
+      log('🚀 开始速率限制测试...', 'info');
+      updateStatus('🚀 正在测试速率限制...', 'warning');
       
-      // 4. 初始化 SDK
-      window.chatwootSDK.run({
-        websiteToken: WEBSITE_TOKEN,
-        baseUrl: cleanBaseUrl,
-      });
+      const promises = [];
+      const testUrl = `${BASE_URL}/widget?website_token=${WEBSITE_TOKEN}`;
+      
+      for (let i = 0; i < 15; i++) {
+        promises.push(
+          fetch(testUrl, {
+            method: 'GET',
+            cache: 'no-cache',
+          }).then(response => ({
+            index: i,
+            status: response.status,
+            ok: response.ok,
+            statusText: response.statusText
+          })).catch(error => ({
+            index: i,
+            error: error.message,
+            status: 'network_error'
+          }))
+        );
+      }
 
-      // 监听 Chatwoot ready 事件
+      try {
+        const results = await Promise.all(promises);
+        let successCount = 0;
+        let errorCount = 0;
+        let rateLimitCount = 0;
+
+        results.forEach(result => {
+          if (result.status === 429) {
+            rateLimitCount++;
+            log(`请求 ${result.index + 1}: 429 Too Many Requests`, 'error');
+          } else if (result.ok || result.status === 200) {
+            successCount++;
+            log(`请求 ${result.index + 1}: 成功 (${result.status})`, 'success');
+          } else if (result.error) {
+            errorCount++;
+            log(`请求 ${result.index + 1}: 网络错误 - ${result.error}`, 'error');
+          } else {
+            errorCount++;
+            log(`请求 ${result.index + 1}: HTTP错误 ${result.status} - ${result.statusText}`, 'error');
+          }
+        });
+
+        log(`📊 测试结果: 成功 ${successCount}, 429错误 ${rateLimitCount}, 其他错误 ${errorCount}`, 'info');
+        
+        if (rateLimitCount > 0) {
+          updateStatus(`❌ 检测到 ${rateLimitCount} 个 429 错误！需要配置服务器端速率限制。`, 'error');
+          log('💡 解决方案: 在服务器上设置 ENABLE_RACK_ATTACK_WIDGET_API=false', 'warning');
+        } else {
+          updateStatus('✅ 速率限制测试通过！', 'success');
+        }
+      } catch (error) {
+        log(`❌ 速率限制测试失败: ${error.message}`, 'error');
+        updateStatus('❌ 速率限制测试失败', 'error');
+      }
+    }
+
+    function startTest() {
+      if (testStarted) {
+        log('⚠️ 测试已经在进行中...', 'warning');
+        return;
+      }
+
+      testStarted = true;
+      clearLogs();
+      log('🔍 开始 Chatwoot 加载测试...', 'info');
+      updateStatus('🔍 正在测试...', 'warning');
+
+      // 检查 Token 是否已填写
+      if (WEBSITE_TOKEN.includes('请在这里填入')) {
+        log('❌ 错误: Website Token 未设置！', 'error');
+        updateStatus('❌ 错误: 请设置 Website Token！', 'error');
+        testStarted = false;
+        return;
+      }
+
+      log(`📍 服务器: ${BASE_URL}`, 'info');
+      log(`🔑 Token: ${WEBSITE_TOKEN.substring(0, 8)}...`, 'info');
+
+      // 1. 设置 Chatwoot 全局配置
+      window.chatwootSettings = {
+        hideMessageBubble: false,
+        position: 'right',
+        locale: 'en',
+        type: 'standard',
+        showPopoutButton: false,
+        showUnreadMessagesDialog: false, // 减少 API 调用
+      };
+      log('⚙️ Chatwoot 设置已配置', 'info');
+
+      // 2. 创建并加载脚本
+      const script = document.createElement('script');
+      script.async = true;
+      script.defer = true;
+      const cleanBaseUrl = BASE_URL.replace(/\/$/, '');
+      script.src = `${cleanBaseUrl}/packs/js/sdk.js`;
+
+      log(`📡 正在从 ${script.src} 加载脚本...`, 'info');
+
+      // 3. 监听加载成功事件
+      script.onload = function() {
+        log('✅ Chatwoot 脚本加载成功', 'success');
+        updateStatus('✅ 脚本加载成功！正在初始化...', 'success');
+        
+        try {
+          // 4. 初始化 SDK
+          window.chatwootSDK.run({
+            websiteToken: WEBSITE_TOKEN,
+            baseUrl: cleanBaseUrl,
+          });
+          log('🚀 SDK 初始化调用完成', 'info');
+        } catch (error) {
+          log(`❌ SDK 初始化失败: ${error.message}`, 'error');
+          updateStatus('❌ SDK 初始化失败', 'error');
+          testStarted = false;
+        }
+      };
+
+      // 5. 监听加载失败事件
+      script.onerror = function(error) {
+        log('❌ Chatwoot 脚本加载失败', 'error');
+        updateStatus('❌ 脚本加载失败', 'error');
+        testStarted = false;
+      };
+
+      // 6. 监听 Chatwoot ready 事件
       window.addEventListener('chatwoot:ready', function () {
-        console.log('✅ Chatwoot SDK 初始化完成 (ready 事件触发)');
-        statusDiv.innerHTML = '✅ 脚本加载并初始化成功！你应该能看到聊天按钮了。';
-        statusDiv.className = 'success';
+        log('🎉 Chatwoot SDK 初始化完成！', 'success');
+        updateStatus('🎉 测试成功！Chatwoot 已准备就绪。', 'success');
+        testStarted = false;
       });
-    };
 
-    // 5. 监听加载失败事件
-    script.onerror = function(error) {
-      console.error('🔴 Chatwoot 脚本加载失败 (onerror 事件触发)', error);
-      statusDiv.innerHTML = `🔴 脚本加载失败。请检查浏览器控制台的 Network 标签页，看看 <code>sdk.js</code> 的请求状态。`;
-      statusDiv.className = 'error';
-    };
+      // 7. 监听 Chatwoot 错误事件
+      window.addEventListener('chatwoot:error', function (event) {
+        log(`❌ Chatwoot 错误: ${JSON.stringify(event.detail)}`, 'error');
+        updateStatus('❌ Chatwoot 运行时错误', 'error');
+      });
 
-    // 6. 将脚本添加到页面
-    document.head.appendChild(script);
+      // 8. 将脚本添加到页面
+      document.head.appendChild(script);
+
+      // 9. 设置超时检测
+      setTimeout(() => {
+        if (testStarted) {
+          log('⏰ 测试超时 (30秒)，可能存在网络问题或速率限制', 'warning');
+          updateStatus('⏰ 测试超时，请检查网络连接和服务器状态', 'warning');
+          testStarted = false;
+        }
+      }, 30000);
+    }
+
+    // 页面加载完成后自动开始测试
+    window.addEventListener('load', function() {
+      log('📄 页面加载完成，点击"开始测试"按钮开始诊断', 'info');
+    });
 
   </script>
+
+  <div class="test-section">
+    <h3>🔧 服务器配置建议</h3>
+    <p><strong>如果出现 429 错误，请在您的 Chatwoot 服务器上设置以下环境变量：</strong></p>
+    <code>ENABLE_RACK_ATTACK_WIDGET_API=false</code>
+    <p>然后重启 Chatwoot 服务。</p>
+    
+    <p><strong>或者增加速率限制：</strong></p>
+    <code>RACK_ATTACK_LIMIT=300</code>
+  </div>
+
 </body>
 </html> 

@@ -3,21 +3,14 @@ import "./globals.css";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
 import { Toaster } from "sonner";
-
 import Providers from '@/app/components/Providers';
-import { ChatwootProvider } from "./components/ChatwootProvider";
+import { ChatwootProvider } from '@/app/components/ChatwootProvider';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
-  display: "swap",
-  fallback: ["system-ui", "arial"],
 });
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
-  subsets: ["latin"],
-  display: "swap",
-  fallback: ["Consolas", "Monaco", "monospace"],
 });
 
 export default function RootLayout({
@@ -30,12 +23,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Navbar />
-        <Providers>
-          {children}
-        </Providers>
-        <Footer />
-        <ChatwootProvider />
+        <ChatwootProvider>
+          <Providers>
+            <Navbar />
+            {children}
+            <Footer />
+          </Providers>
+        </ChatwootProvider>
         <Toaster />
       </body>
     </html>
