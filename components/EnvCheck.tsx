@@ -35,30 +35,30 @@ NEXT_PUBLIC_CHATWOOT_BASE_URL=https://app.chatwoot.com`;
         {/* Status Check */}
         <div className="space-y-3">
           <h3 className="font-semibold">Current Status</h3>
-          <div className="space-y-2">
+        <div className="space-y-2">
             <div className="flex items-center gap-3">
-              {hasToken ? (
+            {hasToken ? (
                 <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
+            ) : (
                 <AlertCircle className="h-5 w-5 text-red-600" />
-              )}
+            )}
               <span className="text-sm font-medium">
-                NEXT_PUBLIC_CHATWOOT_WEBSITE_TOKEN
-              </span>
+              NEXT_PUBLIC_CHATWOOT_WEBSITE_TOKEN
+            </span>
               <span className={`text-xs px-2 py-1 rounded ${hasToken ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                 {hasToken ? 'Set' : 'Missing'}
               </span>
-            </div>
-            
+          </div>
+          
             <div className="flex items-center gap-3">
-              {hasBaseUrl ? (
+            {hasBaseUrl ? (
                 <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
+            ) : (
                 <AlertCircle className="h-5 w-5 text-red-600" />
-              )}
+            )}
               <span className="text-sm font-medium">
-                NEXT_PUBLIC_CHATWOOT_BASE_URL
-              </span>
+              NEXT_PUBLIC_CHATWOOT_BASE_URL
+            </span>
               <span className={`text-xs px-2 py-1 rounded ${hasBaseUrl ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                 {hasBaseUrl ? 'Set' : 'Missing'}
               </span>
@@ -182,7 +182,7 @@ NEXT_PUBLIC_CHATWOOT_BASE_URL=https://app.chatwoot.com`;
                 <h4 className="font-medium text-green-800">Environment Variables Configured!</h4>
                 <p className="text-sm text-green-700 mt-1">
                   Your Chatwoot environment variables are properly set. You can now test the integration.
-                </p>
+              </p>
               </div>
             </div>
           </div>

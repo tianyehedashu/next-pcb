@@ -181,8 +181,8 @@ export const ChatwootDebug = () => {
               <span className="text-sm">Script Loaded:</span>
               {getStatusBadge(debugInfo.scriptLoaded, "✅ Yes", "❌ No")}
             </div>
+            </div>
           </div>
-        </div>
 
         {/* Chatwoot SDK Status */}
         <div>
@@ -217,15 +217,15 @@ export const ChatwootDebug = () => {
         <div>
           <h3 className="font-semibold mb-3">Manual Test</h3>
           <div className="space-y-3">
-            <Button onClick={handleManualTest} className="w-full">
+          <Button onClick={handleManualTest} className="w-full">
               🧪 Test: Open Chat Window
-            </Button>
-            
-            {manualTestResult && (
+          </Button>
+          
+          {manualTestResult && (
               <div className="p-3 bg-gray-50 rounded-lg text-sm">
-                {manualTestResult}
-              </div>
-            )}
+              {manualTestResult}
+            </div>
+          )}
           </div>
         </div>
 
@@ -234,8 +234,8 @@ export const ChatwootDebug = () => {
           <h3 className="font-semibold mb-3">Actions</h3>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button onClick={handleForceReload} variant="outline" className="flex-1">
-              🔄 Force Reload Chatwoot
-            </Button>
+            🔄 Force Reload Chatwoot
+          </Button>
             <Button 
               onClick={() => window.open('/test-chatwoot', '_blank')} 
               variant="outline" 
@@ -271,7 +271,7 @@ export const ChatwootDebug = () => {
                 <span className="text-blue-600">•</span>
                 <span>If using a custom Chatwoot instance, verify the base URL is correct</span>
               </li>
-            </ul>
+          </ul>
           </div>
         </div>
       </CardContent>
