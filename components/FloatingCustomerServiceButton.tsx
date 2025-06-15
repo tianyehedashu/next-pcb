@@ -7,7 +7,7 @@ import { useChatwoot } from '@/lib/hooks/useChatwoot';
 import { cn } from '@/lib/utils';
 
 export const FloatingCustomerServiceButton = () => {
-  const { isLoaded, toggle, isOpen } = useChatwoot();
+  const { isLoaded, isOpen, toggle } = useChatwoot();
   const [isVisible, setIsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 

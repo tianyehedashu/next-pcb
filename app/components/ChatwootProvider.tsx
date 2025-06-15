@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useMemo, useRef } from 'react';
-import { loadChatwootSdk } from '@/lib/chatwoot-sdk-loader';
+import { loadChatwootSdkLocal } from '@/lib/chatwoot-sdk-loader-local';
 import { CHATWOOT_CONFIG } from '@/lib/constants/chatwoot';
 import type { ChatwootSDK } from '@/types/chatwoot';
 
@@ -42,15 +42,15 @@ export function ChatwootProvider({ children }: { children: ReactNode }) {
 
     async function init() {
       try {
-        console.log('[ChatwootProvider] Initializing Chatwoot SDK...');
-        const { sdk: loadedSdk } = await loadChatwootSdk(baseUrl, websiteToken, settings);
+        console.log('[ChatwootProvider] Initializing Chatwoot SDK from local file...');
+        const { sdk: loadedSdk } = await loadChatwootSdkLocal(baseUrl, websiteToken, settings);
         if (isMounted) {
-          console.log('[ChatwootProvider] SDK loaded successfully');
+          console.log('[ChatwootProvider] Local SDK loaded successfully');
           setSdk(loadedSdk);
         }
       } catch (e) {
         if (isMounted) {
-          console.error('[ChatwootProvider] Failed to load SDK:', e);
+          console.error('[ChatwootProvider] Failed to load local SDK:', e);
           setError(e instanceof Error ? e : new Error('Failed to initialize Chatwoot SDK'));
         }
       } finally {
@@ -69,13 +69,20 @@ export function ChatwootProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
-      initializationRef.current = false;
     };
   }, []);
 
-  const value = useMemo(() => ({ sdk, isLoading, error }), [sdk, isLoading, error]);
+  const contextValue = useMemo(() => ({
+    sdk,
+    isLoading,
+    error,
+  }), [sdk, isLoading, error]);
 
-  return <ChatwootContext.Provider value={value}>{children}</ChatwootContext.Provider>;
+  return (
+    <ChatwootContext.Provider value={contextValue}>
+      {children}
+    </ChatwootContext.Provider>
+  );
 }
 
 export function useChatwoot() {

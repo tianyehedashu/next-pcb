@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useChatwoot } from './ChatwootProvider';
+import { useChatwoot } from '@/app/components/ChatwootProvider';
 import { useUserStore } from '@/lib/userStore';
 
 /**
@@ -39,6 +39,7 @@ export function ChatwootUserSyncer() {
         console.log('[ChatwootUserSyncer] Syncing user:', user.id);
         try {
           // User is logged in, identify them in Chatwoot
+          // 使用 user.id 作为 identifier 确保对话历史连续性
           sdk.setUser(user.id, {
             name: String(user.display_name ?? 'User'),
             email: String(user.email ?? ''),
@@ -48,6 +49,8 @@ export function ChatwootUserSyncer() {
           sdk.setCustomAttributes({
             'user_id': user.id,
             'company_name': String(user.company_name ?? ''),
+            'current_page': window.location.pathname,
+            'user_type': 'registered',
           });
           
           lastSyncedUserRef.current = user.id;
