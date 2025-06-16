@@ -4,7 +4,6 @@ import { useBridgeUser } from '@/lib/userStore';
 import { ReactNode, useEffect } from 'react';
 import { checkVersion } from '@/lib/versionCheck';
 import { ChatwootUserSyncer } from './ChatwootUserSyncer';
-import ChatwootWidget from './ChatwootWidget';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -21,7 +20,7 @@ export default function Providers({ children }: ProvidersProps) {
     <>
       {children}
       <ChatwootUserSyncer />
-      <ChatwootWidget />
+      {/* ChatwootWidget 已移除，使用 SmartCustomerServiceButton 替代 */}
     </>
   );
 } 
