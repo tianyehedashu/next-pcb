@@ -13,7 +13,7 @@ import {
   MessageCircle, 
   ChevronUp, 
   User, 
-  UserX, 
+  Users,
   Headphones,
   Sparkles
 } from 'lucide-react';
@@ -103,9 +103,9 @@ export function SmartCustomerServiceButton() {
               </span>
             )}
             <ChevronUp className="h-4 w-4 absolute -top-1 right-1 text-white opacity-80" />
-            {/* 游客标识 */}
-            <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white rounded-full p-1">
-              <UserX className="h-3 w-3" />
+            {/* 游客标识 - 使用友好的访客图标 */}
+            <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white rounded-full p-1">
+              <Users className="h-3 w-3" />
             </div>
           </Button>
         </DropdownMenuTrigger>

@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { GuestNewConversationButton } from '@/components/custom-ui/GuestNewConversationButton';
-import { SmartCustomerServiceButton } from '@/components/custom-ui/SmartCustomerServiceButton';
 import { useChatwoot } from '@/lib/hooks/useChatwoot';
 import { useUserStore } from '@/lib/userStore';
 import { MessageCircle, User, UserX, Info, LogIn, LogOut } from 'lucide-react';
@@ -238,17 +237,6 @@ export default function TestGuestConversationPage() {
                   </GuestNewConversationButton>
                 </div>
               </div>
-              
-              <div className="border-t pt-4">
-                <h3 className="font-semibold mb-2">Smart Customer Service Button</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Adaptive floating button (check bottom-right corner):
-                </p>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• <User className="h-3 w-3 inline mr-1" /> Green icon = Logged in user (single click)</li>
-                  <li>• <UserX className="h-3 w-3 inline mr-1" /> Gray icon = Guest (dropdown menu)</li>
-                </ul>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -292,9 +280,6 @@ export default function TestGuestConversationPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Smart Floating Button */}
-      <SmartCustomerServiceButton />
     </div>
   );
 } 
