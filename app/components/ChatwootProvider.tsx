@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useMemo, use
 import { loadChatwootSdkLocal } from '@/lib/chatwoot-sdk-loader-local';
 import { CHATWOOT_CONFIG } from '@/lib/constants/chatwoot';
 import type { ChatwootSDK } from '@/types/chatwoot';
+import { SmartCustomerServiceButton } from '@/components/custom-ui/SmartCustomerServiceButton';
 
 interface ChatwootContextType {
   sdk: ChatwootSDK | null;
@@ -78,9 +79,14 @@ export function ChatwootProvider({ children }: { children: ReactNode }) {
     error,
   }), [sdk, isLoading, error]);
 
+  // 只有在SDK加载完成且没有错误时才显示客服按钮
+  const shouldShowButton = !!sdk && !isLoading && !error;
+
   return (
     <ChatwootContext.Provider value={contextValue}>
       {children}
+      {/* 客服按钮只在Chatwoot完全初始化后显示 */}
+      {shouldShowButton && <SmartCustomerServiceButton />}
     </ChatwootContext.Provider>
   );
 }

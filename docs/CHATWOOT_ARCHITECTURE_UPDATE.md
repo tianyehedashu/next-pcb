@@ -180,3 +180,38 @@ NEXT_PUBLIC_CHATWOOT_WEBSITE_TOKEN=your_token_here
 - ✅ 向后兼容性
 - ✅ 完整的对话历史功能
 - ✅ 全面的测试和调试工具 
+
+
+# 启动数据库
+docker-compose up -d postgres redis
+
+# 等待数据库启动（约30秒）
+sleep 30
+
+# 初始化数据库
+docker-compose run --rm rails bundle exec rails db:create
+docker-compose run --rm rails bundle exec rails db:reset
+
+# 启动所有服务
+docker-compose up -d
+
+
+# .env 文件配置
+MAILER_SENDER_EMAIL=noreply@yourdomain.com
+SMTP_DOMAIN=qq.com
+SMTP_ADDRESS=smtp.qq.com
+SMTP_PORT=465
+SMTP_USERNAME=your-email@qq.com
+SMTP_PASSWORD=your-authorization-code
+SMTP_AUTHENTICATION=login
+SMTP_ENABLE_STARTTLS_AUTO=true
+SMTP_OPENSSL_VERIFY_MODE=none
+
+
+
+app/layout.tsx
+├── ChatwootProvider (提供 Context)
+│   ├── Providers
+│   │   ├── ChatwootUserSyncer (调用 ChatwootProvider.useChatwoot)
+│   │   └── ChatwootWidget (调用 ChatwootProvider.useChatwoot)
+│   └── SmartCustomerServiceButton (调用 lib/hooks/useChatwoot)

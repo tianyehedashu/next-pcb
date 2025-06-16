@@ -37,7 +37,7 @@ export function useChatwoot(): ChatwootHookReturn {
   const isLoaded = !!sdk && !isLoading && !error;
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || typeof window === 'undefined') return;
 
     // Listen for Chatwoot events
     const handleChatwootOpen = () => setIsOpen(true);
@@ -58,7 +58,7 @@ export function useChatwoot(): ChatwootHookReturn {
   }, [isLoaded]);
 
   const toggle = (state?: 'open' | 'close') => {
-    if (!isLoaded || !window.$chatwoot) return;
+    if (!isLoaded || typeof window === 'undefined' || !window.$chatwoot) return;
     
     if (state) {
       window.$chatwoot.toggle(state);
@@ -68,14 +68,14 @@ export function useChatwoot(): ChatwootHookReturn {
   };
 
   const show = () => {
-    if (window.$chatwoot?.toggleBubbleVisibility) {
+    if (typeof window !== 'undefined' && window.$chatwoot && typeof window.$chatwoot.toggleBubbleVisibility === 'function') {
       window.$chatwoot.toggleBubbleVisibility('show');
     }
     setIsVisible(true);
   };
 
   const hide = () => {
-    if (window.$chatwoot?.toggleBubbleVisibility) {
+    if (typeof window !== 'undefined' && window.$chatwoot && typeof window.$chatwoot.toggleBubbleVisibility === 'function') {
       window.$chatwoot.toggleBubbleVisibility('hide');
     }
     setIsVisible(false);
@@ -98,16 +98,16 @@ export function useChatwoot(): ChatwootHookReturn {
   };
 
   const reset = () => {
-    if (window.$chatwoot?.reset) {
+    if (typeof window !== 'undefined' && window.$chatwoot?.reset) {
       window.$chatwoot.reset();
     }
     setIsOpen(false);
     setUnreadCount(0);
   };
 
-  const sendMessage = (_message: string) => {
+  const sendMessage = (message: string) => {
     // This would require additional implementation
-    console.warn('sendMessage is not implemented yet');
+    console.warn('sendMessage is not implemented yet', message);
   };
 
   const isReady = () => isLoaded;
