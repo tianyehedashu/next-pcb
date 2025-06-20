@@ -140,17 +140,44 @@ function AuthContent() {
   };
 
   const handlePasswordResetRequest = async () => {
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address.",
+        variant: "destructive",
+      });
+      return;
+    }
     setLoading(true);
     setMessage('');
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/update-password`,
+
+    // We use the 'signInWithOtp' flow as a vehicle for password recovery.
+    // This sends a verifiable OTP to the user's email.
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        // We don't want to create a new user if they don't exist,
+        // as this is a recovery flow.
+        shouldCreateUser: false,
+      },
     });
+
     if (error) {
-      setMessage(error.message);
+      // Don't expose "User not found" errors to prevent email enumeration.
+      if (error.message.includes("User not found")) {
+         setMessage("If an account with this email exists, a recovery code has been sent.");
+      } else {
+         setMessage(error.message);
+      }
+      setLoading(false);
     } else {
-      setMessage('Password reset email sent! Please check your inbox.');
+      toast({
+        title: "Recovery code sent",
+        description: "Check your email for the recovery code.",
+      });
+      // Redirect to the update-password page, passing the email along.
+      router.push(`/auth/update-password?email=${encodeURIComponent(email)}`);
     }
-    setLoading(false);
   };
 
   const handleGoogle = async () => {
@@ -226,10 +253,10 @@ function AuthContent() {
               onClick={handlePasswordResetRequest}
               disabled={loading}
             >
-              Send Reset Link
+              {loading ? "Sending..." : "Send Recovery Code"}
             </Button>
           </form>
-          {message && <div className="text-sm text-green-600 text-center w-full pt-2">{message}</div>}
+          {message && <div className="text-sm text-destructive text-center w-full pt-2">{message}</div>}
           <div className="text-center mt-4 w-full">
             <button className="text-sm text-blue-600 hover:underline font-semibold" onClick={() => handleToggleMode('signin')}>Back to Sign In</button>
           </div>
