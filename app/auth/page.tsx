@@ -70,8 +70,10 @@ function AuthContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState("");
   const { toast } = useToast();
-  const [loginMethod, setLoginMethod] = useState<'email' | 'google' | 'github'>('email');
+  const [loginMethod, setLoginMethod] = useState<'password' | 'otp'>('password');
   const user = useUserStore(state => state.user);
   const hasRedirected = useRef(false);
 
@@ -132,10 +134,42 @@ function AuthContent() {
       } else {
         setMessage("Registration successful! Please check your email inbox to confirm your account.");
       }
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setMessage(error.message);
+    } else { // Sign In Logic
+      if (loginMethod === 'password') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) setMessage(error.message);
+      } else { // OTP Logic
+        const { error } = await supabase.auth.signInWithOtp({ 
+          email,
+          options: { shouldCreateUser: false } 
+        });
+        if (error) {
+          setMessage(error.message);
+        } else {
+          toast({
+            title: "Login code sent",
+            description: "Check your email for the login code.",
+          });
+          setMessage(""); // Clear previous messages
+          setOtpSent(true); // Show the OTP input form
+        }
+      }
     }
+    setLoading(false);
+  };
+
+  const handleOtpVerify = async () => {
+    setLoading(true);
+    setMessage("");
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: 'email',
+    });
+    if (error) {
+      setMessage(`Failed to verify OTP: ${error.message}`);
+    }
+    // On success, onAuthStateChange will handle the redirect.
     setLoading(false);
   };
 
@@ -216,7 +250,7 @@ function AuthContent() {
       key: 'email',
       icon: <Mail className="w-6 h-6" />, 
       label: 'Email',
-      onClick: () => setLoginMethod('email'),
+      onClick: () => setLoginMethod('password'),
     },
     {
       key: 'google',
@@ -279,74 +313,135 @@ function AuthContent() {
         </div>
       </CardHeader>
       <CardContent className="p-0 space-y-4 flex flex-col items-center">
-        {/* 邮箱登录表单 */}
-        {loginMethod === 'email' && (
-          <form onSubmit={(e) => { e.preventDefault(); handleEmailAuth(); }} autoComplete="off" className="w-full flex flex-col gap-4">
-            <Input
-              placeholder="Email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              autoFocus
-              autoComplete="username"
-              className="h-11 text-base rounded-lg border-blue-200 focus:border-blue-400 bg-white/80 shadow-sm"
-            />
-            <div className="space-y-1">
+        {!otpSent ? (
+          <>
+            {/* Email/Password Form */}
+            <form onSubmit={(e) => { e.preventDefault(); handleEmailAuth(); }} autoComplete="off" className="w-full flex flex-col gap-4">
               <Input
-                placeholder="Password"
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                autoComplete={isSignUp ? "new-password" : "current-password"}
+                placeholder="Email"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                autoFocus
+                autoComplete="username"
                 className="h-11 text-base rounded-lg border-blue-200 focus:border-blue-400 bg-white/80 shadow-sm"
               />
-              {!isSignUp && (
-                <div className="text-right pr-1">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleMode('forgot_password')}
-                    className="text-xs text-blue-600 hover:underline hover:text-blue-700 font-medium"
-                  >
-                    Forgot Password?
-                  </button>
+              {loginMethod === 'password' && (
+                <div className="space-y-1">
+                  <Input
+                    placeholder="Password"
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    autoComplete={isSignUp ? "new-password" : "current-password"}
+                    className="h-11 text-base rounded-lg border-blue-200 focus:border-blue-400 bg-white/80 shadow-sm"
+                  />
+                  {!isSignUp && (
+                    <div className="text-right pr-1">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleMode('forgot_password')}
+                        className="text-xs text-blue-600 hover:underline hover:text-blue-700 font-medium"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+              <Button
+                className="w-full h-11 text-base font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md transition-all"
+                onClick={handleEmailAuth}
+                disabled={loading}
+              >
+                {isSignUp ? "Sign Up with Email" : (loginMethod === 'password' ? "Sign In with Password" : "Send Login Code")}
+              </Button>
+            </form>
+            
+            {/* Login method toggle */}
+            {!isSignUp && (
+              <div className="text-sm">
+                <button 
+                  className="text-blue-600 hover:underline font-semibold" 
+                  onClick={() => setLoginMethod(prev => prev === 'password' ? 'otp' : 'password')}
+                >
+                  {loginMethod === 'password' ? "Sign in with code" : "Sign in with password"}
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+           // OTP Verification Form
+          <form onSubmit={(e) => { e.preventDefault(); handleOtpVerify(); }} className="w-full flex flex-col gap-4">
+            <p className="text-sm text-center text-gray-600">A login code was sent to <br/><strong className="font-medium text-gray-800">{email}</strong>. Please enter it below.</p>
+            <Input
+              placeholder="Code from email"
+              type="text"
+              value={otp}
+              onChange={e => setOtp(e.target.value)}
+              autoFocus
+              className="h-11 text-base rounded-lg border-blue-200 focus:border-blue-400 bg-white/80 shadow-sm"
+            />
             <Button
               className="w-full h-11 text-base font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md transition-all"
-              onClick={handleEmailAuth}
+              onClick={handleOtpVerify}
               disabled={loading}
             >
-              {isSignUp ? "Sign Up with Email" : "Sign In with Email"}
+              Verify Code & Sign In
             </Button>
+            <div className="text-sm text-center">
+              <button 
+                type="button"
+                className="text-blue-600 hover:underline font-semibold" 
+                onClick={() => {
+                  setOtpSent(false);
+                  setMessage(""); // Clear any previous OTP error messages
+                }}
+              >
+                Back to login
+              </button>
+            </div>
           </form>
         )}
-        {/* 登录方式切换icon按钮（缩小，主按钮下方） */}
-        <div className="flex items-center justify-center gap-3 mt-2 mb-2">
-          {loginOptions.filter(opt => opt.key !== 'email').map(opt => (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={opt.onClick}
-              className={`flex flex-col items-center justify-center gap-1 p-1.5 rounded-lg border transition-all shadow-sm
-                text-gray-400 hover:bg-blue-100 hover:text-blue-600
-                focus:outline-none focus:ring-2 focus:ring-blue-300`}
-              style={{ minWidth: 38 }}
-            >
-              {opt.icon}
-              <span className="text-xs font-medium mt-0.5">{opt.label}</span>
-            </button>
-          ))}
-        </div>
-        {/* 错误/提示信息 */}
-        {message && <div className="text-sm text-destructive text-center w-full -mt-2">{message}</div>}
-        {/* 登录/注册切换 */}
-        <div className="flex items-center justify-center mt-2 w-full">
+        
+        {/* Error/Info Message */}
+        {message && <div className="text-sm text-center w-full pt-2 text-destructive">{message}</div>}
+
+        {/* Separator and 3rd Party Logins */}
+        {!otpSent && (
+          <>
+            <div className="relative w-full flex items-center justify-center my-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative px-2 bg-white/85 text-xs text-gray-500">Or continue with</div>
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              {loginOptions.map(opt => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={opt.onClick}
+                  className={`flex flex-col items-center justify-center gap-1 p-1.5 rounded-lg border transition-all shadow-sm
+                    text-gray-400 hover:bg-blue-100 hover:text-blue-600
+                    focus:outline-none focus:ring-2 focus:ring-blue-300`}
+                  style={{ minWidth: 38 }}
+                >
+                  {opt.icon}
+                  <span className="text-xs font-medium mt-0.5">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        
+        {/* Toggle Sign In/Sign Up */}
+        <div className="flex items-center justify-center mt-4 w-full">
           <div className="text-sm">
             {isSignUp ? (
               <>
                 Already have an account?{' '}
-                <button className="text-blue-600 hover:underline font-semibold" onClick={() => handleToggleMode('signin')}>Sign In</button>
+                <button className="text-blue-600 hover:underline font-semibold" onClick={() => { handleToggleMode('signin'); setOtpSent(false); }}>Sign In</button>
               </>
             ) : (
               <>
