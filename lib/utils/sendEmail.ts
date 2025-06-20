@@ -1,15 +1,24 @@
+import { unstable_cache } from 'next/cache';
 import * as nodemailer from 'nodemailer';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient, User } from '@supabase/supabase-js';
 
-// Define a type for the Supabase client that includes the admin methods we need.
-// This helps with type safety.
-type SupabaseAdminClient = SupabaseClient<any, "public", any> & {
-    auth: {
-        admin: {
-            listUsers: (params?: any) => Promise<{ data: { users: any[] }, error: any }>;
-        }
-    }
-}
+const getAdminProfiles = unstable_cache(
+    async (adminClient: SupabaseClient) => {
+        console.log('Fetching admin profiles from database...');
+        return adminClient.from('profiles').select('id').eq('role', 'admin');
+    },
+    ['admin_profiles'],
+    { revalidate: 3600 }
+);
+
+const getAdminUsers = unstable_cache(
+    async (adminClient: SupabaseClient) => {
+        console.log('Fetching admin users from auth...');
+        return adminClient.auth.admin.listUsers();
+    },
+    ['admin_users'],
+    { revalidate: 3600 }
+);
 
 /**
  * Sends a notification email to all admin users.
@@ -17,12 +26,8 @@ type SupabaseAdminClient = SupabaseClient<any, "public", any> & {
  * @param subject - The subject of the email.
  * @param html - The HTML content of the email.
  */
-export async function sendAdminNotification(adminClient: SupabaseAdminClient, subject: string, html: string): Promise<void> {
-  // 1. Query all admin user profiles
-  const { data: adminProfiles, error: profileError } = await adminClient
-    .from('profiles')
-    .select('id')
-    .eq('role', 'admin');
+export async function sendAdminNotification(adminClient: SupabaseClient, subject: string, html: string): Promise<void> {
+  const { data: adminProfiles, error: profileError } = await getAdminProfiles(adminClient);
   
   if (profileError) {
     console.error('Error fetching admin profiles:', profileError);
@@ -34,9 +39,8 @@ export async function sendAdminNotification(adminClient: SupabaseAdminClient, su
     return;
   }
 
-  // 2. Get all users and filter for admin emails
   const adminIds = adminProfiles.map(profile => profile.id);
-  const { data: adminUsersData, error: userError } = await adminClient.auth.admin.listUsers();
+  const { data: adminUsersData, error: userError } = await getAdminUsers(adminClient);
   
   if (userError) {
     console.error('Error fetching admin users:', userError);
@@ -44,8 +48,8 @@ export async function sendAdminNotification(adminClient: SupabaseAdminClient, su
   }
 
   const adminEmails = adminUsersData.users
-    .filter(user => adminIds.includes(user.id) && user.email)
-    .map(user => user.email);
+    .filter((user: User) => user.email && adminIds.includes(user.id))
+    .map((user: User) => user.email);
 
   const to = adminEmails.join(',');
 
@@ -54,7 +58,6 @@ export async function sendAdminNotification(adminClient: SupabaseAdminClient, su
     return;
   }
 
-  // 3. Configure Nodemailer transport
   const emailConfig = {
     host: process.env.SMTP_HOST || 'smtp.qq.com',
     port: parseInt(process.env.SMTP_PORT || '465'),
@@ -69,7 +72,6 @@ export async function sendAdminNotification(adminClient: SupabaseAdminClient, su
   const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.QQ_EMAIL_USER;
   const fromName = process.env.SMTP_FROM_NAME || 'PCB Manufacturing';
 
-  // 4. Send the email
   try {
     await transporter.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
@@ -80,7 +82,6 @@ export async function sendAdminNotification(adminClient: SupabaseAdminClient, su
     console.log(`Admin notification email sent to ${to} with subject: "${subject}"`);
   } catch (err) {
     console.error('Failed to send admin notification email:', err);
-    // We throw the error so the calling function can decide how to handle it.
     throw new Error(`Failed to send email: ${String(err)}`);
   }
-} 
+}
