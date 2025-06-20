@@ -20,19 +20,42 @@ export default function UpdatePasswordPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // When the user clicks the password recovery link, Supabase redirects them here.
-    // The URL contains a hash fragment that the Supabase client library uses to
-    // establish a session. Once the session is established, onAuthStateChange is triggered.
+    // The onAuthStateChange listener is the primary mechanism.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // For debugging, let's display the event and session status on screen
       setDebugInfo(`Event: ${event}, Session: ${session ? 'Exists' : 'null'}`);
 
-      // The key is having a session. The event type might vary.
-      // If a session is successfully established, we can allow the password update.
       if (session) {
         setSessionExists(true);
+        // Clean the URL hash to prevent the token from being used again.
+        if (window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
       }
     });
+
+    // Fallback for mobile browsers: manually parse the token from the URL hash.
+    // Supabase's client library should do this automatically, but some mobile
+    // webviews might interfere.
+    try {
+      const hash = window.location.hash;
+      if (hash) {
+        const params = new URLSearchParams(hash.substring(1)); // remove #
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+          setDebugInfo(prev => prev + '\nFound tokens in hash. Setting session...');
+          // This will trigger the onAuthStateChange listener above
+          supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+        }
+      }
+    } catch (e) {
+      // In case of any error parsing URL, log it for debugging.
+      setDebugInfo(prev => prev + `\nError parsing hash: ${e instanceof Error ? e.message : String(e)}`);
+    }
 
     return () => {
       subscription.unsubscribe();
