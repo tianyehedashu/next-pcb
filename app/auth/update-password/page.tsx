@@ -15,6 +15,7 @@ export default function UpdatePasswordPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [sessionExists, setSessionExists] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
   const router = useRouter();
   const { toast } = useToast();
 
@@ -23,10 +24,12 @@ export default function UpdatePasswordPage() {
     // The URL contains a hash fragment that the Supabase client library uses to
     // establish a session. Once the session is established, onAuthStateChange is triggered.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // The event is typically 'PASSWORD_RECOVERY', but sometimes 'SIGNED_IN' can be
-      // fired during the recovery flow. We check for both.
-      // A valid session object must also be present.
-      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
+      // For debugging, let's display the event and session status on screen
+      setDebugInfo(`Event: ${event}, Session: ${session ? 'Exists' : 'null'}`);
+
+      // The key is having a session. The event type might vary.
+      // If a session is successfully established, we can allow the password update.
+      if (session) {
         setSessionExists(true);
       }
     });
@@ -100,6 +103,12 @@ export default function UpdatePasswordPage() {
               <div className='text-center text-gray-600 py-4'>
                 <p className="font-semibold">Verifying your request...</p>
                 <p className='text-sm mt-2'>Please wait a moment.</p>
+                {debugInfo && (
+                  <div className="mt-4 p-2 bg-slate-100 border border-slate-300 rounded-md text-xs text-left">
+                    <p className="font-bold">Debug Info:</p>
+                    <pre className="whitespace-pre-wrap break-all">{debugInfo}</pre>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
