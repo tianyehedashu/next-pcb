@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Eye, Mail, Phone, Calendar, CheckCircle, XCircle, Clock, Shield, UserPlus } from 'lucide-react';
+import { Eye, Mail, Phone, Calendar, CheckCircle, XCircle, Clock, Shield, UserPlus, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserTableProps {
@@ -17,6 +17,7 @@ interface UserTableProps {
 
 export function UserTable({ users, onUserUpdated }: UserTableProps) {
   const [promotingUsers, setPromotingUsers] = useState<Set<string>>(new Set());
+  const [resettingPassword, setResettingPassword] = useState<Set<string>>(new Set());
 
   const getInitials = (name: string | null | undefined, email: string) => {
     if (name) {
@@ -119,6 +120,42 @@ export function UserTable({ users, onUserUpdated }: UserTableProps) {
     }
   };
 
+  const handleResetPassword = async (userId: string, email: string | null) => {
+    if (!email) {
+      toast.error("User email is not available, cannot send reset link.");
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to send a password reset link to ${email}?`)) {
+      return;
+    }
+
+    setResettingPassword(prev => new Set(prev).add(userId));
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send password reset link');
+      }
+
+      toast.success(`Password reset link sent to ${email}`);
+    } catch (error) {
+      console.error('Error sending password reset link:', error);
+      toast.error(error instanceof Error ? error.message : 'An unexpected error occurred');
+    } finally {
+      setResettingPassword(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
+    }
+  };
+
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -195,38 +232,35 @@ export function UserTable({ users, onUserUpdated }: UserTableProps) {
                 
                 <TableCell className="py-4 text-right">
                   <div className="flex items-center gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="hidden sm:flex items-center gap-1.5"
+                      onClick={() => handleResetPassword(user.id, user.email)}
+                      disabled={resettingPassword.has(user.id)}
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      {resettingPassword.has(user.id) ? 'Sending...' : 'Reset Pass'}
+                    </Button>
+
                     {(user.user_metadata?.role !== 'admin' && user.role !== 'admin') && (
                       <Button
                         onClick={() => handleMakeAdmin(user.id)}
                         disabled={promotingUsers.has(user.id)}
                         variant="outline"
                         size="sm"
-                        className="hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-colors"
+                        className="flex items-center gap-1.5"
                       >
-                        {promotingUsers.has(user.id) ? (
-                          <>
-                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-purple-600 mr-2"></div>
-                            Promoting...
-                          </>
-                        ) : (
-                          <>
-                            <UserPlus className="h-4 w-4 mr-1" />
-                            Make Admin
-                          </>
-                        )}
+                        <UserPlus className="h-3.5 w-3.5" />
+                        {promotingUsers.has(user.id) ? 'Promoting...' : 'Make Admin'}
                       </Button>
                     )}
-                    <Button 
-                      asChild 
-                      variant="outline" 
-                      size="sm"
-                      className="hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
-                    >
-                      <Link href={`/admin/users/${user.id}`} className="flex items-center gap-2">
+                    
+                    <Link href={`/admin/users/${user.id}`} passHref>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
                         <Eye className="h-4 w-4" />
-                        View Details
-                      </Link>
-                    </Button>
+                      </Button>
+                    </Link>
                   </div>
                 </TableCell>
               </TableRow>

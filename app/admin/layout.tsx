@@ -39,6 +39,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         Site Management
       </Link>
+      <Link 
+        href="/admin/content" 
+        className="block px-3 py-2 rounded-md text-foreground hover:bg-accent hover:text-primary font-medium transition-colors text-sm md:text-base"
+        onClick={() => setSidebarOpen(false)}
+      >
+        Content Management
+      </Link>
     </nav>
   );
 
