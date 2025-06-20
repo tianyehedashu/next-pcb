@@ -4,10 +4,17 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from "@/components/ui/use-toast";
+import { sendTestEmailAction } from '../test-admin-email/actions'; // Reusing the existing action
 
 export default function TestNotificationPage() {
   const [result, setResult] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [subject, setSubject] = useState('Generic Test Notification');
+  const [htmlContent, setHtmlContent] = useState('<p>This is a generic test notification.</p>');
+  const { toast } = useToast();
 
   const testOrderModification = async () => {
     setLoading(true);
@@ -56,41 +63,22 @@ export default function TestNotificationPage() {
     }
   };
 
-  const testDirectNotification = async () => {
+  const handleSendNotification = async () => {
     setLoading(true);
-    setResult('');
+    const result = await sendTestEmailAction(subject, htmlContent);
+    setLoading(false);
 
-    try {
-      const response = await fetch('/api/notify-customer-service', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subject: '🧪 测试通知 - 订单修改功能',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #1f2937;">🧪 测试通知</h2>
-              <p>这是一封测试邮件，用于验证订单修改通知功能是否正常工作。</p>
-              <p><strong>测试时间:</strong> ${new Date().toLocaleString('zh-CN')}</p>
-              <div style="background-color: #dcfce7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p style="color: #166534; margin: 0;">✅ 如果您收到这封邮件，说明通知系统工作正常！</p>
-              </div>
-            </div>
-          `
-        })
+    if (result.success) {
+      toast({
+        title: "Success",
+        description: "Test notification sent successfully!",
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        setResult(`❌ 通知发送失败: ${errorData.error || 'Unknown error'}`);
-      } else {
-        setResult('✅ 测试通知发送成功！请检查管理员邮箱。');
-      }
-    } catch (err) {
-      setResult(`❌ 网络错误: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setLoading(false);
+    } else {
+      toast({
+        title: "Error",
+        description: `Failed to send notification: ${result.error}`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -124,7 +112,7 @@ export default function TestNotificationPage() {
             </Button>
             
             <Button
-              onClick={testDirectNotification}
+              onClick={handleSendNotification}
               disabled={loading}
               variant="outline"
               className="h-20 flex flex-col items-center justify-center"

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import Stripe from 'stripe';
+import { sendAdminNotification } from '@/lib/utils/sendEmail';
+
+export const runtime = 'edge';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -20,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    const supabase = await createSupabaseServerClient(false);
+    const supabase = await createSupabaseServerClient();
 
     switch (event.type) {
       case 'payment_intent.succeeded': {
@@ -79,24 +82,9 @@ export async function POST(request: NextRequest) {
                 </ul>
                 <p>Please review the order in the admin dashboard.</p>
               `;
-
-              const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-              const notifyUrl = new URL('/api/notify-customer-service', baseUrl);
-        
-              const response = await fetch(notifyUrl.toString(), {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ subject, html }),
-              });
-
-              if (!response.ok) {
-                const errorBody = await response.text();
-                console.error(`Failed to send notification email for quote ${quote.id}. Status: ${response.status}, Body: ${errorBody}`);
-              } else {
-                console.log(`Successfully sent admin notification email for quote ${quote.id}`);
-              }
+              
+              // Directly call the sendAdminNotification function
+              await sendAdminNotification(supabase, subject, html);
             }
         } catch(e) {
             console.error(`An exception occurred while trying to send admin notification for intent ${paymentIntentId}:`, e)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { sendAdminNotification } from '@/lib/utils/sendEmail';
 
 // 定义状态枚举
 enum QuoteStatus {
@@ -557,23 +558,10 @@ async function notifyAdminsOfOrderChange(
       </div>
     `;
 
-    // 调用通知API
-    const notifyResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/notify-customer-service`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        subject,
-        html
-      })
-    });
+    // 直接调用通知函数
+    await sendAdminNotification(supabase, subject, html);
+    console.log('Admin notification sent successfully for order:', updatedQuote.id);
 
-    if (!notifyResponse.ok) {
-      console.error('Failed to send notification email:', await notifyResponse.text());
-    } else {
-      console.log('Admin notification sent successfully for order:', updatedQuote.id);
-    }
   } catch (error) {
     console.error('Error sending admin notification:', error);
     // 不阻断主流程
