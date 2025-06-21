@@ -20,12 +20,12 @@ export const metadata: Metadata = {
 };
 
 interface ContentListProps {
-  searchParams: {
+  searchParams: Promise<{
     search?: string;
     category?: string;
     type?: string;
     page?: string;
-  };
+  }>;
 }
 
 // 添加类型接口
@@ -131,8 +131,9 @@ async function getFeaturedContent() {
 }
 
 export default async function ContentListPage({ searchParams }: ContentListProps) {
+  const resolvedSearchParams = await searchParams;
   const [pages, categories, featuredContent] = await Promise.all([
-    getContent(searchParams),
+    getContent(resolvedSearchParams),
     getCategories(),
     getFeaturedContent()
   ]);

@@ -4,8 +4,6 @@ import { createSupabaseServerClient } from '@/utils/supabase/server';
 import Stripe from 'stripe';
 import { sendAdminNotification } from '@/lib/utils/sendEmail';
 
-export const runtime = 'edge';
-
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(request: NextRequest) {
