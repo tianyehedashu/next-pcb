@@ -5,8 +5,9 @@ import QuoteForm from "./QuoteForm";
 import PriceSummary from "./PriceSummary";
 import { FormStepNavigation } from "./FormStepNavigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield } from "lucide-react";
+import { Shield, BookOpen, ExternalLink, CheckCircle, ArrowRight } from "lucide-react";
 import { fieldGroups } from "../schema/pcbFormilySchema";
+import Link from "next/link";
 
 interface QuotePageClientProps {
   editId?: string;
@@ -53,7 +54,7 @@ export function QuotePageClient({ editId }: QuotePageClientProps) {
   return (
     <>
       {/* 主要内容区域 */}
-      <main className="pt-20 pb-12">
+      <main className="pb-12">
         <div className="container mx-auto px-4 lg:px-6 xl:px-8">
           <div className="grid grid-cols-1 xl:grid-cols-6 gap-6 lg:gap-8">
             {/* 表单区域 - 相对定位容器 */}
@@ -106,6 +107,93 @@ export function QuotePageClient({ editId }: QuotePageClientProps) {
                         24/7 engineering support
                       </li>
                     </ul>
+                  </CardContent>
+                </Card>
+                
+                {/* How to Order Guide */}
+                <Card className="bg-gradient-to-br from-green-50/90 to-emerald-50/90 backdrop-blur-md border-green-200/50 shadow-lg">
+                  <CardContent className="p-6">
+                    <h3 className="font-semibold text-green-900 mb-4 flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5" />
+                      Register for Best Experience
+                    </h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          1
+                        </div>
+                        <div>
+                          <p className="font-medium text-green-900">Quick Registration</p>
+                          <p className="text-green-700 text-xs">30-second signup for instant dashboard access</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          2
+                        </div>
+                        <div>
+                          <p className="font-medium text-green-900">Instant Quote Display</p>
+                          <p className="text-green-700 text-xs">See quotes directly in dashboard + email notification</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          3
+                        </div>
+                        <div>
+                          <p className="font-medium text-green-900">One-Click Ordering</p>
+                          <p className="text-green-700 text-xs">Saved addresses and preferences for fast checkout</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          4
+                        </div>
+                        <div>
+                          <p className="font-medium text-green-900">Real-Time Tracking</p>
+                          <p className="text-green-700 text-xs">Live order updates and production photos</p>
+                        </div>
+                      </div>
+                    </div>
+                    <Link 
+                      href="/services#how-to-order" 
+                      className="flex items-center justify-center gap-2 mt-4 p-2 bg-green-100/80 rounded-lg hover:bg-green-200/80 transition-colors group"
+                    >
+                      <span className="text-sm font-medium text-green-800">View Detailed Process</span>
+                      <ArrowRight className="h-4 w-4 text-green-600 group-hover:translate-x-1 transition-transform" />
+                    </Link>
+                  </CardContent>
+                </Card>
+
+                {/* Technical Resources */}
+                <Card className="bg-gradient-to-br from-purple-50/90 to-pink-50/90 backdrop-blur-md border-purple-200/50 shadow-lg">
+                  <CardContent className="p-6">
+                    <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                      <BookOpen className="h-5 w-5" />
+                      Technical Resources
+                    </h3>
+                    <div className="space-y-3">
+                      <Link 
+                        href="/content/guides" 
+                        className="flex items-center justify-between p-3 bg-white/60 rounded-lg hover:bg-white/80 transition-colors group"
+                      >
+                        <span className="text-sm font-medium text-purple-800">PCB Design Guidelines</span>
+                        <ExternalLink className="h-4 w-4 text-purple-600 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                      <Link 
+                        href="/content/articles" 
+                        className="flex items-center justify-between p-3 bg-white/60 rounded-lg hover:bg-white/80 transition-colors group"
+                      >
+                        <span className="text-sm font-medium text-purple-800">Manufacturing Tips</span>
+                        <ExternalLink className="h-4 w-4 text-purple-600 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                      <Link 
+                        href="/content" 
+                        className="flex items-center justify-center p-2 bg-purple-100/80 rounded-lg hover:bg-purple-200/80 transition-colors"
+                      >
+                        <span className="text-sm font-medium text-purple-800">Browse All Resources</span>
+                      </Link>
+                    </div>
                   </CardContent>
                 </Card>
               </div>

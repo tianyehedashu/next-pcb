@@ -25,6 +25,14 @@ const menu = [
     ],
   },
   {
+    title: "Resources",
+    items: [
+      { label: "Knowledge Center", href: "/content", icon: Menu },
+      { label: "Technical Guides", href: "/content/guides", icon: ClipboardList },
+      { label: "Industry News", href: "/content/news", icon: ClipboardList },
+    ],
+  },
+  {
     title: "Account",
     items: [
       { label: "Profile", href: "/profile", icon: User },

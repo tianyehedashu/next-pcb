@@ -28,7 +28,9 @@ export default function RootLayout({
         <ChatwootProvider>
           <Providers>
             <Navbar />
-            {children}
+            <main className="pt-16 sm:pt-20">
+              {children}
+            </main>
             <Footer />
           </Providers>
         </ChatwootProvider>

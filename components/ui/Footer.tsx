@@ -53,8 +53,23 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/quote" className="text-gray-400 hover:text-white">
-                  Quote
+                <Link href="/quote2" className="text-gray-400 hover:text-white">
+                  Get Quote
+                </Link>
+              </li>
+              <li>
+                <Link href="/services" className="text-gray-400 hover:text-white">
+                  Services
+                </Link>
+              </li>
+              <li>
+                <Link href="/about" className="text-gray-400 hover:text-white">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link href="/content" className="text-gray-400 hover:text-white">
+                  Knowledge Center
                 </Link>
               </li>
               <li>
@@ -65,10 +80,20 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* 服务 */}
+          {/* 资源与服务 */}
           <div>
-            <h3 className="text-xl font-bold mb-4">Services</h3>
+            <h3 className="text-xl font-bold mb-4">Resources & Services</h3>
             <ul className="space-y-2">
+              <li>
+                <Link href="/content/guides" className="text-gray-400 hover:text-white">
+                  Technical Guides
+                </Link>
+              </li>
+              <li>
+                <Link href="/content/news" className="text-gray-400 hover:text-white">
+                  Industry News
+                </Link>
+              </li>
               <li>
                 <Link href="/services/pcb-fabrication" className="text-gray-400 hover:text-white">
                   PCB Fabrication
@@ -77,11 +102,6 @@ export default function Footer() {
               <li>
                 <Link href="/services/pcb-assembly" className="text-gray-400 hover:text-white">
                   PCB Assembly
-                </Link>
-              </li>
-              <li>
-                <Link href="/services/component-sourcing" className="text-gray-400 hover:text-white">
-                  Component Sourcing
                 </Link>
               </li>
             </ul>

@@ -4,11 +4,10 @@ import { createSupabaseServerClient } from '@/utils/supabase/server';
 // Remove unused imports - types are inferred from the data structure
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar, User, Eye, Search } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { ContentFilters } from './components/ContentFilters';
 
 export const metadata: Metadata = {
   title: 'Knowledge Center | SpeedXPCB',
@@ -21,12 +20,12 @@ export const metadata: Metadata = {
 };
 
 interface ContentListProps {
-  searchParams: Promise<{
+  searchParams: {
     search?: string;
     category?: string;
     type?: string;
     page?: string;
-  }>;
+  };
 }
 
 // 添加类型接口
@@ -132,9 +131,8 @@ async function getFeaturedContent() {
 }
 
 export default async function ContentListPage({ searchParams }: ContentListProps) {
-  const resolvedSearchParams = await searchParams;
   const [pages, categories, featuredContent] = await Promise.all([
-    getContent(resolvedSearchParams),
+    getContent(searchParams),
     getCategories(),
     getFeaturedContent()
   ]);
@@ -163,7 +161,7 @@ export default async function ContentListPage({ searchParams }: ContentListProps
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30 pt-20 md:pt-24 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Hero Section - Simplified */}
@@ -174,6 +172,75 @@ export default async function ContentListPage({ searchParams }: ContentListProps
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
             Your comprehensive resource for PCB manufacturing insights, design guides, and industry expertise.
           </p>
+        </div>
+
+        {/* Category Navigation */}
+        <div className="mb-12">
+          <Card className="border-2 border-gray-200 shadow-lg">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Explore by Category</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { 
+                    href: '/content/guides', 
+                    name: 'Technical Guides', 
+                    icon: '📚', 
+                    count: pages.filter(p => p.type === 'help').length,
+                    bgClass: 'bg-gradient-to-br from-purple-50 to-purple-100',
+                    hoverClass: 'hover:border-purple-200',
+                    textClass: 'text-purple-700',
+                    hoverTextClass: 'group-hover:text-purple-800',
+                    countClass: 'text-purple-600'
+                  },
+                  { 
+                    href: '/content/news', 
+                    name: 'Industry News', 
+                    icon: '📰', 
+                    count: pages.filter(p => p.type === 'news').length,
+                    bgClass: 'bg-gradient-to-br from-orange-50 to-orange-100',
+                    hoverClass: 'hover:border-orange-200',
+                    textClass: 'text-orange-700',
+                    hoverTextClass: 'group-hover:text-orange-800',
+                    countClass: 'text-orange-600'
+                  },
+                  { 
+                    href: '/content/articles', 
+                    name: 'In-Depth Articles', 
+                    icon: '✍️', 
+                    count: pages.filter(p => p.type === 'post').length,
+                    bgClass: 'bg-gradient-to-br from-green-50 to-green-100',
+                    hoverClass: 'hover:border-green-200',
+                    textClass: 'text-green-700',
+                    hoverTextClass: 'group-hover:text-green-800',
+                    countClass: 'text-green-600'
+                  },
+                  { 
+                    href: '/content/resources', 
+                    name: 'Resources', 
+                    icon: '📄', 
+                    count: pages.filter(p => p.type === 'page').length,
+                    bgClass: 'bg-gradient-to-br from-blue-50 to-blue-100',
+                    hoverClass: 'hover:border-blue-200',
+                    textClass: 'text-blue-700',
+                    hoverTextClass: 'group-hover:text-blue-800',
+                    countClass: 'text-blue-600'
+                  }
+                ].map((cat) => (
+                  <Link key={cat.href} href={cat.href} className="group">
+                    <div className={`p-3 rounded-lg border-2 border-transparent ${cat.hoverClass} ${cat.bgClass} transition-all duration-300 hover:shadow-md text-center`}>
+                      <div className="text-2xl mb-1">{cat.icon}</div>
+                      <div className={`text-sm font-medium ${cat.textClass} ${cat.hoverTextClass}`}>
+                        {cat.name}
+                      </div>
+                      <div className={`text-xs ${cat.countClass} mt-1`}>
+                        {cat.count} items
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Search and Filters */}
@@ -187,43 +254,7 @@ export default async function ContentListPage({ searchParams }: ContentListProps
               </Badge>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search articles..."
-                  defaultValue={resolvedSearchParams.search}
-                  className="pl-10"
-                />
-              </div>
-              
-              <Select defaultValue={resolvedSearchParams.category || 'all'}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select defaultValue={resolvedSearchParams.type || 'all'}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="help">Help & Guides</SelectItem>
-                  <SelectItem value="news">Industry News</SelectItem>
-                  <SelectItem value="post">Articles</SelectItem>
-                  <SelectItem value="page">Resources</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <ContentFilters categories={categories} />
           </CardContent>
         </Card>
 
@@ -232,19 +263,87 @@ export default async function ContentListPage({ searchParams }: ContentListProps
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Browse by Category</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { type: 'help', icon: '📚', name: 'Help & Guides', desc: 'Technical documentation', color: 'purple' },
-              { type: 'news', icon: '📰', name: 'Industry News', desc: 'Latest updates', color: 'orange' },
-              { type: 'post', icon: '✍️', name: 'Articles', desc: 'In-depth insights', color: 'green' },
-              { type: 'page', icon: '📄', name: 'Resources', desc: 'Reference materials', color: 'blue' }
+              { 
+                type: 'help', 
+                icon: '📚', 
+                name: 'Help & Guides', 
+                desc: 'Technical documentation', 
+                bgClass: 'bg-gradient-to-br from-purple-50 to-purple-100',
+                hoverBorderClass: 'hover:border-purple-200',
+                textClass: 'text-purple-700',
+                hoverTextClass: 'group-hover:text-purple-800',
+                descClass: 'text-purple-600',
+                count: pages.filter(page => page.type === 'help').length
+              },
+              { 
+                type: 'news', 
+                icon: '📰', 
+                name: 'Industry News', 
+                desc: 'Latest updates', 
+                bgClass: 'bg-gradient-to-br from-orange-50 to-orange-100',
+                hoverBorderClass: 'hover:border-orange-200',
+                textClass: 'text-orange-700',
+                hoverTextClass: 'group-hover:text-orange-800',
+                descClass: 'text-orange-600',
+                count: pages.filter(page => page.type === 'news').length
+              },
+              { 
+                type: 'post', 
+                icon: '✍️', 
+                name: 'Articles', 
+                desc: 'In-depth insights', 
+                bgClass: 'bg-gradient-to-br from-green-50 to-green-100',
+                hoverBorderClass: 'hover:border-green-200',
+                textClass: 'text-green-700',
+                hoverTextClass: 'group-hover:text-green-800',
+                descClass: 'text-green-600',
+                count: pages.filter(page => page.type === 'post').length
+              },
+              { 
+                type: 'page', 
+                icon: '📄', 
+                name: 'Resources', 
+                desc: 'Reference materials', 
+                bgClass: 'bg-gradient-to-br from-blue-50 to-blue-100',
+                hoverBorderClass: 'hover:border-blue-200',
+                textClass: 'text-blue-700',
+                hoverTextClass: 'group-hover:text-blue-800',
+                descClass: 'text-blue-600',
+                count: pages.filter(page => page.type === 'page').length
+              }
             ].map((item) => (
-              <Link key={item.type} href={`/content?type=${item.type}`} className="group">
-                <Card className={`hover:shadow-lg hover:scale-105 transition-all duration-300 border-2 border-transparent hover:border-${item.color}-200 bg-gradient-to-br from-${item.color}-50 to-${item.color}-100`}>
-                  <CardContent className="p-6 text-center">
-                    <div className="text-4xl mb-3">{item.icon}</div>
-                    <h3 className={`font-bold text-${item.color}-700 group-hover:text-${item.color}-800`}>
+              <Link key={item.type} href={`/content/${item.type === 'help' ? 'guides' : item.type === 'post' ? 'articles' : item.type === 'page' ? 'resources' : item.type}`} className="group block">
+                <Card className={`hover:shadow-xl hover:shadow-black/10 hover:scale-105 active:scale-100 transition-all duration-300 border-2 border-transparent ${item.hoverBorderClass} ${item.bgClass} cursor-pointer relative overflow-hidden`}>
+                  {/* Hover overlay effect */}
+                  <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  
+                  {/* Count badge */}
+                  <div className="absolute top-3 right-3 z-20">
+                    <Badge className={`${item.textClass} bg-white/90 text-xs font-bold px-2 py-1`}>
+                      {item.count}
+                    </Badge>
+                  </div>
+                  
+                  <CardContent className="p-6 text-center relative z-10">
+                    <div className="text-4xl mb-3 transform group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+                      {item.icon}
+                    </div>
+                    <h3 className={`font-bold text-lg ${item.textClass} ${item.hoverTextClass} transition-colors duration-300`}>
                       {item.name}
                     </h3>
-                    <p className={`text-xs text-${item.color}-600 mt-1`}>{item.desc}</p>
+                    <p className={`text-sm ${item.descClass} mt-2 opacity-80 group-hover:opacity-100 transition-opacity duration-300`}>
+                      {item.desc}
+                    </p>
+                    
+                    {/* Arrow indicator */}
+                    <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className={`inline-flex items-center text-xs ${item.textClass} font-medium`}>
+                        Explore
+                        <svg className="ml-1 w-3 h-3 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </Link>
@@ -273,19 +372,22 @@ export default async function ContentListPage({ searchParams }: ContentListProps
                         </div>
                       ) : (
                         <div className="h-48 bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                          <div className="text-white text-6xl opacity-50">📄</div>
+                          <div className="text-white text-6xl opacity-50 group-hover:scale-110 transition-transform duration-300">📄</div>
                         </div>
                       )}
                       <div className="absolute top-4 left-4">
-                        <Badge className="bg-yellow-500 text-white">⭐ Featured</Badge>
+                        <Badge className="bg-yellow-500 text-white shadow-lg">⭐ Featured</Badge>
                       </div>
+                      
+                      {/* Gradient overlay on hover */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </div>
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors line-clamp-2">
                         {page.title}
                       </h3>
                       {page.excerpt && (
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                        <p className="text-gray-600 text-sm mb-4 line-clamp-3 group-hover:text-gray-700 transition-colors">
                           {page.excerpt}
                         </p>
                       )}
@@ -297,6 +399,16 @@ export default async function ContentListPage({ searchParams }: ContentListProps
                         <div className="flex items-center gap-1">
                           <Eye className="w-3 h-3" />
                           {page.view_count}
+                        </div>
+                      </div>
+                      
+                      {/* Read more indicator */}
+                      <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="inline-flex items-center text-sm text-blue-600 font-medium">
+                          Read Article
+                          <svg className="ml-1 w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
                         </div>
                       </div>
                     </CardContent>
@@ -313,84 +425,81 @@ export default async function ContentListPage({ searchParams }: ContentListProps
           {pages.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {pages.map((page) => (
-                <Card key={page.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(page.type)}`}>
-                        {page.type.charAt(0).toUpperCase() + page.type.slice(1)}
-                      </span>
-                      {page.category && (
-                        <Badge variant="outline" className="text-xs">
-                          {page.category.name}
-                        </Badge>
-                      )}
-                    </div>
-                    <CardTitle className="text-lg">
-                      <Link 
-                        href={`/content/${page.slug}`}
-                        className="hover:text-blue-600 transition-colors"
-                      >
-                        {page.title}
-                      </Link>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {page.featured_image && (
-                      <Image
-                        src={page.featured_image}
-                        alt={page.title}
-                        className="w-full h-32 object-cover rounded mb-3"
-                        width={400}
-                        height={128}
-                      />
-                    )}
-                    
-                    {page.excerpt && (
-                      <p className="text-gray-600 text-sm mb-3">
-                        {truncateText(page.excerpt, 120)}
-                      </p>
-                    )}
-
-                    {/* Tags */}
-                    {page.tags && page.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {page.tags.slice(0, 3).map((tag: { id: string; name: string; color: string }) => (
-                          <Badge
-                            key={tag.id}
-                            style={{ backgroundColor: tag.color, color: 'white' }}
-                            className="text-xs"
-                          >
-                            {tag.name}
-                          </Badge>
-                        ))}
-                        {page.tags.length > 3 && (
+                <Link key={page.id} href={`/content/${page.slug}`} className="group block">
+                  <Card className="h-full hover:shadow-xl hover:scale-105 active:scale-100 transition-all duration-300 cursor-pointer">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(page.type)}`}>
+                          {page.type.charAt(0).toUpperCase() + page.type.slice(1)}
+                        </span>
+                        {page.category && (
                           <Badge variant="outline" className="text-xs">
-                            +{page.tags.length - 3}
+                            {page.category.name}
                           </Badge>
                         )}
                       </div>
-                    )}
+                      <CardTitle className="text-lg group-hover:text-blue-600 transition-colors">
+                        {page.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {page.featured_image && (
+                        <Image
+                          src={page.featured_image}
+                          alt={page.title}
+                          className="w-full h-32 object-cover rounded mb-3"
+                          width={400}
+                          height={128}
+                        />
+                      )}
+                      
+                      {page.excerpt && (
+                        <p className="text-gray-600 text-sm mb-3">
+                          {truncateText(page.excerpt, 120)}
+                        </p>
+                      )}
 
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {formatDate(page.published_at || page.created_at)}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Eye className="w-3 h-3" />
-                          {page.view_count}
-                        </div>
-                      </div>
-                      {page.author && (
-                        <div className="flex items-center gap-1">
-                          <User className="w-3 h-3" />
-                          {page.author.company_name || 'Admin'}
+                      {/* Tags */}
+                      {page.tags && page.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {page.tags.slice(0, 3).map((tag: { id: string; name: string; color: string }) => (
+                            <Badge
+                              key={tag.id}
+                              style={{ backgroundColor: tag.color, color: 'white' }}
+                              className="text-xs"
+                            >
+                              {tag.name}
+                            </Badge>
+                          ))}
+                          {page.tags.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{page.tags.length - 3}
+                            </Badge>
+                          )}
                         </div>
                       )}
-                    </div>
-                  </CardContent>
-                </Card>
+
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {formatDate(page.published_at || page.created_at)}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Eye className="w-3 h-3" />
+                            {page.view_count}
+                          </div>
+                        </div>
+                        {page.author && (
+                          <div className="flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {page.author.company_name || 'Admin'}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
             </div>
           ) : (

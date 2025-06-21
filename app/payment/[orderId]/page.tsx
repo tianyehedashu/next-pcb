@@ -86,7 +86,7 @@ export default function PaymentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pt-20 pb-12">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-12">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto">
             <div className="text-center">
@@ -102,7 +102,7 @@ export default function PaymentPage() {
 
   if (error || !order || !adminOrder) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pt-20 pb-12">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-12">
         <div className="container mx-auto px-4">
           <div className="max-w-md mx-auto">
             <Card className="shadow-lg border-0">
@@ -128,7 +128,7 @@ export default function PaymentPage() {
   const shippingAddress = order.shipping_address as { [key: string]: string } | null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pt-20 pb-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-12">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
           {/* Header */}

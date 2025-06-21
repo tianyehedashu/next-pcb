@@ -50,7 +50,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row pt-20 md:pt-24">
+          <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* 移动端顶部栏 */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border shadow-sm sticky top-20 z-[500]">
         <span className="text-lg font-semibold text-primary">Admin Panel</span>

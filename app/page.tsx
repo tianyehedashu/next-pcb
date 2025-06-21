@@ -59,6 +59,134 @@ export default function Home() {
             </CardContent>
           </Card>
         </div>
+        <div className="text-center mt-10">
+          <Link href="/services">
+            <Button size="lg" variant="outline">
+              View All Services
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Knowledge Center */}
+      <section className="px-8 py-16 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">PCB Knowledge Center</h2>
+            <p className="text-lg text-slate-600 max-w-3xl mx-auto">
+              Access our comprehensive library of technical guides, industry insights, and design resources to optimize your PCB projects.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                  <span className="text-2xl">📚</span>
+                </div>
+                <CardTitle className="group-hover:text-purple-600 transition-colors">Technical Guides</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-600 mb-4">Step-by-step tutorials and best practices for PCB design, manufacturing, and assembly.</p>
+                <Link href="/content/guides" className="text-purple-600 hover:text-purple-800 font-medium">
+                  Explore Guides →
+                </Link>
+              </CardContent>
+            </Card>
+            <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+                  <span className="text-2xl">📰</span>
+                </div>
+                <CardTitle className="group-hover:text-orange-600 transition-colors">Industry News</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-600 mb-4">Stay updated with the latest PCB technology trends, market insights, and innovation updates.</p>
+                <Link href="/content/news" className="text-orange-600 hover:text-orange-800 font-medium">
+                  Read News →
+                </Link>
+              </CardContent>
+            </Card>
+            <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                  <span className="text-2xl">✍️</span>
+                </div>
+                <CardTitle className="group-hover:text-green-600 transition-colors">Design Resources</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-600 mb-4">In-depth articles, case studies, and technical specifications for advanced PCB projects.</p>
+                <Link href="/content/articles" className="text-green-600 hover:text-green-800 font-medium">
+                  Browse Articles →
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+          <div className="text-center mt-8">
+            <Link href="/content">
+              <Button size="lg" variant="outline" className="bg-white hover:bg-gray-50">
+                Visit Knowledge Center
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* How to Order */}
+      <section className="px-8 py-16 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">How to Order</h2>
+            <p className="text-lg text-slate-600 max-w-3xl mx-auto">
+              Simple and transparent ordering process. From quote to delivery in just 4 easy steps.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            {[
+              {
+                step: "01",
+                title: "Quick Register",
+                description: "30-second signup for instant dashboard access",
+                icon: "👤"
+              },
+              {
+                step: "02", 
+                title: "Upload & Quote",
+                description: "Upload files and get instant professional pricing",
+                icon: "📋"
+              },
+              {
+                step: "03",
+                title: "One-Click Order",
+                description: "Review quote and order with saved preferences",
+                icon: "🛒"
+              },
+              {
+                step: "04",
+                title: "Track & Receive",
+                description: "Real-time tracking with production photos",
+                icon: "🚀"
+              }
+            ].map((item, index) => (
+              <div key={index} className="text-center group">
+                <div className="relative">
+                  <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4 group-hover:bg-blue-700 transition-colors">
+                    {item.step}
+                  </div>
+                  <div className="text-4xl mb-4">{item.icon}</div>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">{item.title}</h3>
+                <p className="text-slate-600">{item.description}</p>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-10">
+            <Link href="/services#how-to-order">
+              <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+                View Detailed Process
+              </Button>
+            </Link>
+          </div>
+        </div>
       </section>
 
       {/* Why Choose Us */}
@@ -86,6 +214,13 @@ export default function Home() {
             <p className="text-slate-600">Reliable logistics to over 150 countries and regions.</p>
           </div>
         </div>
+        <div className="text-center mt-10">
+          <Link href="/about">
+            <Button size="lg" variant="outline">
+              Learn More About Us
+            </Button>
+          </Link>
+        </div>
       </section>
 
       {/* Testimonials */}
@@ -104,7 +239,7 @@ export default function Home() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-600">“SpeedXPCB delivered our boards faster than expected and the quality was top-notch. Highly recommended!”</p>
+              <p className="text-slate-600">"SpeedXPCB delivered our boards faster than expected and the quality was top-notch. Highly recommended!"</p>
             </CardContent>
           </Card>
           <Card>
@@ -119,7 +254,7 @@ export default function Home() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-600">“Excellent service and support. The one-stop solution made our project much easier.”</p>
+              <p className="text-slate-600">"Excellent service and support. The one-stop solution made our project much easier."</p>
             </CardContent>
           </Card>
           <Card>
@@ -134,9 +269,16 @@ export default function Home() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-600">“Professional team and reliable quality. Will definitely cooperate again!”</p>
+              <p className="text-slate-600">"Professional team and reliable quality. Will definitely cooperate again!"</p>
             </CardContent>
           </Card>
+        </div>
+        <div className="text-center mt-10">
+          <Link href="/testimonials">
+            <Button size="lg" variant="outline">
+              Read More Reviews
+            </Button>
+          </Link>
         </div>
       </section>
     </div>

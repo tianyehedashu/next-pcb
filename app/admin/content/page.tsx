@@ -132,18 +132,76 @@ export default function ContentManagementPage() {
   };
 
   const getTypeBadge = (type: string) => {
-    const colors = {
-      page: 'bg-blue-100 text-blue-800',
-      post: 'bg-green-100 text-green-800',
-      news: 'bg-orange-100 text-orange-800',
-      help: 'bg-purple-100 text-purple-800'
+    const typeConfig = {
+      help: { 
+        label: 'Technical Guide', 
+        color: 'bg-purple-100 text-purple-800',
+        url: '/content/guides'
+      },
+      news: { 
+        label: 'Industry News', 
+        color: 'bg-orange-100 text-orange-800',
+        url: '/content/news'
+      },
+      post: { 
+        label: 'In-Depth Article', 
+        color: 'bg-green-100 text-green-800',
+        url: '/content/articles'
+      },
+      page: { 
+        label: 'Resource', 
+        color: 'bg-blue-100 text-blue-800',
+        url: '/content/resources'
+      }
     } as const;
     
+    const config = typeConfig[type as keyof typeof typeConfig] || {
+      label: type.charAt(0).toUpperCase() + type.slice(1),
+      color: 'bg-gray-100 text-gray-800',
+      url: '/content'
+    };
+    
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800'}`}>
-        {type.charAt(0).toUpperCase() + type.slice(1)}
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+        {config.label}
       </span>
     );
+  };
+
+  const getTypeConfig = (type: string) => {
+    const typeConfig = {
+      help: { 
+        label: 'Technical Guide', 
+        color: 'bg-purple-100 text-purple-800',
+        url: '/content/guides',
+        icon: '📚'
+      },
+      news: { 
+        label: 'Industry News', 
+        color: 'bg-orange-100 text-orange-800',
+        url: '/content/news',
+        icon: '📰'
+      },
+      post: { 
+        label: 'In-Depth Article', 
+        color: 'bg-green-100 text-green-800',
+        url: '/content/articles',
+        icon: '✍️'
+      },
+      page: { 
+        label: 'Resource', 
+        color: 'bg-blue-100 text-blue-800',
+        url: '/content/resources',
+        icon: '📄'
+      }
+    } as const;
+    
+    return typeConfig[type as keyof typeof typeConfig] || {
+      label: type.charAt(0).toUpperCase() + type.slice(1),
+      color: 'bg-gray-100 text-gray-800',
+      url: '/content',
+      icon: '📄'
+    };
   };
 
   const formatDate = (dateString: string) => {
@@ -160,25 +218,38 @@ export default function ContentManagementPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Content Management</h1>
-          <p className="text-gray-600 mt-1">Manage pages, posts, and documentation</p>
+          <p className="text-gray-600 mt-1">
+            Manage technical guides, industry news, articles, and resources
+          </p>
         </div>
-        <Link href="/admin/content/new">
-          <Button className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Create Content
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/content" target="_blank">
+            <Button variant="outline" className="flex items-center gap-2">
+              <Eye className="w-4 h-4" />
+              View Knowledge Center
+            </Button>
+          </Link>
+          <Link href="/admin/content/new">
+            <Button className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Create Content
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pages</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Content</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{pagination.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {pages.filter(p => p.status === 'published').length} published
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -190,17 +261,23 @@ export default function ContentManagementPage() {
             <div className="text-2xl font-bold text-green-600">
               {pages.filter(p => p.status === 'published').length}
             </div>
+            <p className="text-xs text-muted-foreground">
+              {pages.filter(p => p.status === 'draft').length} drafts pending
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Drafts</CardTitle>
-            <Edit className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Featured</CardTitle>
+            <Tag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {pages.filter(p => p.status === 'draft').length}
+            <div className="text-2xl font-bold text-yellow-600">
+              {pages.filter(p => p.is_featured).length}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Highlighted content
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -210,9 +287,63 @@ export default function ContentManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{categories.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Active categories
+            </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Content Type Navigation */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Content Categories
+          </CardTitle>
+          <p className="text-sm text-gray-600">Quick access to content categories and their management</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              { type: 'help', count: pages.filter(p => p.type === 'help').length },
+              { type: 'news', count: pages.filter(p => p.type === 'news').length },
+              { type: 'post', count: pages.filter(p => p.type === 'post').length },
+              { type: 'page', count: pages.filter(p => p.type === 'page').length }
+            ].map(({ type, count }) => {
+              const config = getTypeConfig(type);
+              return (
+                <div key={type} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{config.icon}</span>
+                      <div>
+                        <h3 className="font-semibold text-sm">{config.label}</h3>
+                        <p className="text-xs text-gray-500">{count} items</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => setTypeFilter(type)}
+                    >
+                      Filter
+                    </Button>
+                    <Link href={config.url} target="_blank" className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full">
+                        View Live
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
@@ -245,14 +376,14 @@ export default function ContentManagementPage() {
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Type" />
+                <SelectValue placeholder="Content Type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="page">Page</SelectItem>
-                <SelectItem value="post">Post</SelectItem>
-                <SelectItem value="news">News</SelectItem>
-                <SelectItem value="help">Help</SelectItem>
+                <SelectItem value="help">📚 Technical Guides</SelectItem>
+                <SelectItem value="news">📰 Industry News</SelectItem>
+                <SelectItem value="post">✍️ In-Depth Articles</SelectItem>
+                <SelectItem value="page">📄 Resources</SelectItem>
               </SelectContent>
             </Select>
 
@@ -334,14 +465,19 @@ export default function ContentManagementPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
+                        <Link href={`/content/${page.slug}`} target="_blank">
+                          <Button variant="outline" size="sm" title="Preview">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </Link>
                         <Link href={`/admin/content/${page.id}`}>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" title="Edit">
                             <Edit className="w-4 h-4" />
                           </Button>
                         </Link>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" title="Delete">
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </AlertDialogTrigger>
@@ -349,7 +485,7 @@ export default function ContentManagementPage() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Content</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete "{page.title}"? This action cannot be undone.
+                                Are you sure you want to delete &quot;{page.title}&quot;? This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

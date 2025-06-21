@@ -67,9 +67,10 @@ export default function Navbar() {
   let navigationItems = [
     { href: "/", label: "Home" },
     { href: "/quote2", label: "Quote" },
-    { href: "#services", label: "Services" },
-    { href: "#why", label: "Why Us" },
-    { href: "#testimonials", label: "Testimonials" },
+    { href: "/content", label: "Knowledge Center" },
+    { href: "/services", label: "Services" },
+    { href: "/about", label: "About Us" },
+    { href: "/testimonials", label: "Testimonials" },
     { href: "/contact", label: "Contact" },
   ];
   if (isAdmin) {

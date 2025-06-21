@@ -177,7 +177,7 @@ export default function ContentCreatePage() {
               Create Content
             </h1>
             <p className="text-gray-600 mt-1">
-              Create a new page or post
+              Create technical guides, news articles, in-depth analysis, or resources
             </p>
           </div>
         </div>
@@ -350,21 +350,27 @@ export default function ContentCreatePage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="type">Type</Label>
+                    <Label htmlFor="type">Content Type</Label>
                     <Select
                       value={formData.type}
                       onValueChange={(value) => setFormData(p => ({ ...p, type: value as 'page' | 'post' | 'news' | 'help' }))}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
+                        <SelectValue placeholder="Select content type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="page">Page</SelectItem>
-                        <SelectItem value="post">Post</SelectItem>
-                        <SelectItem value="news">News</SelectItem>
-                        <SelectItem value="help">Help</SelectItem>
+                        <SelectItem value="help">📚 Technical Guide</SelectItem>
+                        <SelectItem value="news">📰 Industry News</SelectItem>
+                        <SelectItem value="post">✍️ In-Depth Article</SelectItem>
+                        <SelectItem value="page">📄 Resource</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formData.type === 'help' && 'Technical documentation, tutorials, and best practices'}
+                      {formData.type === 'news' && 'Industry updates, company announcements, and market trends'}
+                      {formData.type === 'post' && 'In-depth analysis, research insights, and expert articles'}
+                      {formData.type === 'page' && 'Reference materials, templates, tools, and specifications'}
+                    </p>
                   </div>
                   <div>
                     <Label htmlFor="category">Category</Label>
