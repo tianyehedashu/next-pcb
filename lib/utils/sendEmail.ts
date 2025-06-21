@@ -70,7 +70,7 @@ export async function sendAdminNotification(adminClient: SupabaseClient, subject
 
   const transporter = nodemailer.createTransport(emailConfig);
   const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.QQ_EMAIL_USER;
-  const fromName = process.env.SMTP_FROM_NAME || 'PCB Manufacturing';
+  const fromName = process.env.SMTP_FROM_NAME || 'SpeedxPCB';
 
   try {
     await transporter.sendMail({

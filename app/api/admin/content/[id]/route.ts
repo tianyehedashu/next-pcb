@@ -4,11 +4,11 @@ import { ContentPageFormData } from '@/types/content';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
-    const { id } = params;
+    const { id } = await params;
 
     const { data: page, error } = await supabase
       .from('content_pages')
@@ -44,11 +44,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
-    const { id } = params;
+    const { id } = await params;
     const body: ContentPageFormData = await request.json();
     
     // Verify admin access
@@ -74,6 +74,7 @@ export async function PUT(
       .from('content_pages')
       .update({
         ...pageData,
+        category_id: pageData.category_id || null,
         published_at: pageData.status === 'published' && !pageData.published_at 
           ? new Date().toISOString() 
           : pageData.published_at
@@ -120,11 +121,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
-    const { id } = params;
+    const { id } = await params;
     
     // Verify admin access
     const { data: { user } } = await supabase.auth.getUser();

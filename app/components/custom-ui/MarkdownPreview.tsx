@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, User, Eye } from 'lucide-react';
+import Image from 'next/image';
 
 interface MarkdownPreviewProps {
   content: string;
@@ -110,10 +111,12 @@ export default function MarkdownPreview({
       </pre>
     ),
     img: ({ src, alt }: any) => (
-      <img 
-        src={src} 
-        alt={alt} 
+      <Image
+        src={src}
+        alt={alt}
         className="max-w-full h-auto rounded-lg shadow-sm mb-4"
+        width={800}
+        height={450}
       />
     ),
     a: ({ href, children }: any) => (

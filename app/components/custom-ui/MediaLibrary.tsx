@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
@@ -14,11 +14,11 @@ import {
   Search, 
   Grid, 
   List,
-  Calendar,
   File,
   Check,
   Loader2
 } from 'lucide-react';
+import Image from 'next/image';
 
 interface MediaLibraryProps {
   onSelect?: (media: ContentMedia) => void;
@@ -183,10 +183,12 @@ export default function MediaLibrary({ onSelect, trigger, multiple = false }: Me
             <CardContent className="p-3">
               <div className="aspect-square bg-gray-100 rounded-lg mb-2 overflow-hidden relative">
                 {item.mime_type?.startsWith('image/') ? (
-                  <img
+                  <Image
                     src={item.file_path}
                     alt={item.alt_text || item.original_name}
                     className="w-full h-full object-cover"
+                    width={200}
+                    height={200}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -230,10 +232,12 @@ export default function MediaLibrary({ onSelect, trigger, multiple = false }: Me
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                   {item.mime_type?.startsWith('image/') ? (
-                    <img
+                    <Image
                       src={item.file_path}
                       alt={item.alt_text || item.original_name}
                       className="w-full h-full object-cover"
+                      width={48}
+                      height={48}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">

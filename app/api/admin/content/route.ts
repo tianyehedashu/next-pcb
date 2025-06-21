@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
       .from('content_pages')
       .insert({
         ...pageData,
+        category_id: pageData.category_id || null,
         author_id: user.id,
         published_at: pageData.status === 'published' ? new Date().toISOString() : null
       })

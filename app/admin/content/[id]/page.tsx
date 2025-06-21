@@ -16,13 +16,15 @@ import { ArrowLeft, Save, Eye, X, Type, Code, Monitor } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
 import MediaLibrary from '@/app/components/custom-ui/MediaLibrary';
-import Tiptap from '@/components/custom-ui/Tiptap';
+import RichTextEditor from '@/app/components/custom-ui/RichTextEditor';
+import MarkdownPreview from '@/app/components/custom-ui/MarkdownPreview';
+import Image from 'next/image';
 
 export default function ContentEditPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const isNew = params.id === 'new';
+  const isNew = !params.id;
   
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -42,7 +44,7 @@ export default function ContentEditPage() {
     featured_image: '',
     status: 'draft',
     type: 'page',
-    category_id: '',
+    category_id: undefined,
     published_at: '',
     is_featured: false,
     tag_ids: []
@@ -62,14 +64,14 @@ export default function ContentEditPage() {
       setFormData({
         title: page.title,
         slug: page.slug,
-        content: page.content,
+        content: page.content || '',
         excerpt: page.excerpt || '',
         meta_title: page.meta_title || '',
         meta_description: page.meta_description || '',
         featured_image: page.featured_image || '',
         status: page.status,
         type: page.type,
-        category_id: page.category_id || '',
+        category_id: page.category_id || undefined,
         published_at: page.published_at || '',
         is_featured: page.is_featured,
         tag_ids: page.tags?.map(tag => tag.id) || []
@@ -201,6 +203,7 @@ export default function ContentEditPage() {
     fetchPage();
     fetchCategories();
     fetchTags();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
@@ -223,10 +226,10 @@ export default function ContentEditPage() {
           </Link>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              {isNew ? 'Create Content' : 'Edit Content'}
+              Edit Content
             </h1>
             <p className="text-gray-600 mt-1">
-              {isNew ? 'Create a new page or post' : 'Edit existing content'}
+              Edit existing content
             </p>
           </div>
         </div>
@@ -244,9 +247,15 @@ export default function ContentEditPage() {
             onClick={() => handleSave('published')}
             disabled={saving}
           >
-            <Eye className="w-4 h-4 mr-2" />
+            <Save className="w-4 h-4 mr-2" />
             Publish
           </Button>
+          <Link href={`/content/${formData.slug}`} target="_blank">
+            <Button variant="ghost" disabled={!formData.slug}>
+              <Eye className="w-4 h-4 mr-2" />
+              Preview
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -270,16 +279,14 @@ export default function ContentEditPage() {
               </div>
               
               <div>
-                <Label htmlFor="slug">URL Slug</Label>
+                <Label htmlFor="slug">Slug</Label>
                 <Input
                   id="slug"
                   value={formData.slug}
-                  onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+                  onChange={(e) => setFormData(p => ({ ...p, slug: e.target.value }))}
                   placeholder="page-url-slug"
                 />
-                <p className="text-sm text-gray-500 mt-1">
-                  URL: /content/{formData.slug}
-                </p>
+                <p className="text-xs text-gray-500 mt-1">This will be the URL for your page. e.g., /content/your-slug</p>
               </div>
               
               <div>
@@ -288,8 +295,8 @@ export default function ContentEditPage() {
                   id="excerpt"
                   value={formData.excerpt}
                   onChange={(e) => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
-                  placeholder="Brief description of the content"
-                  rows={3}
+                  placeholder="Write a short summary..."
+                  rows={4}
                 />
               </div>
             </CardContent>
@@ -330,11 +337,18 @@ export default function ContentEditPage() {
                 </div>
                 
                 <TabsContent value="editor" className="mt-0 p-6">
+                  <div className="space-y-1">
+                    <Label>Editor Mode</Label>
+                    <div className="flex items-center gap-2">
+                      <Button variant={editorMode === 'rich' ? 'default' : 'outline'} onClick={() => setEditorMode('rich')}><Type className="w-4 h-4 mr-2" /> Rich Text</Button>
+                      <Button variant={editorMode === 'markdown' ? 'default' : 'outline'} onClick={() => setEditorMode('markdown')}><Code className="w-4 h-4 mr-2" /> Markdown</Button>
+                    </div>
+                  </div>
                   {editorMode === 'rich' ? (
                     <RichTextEditor
                       content={formData.content}
-                      onChange={(content) => setFormData(prev => ({ ...prev, content }))}
-                      placeholder="Start writing your content..."
+                      onChange={(newContent) => setFormData(prev => ({...prev, content: newContent}))}
+                      placeholder="Start writing your amazing content here..."
                     />
                   ) : (
                     <div className="border rounded-lg">
@@ -365,6 +379,7 @@ export default function ContentEditPage() {
           <Card>
             <CardHeader>
               <CardTitle>SEO Settings</CardTitle>
+              <p className="text-sm text-gray-500">Optimize how your page appears on search engines.</p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -373,7 +388,7 @@ export default function ContentEditPage() {
                   id="meta_title"
                   value={formData.meta_title}
                   onChange={(e) => setFormData(prev => ({ ...prev, meta_title: e.target.value }))}
-                  placeholder="SEO optimized title"
+                  placeholder="Title for search engines"
                 />
               </div>
               
@@ -383,7 +398,7 @@ export default function ContentEditPage() {
                   id="meta_description"
                   value={formData.meta_description}
                   onChange={(e) => setFormData(prev => ({ ...prev, meta_description: e.target.value }))}
-                  placeholder="SEO description for search engines"
+                  placeholder="Description for search engines"
                   rows={3}
                 />
               </div>
@@ -401,21 +416,21 @@ export default function ContentEditPage() {
             <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}>
+                <Select value={formData.status} onValueChange={(value: 'draft' | 'published' | 'archived') => setFormData(prev => ({ ...prev, status: value }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="archived">Archived</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="type">Content Type</Label>
-                <Select value={formData.type} onValueChange={(value: any) => setFormData(prev => ({ ...prev, type: value }))}>
+                <Label htmlFor="type">Type</Label>
+                <Select value={formData.type} onValueChange={(value: 'page' | 'post' | 'news' | 'help') => setFormData(prev => ({ ...prev, type: value }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -430,12 +445,12 @@ export default function ContentEditPage() {
 
               <div>
                 <Label htmlFor="category">Category</Label>
-                <Select value={formData.category_id} onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}>
+                <Select value={formData.category_id || 'none'} onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value === 'none' ? undefined : value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No category</SelectItem>
+                    <SelectItem value="none">No category</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
@@ -447,11 +462,11 @@ export default function ContentEditPage() {
 
               <div className="flex items-center space-x-2">
                 <Switch
-                  id="featured"
+                  id="is_featured"
                   checked={formData.is_featured}
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_featured: checked }))}
                 />
-                <Label htmlFor="featured">Featured Content</Label>
+                <Label htmlFor="is_featured">Featured Content</Label>
               </div>
             </CardContent>
           </Card>
@@ -495,10 +510,12 @@ export default function ContentEditPage() {
             <CardContent className="space-y-4">
               {formData.featured_image && (
                 <div className="relative">
-                  <img
+                  <Image
                     src={formData.featured_image}
                     alt="Featured image preview"
                     className="w-full h-32 object-cover rounded-lg"
+                    width={400}
+                    height={128}
                   />
                   <Button
                     variant="destructive"
