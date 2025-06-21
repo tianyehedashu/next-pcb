@@ -1,7 +1,8 @@
-const { execSync } = require('child_process');
+import type { NextConfig } from 'next';
+import { execSync } from 'child_process';
 
 // 获取 Git 提交哈希
-const getGitSha = () => {
+const getGitSha = (): string => {
   try {
     return execSync('git rev-parse --short HEAD').toString().trim();
   } catch (error) {
@@ -9,8 +10,7 @@ const getGitSha = () => {
   }
 };
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_GIT_SHA: getGitSha(),
   },
@@ -46,4 +46,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig; 
+export default nextConfig; 
