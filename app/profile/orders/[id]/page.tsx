@@ -500,7 +500,7 @@ export default function OrderDetailPage() {
               Back
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Order #{order.id.slice(-8)}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Order #{order.id.slice(-8)}</h1>
               <p className="text-gray-600">Created {order.created_at ? new Date(order.created_at).toLocaleDateString() : '-'}</p>
             </div>
           </div>
@@ -550,7 +550,7 @@ export default function OrderDetailPage() {
               {/* Price Flow - Horizontal Layout */}
               <div className="space-y-3">
                 {/* Price Progression */}
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div className="flex-1">
                     <h4 className="font-semibold text-gray-800 mb-1">Initial System Quote</h4>
                     {order.cal_values ? (
@@ -607,8 +607,8 @@ export default function OrderDetailPage() {
                   </div>
 
                   {/* Arrow */}
-                  <div className="flex items-center px-2">
-                    <ArrowLeft className="w-5 h-5 text-gray-400 rotate-180" />
+                  <div className="flex items-center justify-center px-2 lg:px-2 py-2 lg:py-0">
+                    <ArrowLeft className="w-5 h-5 text-gray-400 rotate-90 lg:rotate-180" />
                   </div>
 
                                      {/* Final Price */}
@@ -715,7 +715,7 @@ export default function OrderDetailPage() {
                       </div>
                       <Button 
                         onClick={() => router.push(`/payment/${order.id}`)}
-                        className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white py-3"
+                        className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white py-3 text-sm sm:text-base"
                         size="lg"
                       >
                         <CreditCard className="h-5 w-5 mr-2" />
@@ -791,20 +791,20 @@ export default function OrderDetailPage() {
             {/* PCB Specifications */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center justify-between">
+                <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <FileText className="w-5 h-5 text-orange-600" />
                     PCB Specifications
                   </div>
                   {pcbFormData && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded font-medium">
+                    <div className="flex items-center gap-2 text-sm flex-wrap">
+                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded font-medium text-xs sm:text-sm">
                         {pcbFormData.layers}L
                       </span>
-                      <span className="px-2 py-1 bg-green-50 text-green-700 rounded font-medium">
+                      <span className="px-2 py-1 bg-green-50 text-green-700 rounded font-medium text-xs sm:text-sm">
                         {pcbFormData.singleCount}pcs
                       </span>
-                      <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded font-medium">
+                      <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded font-medium text-xs sm:text-sm">
                         {pcbFormData.thickness}mm
                       </span>
                     </div>
@@ -816,7 +816,7 @@ export default function OrderDetailPage() {
                   <div className="space-y-1 text-xs">
                     {/* Compact Multi-Column Layout */}
                     {/* Row 1: Basic Info */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Size:</span>
                           <span className="font-medium">{pcbFormData.singleDimensions.length}×{pcbFormData.singleDimensions.width}mm</span>
@@ -836,7 +836,7 @@ export default function OrderDetailPage() {
                       </div>
 
                       {/* Row 2: Panel & Design Info */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                         <div className="flex justify-between">
                           <span className="text-gray-600">HDI:</span>
                           <span className="font-medium">{pcbFormData.hdi}</span>
@@ -865,7 +865,7 @@ export default function OrderDetailPage() {
 
                       {/* Row 3: Break-away Rail & Border */}
                       {(pcbFormData.breakAwayRail && pcbFormData.breakAwayRail !== 'None') || pcbFormData.border || pcbFormData.borderCutType ? (
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                           {pcbFormData.breakAwayRail && pcbFormData.breakAwayRail !== 'None' && (
                             <div className="flex justify-between">
                               <span className="text-gray-600">Break-away Rail:</span>
@@ -888,7 +888,7 @@ export default function OrderDetailPage() {
                       ) : null}
 
                       {/* Row 4: Colors & Finish */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Solder Mask:</span>
                           <span className="font-medium">{pcbFormData.solderMask}</span>
@@ -914,7 +914,7 @@ export default function OrderDetailPage() {
                       </div>
 
                       {/* Row 5: Copper & Trace */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Outer Copper:</span>
                           <span className="font-medium">{pcbFormData.outerCopperWeight}oz</span>
@@ -943,7 +943,7 @@ export default function OrderDetailPage() {
 
                       {/* Row 6: Edge Processing */}
                       {pcbFormData.edgePlating || pcbFormData.halfHole ? (
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                           {pcbFormData.edgePlating && (
                             <>
                               <div className="flex justify-between">
@@ -968,7 +968,7 @@ export default function OrderDetailPage() {
                       ) : null}
 
                       {/* Row 7: Test & Quality */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Electrical Test:</span>
                           <span className="font-medium">{pcbFormData.testMethod}</span>
@@ -988,7 +988,7 @@ export default function OrderDetailPage() {
                       </div>
 
                       {/* Row 8: Service & Reports */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Working Gerber:</span>
                           <span className="font-medium">{pcbFormData.workingGerber}</span>
@@ -1121,7 +1121,7 @@ export default function OrderDetailPage() {
                             <Pencil className="h-3 w-3" />
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                        <DialogContent className="max-w-sm sm:max-w-4xl max-h-[80vh] overflow-y-auto">
                           <DialogHeader>
                             <DialogTitle>Edit Shipping Address</DialogTitle>
                           </DialogHeader>
@@ -1301,7 +1301,7 @@ export default function OrderDetailPage() {
 
       {/* PCB Details Dialog */}
       <Dialog open={showPcbDetails} onOpenChange={setShowPcbDetails}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-sm sm:max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Complete PCB Specifications</DialogTitle>
           </DialogHeader>
