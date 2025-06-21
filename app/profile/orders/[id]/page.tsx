@@ -3,16 +3,14 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
-  Pencil, Package, Clock, DollarSign, MapPin, FileText, AlertCircle, 
-  ArrowLeft, CheckCircle, Truck, AlertTriangle, CreditCard, Info, Loader2, Calendar,
-  Star, Shield, Zap
+  Pencil, DollarSign, MapPin, FileText, AlertCircle, 
+  ArrowLeft, CheckCircle, Truck, AlertTriangle, CreditCard, Info, Loader2,
+  Shield, Download, Phone, Mail
 } from 'lucide-react';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 import OrderStepBar from '@/components/ui/OrderStepBar';
@@ -32,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/components/ui/use-toast';
 import { AddressFormComponent, AddressFormValue } from '@/app/quote2/components/AddressFormComponent';
-import { DeliveryType } from '@/app/quote2/schema/shared-types';
+
 
 // Define cal_values type
 interface CalValues {
@@ -202,13 +200,11 @@ export default function OrderDetailPage() {
   // Edit states
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
-  const [isEditingPcbSpec, setIsEditingPcbSpec] = useState(false);
   const [showPcbDetails, setShowPcbDetails] = useState(false);
   const [editedAddress, setEditedAddress] = useState<AddressFormValue>({
     country: '', state: '', city: '', address: '', zipCode: '', contactName: '', phone: '', courier: ''
   });
   const [editedPhone, setEditedPhone] = useState('');
-  const [editedPcbSpec, setEditedPcbSpec] = useState<QuoteFormData>({} as QuoteFormData);
 
   // Fetch order details
   const fetchOrder = useCallback(async () => {
@@ -249,16 +245,13 @@ export default function OrderDetailPage() {
           const result = quoteSchema.safeParse(orderData.pcb_spec);
           if (result.success) {
             setPcbFormData(result.data);
-            setEditedPcbSpec(result.data);
           } else {
             console.warn('PCB spec validation failed:', result.error);
             setPcbFormData(orderData.pcb_spec as QuoteFormData);
-            setEditedPcbSpec(orderData.pcb_spec as QuoteFormData);
           }
         } catch (err) {
           console.warn('Failed to parse PCB spec:', err);
           setPcbFormData(orderData.pcb_spec as QuoteFormData);
-          setEditedPcbSpec(orderData.pcb_spec as QuoteFormData);
         }
       }
 
@@ -346,19 +339,6 @@ export default function OrderDetailPage() {
     setIsEditingPhone(false);
   };
 
-  const handleSavePcbSpec = async () => {
-    await updateOrder({ pcb_spec: editedPcbSpec });
-    setIsEditingPcbSpec(false);
-    
-    if (order && order.status === 'reviewed') {
-      await updateOrder({ status: 'pending' });
-      toast({
-        title: 'Info',
-        description: 'Order status changed to "Under Review" due to PCB specification modification'
-      });
-    }
-  };
-
   const handleCancelOrder = async () => {
     if (!window.confirm('Are you sure you want to cancel this order? This action cannot be undone.')) {
       return;
@@ -380,61 +360,6 @@ export default function OrderDetailPage() {
         variant: 'destructive',
       });
     }
-  };
-
-  // Get PCB field display value
-  const getPcbFieldDisplay = (key: string, value: unknown): string => {
-    if (value === null || value === undefined || value === '') return '-';
-    
-    const displayMap: Record<string, (val: unknown) => string> = {
-      pcbType: (v) => String(v),
-      layers: (v) => `${v} Layers`,
-      thickness: (v) => String(v), // Already formatted as "1.6mm"
-      singleDimensions: (v) => {
-        const dim = v as { length?: number; width?: number };
-        return dim?.length && dim?.width ? `${dim.length} × ${dim.width} mm` : '-';
-      },
-      singleCount: (v) => String(v), // Already formatted as "10 pcs"
-      delivery: (v) => String(v), // Already formatted as "Standard" or "Urgent"
-      shipmentType: (v) => String(v), // Already formatted
-      differentDesignsCount: (v) => `${v} Design${Number(v) === 1 ? '' : 's'}`,
-      surfaceFinish: (v) => {
-        const map: Record<string, string> = {
-          'HASL': 'HASL Lead Free',
-          'ENIG': 'ENIG',
-          'OSP': 'OSP',
-          'Immersion Silver': 'Immersion Silver',
-          'Immersion Tin': 'Immersion Tin'
-        };
-        return map[v as string] || String(v);
-      },
-      solderMask: (v) => String(v),
-      silkscreen: (v) => String(v),
-      goldFingers: (v) => String(v), // Already formatted as "Yes"/"No"
-      edgePlating: (v) => String(v), // Already formatted as "Yes"/"No"
-      maskCover: (v) => String(v),
-      hdi: (v) => String(v),
-      tg: (v) => String(v),
-      ipcClass: (v) => String(v),
-      innerCopperWeight: (v) => String(v), // Already formatted as "0.5oz"
-      outerCopperWeight: (v) => String(v), // Already formatted as "1oz"
-      minTrace: (v) => String(v), // Already formatted as "6/6mil"
-      minHole: (v) => String(v), // Already formatted as "0.3mm"
-      impedance: (v) => String(v), // Already formatted as "Yes"/"No"
-      bga: (v) => String(v), // Already formatted as "Yes"/"No"
-      testMethod: (v) => String(v),
-      crossOuts: (v) => String(v),
-      ulMark: (v) => String(v), // Already formatted
-      productReport: (v) => String(v), // Already formatted
-      workingGerber: (v) => String(v),
-      ifDataConflicts: (v) => String(v),
-      blueMask: (v) => String(v), // Already formatted as "Yes"/"No"
-      halfHole: (v) => String(v),
-      holeCu25um: (v) => String(v), // Already formatted as "Yes"/"No"
-      useShengyiMaterial: (v) => String(v) // Already formatted as "Yes"/"No"
-    };
-
-    return displayMap[key] ? displayMap[key](value) : String(value);
   };
 
   const adminOrder = order?.admin_orders?.[0];
@@ -499,10 +424,7 @@ export default function OrderDetailPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin border-t-blue-600 mx-auto"></div>
-            <div className="absolute inset-0 w-16 h-16 border-4 border-purple-200 rounded-full animate-ping mx-auto opacity-20"></div>
-          </div>
+          <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin border-t-blue-600 mx-auto"></div>
           <div className="space-y-2">
             <h3 className="text-lg font-semibold text-gray-900">Loading Order Details</h3>
             <p className="text-gray-600">Please wait while we fetch your order information...</p>
@@ -564,1414 +486,844 @@ export default function OrderDetailPage() {
   const currentStep = getCurrentStep();
 
   return (
-    <div className="space-y-8">
-      {/* Page Header - Modern Design */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-indigo-600/5 rounded-2xl"></div>
-        <div className="relative p-6 lg:p-8">
-          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                    <Package className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 tracking-tight">
-                      Order Details
-                    </h1>
-                    <p className="text-gray-600 text-sm lg:text-base font-medium">
-                      #{order.id.slice(-8)}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 flex-wrap">
-                  <Badge className={`${statusInfo?.style} border-0 shadow-sm text-sm font-medium px-4 py-2 rounded-full transition-all hover:scale-105`}>
-                    {statusInfo?.text || order.status}
-                  </Badge>
-                  {adminOrder?.payment_status === 'paid' && (
-                    <Badge className="bg-emerald-50 text-emerald-700 border-0 shadow-sm text-sm font-medium px-4 py-2 rounded-full transition-all hover:scale-105">
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      Paid
-                    </Badge>
-                  )}
-                  {order.cal_values?.leadTimeDays && (
-                    <Badge variant="outline" className="text-sm font-medium px-4 py-2 rounded-full">
-                      <Zap className="w-4 h-4 mr-1" />
-                      {order.cal_values.leadTimeDays} days
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                <div className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                  <Clock className="w-4 h-4 text-blue-600" />
-                  <span>Created: {order.created_at ? new Date(order.created_at).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                  }) : '-'}</span>
-                </div>
-                {adminOrder?.due_date && (
-                  <div className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                    <Calendar className="w-4 h-4 text-purple-600" />
-                    <span>Due: {new Date(adminOrder.due_date).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric'
-                    })}</span>
-                  </div>
-                )}
-                {order.payment_intent_id && (
-                  <div className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                    <CreditCard className="w-4 h-4 text-green-600" />
-                    <span>Payment: {order.payment_intent_id.slice(-8)}</span>
-                  </div>
-                )}
-              </div>
+    <div className="max-w-7xl mx-auto p-6 space-y-8">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => router.push('/profile/orders')} 
+              variant="outline"
+              size="sm"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Order #{order.id.slice(-8)}</h1>
+              <p className="text-gray-600">Created {order.created_at ? new Date(order.created_at).toLocaleDateString() : '-'}</p>
             </div>
-            
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button 
-                onClick={() => router.push('/profile/orders')} 
-                variant="outline"
-                className="border-gray-300 hover:border-gray-400 transition-all hover:shadow-sm"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Orders
-              </Button>
-              
-              {/* 用户编辑订单按钮 */}
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap gap-3">
+          <Badge className={`${statusInfo?.style} px-4 py-2 text-sm font-medium`}>
+            {statusInfo?.text || order.status}
+          </Badge>
+          {adminOrder?.payment_status === 'paid' && (
+            <Badge className="bg-green-100 text-green-800 px-4 py-2">
+              <CheckCircle className="w-4 h-4 mr-1" />
+              Paid
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <OrderStepBar currentStatus={currentStep} steps={ORDER_STEPS} />
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left Column - Main Info */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Price & Payment - Enhanced Integration */}
+          <Card className="overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50 border-b pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-green-600" />
+                Price & Payment Status
+              </CardTitle>
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${
+                    adminOrder?.payment_status === 'paid' ? 'bg-green-500' : 
+                    adminOrder?.admin_price ? 'bg-blue-500' : 'bg-amber-500'
+                  }`}></div>
+                  <span className="text-gray-600">
+                    {adminOrder?.payment_status === 'paid' ? 'Payment Completed' : 
+                     adminOrder?.admin_price ? 'Ready for Payment' : 'Price Pending'}
+                  </span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4">
+              {/* Price Flow - Horizontal Layout */}
+              <div className="space-y-3">
+                {/* Price Progression */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-800 mb-1">Initial System Quote</h4>
+                    {order.cal_values ? (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">PCB:</span>
+                          <span>${order.cal_values.pcbPrice?.toFixed(2) || '-'}</span>
+                        </div>
+                        {order.cal_values.shippingCost && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Shipping:</span>
+                            <span>${order.cal_values.shippingCost.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {order.cal_values.totalPrice && (
+                          <div className="flex justify-between font-medium border-t pt-1 mt-1">
+                            <span>Total:</span>
+                            <span>${order.cal_values.totalPrice.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {/* Lead Time & Delivery Info */}
+                        <div className="mt-1 pt-1 border-t border-gray-200">
+                          {order.cal_values.leadTimeDays && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Lead Time:</span>
+                              <span className="font-medium text-blue-600">{order.cal_values.leadTimeDays} days</span>
+                            </div>
+                          )}
+                          {order.cal_values.courier && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Courier:</span>
+                              <span className="text-purple-600">{order.cal_values.courier}</span>
+                            </div>
+                          )}
+                          {order.cal_values.courierDays && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Shipping Time:</span>
+                              <span className="text-orange-600">{order.cal_values.courierDays}</span>
+                            </div>
+                          )}
+                          {order.cal_values.estimatedFinishDate && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Est. Completion:</span>
+                              <span className="text-green-600 font-medium">
+                                {new Date(order.cal_values.estimatedFinishDate).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">Calculating...</p>
+                    )}
+                  </div>
+
+                  {/* Arrow */}
+                  <div className="flex items-center px-2">
+                    <ArrowLeft className="w-5 h-5 text-gray-400 rotate-180" />
+                  </div>
+
+                                     {/* Final Price */}
+                   <div className="flex-1">
+                     <h4 className="font-semibold text-gray-800 mb-1">Admin Confirmed Price</h4>
+                     {adminOrder?.admin_price ? (
+                       <div className="space-y-1">
+                         {/* Price Breakdown */}
+                         {adminOrder.pcb_price != null && adminOrder.pcb_price > 0 && (
+                           <div className="flex justify-between text-sm">
+                             <span className="text-gray-600">PCB Cost:</span>
+                             <span>{adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.pcb_price.toFixed(2)}</span>
+                           </div>
+                         )}
+                         {adminOrder.ship_price != null && adminOrder.ship_price > 0 && (
+                           <div className="flex justify-between text-sm">
+                             <span className="text-gray-600">Shipping:</span>
+                             <span>{adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.ship_price.toFixed(2)}</span>
+                           </div>
+                         )}
+                         {adminOrder.custom_duty != null && adminOrder.custom_duty > 0 && (
+                           <div className="flex justify-between text-sm">
+                             <span className="text-gray-600">Custom Duty:</span>
+                             <span>{adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.custom_duty.toFixed(2)}</span>
+                           </div>
+                         )}
+                         {adminOrder.coupon != null && adminOrder.coupon > 0 && (
+                           <div className="flex justify-between text-sm text-red-600">
+                             <span>Discount:</span>
+                             <span>-{adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.coupon.toFixed(2)}</span>
+                           </div>
+                         )}
+                         {adminOrder.surcharges && adminOrder.surcharges.length > 0 && (
+                           <>
+                             {adminOrder.surcharges
+                               .filter(surcharge => surcharge.name && surcharge.amount > 0)
+                               .map((surcharge, index) => (
+                                 <div key={index} className="flex justify-between text-sm">
+                                   <span className="text-gray-600">{surcharge.name}:</span>
+                                   <span>{adminOrder.currency === 'CNY' ? '¥' : '$'}{surcharge.amount.toFixed(2)}</span>
+                                 </div>
+                               ))}
+                           </>
+                         )}
+                         
+                         {/* Total Price */}
+                         <div className="flex justify-between font-bold text-lg border-t pt-1 mt-1 text-green-600">
+                           <span>Total:</span>
+                           <span>{adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price.toFixed(2)}</span>
+                         </div>
+                         
+                         {/* Timeline Info */}
+                         <div className="mt-1 pt-1 border-t border-green-200">
+                           <div className="flex justify-between text-sm text-green-700">
+                             <span>Production:</span>
+                             <span>{adminOrder.production_days || '-'} days</span>
+                           </div>
+                           {adminOrder.due_date && (
+                             <div className="flex justify-between text-sm text-green-700">
+                               <span>Due Date:</span>
+                               <span className="font-medium">
+                                 {new Date(adminOrder.due_date).toLocaleDateString()}
+                               </span>
+                             </div>
+                           )}
+                           {adminOrder.delivery_date && (
+                             <div className="flex justify-between text-sm text-green-700">
+                               <span>Delivery Date:</span>
+                               <span className="font-medium">
+                                 {new Date(adminOrder.delivery_date).toLocaleDateString()}
+                               </span>
+                             </div>
+                           )}
+                           {order.cal_values?.courier && (
+                             <div className="flex justify-between text-sm text-green-700">
+                               <span>Courier:</span>
+                               <span>{order.cal_values.courier}</span>
+                             </div>
+                           )}
+                           {order.cal_values?.courierDays && (
+                             <div className="flex justify-between text-sm text-green-700">
+                               <span>Shipping Time:</span>
+                               <span>{order.cal_values.courierDays}</span>
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     ) : (
+                       <div className="text-amber-600">
+                         <div className="text-lg font-medium">Pending Review</div>
+                         <div className="text-sm">Admin is calculating final price</div>
+                       </div>
+                     )}
+                   </div>
+                                 </div>
+
+                {/* Action Area */}
+                <div className="border-t pt-3">
+                  {isReadyForPayment && adminOrder?.payment_status !== 'paid' ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-green-700 text-sm">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>Price confirmed and ready for payment</span>
+                      </div>
+                      <Button 
+                        onClick={() => router.push(`/payment/${order.id}`)}
+                        className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white py-3"
+                        size="lg"
+                      >
+                        <CreditCard className="h-5 w-5 mr-2" />
+                        Pay Now - {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price?.toFixed(2)}
+                      </Button>
+                    </div>
+                  ) : adminOrder?.payment_status === 'paid' ? (
+                    <div className="flex items-center justify-center gap-2 text-green-700 bg-green-50 py-3 rounded-lg">
+                      <CheckCircle className="h-5 w-5" />
+                      <span className="font-medium">Payment Completed</span>
+                    </div>
+                  ) : null}
+
+                  {/* Refund Actions */}
+                  {(canRequestRefund || adminOrder?.refund_status === 'pending_confirmation') && (
+                    <div className="mt-3 pt-3 border-t">
+                      {canRequestRefund && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" className="w-full" disabled={isRefunding}>
+                              Request Refund
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Request Refund</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will submit a refund request for administrator review.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleRefundRequest} disabled={isRefunding}>
+                                {isRefunding ? 'Submitting...' : 'Yes, Request Refund'}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                      
+                      {adminOrder?.refund_status === 'pending_confirmation' && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
+                          <h4 className="font-semibold text-blue-800 mb-2">Confirm Your Refund</h4>
+                          <p className="text-sm text-blue-700 mb-2">Amount: ${adminOrder.approved_refund_amount?.toFixed(2)}</p>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRefundConfirmation('cancel')}
+                              disabled={isConfirmingRefund}
+                            >
+                              Cancel Request
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleRefundConfirmation('confirm')}
+                              disabled={isConfirmingRefund}
+                            >
+                              {isConfirmingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm Refund'}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Order Details Row */}
+          <div className="space-y-6">
+            {/* PCB Specifications */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-orange-600" />
+                    PCB Specifications
+                  </div>
+                  {pcbFormData && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded font-medium">
+                        {pcbFormData.layers}L
+                      </span>
+                      <span className="px-2 py-1 bg-green-50 text-green-700 rounded font-medium">
+                        {pcbFormData.singleCount}pcs
+                      </span>
+                      <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded font-medium">
+                        {pcbFormData.thickness}mm
+                      </span>
+                    </div>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 pb-3 px-4">
+                {pcbFormData ? (
+                  <div className="space-y-1 text-xs">
+                    {/* Compact Multi-Column Layout */}
+                    {/* Row 1: Basic Info */}
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Size:</span>
+                          <span className="font-medium">{pcbFormData.singleDimensions.length}×{pcbFormData.singleDimensions.width}mm</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Material:</span>
+                          <span className="font-medium">{pcbFormData.pcbType}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Shipment:</span>
+                          <span className="font-medium">{pcbFormData.shipmentType}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">TG:</span>
+                          <span className="font-medium">{pcbFormData.tg}</span>
+                        </div>
+                      </div>
+
+                      {/* Row 2: Panel & Design Info */}
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">HDI:</span>
+                          <span className="font-medium">{pcbFormData.hdi}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Designs Count:</span>
+                          <span className="font-medium">{pcbFormData.differentDesignsCount}</span>
+                        </div>
+                        {pcbFormData.shipmentType !== 'single' && pcbFormData.panelDimensions && (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Panel Size:</span>
+                              <span className="font-medium">{pcbFormData.panelDimensions.row}×{pcbFormData.panelDimensions.column}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Panel Set:</span>
+                              <span className="font-medium">{pcbFormData.panelSet}</span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Shengyi Material:</span>
+                          <span className="font-medium">{pcbFormData.useShengyiMaterial ? 'Yes' : 'No'}</span>
+                        </div>
+                      </div>
+
+                      {/* Row 3: Break-away Rail & Border */}
+                      {(pcbFormData.breakAwayRail && pcbFormData.breakAwayRail !== 'None') || pcbFormData.border || pcbFormData.borderCutType ? (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                          {pcbFormData.breakAwayRail && pcbFormData.breakAwayRail !== 'None' && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Break-away Rail:</span>
+                              <span className="font-medium">{pcbFormData.breakAwayRail}</span>
+                            </div>
+                          )}
+                          {pcbFormData.border && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Board Edge:</span>
+                              <span className="font-medium">{pcbFormData.border}mm</span>
+                            </div>
+                          )}
+                          {pcbFormData.borderCutType && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">PCB Separation:</span>
+                              <span className="font-medium">{pcbFormData.borderCutType}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+
+                      {/* Row 4: Colors & Finish */}
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Solder Mask:</span>
+                          <span className="font-medium">{pcbFormData.solderMask}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Silkscreen:</span>
+                          <span className="font-medium">{pcbFormData.silkscreen}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Surface Finish:</span>
+                          <span className="font-medium">{pcbFormData.surfaceFinish}</span>
+                        </div>
+                        {pcbFormData.surfaceFinish === 'ENIG' && pcbFormData.surfaceFinishEnigType && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">ENIG Type:</span>
+                            <span className="font-medium">{pcbFormData.surfaceFinishEnigType}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Via Process:</span>
+                          <span className="font-medium">{pcbFormData.maskCover}</span>
+                        </div>
+                      </div>
+
+                      {/* Row 5: Copper & Trace */}
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Outer Copper:</span>
+                          <span className="font-medium">{pcbFormData.outerCopperWeight}oz</span>
+                        </div>
+                        {pcbFormData.layers >= 4 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Inner Copper:</span>
+                            <span className="font-medium">{pcbFormData.innerCopperWeight}oz</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Min Trace/Space:</span>
+                          <span className="font-medium">{pcbFormData.minTrace}mil</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Min Hole Size:</span>
+                          <span className="font-medium">{pcbFormData.minHole}mm</span>
+                        </div>
+                        {pcbFormData.holeCount && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Hole Count:</span>
+                            <span className="font-medium">{pcbFormData.holeCount}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Row 6: Edge Processing */}
+                      {pcbFormData.edgePlating || pcbFormData.halfHole ? (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                          {pcbFormData.edgePlating && (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Edge Plating:</span>
+                                <span className="font-medium">Yes</span>
+                              </div>
+                              {pcbFormData.edgeCover && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Edge Cover:</span>
+                                  <span className="font-medium">{pcbFormData.edgeCover}</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          {pcbFormData.halfHole && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Half Hole:</span>
+                              <span className="font-medium">{pcbFormData.halfHole}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+
+                      {/* Row 7: Test & Quality */}
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Electrical Test:</span>
+                          <span className="font-medium">{pcbFormData.testMethod}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">IPC Class:</span>
+                          <span className="font-medium">{pcbFormData.ipcClass}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Cross Outs:</span>
+                          <span className="font-medium">{pcbFormData.crossOuts}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Data Conflicts:</span>
+                          <span className="font-medium">{pcbFormData.ifDataConflicts}</span>
+                        </div>
+                      </div>
+
+                      {/* Row 8: Service & Reports */}
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Working Gerber:</span>
+                          <span className="font-medium">{pcbFormData.workingGerber}</span>
+                        </div>
+                        {pcbFormData.productReport && pcbFormData.productReport.length > 0 && pcbFormData.productReport[0] !== 'None' && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Product Report:</span>
+                            <span className="font-medium">{pcbFormData.productReport.join(', ')}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">UL Mark:</span>
+                          <span className="font-medium">{pcbFormData.ulMark ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Delivery Type:</span>
+                          <span className="font-medium text-orange-600">{pcbFormData.delivery}</span>
+                        </div>
+                      </div>
+
+                      {/* Special Features - Compact Tags */}
+                      {(pcbFormData.impedance || pcbFormData.goldFingers || pcbFormData.edgePlating || pcbFormData.bga || pcbFormData.holeCu25um || pcbFormData.blueMask || pcbFormData.ulMark) && (
+                        <div className="pt-2 border-t border-gray-200">
+                          <div className="text-gray-600 text-xs mb-1">Special Features:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {pcbFormData.impedance && (
+                              <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded">Impedance</span>
+                            )}
+                            {pcbFormData.goldFingers && (
+                              <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded">Gold Fingers</span>
+                            )}
+                            {pcbFormData.edgePlating && (
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">Edge Plating</span>
+                            )}
+                            {pcbFormData.bga && (
+                              <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded">BGA</span>
+                            )}
+                            {pcbFormData.holeCu25um && (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded">Cu 25μm</span>
+                            )}
+                            {pcbFormData.blueMask && (
+                              <span className="px-2 py-0.5 bg-cyan-100 text-cyan-800 text-xs rounded">Blue Mask</span>
+                            )}
+                            {pcbFormData.ulMark && (
+                              <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs rounded">UL Mark</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      {pcbFormData.pcbNote && (
+                        <div className="pt-2 border-t border-gray-200">
+                          <div className="text-gray-600 text-xs mb-1">PCB Note:</div>
+                          <div className="text-xs bg-gray-50 p-2 rounded">
+                            {pcbFormData.pcbNote}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">PCB specifications not available</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Contact & Shipping */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-purple-600" />
+                  Contact & Shipping
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Contact Info */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="w-4 h-4 text-blue-600" />
+                    <span className="text-gray-600">Email:</span>
+                    <span className="font-medium">{order.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="w-4 h-4 text-green-600" />
+                    <span className="text-gray-600">Phone:</span>
+                    <span className="font-medium">{order.phone || 'Not provided'}</span>
+                    {canEdit && (
+                      <Dialog open={isEditingPhone} onOpenChange={setIsEditingPhone}>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Edit Phone Number</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="phone">Phone Number</Label>
+                              <Input
+                                id="phone"
+                                value={editedPhone}
+                                onChange={(e) => setEditedPhone(e.target.value)}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" onClick={() => setIsEditingPhone(false)}>
+                                Cancel
+                              </Button>
+                              <Button onClick={handleSavePhone}>
+                                Save
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </div>
+                </div>
+
+                {/* Shipping Address */}
+                <div className="border-t pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="font-medium text-gray-800">Shipping Address</h5>
+                    {canEdit && (
+                      <Dialog open={isEditingAddress} onOpenChange={setIsEditingAddress}>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle>Edit Shipping Address</DialogTitle>
+                          </DialogHeader>
+                          <div className="py-4">
+                            <AddressFormComponent
+                              userId={user?.id}
+                              value={editedAddress}
+                              onChange={setEditedAddress}
+                            />
+                          </div>
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsEditingAddress(false)}>
+                              Cancel
+                            </Button>
+                            <Button onClick={handleSaveAddress}>
+                              Save Changes
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </div>
+                  {order.shipping_address ? (
+                    <div className="space-y-1 text-sm">
+                      <div className="font-medium">{order.shipping_address.contactName}</div>
+                      <div className="text-gray-700">
+                        {[
+                          order.shipping_address.address,
+                          order.shipping_address.city,
+                          order.shipping_address.state,
+                          order.shipping_address.country,
+                          order.shipping_address.zipCode
+                        ].filter(Boolean).join(', ')}
+                      </div>
+                      {order.shipping_address.courier && (
+                        <div className="flex items-center gap-1 text-purple-700">
+                          <Truck className="w-3 h-3" />
+                          <span>{order.shipping_address.courier}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">No shipping address provided</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Right Column - Sidebar */}
+        <div className="space-y-6">
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
               {canEdit && (
                 <Button 
                   onClick={() => router.push(`/quote2?edit=${order.id}`)}
-                  variant="default"
-                  className="bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md transition-all"
+                  className="w-full"
                 >
                   <Pencil className="w-4 h-4 mr-2" />
                   Edit Order
                 </Button>
               )}
               
+              {order.gerber_file_url && (
+                <DownloadButton 
+                  filePath={order.gerber_file_url} 
+                  bucket="gerber"
+                  className="w-full border border-gray-300 hover:bg-gray-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Files
+                </DownloadButton>
+              )}
+              
               {canCancel && (
                 <Button 
                   onClick={handleCancelOrder} 
                   variant="destructive"
-                  className="shadow-sm hover:shadow-md transition-all"
+                  className="w-full"
                 >
                   Cancel Order
                 </Button>
               )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Progress Bar - Enhanced Design */}
-      <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50/50 to-purple-50/50">
-        <CardHeader className="pb-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Shield className="w-4 h-4 text-blue-600" />
-            </div>
-            <CardTitle className="text-lg">Order Progress</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <OrderStepBar 
-            currentStatus={currentStep} 
-            steps={ORDER_STEPS}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Edit Status Card - Enhanced Design */}
-      {canEdit ? (
-        <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle className="w-5 h-5 text-amber-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-amber-900 mb-1">Order Can Be Modified</h3>
-                  <p className="text-amber-800 text-sm">
-                    You can edit address and PCB specifications before payment. Changes may require re-review.
-                  </p>
-                  <div className="mt-2 text-xs text-amber-700">
-                    ✓ Editable statuses: Created, Under Review, Reviewed
-                  </div>
-                </div>
-              </div>
-              <Button 
-                onClick={() => router.push(`/quote2?edit=${order.id}`)}
-                variant="outline"
-                size="sm"
-                className="border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400 flex-shrink-0"
-              >
-                <Pencil className="w-4 h-4 mr-2" />
-                Edit Now
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Info className="w-5 h-5 text-gray-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-1">Order Status: {statusInfo?.text || order.status}</h3>
-                <p className="text-gray-700 text-sm">
-                  {(() => {
-                    const isPaid = adminOrder?.payment_status === 'paid';
-                    if (isPaid) return 'Order has been paid and cannot be modified. Contact support if changes are needed.';
-                    if (['quoted', 'confirmed'].includes(order.status || '')) return 'Order is ready for payment. Editing is no longer available.';
-                    if (['shipped', 'delivered', 'completed'].includes(order.status || '')) return 'Order is in final stages and cannot be modified.';
-                    if (order.status === 'cancelled') return 'This order has been cancelled.';
-                    return 'Order editing is not available in the current status.';
-                  })()}
-                </p>
-                <div className="mt-2 text-xs text-gray-600">
-                  ℹ️ Orders can only be edited in: Created, Under Review, or Reviewed status
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Left Column - Main Content */}
-        <div className="xl:col-span-2 space-y-8">
-          {/* Order Status Card - Enhanced */}
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50/30">
-            <CardHeader className="border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Package className="w-4 h-4 text-blue-600" />
-                </div>
-                <CardTitle>Order Status</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <Badge className={`${statusInfo?.style} border-0 text-sm px-4 py-2 rounded-full font-medium`}>
-                    {statusInfo?.text || order.status}
-                  </Badge>
-                  <span className="text-gray-600 text-sm">
-                    {(() => {
-                      const userStatus = order.status || 'created';
-                      const isPaid = adminOrder?.payment_status === 'paid';
-
-                      if (isPaid) {
-                        if (adminOrder?.status === 'shipped') return 'Order has been shipped.';
-                        if (adminOrder?.status === 'delivered') return 'Order has been delivered.';
-                        if (adminOrder?.status === 'completed') return 'Order completed.';
-                        return 'Payment received, order in production.';
-                      }
-
-                      if (isReadyForPayment) {
-                        return 'Price confirmed by admin, ready for payment.';
-                      }
-
-                      if (adminOrder) {
-                        if (!adminOrder.admin_price) {
-                          return `Admin is reviewing, waiting for price confirmation.`;
-                        }
-                        return `Admin is finalizing your order, waiting for final approval.`;
-                      }
-
-                      switch (userStatus) {
-                        case 'created':
-                          return 'Quote request submitted, waiting for admin review.';
-                        case 'pending':
-                          return 'Being reviewed by our team.';
-                        case 'reviewed':
-                          return 'Initial review complete, waiting for admin to finalize pricing.';
-                        default:
-                          return statusInfo?.description || 'Status unknown';
-                      }
-                    })()}
-                  </span>
-                </div>
-                
-                {adminOrder ? (
-                  <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100">
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <Star className="w-4 h-4 text-blue-600" />
-                      Admin Processing Status
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Admin Status: </span>
-                        <Badge variant="outline" className="text-xs">
-                          {adminOrder.status || 'Processing'}
-                        </Badge>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Payment Status: </span>
-                        <Badge variant={(isReadyForPayment || adminOrder.payment_status === 'paid') ? 'default' : 'secondary'} className="text-xs">
-                          {(isReadyForPayment || adminOrder.payment_status === 'paid') ? 'Confirmed' : 'Pending'}
-                        </Badge>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Delivery: </span>
-                        <span className="font-medium text-gray-700">
-                          {adminOrder.delivery_date ? new Date(adminOrder.delivery_date).toLocaleDateString('en-US') : 'TBD'}
-                        </span>
-                      </div>
-                    </div>
-                    {adminOrder.admin_note && (
-                      <div className="mt-4 pt-4 border-t border-blue-200">
-                        <span className="text-gray-500 text-sm font-medium">Admin Notes:</span>
-                        <div className="mt-2 text-sm bg-white/70 p-3 rounded-lg border border-blue-200 whitespace-pre-wrap">
-                          {adminOrder.admin_note}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-amber-50/50 rounded-xl p-4 border border-amber-200">
-                    <div className="flex items-center gap-2 text-amber-700 mb-2">
-                      <Clock className="h-4 w-4" />
-                      <span className="text-sm font-semibold">Waiting for Admin Review</span>
-                    </div>
-                    <p className="text-sm text-amber-700">
-                      Our team will review your order and create an admin order record with confirmed pricing soon.
-                    </p>
-                  </div>
-                )}
-              </div>
             </CardContent>
           </Card>
 
-          {/* Price Information Card - Enhanced */}
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-green-50/20">
-            <CardHeader className="border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-4 h-4 text-green-600" />
-                </div>
-                <CardTitle>Price Information</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              {/* Final Admin Confirmed Price */}
-              {adminOrder?.admin_price && (isReadyForPayment || adminOrder?.payment_status === 'paid') && (
-                <div className="mb-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl shadow-sm">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    </div>
-                    <h4 className="font-bold text-green-800 text-lg">Final Confirmed Price</h4>
-                  </div>
-                  <div className="text-3xl font-bold text-green-600 mb-2">
-                    {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price?.toFixed(2) || '0.00'}
-                  </div>
-                  <p className="text-sm text-green-700">
-                    This is the final price confirmed by our team after detailed review.
-                  </p>
-                </div>
-              )}
-
-              {/* Quote vs Final Comparison */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                  <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <Info className="w-4 h-4 text-gray-600" />
-                    Initial Quote
-                    <Badge variant="outline" className="text-xs">Reference</Badge>
-                  </h5>
-                  {order.cal_values ? (
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">PCB Price:</span>
-                        <span className="font-medium">${order.cal_values.pcbPrice?.toFixed(2) || '-'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Lead Time:</span>
-                        <span className="font-medium">{order.cal_values.leadTimeDays || '-'} days</span>
-                      </div>
-                      {order.cal_values.estimatedFinishDate && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Est. Completion:</span>
-                          <span className="font-medium text-xs">
-                            {new Date(order.cal_values.estimatedFinishDate).toLocaleDateString('en-US')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">Calculating...</p>
-                  )}
-                </div>
-
-                <div className="p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
-                  <h5 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-blue-600" />
-                    Final Confirmed
-                    <Badge className="text-xs bg-blue-600">Official</Badge>
-                  </h5>
-                  {adminOrder ? (
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">PCB Price:</span>
-                        <span className="font-bold text-blue-700">
-                          {adminOrder.currency === 'CNY' 
-                            ? `¥${adminOrder.pcb_price?.toFixed(2) || '-'}` 
-                            : `$${adminOrder.pcb_price ? (adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                          }
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Production Days:</span>
-                        <span className="font-bold text-blue-700">{adminOrder.production_days || '-'} days</span>
-                      </div>
-                      {adminOrder.due_date && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Due Date:</span>
-                          <span className="font-bold text-blue-700 text-xs">
-                            {new Date(adminOrder.due_date).toLocaleDateString('en-US')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">Pending admin review</p>
-                  )}
-                </div>
-              </div>
-              
-              {/* Exchange Rate */}
-              {adminOrder && (
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 mb-6">
-                  <div className="text-sm flex justify-between items-center">
-                    <span className="text-gray-500">Exchange Rate:</span>
-                    <span className="font-medium">1 USD = {adminOrder.exchange_rate || 7.2} CNY</span>
-                  </div>
-                </div>
-              )}
-              
-              {/* Payment Button */}
-              {isReadyForPayment && adminOrder?.payment_status !== 'paid' && (
-                <div className="space-y-3">
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-green-700 text-sm">
-                      <CheckCircle className="h-4 w-4" />
-                      <span className="font-semibold">Price Confirmed & Approved - Ready for Payment</span>
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={() => router.push(`/payment/${order.id}`)}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all"
-                    size="lg"
-                  >
-                    <CreditCard className="h-5 w-5 mr-2" />
-                    Pay Now - {adminOrder.currency === 'CNY' ? '¥' : '$'}
-                    {adminOrder.admin_price?.toFixed(2)}
-                  </Button>
-                </div>
-              )}
-              
-              {/* Waiting Messages */}
-              {!isReadyForPayment && adminOrder?.payment_status !== 'paid' && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                  <div className="flex items-center gap-2 text-amber-700 mb-2">
-                    <Clock className="h-4 w-4" />
-                    <span className="font-semibold">
-                      {!adminOrder ? "Waiting for Admin Review" :
-                       !adminOrder.admin_price ? "Waiting for Price Confirmation" :
-                       "Waiting for Final Admin Approval"}
-                    </span>
-                  </div>
-                  <p className="text-sm text-amber-700">
-                    {!adminOrder ? "Our team will review your order and provide final pricing soon." :
-                     !adminOrder.admin_price ? "Our admin team is calculating the final price for your order." :
-                     "Once admin gives final approval, you'll be able to proceed with payment."}
-                  </p>
-                </div>
-              )}
-
-              {/* Refund Section */}
-              {canRequestRefund && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" className="w-full" disabled={isRefunding}>
-                        Request Refund
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Request Refund</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will submit a refund request for administrator review.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleRefundRequest} disabled={isRefunding}>
-                          {isRefunding ? 'Submitting...' : 'Yes, Request Refund'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              )}
-
-              {/* Refund Status */}
-              {adminOrder?.refund_status === 'pending_confirmation' && (
-                <Card className="mt-6 border-blue-200 shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Info className="text-blue-500" />
-                      <span>Confirm Your Refund</span>
-                    </CardTitle>
-                    <CardDescription>
-                      Please confirm the refund details below.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p><strong>Amount:</strong> ${adminOrder.approved_refund_amount?.toFixed(2)}</p>
-                    <p><strong>Reason:</strong> {adminOrder.refund_reason || 'N/A'}</p>
-                  </CardContent>
-                  <CardFooter className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleRefundConfirmation('cancel')}
-                      disabled={isConfirmingRefund}
-                    >
-                      Cancel Request
-                    </Button>
-                    <Button
-                      onClick={() => handleRefundConfirmation('confirm')}
-                      disabled={isConfirmingRefund}
-                    >
-                      {isConfirmingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm Refund'}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Contact Information Card */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <CardTitle>Contact Information</CardTitle>
-                </div>
-                {canEdit && (
-                  <Dialog open={isEditingPhone} onOpenChange={setIsEditingPhone}>
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="hover:bg-blue-50">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Edit Contact Information</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="phone">Phone Number</Label>
-                          <Input
-                            id="phone"
-                            value={editedPhone}
-                            onChange={(e) => setEditedPhone(e.target.value)}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2 pt-4">
-                          <Button variant="outline" onClick={() => setIsEditingPhone(false)}>
-                            Cancel
-                          </Button>
-                          <Button onClick={handleSavePhone}>
-                            Save Changes
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-semibold text-sm">@</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 text-sm block">Email</span>
-                    <span className="font-medium">{order.email}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <span className="text-green-600 font-semibold text-sm">📞</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 text-sm block">Phone</span>
-                    <span className="font-medium">{order.phone || 'Not provided'}</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Shipping Address Card */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <MapPin className="w-4 h-4 text-purple-600" />
-                  </div>
-                  <CardTitle>Shipping Address</CardTitle>
-                </div>
-                {canEdit && (
-                  <Dialog open={isEditingAddress} onOpenChange={setIsEditingAddress}>
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="hover:bg-purple-50">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto sm:max-h-[85vh] p-0" draggable>
-                      <div className="sticky top-0 bg-white z-10 border-b border-gray-200">
-                        <DialogHeader className="px-6 py-4">
-                          <DialogTitle className="text-lg font-semibold leading-tight">Edit Shipping Address</DialogTitle>
-                          <DialogDescription className="text-sm text-gray-600 leading-tight mt-1">
-                            Select a saved address or edit the fields below. Changes apply only to this order.
-                          </DialogDescription>
-                        </DialogHeader>
-                      </div>
-                      
-                      <div className="flex-1 overflow-y-auto px-6 py-4">
-                        <div className="space-y-4">
-                          <AddressFormComponent
-                            userId={user?.id}
-                            value={editedAddress}
-                            onChange={setEditedAddress}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="sticky bottom-0 bg-white border-t border-gray-200">
-                        <DialogFooter className="px-6 py-4">
-                          <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
-                            <Button variant="outline" onClick={() => setIsEditingAddress(false)} className="w-full sm:w-auto">
-                              Cancel
-                            </Button>
-                            <Button onClick={handleSaveAddress} className="w-full sm:w-auto">
-                              Apply to This Order
-                            </Button>
-                          </div>
-                        </DialogFooter>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              {order.shipping_address ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-semibold text-gray-900">{order.shipping_address.contactName || '-'}</span>
-                      {order.shipping_address.phone && (
-                        <Badge variant="outline" className="text-xs">
-                          {order.shipping_address.phone}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-gray-700 text-sm leading-relaxed">
-                      {[
-                        order.shipping_address.address,
-                        order.shipping_address.cityName || order.shipping_address.city,
-                        order.shipping_address.stateName || order.shipping_address.state,
-                        order.shipping_address.countryName || order.shipping_address.country,
-                        order.shipping_address.zipCode
-                      ].filter(Boolean).join(', ')}
-                    </div>
-                    {order.shipping_address.courier && (
-                      <div className="mt-3 pt-3 border-t border-purple-200">
-                        <div className="flex items-center gap-2">
-                          <Truck className="w-4 h-4 text-purple-600" />
-                          <span className="text-sm font-medium">
-                            {order.shipping_address.courierName || order.shipping_address.courier}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <MapPin className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">No shipping address provided</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-                      {/* PCB Specifications Card */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-orange-600" />
-                  </div>
-                  <CardTitle>PCB Specifications</CardTitle>
-                </div>
-                <div className="flex items-center gap-2">
-                  {pcbFormData && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="hover:bg-orange-50 text-orange-600"
-                      onClick={() => setShowPcbDetails(true)}
-                    >
-                      <Info className="h-4 w-4 mr-1" />
-                      View Details
-                    </Button>
-                  )}
-                  {canEdit && (
-                    <Dialog open={isEditingPcbSpec} onOpenChange={setIsEditingPcbSpec}>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="hover:bg-orange-50">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>Edit PCB Specifications</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-6 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="layers">Layers</Label>
-                            <Select 
-                              value={String(editedPcbSpec.layers || 2)} 
-                              onValueChange={(value) => setEditedPcbSpec({...editedPcbSpec, layers: Number(value)})}
-                            >
-                              <SelectTrigger className="mt-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {[1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20].map(layer => (
-                                  <SelectItem key={layer} value={String(layer)}>{layer} Layer{layer > 1 ? 's' : ''}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="singleCount">Quantity</Label>
-                            <Input
-                              id="singleCount"
-                              type="number"
-                              value={editedPcbSpec.singleCount || ''}
-                              onChange={(e) => setEditedPcbSpec({...editedPcbSpec, singleCount: Number(e.target.value)})}
-                              className="mt-1"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="delivery">Delivery Type</Label>
-                            <Select 
-                              value={editedPcbSpec.delivery || DeliveryType.Standard} 
-                              onValueChange={(value) => setEditedPcbSpec({...editedPcbSpec, delivery: value as DeliveryType})}
-                            >
-                              <SelectTrigger className="mt-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={DeliveryType.Standard}>Standard</SelectItem>
-                                <SelectItem value={DeliveryType.Urgent}>Urgent</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="thickness">Thickness (mm)</Label>
-                            <Select 
-                              value={String(editedPcbSpec.thickness || 1.6)} 
-                              onValueChange={(value) => setEditedPcbSpec({...editedPcbSpec, thickness: Number(value)})}
-                            >
-                              <SelectTrigger className="mt-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {[0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.6, 2.0, 2.4, 3.0, 3.2].map(thick => (
-                                  <SelectItem key={thick} value={String(thick)}>{thick}mm</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="specialRequests">Special Requests</Label>
-                          <Textarea
-                            id="specialRequests"
-                            value={editedPcbSpec.specialRequests || ''}
-                            onChange={(e) => setEditedPcbSpec({...editedPcbSpec, specialRequests: e.target.value})}
-                            rows={3}
-                            className="mt-1"
-                          />
-                        </div>
-
-                        <div className="flex justify-end gap-3 pt-4">
-                          <Button variant="outline" onClick={() => setIsEditingPcbSpec(false)}>
-                            Cancel
-                          </Button>
-                          <Button onClick={handleSavePcbSpec}>
-                            Save Changes
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
-            </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              {pcbFormData ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    { label: 'Material Type', key: 'pcbType', value: pcbFormData.pcbType },
-                    { label: 'Layers', key: 'layers', value: pcbFormData.layers },
-                    { label: 'Thickness', key: 'thickness', value: pcbFormData.thickness },
-                    { label: 'Dimensions', key: 'singleDimensions', value: pcbFormData.singleDimensions },
-                    { label: 'Quantity', key: 'singleCount', value: pcbFormData.singleCount },
-                    { label: 'Delivery', key: 'delivery', value: pcbFormData.delivery },
-                    { label: 'Surface Finish', key: 'surfaceFinish', value: pcbFormData.surfaceFinish },
-                    { label: 'Solder Mask', key: 'solderMask', value: pcbFormData.solderMask },
-                  ].map(spec => (
-                    <div key={spec.key} className="p-3 bg-gray-50 rounded-lg">
-                      <span className="text-gray-500 text-sm block mb-1">{spec.label}</span>
-                      <span className="font-medium text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">PCB specifications not available</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Order Calculation Details Card */}
-          {order.cal_values && (
-            <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50/30 border-gray-200">
-              <CardHeader className="border-b border-gray-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Info className="w-4 h-4 text-gray-600" />
-                  </div>
-                  <CardTitle className="flex items-center gap-2">
-                    Initial System Calculation
-                    <Badge variant="outline" className="text-xs border-gray-400 text-gray-600">Reference Only</Badge>
-                  </CardTitle>
-                </div>
-                <CardDescription>
-                  These are the initial calculations generated by our system for reference purposes.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                  {/* Price breakdown */}
-                  <div className="p-4 bg-green-50 rounded-xl border border-green-200">
-                    <div className="text-sm text-green-600 mb-1">PCB Price</div>
-                    <div className="text-2xl font-bold text-green-700">
-                      ${order.cal_values.pcbPrice?.toFixed(2) || '-'}
-                    </div>
-                    <div className="text-xs text-green-600 mt-1">
-                      Unit: ${order.cal_values.unitPrice?.toFixed(2) || '-'}
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-                    <div className="text-sm text-blue-600 mb-1">Total Area</div>
-                    <div className="text-2xl font-bold text-blue-700">
-                      {order.cal_values.totalArea?.toFixed(4) || '-'}
-                    </div>
-                    <div className="text-xs text-blue-600 mt-1">
-                      m² (Single: {order.cal_values.singlePcbArea?.toFixed(4) || '-'} m²)
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
-                    <div className="text-sm text-purple-600 mb-1">Lead Time</div>
-                    <div className="text-2xl font-bold text-purple-700">
-                      {order.cal_values.leadTimeDays || '-'}
-                    </div>
-                    <div className="text-xs text-purple-600 mt-1">
-                      days production
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-orange-50 rounded-xl border border-orange-200">
-                    <div className="text-sm text-orange-600 mb-1">Est. Completion</div>
-                    <div className="text-sm font-bold text-orange-700">
-                      {order.cal_values.estimatedFinishDate ? 
-                        new Date(order.cal_values.estimatedFinishDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric'
-                        }) : '-'
-                      }
-                    </div>
-                    <div className="text-xs text-orange-600 mt-1">
-                      estimated date
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                  <p className="text-sm text-amber-700">
-                    <strong>📌 Important:</strong> These are initial system calculations for reference. 
-                    The final pricing and timeline will be confirmed by our admin team and may differ based on detailed review.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Right Column - Sidebar */}
-        <div className="space-y-6">
-          {/* Quick Summary Card */}
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-blue-50/20">
-            <CardHeader className="border-b border-gray-100">
-              <CardTitle className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Package className="w-4 h-4 text-green-600" />
-                </div>
-                Quick Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-500 block">Order ID</span>
-                  <span className="font-mono font-medium">#{order.id.slice(-8)}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block">Status</span>
-                  <Badge variant="outline" className="text-xs mt-1">
-                    {statusInfo?.text || order.status}
-                  </Badge>
-                </div>
-                {pcbFormData && (
-                  <>
-                    <div>
-                      <span className="text-gray-500 block">Layers</span>
-                      <span className="font-medium">{pcbFormData.layers}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 block">Quantity</span>
-                      <span className="font-medium">{pcbFormData.singleCount} pcs</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 block">Delivery</span>
-                      <span className="font-medium">
-                        {pcbFormData.delivery === DeliveryType.Standard ? 'Standard' : 'Urgent'}
-                      </span>
-                    </div>
-                  </>
-                )}
-                {adminOrder?.admin_price && (
-                  <div>
-                    <span className="text-gray-500 block">Total Price</span>
-                    <span className="font-bold text-green-600">
-                      {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* File Download Card */}
-          <Card className="shadow-lg border-0">
+          {/* Order Status */}
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-indigo-600" />
-                </div>
-                Files & Downloads
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-blue-600" />
+                Order Status
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              {order.gerber_file_url ? (
-                <DownloadButton 
-                  filePath={order.gerber_file_url} 
-                  bucket="gerber"
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Download Gerber Files
-                </DownloadButton>
-              ) : (
-                <div className="text-center py-4">
-                  <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No files available</p>
+            <CardContent className="space-y-3">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Status:</span>
+                  <Badge className={statusInfo?.style}>
+                    {statusInfo?.text || order.status}
+                  </Badge>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Admin Order Details Card */}
-          {adminOrder && (
-            <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-blue-50/20 border-blue-200">
-              <CardHeader className="border-b border-blue-100">
-                <CardTitle className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Shield className="w-4 h-4 text-blue-600" />
-                  </div>
-                  Official Order Details
-                  {(isReadyForPayment || adminOrder?.payment_status === 'paid') ? (
-                    <Badge className="text-xs bg-blue-600">Admin Confirmed</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-50">Under Review</Badge>
-                  )}
-                </CardTitle>
-                {(isReadyForPayment || adminOrder?.payment_status === 'paid') ? (
-                  <CardDescription className="text-blue-700">
-                    ✓ Final confirmed information - This data overrides initial quotes
-                  </CardDescription>
-                ) : (
-                  <CardDescription className="text-amber-700">
-                    Admin is reviewing these details. Information below is subject to change.
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                {/* Status Information */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Star className="w-4 h-4 text-blue-600" />
-                    Status Information
-                  </h4>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-500">Admin Status:</span>
+                {adminOrder && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Admin Status:</span>
                       <Badge variant="outline" className="text-xs">
-                        {adminOrder.status || 'Pending'}
+                        {adminOrder.status || 'Processing'}
                       </Badge>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-500">Payment Status:</span>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Payment:</span>
                       <Badge variant={adminOrder.payment_status === 'paid' ? 'default' : 'secondary'} className="text-xs">
                         {adminOrder.payment_status || 'Unpaid'}
                       </Badge>
                     </div>
-                    {adminOrder.refund_status && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-500">Refund Status:</span>
-                        <Badge variant="outline" className="text-xs">
-                          {adminOrder.refund_status}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Final Pricing Details */}
-                <div className="border-t border-blue-100 pt-4">
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    Final Pricing Breakdown
-                    <Badge variant="default" className="text-xs bg-green-600">Official</Badge>
-                  </h4>
-                  <div className="space-y-3 text-sm">
-                    {adminOrder.pcb_price && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">PCB Cost:</span>
-                        <span className="font-medium">
-                          {adminOrder.currency === 'CNY' 
-                            ? `¥${adminOrder.pcb_price.toFixed(2)}` 
-                            : `$${adminOrder.pcb_price ? (adminOrder.pcb_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                          }
-                        </span>
-                      </div>
-                    )}
-                    {adminOrder.ship_price && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Shipping:</span>
-                        <span>
-                          {adminOrder.currency === 'CNY' 
-                            ? `¥${adminOrder.ship_price.toFixed(2)}` 
-                            : `$${adminOrder.ship_price ? (adminOrder.ship_price / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                          }
-                        </span>
-                      </div>
-                    )}
-                    {adminOrder.custom_duty && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Custom Duty:</span>
-                        <span>
-                          {adminOrder.currency === 'CNY' 
-                            ? `¥${adminOrder.custom_duty.toFixed(2)}` 
-                            : `$${adminOrder.custom_duty ? (adminOrder.custom_duty / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                          }
-                        </span>
-                      </div>
-                    )}
-                    {adminOrder.coupon && adminOrder.coupon > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Discount:</span>
-                        <span className="text-green-600">
-                          -{adminOrder.currency === 'CNY' 
-                            ? `¥${adminOrder.coupon.toFixed(2)}` 
-                            : `$${adminOrder.coupon ? (adminOrder.coupon / (adminOrder.exchange_rate || 7.2)).toFixed(2) : '-'}`
-                          }
-                        </span>
-                      </div>
-                    )}
-                    {adminOrder.admin_price && (
-                      <div className="flex justify-between border-t border-blue-100 pt-3 font-semibold bg-green-50 p-3 rounded-lg">
-                        <span className="text-gray-900">Final Total:</span>
-                        <span className="text-green-600 font-bold">
-                          {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Timeline */}
-                <div className="border-t border-blue-100 pt-4">
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    Production Timeline
-                    <Badge variant="default" className="text-xs bg-blue-600">Confirmed</Badge>
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    {adminOrder.production_days && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Production Days:</span>
-                        <span className="font-medium">{adminOrder.production_days} days</span>
-                      </div>
-                    )}
                     {adminOrder.due_date && (
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Due Date:</span>
-                        <span className="font-medium">{new Date(adminOrder.due_date).toLocaleDateString('en-US')}</span>
+                        <span className="text-gray-600">Due Date:</span>
+                        <span className="font-medium text-sm">{new Date(adminOrder.due_date).toLocaleDateString()}</span>
                       </div>
                     )}
-                    {adminOrder.delivery_date && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Delivery Date:</span>
-                        <span className="font-medium">{new Date(adminOrder.delivery_date).toLocaleDateString('en-US')}</span>
-                      </div>
-                    )}
-                  </div>
-                  {(!adminOrder.production_days && !adminOrder.due_date && !adminOrder.delivery_date) && (
-                    <p className="text-sm text-gray-500 italic">Timeline pending admin confirmation</p>
-                  )}
-                </div>
-
-                {/* Admin Notes */}
-                {adminOrder.admin_note && (
-                  <div className="border-t border-blue-100 pt-4">
-                    <h4 className="font-semibold text-gray-900 mb-3">Admin Notes</h4>
-                    <div className="text-sm bg-blue-50 p-3 rounded-lg border-l-4 border-blue-200 whitespace-pre-wrap">
-                      {adminOrder.admin_note}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Time Information Card */}
-          <Card className="shadow-lg border-0">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Clock className="w-4 h-4 text-blue-600" />
-                </div>
-                Time Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Created</div>
-                  <div className="text-sm font-medium">
-                    {order.created_at ? new Date(order.created_at).toLocaleString('en-US') : '-'}
-                  </div>
-                </div>
-                
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Last Updated</div>
-                  <div className="text-sm font-medium">
-                    {order.updated_at ? new Date(order.updated_at).toLocaleString('en-US') : '-'}
-                  </div>
-                </div>
-                
-                {adminOrder?.due_date && (
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="text-sm text-blue-600 mb-1">Expected Completion</div>
-                    <div className="text-sm font-medium text-blue-700">
-                      {new Date(adminOrder.due_date).toLocaleDateString('en-US')}
-                    </div>
-                  </div>
-                )}
-                
-                {adminOrder?.delivery_date && (
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="text-sm text-green-600 mb-1">Expected Delivery</div>
-                    <div className="text-sm font-medium text-green-700">
-                      {new Date(adminOrder.delivery_date).toLocaleDateString('en-US')}
-                    </div>
-                  </div>
+                  </>
                 )}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions Card */}
-          <Card className="shadow-lg border-0">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Truck className="w-4 h-4 text-purple-600" />
-                </div>
-                Quick Actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-3">
-              <Button 
-                variant="outline" 
-                className="w-full hover:bg-blue-50 hover:border-blue-300 transition-all"
-                onClick={() => router.push('/quote2')}
-              >
-                Create New Quote
-              </Button>
-              {canEdit && (
-                <div className="text-sm text-blue-700 bg-blue-50 p-3 rounded-lg border border-blue-200">
-                  <strong>✨ Tip:</strong> You can edit this order until payment is made.
+              
+              {adminOrder?.admin_note && (
+                <div className="pt-3 border-t">
+                  <div className="text-sm text-gray-600 mb-1">Admin Notes:</div>
+                  <div className="text-sm bg-blue-50 p-2 rounded border-l-2 border-blue-200">
+                    {adminOrder.admin_note}
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
+
+          {/* Edit Status */}
+          {canEdit ? (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-amber-800 mb-1">Editable Order</h4>
+                    <p className="text-sm text-amber-700">
+                      You can modify this order before payment.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-gray-200 bg-gray-50">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-gray-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-gray-800 mb-1">Order Locked</h4>
+                    <p className="text-sm text-gray-700">
+                      This order cannot be modified in its current status.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+
         </div>
       </div>
 
       {/* PCB Details Dialog */}
       <Dialog open={showPcbDetails} onOpenChange={setShowPcbDetails}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">
-          <div className="sticky top-0 bg-white z-10 border-b border-gray-200">
-            <DialogHeader className="px-6 py-4">
-              <DialogTitle className="text-xl font-semibold leading-tight flex items-center gap-3">
-                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-orange-600" />
-                </div>
-                Complete PCB Specifications
-              </DialogTitle>
-              <DialogDescription className="text-sm text-gray-600 leading-tight mt-1">
-                Detailed technical specifications for your PCB order
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-          
-          <div className="px-6 py-4">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Complete PCB Specifications</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
             {pcbFormData ? (
-              <div className="space-y-6">
-                {/* Basic Specifications */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <div className="w-5 h-5 bg-blue-100 rounded flex items-center justify-center">
-                      <span className="text-blue-600 text-xs font-bold">1</span>
-                    </div>
-                    Basic Specifications
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[
-                      { label: 'PCB Type', key: 'pcbType', value: pcbFormData.pcbType || 'FR-4' },
-                      { label: 'Layer Count', key: 'layers', value: pcbFormData.layers },
-                      { label: 'Board Thickness', key: 'thickness', value: `${pcbFormData.thickness}mm` },
-                      { label: 'Board Dimensions', key: 'singleDimensions', value: pcbFormData.singleDimensions },
-                      { label: 'Quantity', key: 'singleCount', value: `${pcbFormData.singleCount} pcs` },
-                      { label: 'Delivery Type', key: 'delivery', value: pcbFormData.delivery === 'standard' ? 'Standard' : 'Urgent' },
-                      { label: 'Shipment Type', key: 'shipmentType', value: pcbFormData.shipmentType === 'single' ? 'Single' : 'Panel' },
-                      { label: 'Different Designs', key: 'differentDesignsCount', value: pcbFormData.differentDesignsCount }
-                    ].map(spec => (
-                      <div key={spec.key} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <div className="text-sm font-medium text-gray-600 mb-2">{spec.label}</div>
-                        <div className="text-lg font-semibold text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(pcbFormData || {})
+                  .filter(([, value]) => value !== null && value !== undefined && value !== '')
+                  .map(([key, value]) => (
+                    <div key={key} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-500 capitalize mb-1">
+                        {key.replace(/([A-Z])/g, ' $1').trim()}
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Surface & Finish */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <div className="w-5 h-5 bg-green-100 rounded flex items-center justify-center">
-                      <span className="text-green-600 text-xs font-bold">2</span>
-                    </div>
-                    Surface & Finish
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[
-                      { label: 'Surface Finish', key: 'surfaceFinish', value: pcbFormData.surfaceFinish },
-                      { label: 'Solder Mask Color', key: 'solderMask', value: pcbFormData.solderMask },
-                      { label: 'Silkscreen Color', key: 'silkscreen', value: pcbFormData.silkscreen },
-                      { label: 'Gold Fingers', key: 'goldFingers', value: pcbFormData.goldFingers ? 'Yes' : 'No' },
-                      { label: 'Edge Plating', key: 'edgePlating', value: pcbFormData.edgePlating ? 'Yes' : 'No' },
-                      { label: 'Mask Cover', key: 'maskCover', value: pcbFormData.maskCover }
-                    ].map(spec => (
-                      <div key={spec.key} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <div className="text-sm font-medium text-gray-600 mb-2">{spec.label}</div>
-                        <div className="text-lg font-semibold text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</div>
+                      <div className="font-medium">
+                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Technical Specifications */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <div className="w-5 h-5 bg-purple-100 rounded flex items-center justify-center">
-                      <span className="text-purple-600 text-xs font-bold">3</span>
                     </div>
-                    Technical Specifications
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[
-                      { label: 'HDI Type', key: 'hdi', value: pcbFormData.hdi },
-                      { label: 'TG Value', key: 'tg', value: pcbFormData.tg },
-                      { label: 'IPC Class', key: 'ipcClass', value: pcbFormData.ipcClass },
-                      { label: 'Inner Copper Weight', key: 'innerCopperWeight', value: `${pcbFormData.innerCopperWeight}oz` },
-                      { label: 'Outer Copper Weight', key: 'outerCopperWeight', value: `${pcbFormData.outerCopperWeight}oz` },
-                      { label: 'Min Trace/Spacing', key: 'minTrace', value: `${pcbFormData.minTrace}mil` },
-                      { label: 'Min Hole Size', key: 'minHole', value: `${pcbFormData.minHole}mm` },
-                      { label: 'Impedance Control', key: 'impedance', value: pcbFormData.impedance ? 'Yes' : 'No' },
-                      { label: 'BGA Required', key: 'bga', value: pcbFormData.bga ? 'Yes' : 'No' }
-                    ].map(spec => (
-                      <div key={spec.key} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <div className="text-sm font-medium text-gray-600 mb-2">{spec.label}</div>
-                        <div className="text-lg font-semibold text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Quality & Testing */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <div className="w-5 h-5 bg-indigo-100 rounded flex items-center justify-center">
-                      <span className="text-indigo-600 text-xs font-bold">4</span>
-                    </div>
-                    Quality & Testing
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[
-                      { label: 'Test Method', key: 'testMethod', value: pcbFormData.testMethod },
-                      { label: 'Cross-outs Policy', key: 'crossOuts', value: pcbFormData.crossOuts },
-                      { label: 'UL Mark', key: 'ulMark', value: pcbFormData.ulMark ? 'Required' : 'Not Required' },
-                      { label: 'Product Report', key: 'productReport', value: Array.isArray(pcbFormData.productReport) ? pcbFormData.productReport.join(', ') : pcbFormData.productReport },
-                      { label: 'Working Gerber', key: 'workingGerber', value: pcbFormData.workingGerber },
-                      { label: 'Data Conflicts', key: 'ifDataConflicts', value: pcbFormData.ifDataConflicts }
-                    ].map(spec => (
-                      <div key={spec.key} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <div className="text-sm font-medium text-gray-600 mb-2">{spec.label}</div>
-                        <div className="text-lg font-semibold text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Special Options */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <div className="w-5 h-5 bg-orange-100 rounded flex items-center justify-center">
-                      <span className="text-orange-600 text-xs font-bold">5</span>
-                    </div>
-                    Special Options
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[
-                      { label: 'Blue Mask', key: 'blueMask', value: pcbFormData.blueMask ? 'Yes' : 'No' },
-                      { label: 'Half Hole', key: 'halfHole', value: pcbFormData.halfHole || 'None' },
-                      { label: 'Hole Cu 25μm', key: 'holeCu25um', value: pcbFormData.holeCu25um ? 'Yes' : 'No' },
-                      { label: 'Shengyi Material', key: 'useShengyiMaterial', value: pcbFormData.useShengyiMaterial ? 'Yes' : 'No' }
-                    ].map(spec => (
-                      <div key={spec.key} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <div className="text-sm font-medium text-gray-600 mb-2">{spec.label}</div>
-                        <div className="text-lg font-semibold text-gray-900">{getPcbFieldDisplay(spec.key, spec.value)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Notes & Comments */}
-                {(pcbFormData.specialRequests || pcbFormData.pcbNote || pcbFormData.userNote || pcbFormData.customsNote) && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <div className="w-5 h-5 bg-amber-100 rounded flex items-center justify-center">
-                        <span className="text-amber-600 text-xs font-bold">6</span>
-                      </div>
-                      Notes & Comments
-                    </h3>
-                    <div className="space-y-4">
-                      {pcbFormData.specialRequests && (
-                        <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-                          <div className="text-sm font-medium text-amber-800 mb-2">Special Requests</div>
-                          <div className="text-gray-700 whitespace-pre-wrap">{pcbFormData.specialRequests}</div>
-                        </div>
-                      )}
-                      {pcbFormData.pcbNote && (
-                        <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-                          <div className="text-sm font-medium text-blue-800 mb-2">PCB Note</div>
-                          <div className="text-gray-700 whitespace-pre-wrap">{pcbFormData.pcbNote}</div>
-                        </div>
-                      )}
-                      {pcbFormData.userNote && (
-                        <div className="p-4 bg-green-50 rounded-xl border border-green-200">
-                          <div className="text-sm font-medium text-green-800 mb-2">User Note</div>
-                          <div className="text-gray-700 whitespace-pre-wrap">{pcbFormData.userNote}</div>
-                        </div>
-                      )}
-                      {pcbFormData.customsNote && (
-                        <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
-                          <div className="text-sm font-medium text-purple-800 mb-2">Customs Note</div>
-                          <div className="text-gray-700 whitespace-pre-wrap">{pcbFormData.customsNote}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">No PCB Specifications Available</h3>
-                <p className="text-gray-500">PCB specification data is not available for this order.</p>
-              </div>
+              <p className="text-center text-gray-500 py-8">No PCB specifications available</p>
             )}
-          </div>
-          
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4">
-            <div className="flex justify-end">
-              <Button onClick={() => setShowPcbDetails(false)} className="bg-orange-600 hover:bg-orange-700">
-                Close
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
