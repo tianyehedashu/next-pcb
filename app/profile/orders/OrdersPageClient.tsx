@@ -309,7 +309,7 @@ export default function OrdersPageClient(): React.ReactElement {
     );
   };
 
-  const renderPaymentButton = (order: OrderListItem) => {
+  const renderPaymentButton = (order: OrderListItem, isMobile = false) => {
     const canPay = canOrderBePaid(order as OrderWithAdminOrder);
     const paymentAmount = getOrderPaymentAmount(order as OrderWithAdminOrder);
     
@@ -319,10 +319,23 @@ export default function OrdersPageClient(): React.ReactElement {
       <Button
         size="sm"
         onClick={() => router.push(`/payment/${order.id}`)}
-        className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
+        className={`bg-green-600 hover:bg-green-700 text-white flex items-center gap-1 whitespace-nowrap min-w-0 ${
+          isMobile ? 'px-3' : 'px-2'
+        }`}
+        title={`Pay ${toUSD(paymentAmount)}`}
       >
-        <CreditCard className="h-3 w-3" />
-        Pay {toUSD(paymentAmount)}
+        <CreditCard className="h-3 w-3 flex-shrink-0" />
+        {isMobile ? (
+          <>
+            <span className="hidden xs:inline">Pay </span>
+            <span className="truncate">{toUSD(paymentAmount)}</span>
+          </>
+        ) : (
+          <>
+            <span className="hidden xl:inline">Pay </span>
+            <span className="text-xs truncate">{toUSD(paymentAmount)}</span>
+          </>
+        )}
       </Button>
     );
   };
@@ -427,48 +440,48 @@ export default function OrdersPageClient(): React.ReactElement {
       {/* Orders Table - Large Desktop */}
       <div className="hidden xl:block bg-white rounded-lg border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <Table className="min-w-[1200px]">
+          <Table className="min-w-[1000px]">
           <TableHeader>
             <TableRow className="bg-gray-50">
-              <TableHead className="w-[140px]">Order ID</TableHead>
+              <TableHead className="w-[110px]">Order ID</TableHead>
               <TableHead 
-                className="w-[180px] cursor-pointer hover:bg-gray-100 transition-colors"
+                className="w-[140px] cursor-pointer hover:bg-gray-100 transition-colors"
                 onClick={() => handleSort('created_at')}
               >
-                <div className="flex items-center gap-2">
-                  Created Date
+                <div className="flex items-center gap-1">
+                  <span className="text-xs">Created Date</span>
                   {renderSortIcon('created_at')}
                 </div>
               </TableHead>
-              <TableHead className="min-w-[300px]">Details</TableHead>
+              <TableHead className="min-w-[260px]">Details</TableHead>
               <TableHead 
-                className="w-[140px] cursor-pointer hover:bg-gray-100 transition-colors"
+                className="w-[100px] cursor-pointer hover:bg-gray-100 transition-colors"
                 onClick={() => handleSort('admin_price')}
               >
-                <div className="flex items-center gap-2">
-                  Price
+                <div className="flex items-center gap-1">
+                  <span className="text-xs">Price</span>
                   {renderSortIcon('admin_price')}
                 </div>
               </TableHead>
               <TableHead 
-                className="w-[110px] cursor-pointer hover:bg-gray-100 transition-colors"
+                className="w-[90px] cursor-pointer hover:bg-gray-100 transition-colors"
                 onClick={() => handleSort('lead_time')}
               >
-                <div className="flex items-center gap-2">
-                  Lead Time
+                <div className="flex items-center gap-1">
+                  <span className="text-xs">Lead Time</span>
                   {renderSortIcon('lead_time')}
                 </div>
               </TableHead>
               <TableHead 
-                className="w-[130px] cursor-pointer hover:bg-gray-100 transition-colors"
+                className="w-[100px] cursor-pointer hover:bg-gray-100 transition-colors"
                 onClick={() => handleSort('status')}
               >
-                <div className="flex items-center gap-2">
-                  Status
+                <div className="flex items-center gap-1">
+                  <span className="text-xs">Status</span>
                   {renderSortIcon('status')}
                 </div>
               </TableHead>
-              <TableHead className="text-right w-[180px]">Actions</TableHead>
+              <TableHead className="text-right w-[200px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -525,15 +538,16 @@ export default function OrdersPageClient(): React.ReactElement {
                     </TableCell>
                     <TableCell>{renderOrderStatus(order)}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => router.push(`/profile/orders/${order.id}`)}
-                          className="flex items-center gap-1"
+                          className="flex items-center gap-1 px-2 min-w-0"
+                          title="View Order Details"
                         >
-                          <Eye className="h-3 w-3" />
-                          View
+                          <Eye className="h-3 w-3 flex-shrink-0" />
+                          <span className="hidden 2xl:inline whitespace-nowrap">View</span>
                         </Button>
                         {renderPaymentButton(order)}
                       </div>
@@ -550,39 +564,39 @@ export default function OrdersPageClient(): React.ReactElement {
       {/* Orders Table - Medium Desktop */}
       <div className="hidden lg:block xl:hidden bg-white rounded-lg border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <Table className="min-w-[900px]">
+          <Table className="min-w-[750px]">
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="w-[120px]">Order ID</TableHead>
+                <TableHead className="w-[100px]">Order ID</TableHead>
                 <TableHead 
-                  className="w-[140px] cursor-pointer hover:bg-gray-100 transition-colors"
+                  className="w-[110px] cursor-pointer hover:bg-gray-100 transition-colors"
                   onClick={() => handleSort('created_at')}
                 >
-                  <div className="flex items-center gap-2">
-                    Date
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs">Date</span>
                     {renderSortIcon('created_at')}
                   </div>
                 </TableHead>
-                <TableHead className="min-w-[200px]">Summary</TableHead>
+                <TableHead className="min-w-[160px]">Summary</TableHead>
                 <TableHead 
-                  className="w-[100px] cursor-pointer hover:bg-gray-100 transition-colors"
+                  className="w-[80px] cursor-pointer hover:bg-gray-100 transition-colors"
                   onClick={() => handleSort('admin_price')}
                 >
-                  <div className="flex items-center gap-2">
-                    Price
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs">Price</span>
                     {renderSortIcon('admin_price')}
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="w-[100px] cursor-pointer hover:bg-gray-100 transition-colors"
+                  className="w-[80px] cursor-pointer hover:bg-gray-100 transition-colors"
                   onClick={() => handleSort('status')}
                 >
-                  <div className="flex items-center gap-2">
-                    Status
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs">Status</span>
                     {renderSortIcon('status')}
                   </div>
                 </TableHead>
-                <TableHead className="text-right w-[150px]">Actions</TableHead>
+                <TableHead className="text-right w-[160px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -624,9 +638,10 @@ export default function OrdersPageClient(): React.ReactElement {
                             size="sm"
                             variant="outline"
                             onClick={() => router.push(`/profile/orders/${order.id}`)}
-                            className="flex items-center gap-1"
+                            className="flex items-center gap-1 px-2 min-w-0"
+                            title="View Order Details"
                           >
-                            <Eye className="h-3 w-3" />
+                            <Eye className="h-3 w-3 flex-shrink-0" />
                           </Button>
                           {renderPaymentButton(order)}
                         </div>
@@ -697,9 +712,10 @@ export default function OrdersPageClient(): React.ReactElement {
                     className="flex items-center gap-1 flex-1"
                   >
                     <Eye className="h-3 w-3" />
-                    View Details
+                    <span className="hidden xs:inline">View Details</span>
+                    <span className="xs:hidden">View</span>
                   </Button>
-                  {renderPaymentButton(order)}
+                  {renderPaymentButton(order, true)}
                 </div>
               </div>
             );
