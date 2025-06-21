@@ -5,7 +5,7 @@ import { execSync } from 'child_process';
 const getGitSha = (): string => {
   try {
     return execSync('git rev-parse --short HEAD').toString().trim();
-  } catch (error) {
+  } catch {
     return '1.0.0';
   }
 };

@@ -144,6 +144,7 @@ export default function PriceSummary() {
       };
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : "Shipping calculation failed";
+      console.error('运费计算失败:', e);
       return {
         cost: 0,
         days: "N/A",
