@@ -18,19 +18,20 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
+    const detailId = searchParams.get('detailId'); // 用于详情查询
     const keyword = searchParams.get('keyword') || '';
+    const id = searchParams.get('id') || ''; // 用于ID搜索
     const status = searchParams.get('status') || '';
     const userId = searchParams.get('userId') || '';
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
 
-    if (id) {
-      // 详情
+    if (detailId) {
+      // 详情查询
       const { data, error } = await supabase
         .from(USER_ORDER)
         .select('*,admin_orders(*)')
-        .eq('id', id)
+        .eq('id', detailId)
         .single();
 
       if (error || !data) {
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
       }
       return NextResponse.json(data);
     } else {
-      // 列表
+      // 列表查询
       let query = supabase
         .from(USER_ORDER)
         .select('*,admin_orders(*)', { count: 'exact' })
@@ -48,6 +49,9 @@ export async function GET(request: NextRequest) {
       if (userId) query = query.eq('user_id', userId);
       if (keyword) {
         query = query.or(`email.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
+      }
+      if (id) {
+        query = query.ilike('id', `%${id}%`);
       }
 
       const from = (page - 1) * pageSize;

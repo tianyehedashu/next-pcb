@@ -14,12 +14,14 @@ import { OrderStatus } from '@/types/form';
 
 export const orderFilterSchema = z.object({
   keyword: z.string().optional(),
+  id: z.string().optional(),
   status: z.string().optional(),
   dateRange: z.tuple([z.string(), z.string()]).optional(),
 });
 
 interface OrderFilterFormValue {
   keyword?: string;
+  id?: string;
   status?: string;
   dateRange?: [string, string];
 }
@@ -52,21 +54,27 @@ export function OrderFilterForm({ value, onChange }: { value: OrderFilterFormVal
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const keyword = formData.get('keyword') as string;
+    const id = formData.get('id') as string;
     const status = formData.get('status') as string;
     const dateStart = formData.get('dateStart') as string;
     const dateEnd = formData.get('dateEnd') as string;
     onChange({
       keyword,
+      id,
       status,
       dateRange: dateStart && dateEnd ? [dateStart, dateEnd] : undefined,
     });
   };
 
   return (
-    <form onSubmit={handleChange} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+    <form onSubmit={handleChange} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
       <div className="w-full">
         <label className="block mb-1 text-sm font-medium">Keyword</label>
-        <Input name="keyword" defaultValue={value?.keyword || ''} placeholder="Search..." className="w-full" />
+        <Input name="keyword" defaultValue={value?.keyword || ''} placeholder="Search by email, phone..." className="w-full" />
+      </div>
+      <div className="w-full">
+        <label className="block mb-1 text-sm font-medium">Order ID</label>
+        <Input name="id" defaultValue={value?.id || ''} placeholder="Search by ID..." className="w-full" />
       </div>
       <div className="w-full">
         <label className="block mb-1 text-sm font-medium">Status</label>

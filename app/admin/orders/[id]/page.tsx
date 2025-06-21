@@ -83,7 +83,7 @@ export default function AdminOrderDetailPage() {
     if (!orderId) return;
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/orders?id=${orderId}`);
+      const response = await fetch(`/api/admin/orders?detailId=${orderId}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch order');

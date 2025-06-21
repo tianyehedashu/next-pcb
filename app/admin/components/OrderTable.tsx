@@ -124,11 +124,20 @@ export function OrderTable({
       </div>
       
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1200px]">
+        <table className="w-full min-w-[1300px]">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="py-3 px-2 text-left font-semibold text-gray-700">
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+              </th>
+              <th 
+                className={`py-3 px-2 text-left font-semibold text-gray-700 ${onSort ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
+                onClick={() => handleSort('id')}
+              >
+                <div className="flex items-center gap-1">
+                  Order ID
+                  {renderSortIcon('id')}
+                </div>
               </th>
               <th 
                 className={`py-3 px-2 text-left font-semibold text-gray-700 ${onSort ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
@@ -178,7 +187,7 @@ export function OrderTable({
           <tbody>
             {data.length === 0 ? (
               <tr>
-                <td colSpan={12} className="py-8 text-center text-gray-400">No orders found.</td>
+                <td colSpan={13} className="py-8 text-center text-gray-400">No orders found.</td>
               </tr>
             ) : data.map(order => (
               <tr key={order.id} className="hover:bg-gray-50 transition-all border-b border-gray-100">
@@ -188,6 +197,11 @@ export function OrderTable({
                     checked={selectedIds.includes(order.id)}
                     onChange={() => toggleOne(order.id)}
                   />
+                </td>
+                <td className="py-2 px-2">
+                  <span className="font-mono text-sm text-blue-600 hover:underline cursor-pointer" onClick={() => router.push(`/admin/orders/${order.id}`)}>
+                    #{order.id.slice(0, 8)}
+                  </span>
                 </td>
                 <td className="py-2 px-2">
                   <div className="flex items-center gap-2">

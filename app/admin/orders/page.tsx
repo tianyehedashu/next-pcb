@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 
 interface OrderFilter {
   keyword?: string;
+  id?: string;
   status?: string;
   dateRange?: [string, string];
 }
@@ -37,6 +38,7 @@ export default function AdminOrdersPage() {
         page: String(pagination.page),
         pageSize: String(pagination.pageSize),
         ...(filter.keyword ? { keyword: filter.keyword } : {}),
+        ...(filter.id ? { id: filter.id } : {}),
         ...(filter.status ? { status: filter.status } : {}),
         ...(filter.dateRange ? { start: filter.dateRange[0], end: filter.dateRange[1] } : {}),
       });
@@ -78,6 +80,10 @@ export default function AdminOrdersPage() {
         case 'created_at':
           aValue = new Date(a.created_at).getTime();
           bValue = new Date(b.created_at).getTime();
+          break;
+        case 'id':
+          aValue = a.id || '';
+          bValue = b.id || '';
           break;
         case 'status':
           aValue = a.status || '';
