@@ -38,10 +38,17 @@ const materialDensity = {
   "rigid-flex": 1.8 // 典型刚挠结合板密度
 };
 
+// 导入统一汇率服务
+import { getExchangeRate } from '@/lib/services/exchange-rate-service';
+
+// 默认汇率（作为降级方案）
+const DEFAULT_USD_TO_CNY_RATE = 7.2;
+
 // 铜层厚度换算 (1 oz = 35 微米) - 业界标准
 const OZ_TO_MM = 0.035;
 
-// 计算单片PCB重量（克）- 基于业界标准的详细物理计算
+// 计算单片PCB重量（克）- 基于业界标准的详细物理计算，
+// 返回人民币计算
 function calculateSinglePCBWeight(specs: PCBSpecs | PcbQuoteForm): number {
   // 兼容 PcbQuoteForm
   const s = specs as PcbQuoteForm;
@@ -135,10 +142,10 @@ function isPeakSeason(date: Date = new Date()): boolean {
   return month >= 11 || month === 1;
 }
 
-// 计算实际运费
-export function calculateShippingCost(
+// 计算实际运费（异步版本，使用动态汇率）
+export async function calculateShippingCost(
   specs: PcbQuoteForm,
-): {
+): Promise<{
   actualWeight: number;
   volumetricWeight: number;
   chargeableWeight: number;
@@ -147,7 +154,7 @@ export function calculateShippingCost(
   peakCharge: number;
   finalCost: number;
   deliveryTime: string;
-} {
+}> {
   // 计算总数量，与 quote-store 保持一致
   let totalCount = 0;
   
@@ -252,17 +259,38 @@ export function calculateShippingCost(
   // 应用服务类型系数
   const serviceMultiplier = serviceTypeMultipliers[service];
   
-  // 计算最终费用
-  const finalCost = (baseCost + fuelSurcharge + peakCharge) * serviceMultiplier;
+  // 计算最终费用（美元）
+  const finalCostUSD = (baseCost + fuelSurcharge + peakCharge) * serviceMultiplier;
+  
+  // 🔧 重要修改：使用动态汇率将所有费用转换为人民币
+  let usdToCnyRate = DEFAULT_USD_TO_CNY_RATE; // 默认汇率作为降级方案
+  
+  try {
+    // 尝试获取最新汇率
+    const exchangeRateData = await getExchangeRate('USD', 'CNY');
+    if (exchangeRateData) {
+      usdToCnyRate = exchangeRateData.rate;
+      console.log(`🌐 使用动态汇率: 1 USD = ${usdToCnyRate} CNY (${exchangeRateData.source})`);
+    } else {
+      console.warn(`⚠️ 未找到USD->CNY汇率，使用默认汇率: ${DEFAULT_USD_TO_CNY_RATE}`);
+    }
+  } catch (error) {
+    console.warn(`❌ 获取汇率失败，使用默认汇率: ${DEFAULT_USD_TO_CNY_RATE}`, error);
+  }
+  
+  const baseCostCNY = baseCost * usdToCnyRate;
+  const fuelSurchargeCNY = fuelSurcharge * usdToCnyRate;
+  const peakChargeCNY = peakCharge * usdToCnyRate;
+  const finalCostCNY = finalCostUSD * usdToCnyRate;
 
   return {
     actualWeight: Math.round(totalWeight * 1000) / 1000,
     volumetricWeight: Math.round(volumetricWeight * 1000) / 1000,
     chargeableWeight: chargeableWeightRounded,
-    baseCost: Math.round(baseCost * 100) / 100,
-    fuelSurcharge: Math.round(fuelSurcharge * 100) / 100,
-    peakCharge: Math.round(peakCharge * 100) / 100,
-    finalCost: Math.round(finalCost * 100) / 100,
+    baseCost: Math.round(baseCostCNY * 100) / 100,        // 返回人民币
+    fuelSurcharge: Math.round(fuelSurchargeCNY * 100) / 100, // 返回人民币
+    peakCharge: Math.round(peakChargeCNY * 100) / 100,    // 返回人民币
+    finalCost: Math.round(finalCostCNY * 100) / 100,      // 返回人民币
     deliveryTime: courierRates.deliveryTime,
   };
 } 

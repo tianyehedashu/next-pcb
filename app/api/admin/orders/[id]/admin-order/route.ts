@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createSupabaseServerClient, createSupabaseAdminClient } from '@/utils/supabase/server';
 import { ADMIN_ORDER, USER_ORDER } from '@/app/constants/tableNames';
 import nodemailer from 'nodemailer';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -104,18 +104,32 @@ export async function sendNotificationToUser(
 ) {
   try {
     // 创建 supabase 管理员 client 来获取用户信息
-    const supabaseAdmin = await createSupabaseServerClient(false);
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('email')
-      .eq('id', userId)
-      .single();
-
-    if (userError || !user || !user.email) {
-      console.error('获取用户邮箱失败:', { userId, error: userError?.message });
-      return false;
+    const supabaseAdmin = createSupabaseAdminClient();
+    
+    let userEmail: string;
+    
+    // 尝试从 auth.users 表获取用户邮箱
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.getUserById(userId);
+    
+    if (authError || !authUser?.user?.email) {
+      console.error('从 auth.users 获取用户邮箱失败:', { userId, error: authError?.message });
+      
+      // 备选方案：从 profiles 表获取邮箱
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('email')
+        .eq('id', userId)
+        .single();
+        
+      if (profileError || !profile?.email) {
+        console.error('从 profiles 表获取用户邮箱也失败:', { userId, error: profileError?.message });
+        return false;
+      }
+      
+      userEmail = profile.email;
+    } else {
+      userEmail = authUser.user.email;
     }
-    const userEmail = user.email;
     
     // 创建邮件传输器 - 支持多种邮件服务
     const emailConfig = {
@@ -163,7 +177,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createSupabaseServerClient(false);
+  const supabase = await createSupabaseServerClient();
   const { id: userOrderId } = await params;
 
   try {
@@ -259,7 +273,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createSupabaseServerClient(false);
+  const supabase = await createSupabaseServerClient();
   const { id: userOrderId } = await params;
 
   

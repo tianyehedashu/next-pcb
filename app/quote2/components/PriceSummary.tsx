@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { calcPcbPriceV3 } from "@/lib/pcb-calc-v3";
@@ -46,6 +46,17 @@ export default function PriceSummary() {
   // 获取实时汇率
   const { cnyToUsdRate } = useExchangeRate();
 
+  // 运费计算状态
+  const [shippingInfo, setShippingInfo] = useState<ShippingInfo>({
+    cost: 0,
+    days: "",
+    courierName: "",
+    weight: 0,
+    actualWeight: 0,
+    volumetricWeight: 0,
+    error: null
+  });
+
   // 确保只在客户端渲染
   useEffect(() => {
     setIsClient(true);
@@ -60,102 +71,112 @@ export default function PriceSummary() {
   }, [isClient, cnyToUsdRate]);
 
   // CNY 转 USD 的辅助函数 - 使用实时汇率
-  const convertCnyToUsd = (cnyAmount: number): number => {
+  const convertCnyToUsd = useCallback((cnyAmount: number): number => {
     // 如果汇率无效，使用默认汇率 0.14
     const rate = cnyToUsdRate > 0 ? cnyToUsdRate : 0.14;
     return cnyAmount * rate;
-  };
+  }, [cnyToUsdRate]);
 
-  // 运费计算逻辑
-  const shippingInfo = useMemo((): ShippingInfo => {
-    if (!isClient) {
-      return { cost: 0, days: "", courierName: "", weight: 0, actualWeight: 0, volumetricWeight: 0, error: null };
-    }
-
-    // 优先使用 shippingAddress，如果没有则使用 shippingCostEstimation
-    const hasShippingAddress = formData.shippingAddress?.country && formData.shippingAddress?.courier;
-    const hasShippingEstimation = formData.shippingCostEstimation?.country && formData.shippingCostEstimation?.courier;
-    
-    if (!hasShippingAddress && !hasShippingEstimation) {
-      return { 
-        cost: 0, 
-        days: "", 
-        courierName: "", 
-        weight: 0, 
-        actualWeight: 0, 
-        volumetricWeight: 0, 
-        error: "Please select shipping country and courier to calculate shipping cost" 
-      };
-    }
-
-    // 检查是否有足够的PCB信息进行重量计算
-    if (calculated.totalQuantity === 0) {
-      return { 
-        cost: 0, 
-        days: "", 
-        courierName: hasShippingAddress ? formData.shippingAddress.courier : formData.shippingCostEstimation?.courier || "", 
-        weight: 0, 
-        actualWeight: 0, 
-        volumetricWeight: 0, 
-        error: "Please enter PCB quantity to calculate shipping cost" 
-      };
-    }
-
-    try {
-      // 创建一个临时的 formData 对象，确保 shippingAddress 有正确的数据
-      let tempFormData = formData;
-      
-      if (!hasShippingAddress && hasShippingEstimation) {
-        // 如果没有完整的 shippingAddress，但有 shippingCostEstimation，则使用估算数据
-        tempFormData = {
-          ...formData,
-          shippingAddress: {
-            country: formData.shippingCostEstimation?.country || "",
-            courier: formData.shippingCostEstimation?.courier || "",
-            // 其他字段使用默认值，因为运费计算只需要 country 和 courier
-            state: "",
-            city: "",
-            address: "",
-            zipCode: "",
-            phone: "",
-            contactName: "",
-          }
-        };
+  // 运费计算逻辑（异步）
+  useEffect(() => {
+    const calculateShipping = async () => {
+      if (!isClient) {
+        return;
       }
+
+      // 优先使用 shippingAddress，如果没有则使用 shippingCostEstimation
+      const hasShippingAddress = formData.shippingAddress?.country && formData.shippingAddress?.courier;
+      const hasShippingEstimation = formData.shippingCostEstimation?.country && formData.shippingCostEstimation?.courier;
       
-      const { finalCost, deliveryTime, chargeableWeight, actualWeight, volumetricWeight } = calculateShippingCost(tempFormData as PcbQuoteForm);
-      
-      const courier = tempFormData.shippingAddress?.courier || "";
-      const courierInfo: Record<string, { courierName: string }> = {
-        "dhl": { courierName: "DHL" },
-        "fedex": { courierName: "FedEx" },
-        "ups": { courierName: "UPS" },
-        "standard": { courierName: "Standard Shipping" },
-      };
-      
-      return {
-        cost: finalCost,
-        days: deliveryTime,
-        courierName: courierInfo[courier]?.courierName || courier,
-        weight: chargeableWeight,
-        actualWeight: actualWeight,
-        volumetricWeight: volumetricWeight,
-        error: null,
-      };
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : "Shipping calculation failed";
-      console.error('运费计算失败:', e);
-      return {
-        cost: 0,
-        days: "N/A",
-        courierName: hasShippingAddress ? formData.shippingAddress.courier : formData.shippingCostEstimation?.courier || "",
-        weight: 0,
-        actualWeight: 0,
-        volumetricWeight: 0,
-        error: errorMessage,
-      };
-    }
-  }, [formData, isClient, calculated.totalQuantity]);
+      if (!hasShippingAddress && !hasShippingEstimation) {
+        setShippingInfo({ 
+          cost: 0, 
+          days: "", 
+          courierName: "", 
+          weight: 0, 
+          actualWeight: 0, 
+          volumetricWeight: 0, 
+          error: "Please select shipping country and courier to calculate shipping cost" 
+        });
+        return;
+      }
+
+      // 检查是否有足够的PCB信息进行重量计算
+      if (calculated.totalQuantity === 0) {
+        setShippingInfo({ 
+          cost: 0, 
+          days: "", 
+          courierName: hasShippingAddress ? formData.shippingAddress.courier : formData.shippingCostEstimation?.courier || "", 
+          weight: 0, 
+          actualWeight: 0, 
+          volumetricWeight: 0, 
+          error: "Please enter PCB quantity to calculate shipping cost" 
+        });
+        return;
+      }
+
+      try {
+        // 创建一个临时的 formData 对象，确保 shippingAddress 有正确的数据
+        let tempFormData = formData;
+        
+        if (!hasShippingAddress && hasShippingEstimation) {
+          // 如果没有完整的 shippingAddress，但有 shippingCostEstimation，则使用估算数据
+          tempFormData = {
+            ...formData,
+            shippingAddress: {
+              country: formData.shippingCostEstimation?.country || "",
+              courier: formData.shippingCostEstimation?.courier || "",
+              // 其他字段使用默认值，因为运费计算只需要 country 和 courier
+              state: "",
+              city: "",
+              address: "",
+              zipCode: "",
+              phone: "",
+              contactName: "",
+            }
+          };
+        }
+        
+        const shippingResult = await calculateShippingCost(tempFormData as PcbQuoteForm);
+        const { finalCost, deliveryTime, chargeableWeight, actualWeight, volumetricWeight } = shippingResult;
+        
+        // 🔧 重要：运费计算器现在返回人民币，需要转换为美元
+        const shippingCostUSD = convertCnyToUsd(finalCost);
+        
+        const courier = tempFormData.shippingAddress?.courier || "";
+        const courierInfo: Record<string, { courierName: string }> = {
+          "dhl": { courierName: "DHL" },
+          "fedex": { courierName: "FedEx" },
+          "ups": { courierName: "UPS" },
+          "standard": { courierName: "Standard Shipping" },
+        };
+        
+        setShippingInfo({
+          cost: shippingCostUSD, // 返回转换后的美元金额
+          days: deliveryTime,
+          courierName: courierInfo[courier]?.courierName || courier,
+          weight: chargeableWeight,
+          actualWeight: actualWeight,
+          volumetricWeight: volumetricWeight,
+          error: null,
+        });
+      } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : "Shipping calculation failed";
+        console.error('运费计算失败:', e);
+        setShippingInfo({
+          cost: 0,
+          days: "N/A",
+          courierName: hasShippingAddress ? formData.shippingAddress.courier : formData.shippingCostEstimation?.courier || "",
+          weight: 0,
+          actualWeight: 0,
+          volumetricWeight: 0,
+          error: errorMessage,
+        });
+      }
+    };
+
+    calculateShipping();
+  }, [formData, isClient, calculated.totalQuantity, convertCnyToUsd]);
 
   // 使用 calcPcbPriceV3 进行价格计算（只做纯计算，不做副作用）
   const priceBreakdown = useMemo((): PriceBreakdown => {
@@ -221,7 +242,7 @@ export default function PriceSummary() {
         totalCount: 0
       };
     }
-  }, [formData, calculated.totalQuantity, isClient, cnyToUsdRate, shippingInfo]);
+  }, [formData, calculated.totalQuantity, isClient, convertCnyToUsd, shippingInfo.cost]);
 
   // 计算 calValues 并写入 store（副作用）
   useEffect(() => {
@@ -274,7 +295,7 @@ export default function PriceSummary() {
     } catch {
       // 可选：错误处理
     }
-  }, [formData, calculated.totalQuantity, isClient, calculated.singlePcbArea, calculated.totalArea, setCalValues, cnyToUsdRate, shippingInfo]);
+  }, [formData, calculated.totalQuantity, isClient, calculated.singlePcbArea, calculated.totalArea, setCalValues, shippingInfo.cost, shippingInfo.weight, shippingInfo.actualWeight, shippingInfo.volumetricWeight, shippingInfo.days, convertCnyToUsd]);
 
   // 获取生产周期信息
   const getProductionCycle = () => {

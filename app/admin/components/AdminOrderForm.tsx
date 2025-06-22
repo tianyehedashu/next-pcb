@@ -79,24 +79,22 @@ const CURRENCY_CONFIG = {
   }
 } as const;
 
-// 获取实时汇率的函数
-const fetchExchangeRate = async (fromCurrency: string, toCurrency: string = 'CNY'): Promise<number | null> => {
-  // 如果是相同币种，返回1
+// 获取内部汇率的函数
+const fetchInternalExchangeRate = async (fromCurrency: string, toCurrency: string = 'CNY'): Promise<number | null> => {
   if (fromCurrency === toCurrency) return 1;
-  
+
   try {
-    // 使用免费的汇率API（这里使用一个备用的简单估算）
-    // 在生产环境中，你可以替换为实际的汇率API
-    const response = await fetch(`https://api.exchangerate-api.com/v4/latest/${fromCurrency}`);
-    if (!response.ok) throw new Error('汇率获取失败');
-    
+    const response = await fetch(`/api/exchange-rates?from=${fromCurrency}&to=${toCurrency}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to fetch internal exchange rate.');
+    }
     const data = await response.json();
-    return data.rates?.[toCurrency] || null;
+    return data.rate;
   } catch (error) {
-    console.warn('汇率API调用失败，使用默认汇率:', error);
-    // 返回默认汇率
+    console.warn('Internal exchange rate fetch failed, using default rate:', error);
     const config = CURRENCY_CONFIG[fromCurrency as keyof typeof CURRENCY_CONFIG];
-    return config?.defaultRate || 7.2;
+    return config?.defaultRate || null;
   }
 };
 
@@ -120,7 +118,7 @@ const CurrencySelect = ({ value, onChange }: {
     // 自动更新汇率
     setIsUpdatingRate(true);
     try {
-      const rate = await fetchExchangeRate(newCurrency, 'CNY');
+      const rate = await fetchInternalExchangeRate(newCurrency, 'CNY');
       if (rate !== null) {
         form.setValuesIn('exchange_rate', rate);
         toast.success(`汇率已更新：1 ${newCurrency} = ${rate} CNY`);
@@ -192,14 +190,17 @@ const ExchangeRateInput = ({ value, onChange, currency }: {
 
     setIsUpdating(true);
     try {
-      const rate = await fetchExchangeRate(currency, 'CNY');
+      // 强制从API获取最新汇率，不使用当前值或缓存
+      const rate = await fetchInternalExchangeRate(currency, 'CNY');
       if (rate !== null) {
         onChange(rate);
-        toast.success(`汇率已更新：1 ${currency} = ${rate} CNY`);
+        toast.success(`汇率已刷新：1 ${currency} = ${rate} CNY (来自最新API)`);
+      } else {
+        toast.warning('无法获取最新汇率，请检查网络连接');
       }
     } catch (error) {
       console.error('汇率更新失败:', error);
-      toast.error('汇率更新失败，请稍后重试');
+      toast.error('汇率获取失败，请稍后重试');
     } finally {
       setIsUpdating(false);
     }
@@ -226,7 +227,7 @@ const ExchangeRateInput = ({ value, onChange, currency }: {
           onClick={handleRefreshRate}
           disabled={isUpdating || !currency || currency === 'CNY'}
           className="shrink-0"
-          title="刷新汇率"
+          title="强制刷新汇率 - 从API获取最新汇率"
         >
           {isUpdating ? (
             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
@@ -1061,6 +1062,16 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
                   onClick={async () => {
                     try {
                       setIsSaving(true);
+                      
+                      // 🔍 提交前币种检查：如果状态为reviewed，确保币种设置为美元
+                      if (form.values.status === 'reviewed' && form.values.currency !== 'USD') {
+                        toast.error('⚠️ 币种检查失败', {
+                          description: `订单提交前必须设置为美元(USD)，当前币种: ${form.values.currency}`,
+                          duration: 5000
+                        });
+                        return; // 阻止保存
+                      }
+                      
                       await onSave(form.values);
                     } catch (error) {
                       console.error('保存失败:', error);
@@ -1088,6 +1099,16 @@ export function AdminOrderForm({ initialValues, onSave, onRecalc, onCalcPCB, onC
                   onConfirm={async (notificationType) => {
                     try {
                       setIsSaving(true);
+                      
+                      // 🔍 提交前币种检查：如果状态为reviewed，确保币种设置为美元
+                      if (form.values.status === 'reviewed' && form.values.currency !== 'USD') {
+                        toast.error('⚠️ 币种检查失败', {
+                          description: `订单提交前必须设置为美元(USD)，当前币种: ${form.values.currency}`,
+                          duration: 5000
+                        });
+                        throw new Error('Currency validation failed'); // 抛出错误以便对话框保持打开
+                      }
+                      
                       await onSave(form.values, { sendNotification: true, notificationType });
                     } catch (error) {
                       console.error('保存并通知失败:', error);

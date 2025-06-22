@@ -8,6 +8,10 @@ const PATH_CONFIG = {
   ADMIN_PATHS: ['/admin', '/api/admin'],
   // 需要登录权限的路径
   USER_PATHS: ['/profile', '/api/user'],
+  // 公开访问的管理员API路径（例外）
+  PUBLIC_ADMIN_API_PATHS: [
+    '/api/admin/exchange-rates', // GET方法公开访问
+  ],
 } as const;
 
 /**
@@ -15,6 +19,25 @@ const PATH_CONFIG = {
  */
 function matchesPathPrefixes(pathname: string, pathPrefixes: readonly string[]): boolean {
   return pathPrefixes.some(prefix => pathname.startsWith(prefix));
+}
+
+/**
+ * 检查是否为公开的管理员API路径
+ */
+function isPublicAdminAPI(pathname: string, method: string): boolean {
+  // 只有GET方法的汇率查询API是公开的
+  if (method !== 'GET') {
+    return false;
+  }
+  
+  return PATH_CONFIG.PUBLIC_ADMIN_API_PATHS.some(publicPath => {
+    // 精确匹配或匹配带ID的路径
+    return pathname === publicPath || 
+           pathname.startsWith(publicPath + '/') ||
+           // 匹配 /api/admin/exchange-rates/[id] 格式
+           (publicPath === '/api/admin/exchange-rates' && 
+            /^\/api\/admin\/exchange-rates\/\d+$/.test(pathname));
+  });
 }
 
 /**
@@ -33,10 +56,16 @@ function createRedirectToAuth(request: NextRequest): NextResponse {
  */
 async function adminMiddleware(request: NextRequest, user: User | null): Promise<NextResponse | null> {
   const pathname = request.nextUrl.pathname;
+  const method = request.method;
   
   // 检查是否为管理员路径
   if (!matchesPathPrefixes(pathname, PATH_CONFIG.ADMIN_PATHS)) {
     return null; // 不是管理员路径，跳过检查
+  }
+  
+  // 检查是否为公开的管理员API（仅限GET方法的汇率查询）
+  if (isPublicAdminAPI(pathname, method)) {
+    return null; // 公开访问，跳过权限检查
   }
   
   // 管理员权限检查：必须登录 + 具有 admin 角色

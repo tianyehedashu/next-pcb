@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { fetchCnyToUsdRate } from "@/lib/data/fetchExchangeRate";
+import { getExchangeRate } from "@/lib/services/exchange-rate-service";
 
 interface ExchangeRateState {
   cnyToUsd: number;
@@ -15,21 +15,23 @@ export const useExchangeRateStore = create<ExchangeRateState>((set, get) => ({
   error: null,
   setCnyToUsd: (rate) => set({ cnyToUsd: rate }),
   fetchCnyToUsd: async () => {
-    const { loading, setCnyToUsd, } = get();
-    if (loading) return; // Avoid multiple fetches
+    if (get().loading) return;
 
     set({ loading: true, error: null });
 
     try {
-      const rate = await fetchCnyToUsdRate();
-      console.log('fetchCnyToUsdRate result:', rate);
-      if (rate && rate > 0) {
-        setCnyToUsd(rate);
+      // Use the new standardized service
+      const result = await getExchangeRate('CNY', 'USD');
+      
+      if (result && typeof result.rate === 'number') {
+        set({ cnyToUsd: result.rate });
       } else {
-        set({ error: "Invalid rate fetched or rate is 0.", cnyToUsd: 0.14 }); // fallback
+        const errorMessage = "Failed to fetch valid CNY to USD rate from internal service.";
+        console.error(errorMessage, result);
+        set({ error: errorMessage, cnyToUsd: 0.14 }); // fallback
       }
     } catch (e: unknown) {
-      console.error('Failed to fetch rate:', e);
+      console.error('Failed to fetch rate via getExchangeRate:', e);
       set({ error: e instanceof Error ? e.message : "Failed to fetch rate", cnyToUsd: 0.14 }); // fallback
     } finally {
       set({ loading: false });

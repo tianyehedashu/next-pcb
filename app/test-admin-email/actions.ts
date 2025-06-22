@@ -5,7 +5,7 @@ import { sendAdminNotification } from "@/lib/utils/sendEmail";
 
 export async function sendTestEmailAction(subject: string, html: string): Promise<{ success: boolean; error?: string }> {
     try {
-        const supabase = createSupabaseServerClient();
+        const supabase = await createSupabaseServerClient();
         // The sendAdminNotification function requires a client with admin capabilities.
         // We assume createSupabaseServerClient() returns a client with the necessary permissions.
         // If not, we might need to create an admin client explicitly here.

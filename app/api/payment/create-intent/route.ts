@@ -92,6 +92,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 🔍 币种检查：确保订单币种为美元才能支付
+    if (adminOrder.currency !== 'USD') {
+      return NextResponse.json(
+        { error: `Payment not allowed. Order currency must be USD, current currency: ${adminOrder.currency}` },
+        { status: 400 }
+      );
+    }
+
     // Use admin_price as the authoritative payment amount
     // If amount is provided from frontend, verify it matches admin_price for security
     const paymentAmount = adminOrder.admin_price;

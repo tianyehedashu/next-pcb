@@ -46,6 +46,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         Content Management
       </Link>
+      <Link 
+        href="/admin/exchange-rates" 
+        className="block px-3 py-2 rounded-md text-foreground hover:bg-accent hover:text-primary font-medium transition-colors text-sm md:text-base"
+        onClick={() => setSidebarOpen(false)}
+      >
+        Exchange Rates
+      </Link>
     </nav>
   );
 
