@@ -7,23 +7,48 @@ import { useParams } from 'next/navigation';
 import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
 import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
 import { calcPcbPriceV3 } from '@/lib/pcb-calc-v3';
-import { OrderOverviewTabs } from '@/app/admin/components/OrderOverviewTabs';
-import { AdminOrderForm } from '@/app/admin/components/AdminOrderForm';
 import { Order, AdminOrder } from '@/app/admin/types/order';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 import { Textarea } from "@/components/ui/textarea";
-import { CreditCard, Loader2, Info, CheckCircle } from "lucide-react";
+import { CreditCard, Loader2, Info, CheckCircle, Calculator, Truck, Calendar, DollarSign, FileText, User, Package, Settings, Clock, AlertCircle, Send } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { AdminReviewChecklist } from "@/app/admin/components/AdminReviewChecklist";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function getAdminOrders(admin_orders: unknown): AdminOrder[] {
   if (!admin_orders) return [];
   if (Array.isArray(admin_orders)) return admin_orders as AdminOrder[];
   return [admin_orders as AdminOrder];
 }
+
+// 状态颜色映射
+const getStatusColor = (status: string) => {
+  const statusColors: Record<string, string> = {
+    'created': 'bg-blue-100 text-blue-800',
+    'reviewed': 'bg-yellow-100 text-yellow-800',
+    'paid': 'bg-green-100 text-green-800',
+    'in_production': 'bg-purple-100 text-purple-800',
+    'shipped': 'bg-indigo-100 text-indigo-800',
+    'completed': 'bg-emerald-100 text-emerald-800',
+    'cancelled': 'bg-red-100 text-red-800',
+    'pending': 'bg-orange-100 text-orange-800',
+  };
+  return statusColors[status] || 'bg-gray-100 text-gray-800';
+};
+
+// 价格格式化
+const formatPrice = (price: number | string | null | undefined, currency = 'CNY') => {
+  if (!price) return '¥0.00';
+  const num = typeof price === 'string' ? parseFloat(price) : price;
+  if (isNaN(num)) return '¥0.00';
+  
+  const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '¥';
+  return `${symbol}${num.toFixed(2)}`;
+};
 
 export default function AdminOrderDetailPage() {
   const params = useParams();
@@ -44,10 +69,6 @@ export default function AdminOrderDetailPage() {
     weightInfo: '',
     costBreakdown: []
   });
-  const [showCalculationNotes, setShowCalculationNotes] = useState(true);
-  const [showDeliveryNotes, setShowDeliveryNotes] = useState(true);
-  const [showShippingNotes, setShowShippingNotes] = useState(true);
-  const hasInitAdminOrderEdits = useRef(false);
   
   const [isUpdating, setIsUpdating] = useState(false);
   const [editedFields, setEditedFields] = useState<Partial<AdminOrder>>({});
@@ -74,7 +95,7 @@ export default function AdminOrderDetailPage() {
     ship_price: '',
     custom_duty: '',
     coupon: 0,
-    admin_note: '', // 确保默认值是字符串
+    admin_note: '',
     surcharges: [],
   };
 
@@ -91,7 +112,6 @@ export default function AdminOrderDetailPage() {
       const data: Order = await response.json();
       setOrder(data);
       if (data.pcb_spec && typeof data.pcb_spec === 'object') {
-        // 将顶层的 shipping_address 合并到 pcb_spec 中，以便表单和计算函数可以访问它
         const specForForm = {
           ...data.pcb_spec,
           shippingAddress: data.shipping_address || (data.pcb_spec as any).shippingAddress,
@@ -99,7 +119,6 @@ export default function AdminOrderDetailPage() {
 
         let result = quoteSchema.safeParse(specForForm);
 
-        // 如果合并后解析失败，则回退到原始 pcb_spec
         if (!result.success) {
           console.error("解析合并的 pcb_spec 失败，正在回退:", result.error);
           result = quoteSchema.safeParse(data.pcb_spec);
@@ -136,7 +155,6 @@ export default function AdminOrderDetailPage() {
           due_date: admin.due_date ? String(admin.due_date).split('T')[0] : '',
           delivery_date: admin.delivery_date ? String(admin.delivery_date).split('T')[0] : '',
           surcharges: Array.isArray(admin.surcharges) ? admin.surcharges : [],
-          // 确保 admin_note 存在且为字符串类型
           admin_note: admin.admin_note ? String(admin.admin_note) : '',
         }))
       );
@@ -145,24 +163,107 @@ export default function AdminOrderDetailPage() {
     }
   }, [order?.admin_orders]);
 
+  // 自动计算价格、交期和运费
+  useEffect(() => {
+    if (pcbFormData) {
+      // 自动计算价格
+      try {
+        const result = calcPcbPriceV3(pcbFormData);
+        const pcb_price = Number(result.total).toFixed(2);
+        
+        setAdminOrderEdits(prev => [
+          {
+            ...prev[0],
+            pcb_price,
+          },
+        ]);
+        
+        setCalculationNotes(result.notes || []);
+        
+      } catch (error) {
+        console.error('自动计算PCB价格失败:', error);
+        setCalculationNotes(['PCB价格计算失败，请检查规格参数']);
+      }
+
+      // 自动计算交期
+      try {
+        const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+        const newProductionDays = String(cycle.cycleDays);
+        
+        setDeliveryNotes(cycle.reason || []);
+        
+        const today = new Date();
+        const targetDate = new Date(today);
+        targetDate.setDate(today.getDate() + cycle.cycleDays);
+        const deliveryDate = targetDate.toISOString().split('T')[0];
+        
+        setAdminOrderEdits(prev => [
+          {
+            ...prev[0],
+            production_days: newProductionDays,
+            delivery_date: deliveryDate,
+          },
+        ]);
+        
+      } catch (error) {
+        console.error('自动计算交期失败:', error);
+        setDeliveryNotes(['交期计算失败，请检查规格参数']);
+      }
+
+      // 自动计算运费明细
+      try {
+        const singleWeight = pcbFormData.singleDimensions ? 
+          ((pcbFormData.singleDimensions.length * pcbFormData.singleDimensions.width * Number(pcbFormData.thickness || 1.6) * 1.8) / 1000000) : 0;
+        const totalWeight = singleWeight * (pcbFormData.singleCount || pcbFormData.panelSet || 1);
+        const packageWeight = 0.2; // 包装重量
+        const finalWeight = totalWeight + packageWeight;
+        
+        const basicShipping = 10.00;
+        const weightSurcharge = finalWeight > 0.5 ? 5.00 : 0.00;
+        const packageFee = 0.00;
+        const totalShipping = basicShipping + weightSurcharge + packageFee;
+        
+        setShippingNotes({
+          basicInfo: `总重量: ${finalWeight.toFixed(3)} kg，预估运费: ¥${totalShipping.toFixed(2)}`,
+          weightInfo: `单片重量: ${singleWeight.toFixed(3)} kg，数量: ${pcbFormData.singleCount || pcbFormData.panelSet || 1}`,
+          costBreakdown: [
+            `基础运费: ¥${basicShipping.toFixed(2)} (500g以内)`,
+            `重量附加费: ¥${weightSurcharge.toFixed(2)} ${finalWeight > 0.5 ? '(超重)' : '(标准)'}`,
+            `包装费: ¥${packageFee.toFixed(2)} (标准包装)`,
+            `快递公司: 联邦快递 (FedEx)`,
+            `预计时效: 3-5个工作日`
+          ]
+        });
+        
+        // 更新运费到管理订单
+        setAdminOrderEdits(prev => [
+          {
+            ...prev[0],
+            ship_price: totalShipping.toFixed(2),
+          },
+        ]);
+        
+      } catch (error) {
+        console.error('自动计算运费失败:', error);
+        setShippingNotes({
+          basicInfo: '运费计算失败',
+          weightInfo: '无法计算重量信息',
+          costBreakdown: ['运费计算失败，请检查规格参数']
+        });
+      }
+    }
+  }, [pcbFormData]);
+
   // 计算是否已创建管理员订单
   const isAdminOrderCreated = !!order?.admin_orders;
+  const adminOrder = order ? getAdminOrders(order.admin_orders)[0] : null;
 
-  // 处理状态变更（用于快速状态操作时同步表单）
-  const handleStatusChange = (newStatus: string) => {
-    setAdminOrderEdits(prev => 
-      prev.map(edit => ({ ...edit, status: newStatus }))
-    );
-  };
-
-  // 保存
+  // 保存功能
   const handleSave = async (values: Record<string, unknown>, options?: { sendNotification?: boolean; notificationType?: string }) => {
     if (!orderId) return;
     try {
-      // ❗️ 重要：将 Formily 的 Proxy 对象转换为普通对象
       const cleanedValues = JSON.parse(JSON.stringify(values));
       
-      // 确保 surcharges 是一个有效的数组
       if (cleanedValues.surcharges) {
         if (typeof cleanedValues.surcharges === 'string') {
           try {
@@ -177,22 +278,17 @@ export default function AdminOrderDetailPage() {
         cleanedValues.surcharges = [];
       }
 
-      // 确保 admin_note 是字符串类型
       if (cleanedValues.admin_note !== undefined && cleanedValues.admin_note !== null) {
         cleanedValues.admin_note = String(cleanedValues.admin_note);
       } else {
-        // 如果是 undefined 或 null，设置为空字符串
         cleanedValues.admin_note = '';
       }
 
-      // 添加邮件通知选项和用户邮箱
       if (options?.sendNotification) {
         cleanedValues.sendNotification = true;
         cleanedValues.notificationType = options.notificationType || 'order_updated';
-        // 从订单数据中获取用户邮箱
         cleanedValues.userEmail = order?.email;
         
-        // 如果没有邮箱，显示警告但继续保存
         if (!order?.email) {
           toast.warning('⚠️ 用户邮箱不存在，将跳过邮件通知', {
             description: '订单将正常保存，但不会发送邮件通知给客户',
@@ -216,7 +312,6 @@ export default function AdminOrderDetailPage() {
             errorMessage += `：${errorData.error}`;
           }
         } catch {
-          // 如果无法解析错误响应，使用HTTP状态信息
           errorMessage += `：HTTP ${response.status} ${response.statusText}`;
         }
         throw new Error(errorMessage);
@@ -229,10 +324,8 @@ export default function AdminOrderDetailPage() {
         duration: 3000
       });
       
-      // 重新获取订单数据
       const updatedOrder = await fetchOrder();
       
-      // 强制重新初始化表单数据
       if (updatedOrder?.admin_orders) {
         const adminOrders = getAdminOrders(updatedOrder.admin_orders);
         setAdminOrderEdits(adminOrders.map(admin => ({ 
@@ -240,16 +333,14 @@ export default function AdminOrderDetailPage() {
           due_date: admin.due_date ? String(admin.due_date).split('T')[0] : '',
           delivery_date: admin.delivery_date ? String(admin.delivery_date).split('T')[0] : '',
           surcharges: Array.isArray(admin.surcharges) ? admin.surcharges : [],
-          // 确保 admin_note 存在且为字符串类型
           admin_note: admin.admin_note ? String(admin.admin_note) : '',
         })));
       }
       
-      hasInitAdminOrderEdits.current = true;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : (isAdminOrderCreated ? '保存失败，请重试' : '创建失败，请重试');
       toast.error(errorMessage, {
-        duration: 5000, // 显示5秒，让用户有时间阅读错误信息
+        duration: 5000,
         action: {
           label: '关闭',
           onClick: () => {}
@@ -258,179 +349,14 @@ export default function AdminOrderDetailPage() {
     }
   };
 
-  // 单独计算PCB价格
-  const handleCalcPCB = (values: Record<string, unknown>) => {
-    if (!pcbFormData) {
-      toast.error('❌ PCB规格数据不完整，无法计算价格', {
-        description: '请确保订单包含完整的PCB技术参数',
-        duration: 4000
-      });
-      return;
-    }
-    
-    let pcb_price = values.pcb_price as string || '';
-    let priceNotes: string[] = [];
-    
-    try {
-      const result = calcPcbPriceV3(pcbFormData);
-      pcb_price = Number(result.total).toFixed(2);
-      priceNotes = result.notes || [];
-      
-      const ship_price = Number(values.ship_price) || 0;
-      const custom_duty = Number(values.custom_duty) || 0;
-      const coupon = Number(values.coupon) || 0;
-      
-      let surcharges: Array<{name: string, amount: number}> = [];
-      if (Array.isArray(values.surcharges)) {
-        surcharges = values.surcharges;
-      } else if (typeof values.surcharges === 'string') {
-        try {
-          surcharges = JSON.parse(values.surcharges);
-        } catch {
-          surcharges = [];
-        }
-      }
-      const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
-      
-      const cny_price = (Number(pcb_price) + ship_price + custom_duty + surchargeTotal - coupon).toFixed(2);
-      
-      const currency = values.currency as string || 'USD';
-      const exchange_rate = Number(values.exchange_rate) || 7.2;
-      const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
-      
-      setAdminOrderEdits(prev => [
-        {
-          ...prev[0], // 保留现有的表单数据
-          ...values,   // 包含用户输入的最新数据
-          pcb_price,
-          cny_price,
-          admin_price,
-        },
-      ]);
-      
-      setCalculationNotes(priceNotes);
-      setShowCalculationNotes(true);
-      
-      toast.success(`🔧 PCB价格计算完成`, {
-        description: `PCB价格：¥${Number(pcb_price).toFixed(2)}，总价已更新：¥${Number(cny_price).toFixed(2)}`,
-        duration: 3000
-      });
-      
-    } catch (error) {
-      console.error('PCB价格计算失败:', error);
-      const errorMessage = error instanceof Error ? `PCB价格计算失败：${error.message}` : 'PCB价格计算失败，请检查PCB规格参数';
-      toast.error(errorMessage, {
-        duration: 4000,
-        action: {
-          label: '关闭',
-          onClick: () => {}
-        }
-      });
-    }
-  };
-
-  // 计算交期和运费
-  const handleCalcDelivery = (values: Record<string, unknown>) => {
-    if (!pcbFormData) return;
-    
-    let newProductionDays = values.production_days as string || '';
-    let deliveryDate = '';
-    let estimatedShippingCost = 0;
-    let shippingDetails = '';
-    
-    try {
-      const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
-      newProductionDays = String(cycle.cycleDays);
-      
-      setDeliveryNotes(cycle.reason || []);
-      
-      const today = new Date();
-      const targetDate = new Date(today);
-      targetDate.setDate(today.getDate() + cycle.cycleDays);
-      deliveryDate = targetDate.toISOString().split('T')[0];
-      
-      if (pcbFormData.shippingAddress?.country && pcbFormData.shippingAddress?.courier) {
-        try {
-          import('@/lib/shipping-calculator').then(({ calculateShippingCost }) => {
-            const shippingResult = calculateShippingCost(pcbFormData);
-            const finalShippingCost = Math.round(shippingResult.finalCost * 7.2);
-            
-            setShippingNotes({
-              basicInfo: `${pcbFormData.shippingAddress.courier.toUpperCase()} 到 ${pcbFormData.shippingAddress.country}`,
-              weightInfo: `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg，计费重量：${shippingResult.chargeableWeight}kg`,
-              costBreakdown: [
-                `基础运费：$${shippingResult.baseCost.toFixed(2)}`,
-                `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}`,
-                `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`,
-                `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${Number(finalShippingCost).toFixed(2)})`
-              ]
-            });
-            
-            setAdminOrderEdits(prev => [
-              {
-                ...prev[0], // 保留现有的表单数据
-                ...values,   // 包含用户输入的最新数据
-                production_days: newProductionDays,
-                delivery_date: deliveryDate,
-                ship_price: finalShippingCost,
-              },
-            ]);
-            
-            toast.success(`📅 交期和运费计算完成`, {
-              description: `交期：${newProductionDays}天（${deliveryDate}）\n运费：$${shippingResult.finalCost.toFixed(2)} (¥${Number(finalShippingCost).toFixed(2)})`,
-              duration: 3000
-            });
-          }).catch(() => {
-            throw new Error('运费计算模块加载失败');
-          });
-          return;
-        } catch (shippingError) {
-          console.warn('运费计算失败，使用简单估算:', shippingError);
-        }
-      }
-      
-      const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000;
-      const isUrgent = pcbFormData.delivery === 'urgent';
-      
-      if (totalArea <= 0.1) {
-        estimatedShippingCost = isUrgent ? 150 : 80;
-        shippingDetails = '小件包裹';
-      } else if (totalArea <= 0.5) {
-        estimatedShippingCost = isUrgent ? 250 : 120;
-        shippingDetails = '中等包裹';
-      } else {
-        estimatedShippingCost = isUrgent ? 350 : 180;
-        shippingDetails = '大件包裹';
-      }
-      
-      shippingDetails += isUrgent ? '（加急）' : '（标准）';
-      
-      setShippingNotes({
-        basicInfo: '简单估算（缺少详细收货信息）',
-        weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
-        costBreakdown: [
-          `包裹类型：${shippingDetails}`,
-          `估算运费：¥${Number(estimatedShippingCost).toFixed(2)}`
-        ]
-      });
-      
-    } catch (error) {
-      console.error('计算交期失败:', error);
-      const errorMessage = error instanceof Error ? `计算交期失败：${error.message}` : '计算交期失败，请检查PCB规格参数';
-      toast.error(errorMessage, {
-        duration: 4000,
-        action: {
-          label: '关闭',
-          onClick: () => {}
-        }
-      });
-      return;
-    }
-    
+  // 价格计算更新函数
+  const updatePriceCalculation = (values: Record<string, unknown>) => {
     const pcb_price = Number(values.pcb_price) || 0;
+    const ship_price = Number(values.ship_price) || 0;
     const custom_duty = Number(values.custom_duty) || 0;
     const coupon = Number(values.coupon) || 0;
     
+    // 处理附加费用
     let surcharges: Array<{name: string, amount: number}> = [];
     if (Array.isArray(values.surcharges)) {
       surcharges = values.surcharges;
@@ -443,201 +369,121 @@ export default function AdminOrderDetailPage() {
     }
     const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
     
-    const cny_price = (pcb_price + estimatedShippingCost + custom_duty + surchargeTotal - coupon).toFixed(2);
+    // 计算人民币总价
+    const cny_price = (pcb_price + ship_price + custom_duty + surchargeTotal - coupon).toFixed(2);
     
+    // 汇率换算
     const currency = values.currency as string || 'USD';
     const exchange_rate = Number(values.exchange_rate) || 7.2;
     const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
     
     setAdminOrderEdits(prev => [
       {
-        ...prev[0], // 保留现有的表单数据
-        ...values,   // 包含用户输入的最新数据
-        production_days: newProductionDays,
-        delivery_date: deliveryDate,
-        ship_price: estimatedShippingCost,
+        ...prev[0],
+        ...values,
         cny_price,
         admin_price,
       },
     ]);
-    
-    toast.success(`📅 交期和运费估算完成`, {
-      description: `交期：${newProductionDays}天（${deliveryDate}）\n运费估算：¥${Number(estimatedShippingCost).toFixed(2)}${shippingDetails ? ` (${shippingDetails})` : ''}`,
-      duration: 3000
-    });
-    setShowDeliveryNotes(true);
-    setShowShippingNotes(true);
   };
 
-  // 单独计算运费
-  const handleCalcShipping = (values: Record<string, unknown>) => {
+  // 计算功能
+  const handleCalcPCB = () => {
     if (!pcbFormData) {
-      toast.error('❌ PCB规格数据不完整，无法计算运费', {
-        description: '请确保订单包含完整的PCB技术参数和收货地址',
-        duration: 4000
-      });
+      toast.error('❌ PCB规格数据不完整，无法计算价格');
       return;
     }
     
-    let estimatedShippingCost = 0;
-    let shippingDetails = '';
+    try {
+      const result = calcPcbPriceV3(pcbFormData);
+      const pcb_price = Number(result.total).toFixed(2);
+      
+      const values = { ...adminOrderEdits[0], pcb_price };
+      updatePriceCalculation(values);
+      
+      setCalculationNotes(result.notes || []);
+      
+      toast.success(`🔧 PCB价格重新计算完成：¥${pcb_price}`);
+      
+    } catch (error) {
+      console.error('PCB价格计算失败:', error);
+      toast.error('PCB价格计算失败，请检查PCB规格参数');
+    }
+  };
+
+  const handleCalcDelivery = () => {
+    if (!pcbFormData) return;
     
     try {
-      if (pcbFormData.shippingAddress?.country && pcbFormData.shippingAddress?.courier) {
-        import('@/lib/shipping-calculator').then(({ calculateShippingCost }) => {
-          const shippingResult = calculateShippingCost(pcbFormData);
-          const finalShippingCost = Math.round(shippingResult.finalCost * 7.2);
-          
-          const courierDisplay = (pcbFormData.shippingAddress as any).courierName || pcbFormData.shippingAddress.courier;
-          const countryDisplay = (pcbFormData.shippingAddress as any).countryName || pcbFormData.shippingAddress.country;
-          
-          setShippingNotes({
-            basicInfo: `${courierDisplay?.toUpperCase()} 到 ${countryDisplay}`,
-            weightInfo: `实际重量：${shippingResult.actualWeight}kg，体积重：${shippingResult.volumetricWeight}kg，计费重量：${shippingResult.chargeableWeight}kg`,
-            costBreakdown: [
-              `基础运费：$${shippingResult.baseCost.toFixed(2)}`,
-              `燃油附加费：$${shippingResult.fuelSurcharge.toFixed(2)}`,
-              `旺季附加费：$${shippingResult.peakCharge.toFixed(2)}`,
-              `最终运费：$${shippingResult.finalCost.toFixed(2)} (¥${Number(finalShippingCost).toFixed(2)})`
-            ]
-          });
-          setShowShippingNotes(true);
-          
-          setAdminOrderEdits(prev => [
-            {
-              ...prev[0], // 保留现有的表单数据
-              ...values,   // 包含用户输入的最新数据
-              ship_price: finalShippingCost,
-            },
-          ]);
-          
-          toast.success(`🚚 运费计算完成`, {
-            description: `运费：$${shippingResult.finalCost.toFixed(2)} (¥${Number(finalShippingCost).toFixed(2)})\n快递：${courierDisplay?.toUpperCase()} → ${countryDisplay}`,
-            duration: 3000
-          });
-        }).catch((error) => {
-          console.error('运费计算失败:', error);
-          const errorMessage = error instanceof Error ? `运费计算失败：${error.message}` : '运费计算失败，请检查运输信息';
-          toast.error(errorMessage, {
-            duration: 4000,
-            action: {
-              label: '关闭',
-              onClick: () => {}
-            }
-          });
-        });
-        return;
-      }
+      const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+      const newProductionDays = String(cycle.cycleDays);
       
-      const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000;
-      const isUrgent = pcbFormData.delivery === 'urgent';
+      setDeliveryNotes(cycle.reason || []);
       
-      if (totalArea <= 0.1) {
-        estimatedShippingCost = isUrgent ? 150 : 80;
-        shippingDetails = '小件包裹';
-      } else if (totalArea <= 0.5) {
-        estimatedShippingCost = isUrgent ? 250 : 120;
-        shippingDetails = '中等包裹';
-      } else {
-        estimatedShippingCost = isUrgent ? 350 : 180;
-        shippingDetails = '大件包裹';
-      }
-      
-      shippingDetails += isUrgent ? '（加急）' : '（标准）';
-      
-      setShippingNotes({
-        basicInfo: '简单估算（缺少详细收货信息）',
-        weightInfo: `PCB面积：${totalArea.toFixed(4)}㎡`,
-        costBreakdown: [
-          `包裹类型：${shippingDetails}`,
-          `估算运费：¥${Number(estimatedShippingCost).toFixed(2)}`
-        ]
-      });
-      setShowShippingNotes(true);
+      const today = new Date();
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + cycle.cycleDays);
+      const deliveryDate = targetDate.toISOString().split('T')[0];
       
       setAdminOrderEdits(prev => [
         {
-          ...prev[0], // 保留现有的表单数据
-          ...values,   // 包含用户输入的最新数据
-          ship_price: estimatedShippingCost,
+          ...prev[0],
+          production_days: newProductionDays,
+          delivery_date: deliveryDate,
         },
       ]);
       
-      toast.success(`🚚 运费估算完成`, {
-        description: `运费：¥${Number(estimatedShippingCost).toFixed(2)} (${shippingDetails})\nPCB面积：${totalArea.toFixed(4)}㎡`,
-        duration: 3000
-      });
+      toast.success(`📅 交期重新计算完成：${newProductionDays}天`);
       
     } catch (error) {
-      console.error('运费计算失败:', error);
-      const errorMessage = error instanceof Error ? `运费计算失败：${error.message}` : '运费计算失败，请检查PCB规格和收货地址';
-      toast.error(errorMessage, {
-        duration: 4000,
-        action: {
-          label: '关闭',
-          onClick: () => {}
-        }
-      });
+      console.error('计算交期失败:', error);
+      toast.error('计算交期失败，请检查PCB规格参数');
     }
   };
 
   // 重新计算所有
-  const handleRecalc = (values: Record<string, unknown>) => {
+  const handleRecalc = () => {
     if (!pcbFormData) return;
     
-    // 先计算PCB价格
-    let pcb_price = values.pcb_price as string || '';
-    let priceNotes: string[] = [];
-    
     try {
+      // 先计算PCB价格
       const result = calcPcbPriceV3(pcbFormData);
-      pcb_price = Number(result.total).toFixed(2);
-      priceNotes = result.notes || [];
+      const pcb_price = Number(result.total).toFixed(2);
       
-      // 创建包含更新后PCB价格的values对象
-      const updatedValues = {
-        ...values,
+      // 计算交期
+      const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+      const production_days = String(cycle.cycleDays);
+      
+      const today = new Date();
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + cycle.cycleDays);
+      const delivery_date = targetDate.toISOString().split('T')[0];
+      
+      // 估算运费
+      const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000;
+      const isUrgent = pcbFormData.delivery === 'urgent';
+      
+      let estimatedShippingCost = 0;
+      if (totalArea <= 0.1) {
+        estimatedShippingCost = isUrgent ? 150 : 80;
+      } else if (totalArea <= 0.5) {
+        estimatedShippingCost = isUrgent ? 250 : 120;
+      } else {
+        estimatedShippingCost = isUrgent ? 350 : 180;
+      }
+      
+      // 更新所有计算结果
+      const values = {
+        ...adminOrderEdits[0],
         pcb_price,
+        production_days,
+        delivery_date,
+        ship_price: estimatedShippingCost,
       };
       
-      // 计算其他价格信息
-      const ship_price = Number(values.ship_price) || 0;
-      const custom_duty = Number(values.custom_duty) || 0;
-      const coupon = Number(values.coupon) || 0;
-      
-      let surcharges: Array<{name: string, amount: number}> = [];
-      if (Array.isArray(values.surcharges)) {
-        surcharges = values.surcharges;
-      } else if (typeof values.surcharges === 'string') {
-        try {
-          surcharges = JSON.parse(values.surcharges);
-        } catch {
-          surcharges = [];
-        }
-      }
-      const surchargeTotal = surcharges.reduce((sum: number, s: {name: string, amount: number}) => sum + Number(s.amount || 0), 0);
-      
-      const cny_price = (Number(pcb_price) + ship_price + custom_duty + surchargeTotal - coupon).toFixed(2);
-      
-      const currency = values.currency as string || 'USD';
-      const exchange_rate = Number(values.exchange_rate) || 7.2;
-      const admin_price = currency === 'CNY' ? cny_price : (Number(cny_price) / exchange_rate).toFixed(2);
-      
-      // 先更新PCB相关计算结果
-      setAdminOrderEdits(prev => [
-        {
-          ...prev[0], // 保留现有的表单数据
-          ...updatedValues, // 包含更新后的PCB价格
-          cny_price,
-          admin_price,
-        },
-      ]);
-      
-      setCalculationNotes(priceNotes);
-      setShowCalculationNotes(true);
-      
-      // 然后计算交期，使用更新后的values
-      setTimeout(() => handleCalcDelivery(updatedValues), 100);
+      updatePriceCalculation(values);
+      setCalculationNotes(result.notes || []);
+      setDeliveryNotes(cycle.reason || []);
       
       toast.success('🔄 重新计算完成', {
         description: '所有价格、交期、运费明细已更新',
@@ -646,214 +492,9 @@ export default function AdminOrderDetailPage() {
       
     } catch (error) {
       console.error('重新计算失败:', error);
-      const errorMessage = error instanceof Error ? `重新计算失败：${error.message}` : '重新计算失败，请检查PCB规格参数';
-      toast.error(errorMessage, {
-        duration: 4000,
-        action: {
-          label: '关闭',
-          onClick: () => {}
-        }
-      });
+      toast.error('重新计算失败，请检查PCB规格参数');
     }
   };
-
-  // PCB参数字段中文映射
-  const pcbFieldLabelMap: Record<string, string> = {
-    pcbType: '板材类型',
-    layers: '层数',
-    thickness: '板厚',
-    hdi: 'HDI类型',
-    tg: 'TG值',
-    shipmentType: '出货方式',
-    singleDimensions: '单片尺寸',
-    singleCount: '单片数量',
-    panelDimensions: '拼板尺寸',
-    panelSet: '拼板数量',
-    differentDesignsCount: '不同设计数',
-    border: '拼板边框',
-    useShengyiMaterial: '是否生益板材',
-    pcbNote: 'PCB备注',
-    delivery: '交付类型',
-    outerCopperWeight: '外层铜厚',
-    innerCopperWeight: '内层铜厚',
-    minTrace: '最小线宽/间距',
-    minHole: '最小孔径',
-    solderMask: '阻焊颜色',
-    silkscreen: '丝印颜色',
-    surfaceFinish: '表面处理',
-    surfaceFinishEnigType: 'ENIG厚度',
-    impedance: '阻抗控制',
-    goldFingers: '金手指',
-    goldFingersBevel: '斜边金手指',
-    edgePlating: '边缘电镀',
-    halfHole: '半孔数量',
-    edgeCover: '边缘覆盖',
-    maskCover: '过孔工艺',
-    bga: 'BGA',
-    holeCu25um: '孔铜25um',
-    blueMask: '蓝色阻焊',
-    holeCount: '孔数',
-    testMethod: '电测方式',
-    productReport: '产品报告',
-    workingGerber: '工作Gerber',
-    ulMark: 'UL标记',
-    crossOuts: '可接受不良板',
-    ipcClass: 'IPC等级',
-    ifDataConflicts: '数据冲突处理',
-    specialRequests: '特殊要求',
-    gerberUrl: 'Gerber文件链接',
-    shippingCostEstimation: '运费预估',
-    shippingAddress: '收货地址',
-    customs: '报关信息',
-    customsNote: '报关备注',
-    userNote: '用户备注',
-  };
-
-  // PCB参数值美化映射
-  const pcbFieldValueMap: Record<string, (value: unknown) => string> = {
-    pcbType: v => v === 'FR-4' ? 'FR-4（玻纤板）' : String(v),
-    hdi: v => ({ None: '无', '1step': '一阶', '2step': '二阶', '3step': '三阶' }[String(v)] || String(v)),
-    tg: v => ({ TG135: 'TG135', TG150: 'TG150', TG170: 'TG170' }[String(v)] || String(v)),
-    shipmentType: v => ({ single: '单片', panel: '拼板' }[String(v)] || String(v)),
-    border: v => ({ None: '无', '5': '5mm', '10': '10mm' }[String(v)] || String(v)),
-    outerCopperWeight: v => v ? `${v} oz` : '',
-    innerCopperWeight: v => v ? `${v} oz` : '',
-    minTrace: v => v ? `${v} mil` : '',
-    minHole: v => v ? `${v} mm` : '',
-    solderMask: v => ({ 'Green': '绿色', 'Matt Green': '哑光绿', 'Blue': '蓝色', 'Red': '红色', 'Black': '黑色', 'Matt Black': '哑光黑', 'White': '白色', 'Yellow': '黄色' }[String(v)] || String(v)),
-    silkscreen: v => ({ 'White': '白色', 'Black': '黑色', 'Yellow': '黄色' }[String(v)] || String(v)),
-    surfaceFinish: v => ({ 'HASL': '有铅喷锡', 'Leadfree HASL': '无铅喷锡', 'ENIG': '沉金', 'OSP': 'OSP', 'Immersion Silver': '沉银', 'Immersion Tin': '沉锡' }[String(v)] || String(v)),
-    surfaceFinishEnigType: v => ({ 'ENIG 1U': '1微英寸', 'ENIG 2U': '2微英寸', 'ENIG 3U': '3微英寸' }[String(v)] || String(v)),
-    maskCover: v => ({ 'Tented Vias': '盖油', 'Opened Vias': '开窗', 'Solder Mask Plug (IV-B)': '塞孔', ' Non-Conductive Fill & Cap (VII)': '非导电填充+盖油' }[String(v)] || String(v)),
-    edgeCover: v => ({ None: '无', Left: '左侧', Right: '右侧', Both: '两侧' }[String(v)] || String(v)),
-    testMethod: v => ({ 'None': '免测', '100% FPT for Batches': '飞针测试', 'Test Fixture': '测试架' }[String(v)] || String(v)),
-    productReport: v => Array.isArray(v) ? v.map(i => ({ 'None': '无', 'Production Report': '生产报告', 'Impedance Report': '阻抗报告' }[String(i)] || String(i))).join('，') : String(v),
-    workingGerber: v => ({ 'Not Required': '不需要', 'Require Approval': '需要审批' }[String(v)] || String(v)),
-    crossOuts: v => ({ 'Not Accept': '不接受', 'Accept': '接受' }[String(v)] || String(v)),
-    ipcClass: v => ({ 'IPC Level 2 Standard': 'IPC 2级', 'IPC Level 3 Standard': 'IPC 3级' }[String(v)] || String(v)),
-    ifDataConflicts: v => ({ 'Follow Order Parameters': '以订单为准', 'Follow Files': '以文件为准', 'Ask for Confirmation': '需确认' }[String(v)] || String(v)),
-    delivery: v => ({ standard: '标准', urgent: '加急' }[String(v)] || String(v)),
-    useShengyiMaterial: v => v ? '是' : '否',
-    goldFingers: v => v ? '是' : '否',
-    goldFingersBevel: v => v ? '是' : '否',
-    edgePlating: v => v ? '是' : '否',
-    bga: v => v ? '是' : '否',
-    holeCu25um: v => v ? '是' : '否',
-    blueMask: v => v ? '是' : '否',
-    ulMark: v => v ? '是' : '否',
-    singleDimensions: v => v && typeof v === 'object' && 'length' in v && 'width' in v ? `${(v as Record<string, unknown>).length} x ${(v as Record<string, unknown>).width} cm` : String(v),
-    panelDimensions: v => v && typeof v === 'object' && 'row' in v && 'column' in v ? `${(v as Record<string, unknown>).row}行 x ${(v as Record<string, unknown>).column}列` : String(v),
-    shippingAddress: v => {
-      if (!v || typeof v !== 'object') return String(v);
-      const addr = v as Record<string, unknown>;
-      
-      // 优先使用友好名称，回退到代码
-      const country = (addr.countryName as string) || (addr.country_name as string) || (addr.country as string) || '';
-      const state = (addr.stateName as string) || (addr.state_name as string) || (addr.state as string) || '';
-      const city = (addr.cityName as string) || (addr.city_name as string) || (addr.city as string) || '';
-      const courier = (addr.courierName as string) || (addr.courier_name as string) || (addr.courier as string) || '';
-      const contactName = (addr.contactName as string) || (addr.contact_name as string) || '';
-      
-      return `${contactName} | ${country} ${state} ${city} | ${courier}`;
-    },
-    customs: v => {
-      if (!v || typeof v !== 'object') return String(v);
-      const customs = v as Record<string, unknown>;
-      return `${customs.value || ''}${customs.currency || ''} - ${customs.description || ''}`;
-    },
-  };
-
-  // PCB参数字段分组及条件显示配置
-  interface PCBFieldConfig {
-    key: keyof typeof pcbFieldLabelMap;
-    shouldShow: (data: Record<string, unknown>) => boolean;
-  }
-  interface PCBFieldGroup {
-    title: string;
-    fields: PCBFieldConfig[];
-  }
-
-  const isPanel = (type?: string): boolean => !!type && type.startsWith('panel');
-
-  const pcbFieldGroups: PCBFieldGroup[] = [
-    {
-      title: 'Basic Info',
-      fields: [
-        { key: 'pcbType', shouldShow: () => true },
-        { key: 'layers', shouldShow: () => true },
-        { key: 'hdi', shouldShow: data => data.pcbType === 'HDI' },
-        { key: 'tg', shouldShow: () => true },
-        { key: 'useShengyiMaterial', shouldShow: () => true },
-      ],
-    },
-    {
-      title: 'Dimensions & Panelization',
-      fields: [
-        { key: 'shipmentType', shouldShow: () => true },
-        { key: 'singleDimensions', shouldShow: () => true },
-        { key: 'singleCount', shouldShow: () => true },
-        { key: 'panelDimensions', shouldShow: data => isPanel(String(data.shipmentType)) },
-        { key: 'panelSet', shouldShow: data => isPanel(String(data.shipmentType)) },
-        { key: 'differentDesignsCount', shouldShow: data => isPanel(String(data.shipmentType)) },
-        { key: 'border', shouldShow: data => isPanel(String(data.shipmentType)) },
-        { key: 'pcbNote', shouldShow: () => true },
-      ],
-    },
-    {
-      title: 'Material & Process',
-      fields: [
-        { key: 'thickness', shouldShow: () => true },
-        { key: 'outerCopperWeight', shouldShow: () => true },
-        { key: 'innerCopperWeight', shouldShow: data => !!data.innerCopperWeight },
-        { key: 'minTrace', shouldShow: () => true },
-        { key: 'minHole', shouldShow: () => true },
-        { key: 'solderMask', shouldShow: () => true },
-        { key: 'silkscreen', shouldShow: () => true },
-        { key: 'surfaceFinish', shouldShow: () => true },
-        { key: 'surfaceFinishEnigType', shouldShow: data => data.surfaceFinish === 'ENIG' },
-        { key: 'impedance', shouldShow: () => true },
-      ],
-    },
-    {
-      title: 'Special Features',
-      fields: [
-        { key: 'goldFingers', shouldShow: () => true },
-        { key: 'goldFingersBevel', shouldShow: data => !!data.goldFingers },
-        { key: 'edgePlating', shouldShow: () => true },
-        { key: 'halfHole', shouldShow: () => true },
-        { key: 'edgeCover', shouldShow: () => true },
-        { key: 'maskCover', shouldShow: () => true },
-        { key: 'bga', shouldShow: () => true },
-        { key: 'holeCu25um', shouldShow: () => true },
-        { key: 'blueMask', shouldShow: () => true },
-      ],
-    },
-    {
-      title: 'Testing & Report',
-      fields: [
-        { key: 'holeCount', shouldShow: () => true },
-        { key: 'testMethod', shouldShow: () => true },
-        { key: 'productReport', shouldShow: () => true },
-        { key: 'workingGerber', shouldShow: () => true },
-        { key: 'ulMark', shouldShow: () => true },
-        { key: 'crossOuts', shouldShow: () => true },
-        { key: 'ipcClass', shouldShow: () => true },
-        { key: 'ifDataConflicts', shouldShow: () => true },
-      ],
-    },
-    {
-      title: 'Logistics & Notes',
-      fields: [
-        { key: 'delivery', shouldShow: () => true },
-        { key: 'specialRequests', shouldShow: () => true },
-        { key: 'gerberUrl', shouldShow: () => true },
-        { key: 'shippingAddress', shouldShow: () => true },
-        { key: 'customs', shouldShow: () => true },
-        { key: 'customsNote', shouldShow: () => true },
-        { key: 'userNote', shouldShow: () => true },
-      ],
-    },
-  ];
 
   const handleRefundReview = async (action: 'approve' | 'reject') => {
     setIsReviewingRefund(true);
@@ -879,7 +520,7 @@ export default function AdminOrderDetailPage() {
       if (!response.ok) throw new Error(data.error || 'Failed to review refund.');
       
       toast.success(`The refund has been successfully ${action}d.`);
-      fetchOrder(); // Refresh data
+      fetchOrder();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -897,519 +538,1288 @@ export default function AdminOrderDetailPage() {
       if (!response.ok) throw new Error(data.error || 'Failed to process Stripe refund.');
 
       toast.success('Stripe refund processed successfully!');
-      fetchOrder(); // Refresh data
+      fetchOrder();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setIsProcessingStripeRefund(false);
     }
   };
-  
-  const adminOrder = order ? getAdminOrders(order.admin_orders)[0] : null;
 
   if (loading) {
-    return <div>Loading UI...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">加载订单信息中...</p>
+        </div>
+      </div>
+    );
   }
+
   if (error) {
-    return <div className="w-full p-2 md:p-4 text-red-600">Error: {error}</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center text-red-600">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4" />
+          <p className="text-lg font-semibold">Error: {error}</p>
+        </div>
+      </div>
+    );
   }
+
   if (!order) {
-    return <div className="w-full p-2 md:p-4">Order not found.</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center text-gray-600">
+          <Package className="w-12 h-12 mx-auto mb-4" />
+          <p className="text-lg font-semibold">订单未找到</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
-      <div className="max-w-[1600px] mx-auto px-2 py-6 w-full">
-        {/* 页面标题区 */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">📋</span>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">订单详情</h1>
-              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {order.status}
-              </div>
+    <div className="p-4 space-y-4">
+      {/* 紧凑型页面标题 */}
+      <div className="bg-white border rounded p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+              <Package className="w-4 h-4 text-white" />
             </div>
-            
-            {/* 管理员操作按钮 */}
-            <div className="flex items-center gap-3">
-              {(() => {
-                const adminOrder = order ? getAdminOrders(order.admin_orders)[0] : null;
-                // 管理员可以编辑除了已完成、已取消、已交付状态外的所有订单
-                const canAdminEdit = !['completed', 'cancelled', 'delivered'].includes(order.status || '') && 
-                                   (!adminOrder || !['completed', 'cancelled', 'delivered'].includes(adminOrder.status || ''));
-                
-                if (canAdminEdit) {
-                  return (
-                    <Button 
-                      onClick={() => window.open(`/quote2?edit=${order.id}`, '_blank')}
-                      variant="default"
-                      className="bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md transition-all"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      编辑订单
-                    </Button>
-                  );
-                }
-                return null;
-              })()}
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">订单审核 #{order.id.slice(0, 8)}</h1>
+              <div className="flex items-center gap-3 text-xs text-gray-500">
+                <Badge className={getStatusColor(order.status || 'pending')} variant="outline">
+                  {order.status || 'pending'}
+                </Badge>
+                <span>{order.created_at && new Date(order.created_at as string).toLocaleDateString('zh-CN')}</span>
+                <span>客户: {order.email || '-'}</span>
+              </div>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-1">
-            <p className="text-gray-600">订单编号: {order.id}</p>
-            {order.created_at && (
-              <p className="text-gray-500 text-sm">
-                创建时间: {new Date(order.created_at as string).toLocaleDateString('zh-CN', {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </p>
-            )}
+          
+          {/* 操作按钮 */}
+          <div className="flex items-center gap-2">
+            {(() => {
+              const canAdminEdit = !['completed', 'cancelled', 'delivered'].includes(order.status || '') && 
+                                 (!adminOrder || !['completed', 'cancelled', 'delivered'].includes(adminOrder.status || ''));
+              
+              if (canAdminEdit) {
+                return (
+                  <Button 
+                    onClick={() => window.open(`/quote2?edit=${order.id}`, '_blank')}
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                  >
+                    <Settings className="w-3 h-3 mr-1" />
+                    编辑
+                  </Button>
+                );
+              }
+              return null;
+            })()}
           </div>
         </div>
+      </div>
 
-                {/* Gerber文件下载区域 */}
-        {(() => {
-          // 检查多个可能的Gerber文件来源
-          const gerberUrl = pcbFormData?.gerberUrl || 
-                           order.gerber_file_url || 
-                           (pcbFormData as any)?.gerber ||
-                           (order.pcb_spec as any)?.gerber ||
-                           (order.pcb_spec as any)?.gerberUrl;
-          
-          const hasGerberFile = gerberUrl && typeof gerberUrl === 'string';
-          const fileName = hasGerberFile ? (gerberUrl.split('/').pop() || 'Gerber File') : 'No Gerber file';
-          
-          return (
-            <div className="mb-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3">
-                  <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                    📄 Gerber Files
+      {/* 主要内容区域 - 紧凑布局 */}
+      <div className="grid grid-cols-12 gap-3">
+        {/* 左侧：订单详情 */}
+        <div className="col-span-9 space-y-3">
+          {/* 订单概览 - 紧凑表格 */}
+          <div className="bg-white border rounded">
+            <div className="bg-gray-50 px-3 py-2 border-b">
+              <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                订单概览
+              </h3>
+            </div>
+            <div className="grid grid-cols-6 text-xs">
+              <div className="border-r border-b p-2 bg-gray-50 font-medium">客户邮箱</div>
+              <div className="border-r border-b p-2 text-center">{order.email || '-'}</div>
+              <div className="border-r border-b p-2 bg-gray-50 font-medium">PCB层数</div>
+              <div className="border-r border-b p-2 text-center">{pcbFormData?.layers || '-'}</div>
+              <div className="border-r border-b p-2 bg-gray-50 font-medium">询价金额</div>
+              <div className="border-b p-2 text-center font-semibold text-red-600">
+                {order.cal_values ? formatPrice((order.cal_values as any)?.totalPrice || (order.cal_values as any)?.price, 'USD') : '-'}
+              </div>
+              
+              <div className="border-r border-b p-2 bg-gray-50 font-medium">用户名</div>
+              <div className="border-r border-b p-2 text-center">{order.user_name || '-'}</div>
+              <div className="border-r border-b p-2 bg-gray-50 font-medium">PCB数量</div>
+              <div className="border-r border-b p-2 text-center">{pcbFormData?.singleCount || '-'} pcs</div>
+              <div className="border-r border-b p-2 bg-gray-50 font-medium">管理价格</div>
+              <div className="border-b p-2 text-center font-semibold text-green-600">
+                {adminOrder ? formatPrice(adminOrder.admin_price, adminOrder.currency || 'CNY') : '-'}
+              </div>
+              
+              <div className="border-r p-2 bg-gray-50 font-medium">订单状态</div>
+              <div className="border-r p-2 text-center">
+                <Badge className={getStatusColor(order.status || 'pending')} variant="outline">
+                  {order.status || 'pending'}
+                </Badge>
+              </div>
+              <div className="border-r p-2 bg-gray-50 font-medium">PCB尺寸</div>
+              <div className="border-r p-2 text-center">
+                {pcbFormData?.singleDimensions ? 
+                  `${pcbFormData.singleDimensions.length}×${pcbFormData.singleDimensions.width}mm` : '-'}
+              </div>
+              <div className="border-r p-2 bg-gray-50 font-medium">Gerber文件</div>
+              <div className="p-2 text-center">
+                {(() => {
+                  const gerberUrl = pcbFormData?.gerberUrl || order.gerber_file_url;
+                  const hasGerberFile = gerberUrl && typeof gerberUrl === 'string';
+                  return hasGerberFile ? (
+                    <DownloadButton 
+                      filePath={gerberUrl}
+                      bucket="gerber"
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1"
+                    >
+                      下载
+                    </DownloadButton>
+                  ) : (
+                    <span className="text-red-500">缺失</span>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+
+                         {/* PCB技术规格审核 + 计算结果 */}
+          <div className="grid grid-cols-12 gap-3">
+            {/* 左侧：PCB技术规格审核 */}
+            <div className="col-span-8">
+              <div className="bg-white border-2 border-blue-200 rounded">
+                <div className="bg-blue-50 px-3 py-2 border-b">
+                  <h3 className="text-sm font-semibold text-blue-800 flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    PCB技术规格审核
+                    <Badge variant="outline" className="ml-auto bg-red-100 text-red-700 border-red-300 text-xs">
+                      核心审核项
+                    </Badge>
                   </h3>
                 </div>
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        hasGerberFile ? 'bg-indigo-100' : 'bg-gray-100'
-                      }`}>
-                        <span className={`text-lg ${
-                          hasGerberFile ? 'text-indigo-600' : 'text-gray-400'
-                        }`}>🔧</span>
-                      </div>
-                      <div>
-                        <div className={`font-medium ${
-                          hasGerberFile ? 'text-gray-900' : 'text-gray-500'
-                        }`}>{fileName}</div>
-                        <div className="text-sm text-gray-500">
-                          {hasGerberFile ? 'PCB manufacturing files' : 'No manufacturing files uploaded'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        {hasGerberFile ? (
-                          <>
-                            <div className="text-xs text-green-600 font-medium mb-1">✓ Available</div>
-                            <DownloadButton 
-                              filePath={gerberUrl}
-                              bucket="gerber"
-                              className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 border-indigo-200"
-                            >
-                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              Download
-                            </DownloadButton>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-xs text-red-600 font-medium mb-1">✗ Not Available</div>
-                            <div className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-sm font-medium">
-                              No File
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                <div className="p-0">
+                 {pcbFormData ? (
+                   <div className="border-t">
+                     {/* 基本参数表格 */}
+                     <div className="bg-blue-50 px-4 py-2 border-b">
+                       <h4 className="text-sm font-semibold text-blue-800">基本参数</h4>
+                     </div>
+                     <div className="grid grid-cols-6 text-xs">
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">板材类型</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.pcbType || 'FR-4'}</div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">板子层数</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.layers || '-'}</div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">板厚</div>
+                       <div className="border-b p-2 text-center font-semibold">{pcbFormData.thickness || '1.6'} mm</div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">板子长度</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">
+                         {pcbFormData.singleDimensions?.length || '-'} mm
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">板子宽度</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">
+                         {pcbFormData.singleDimensions?.width || '-'} mm
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">面积</div>
+                       <div className="border-b p-2 text-center font-semibold">
+                         {pcbFormData.singleDimensions ? 
+                           ((pcbFormData.singleDimensions.length * pcbFormData.singleDimensions.width) / 100).toFixed(2) + ' cm²' : '-'}
+                       </div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">数量类型</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">
+                         {pcbFormData.shipmentType === 'single' ? '单片' : 
+                          pcbFormData.shipmentType === 'panel_by_gerber' ? 'Gerber拼板' :
+                          pcbFormData.shipmentType === 'panel_by_speedx' ? 'SpeedX拼板' : '-'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">订购数量</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">
+                         {pcbFormData.shipmentType === 'single' ? 
+                           `${pcbFormData.singleCount || '-'} pcs` :
+                           `${pcbFormData.panelSet || '-'} set`}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">板子重量</div>
+                       <div className="border-b p-2 text-center font-semibold">
+                         {pcbFormData.singleDimensions ? 
+                           ((pcbFormData.singleDimensions.length * pcbFormData.singleDimensions.width * Number(pcbFormData.thickness || 1.6) * 1.8) / 1000000).toFixed(3) + ' kg' : '-'}
+                       </div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">HDI类型</div>
+                       <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                         {pcbFormData.hdi || '无'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">TG等级</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.tg || 'Standard'}</div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">不同设计数</div>
+                       <div className="border-b p-2 text-center font-semibold">{pcbFormData.differentDesignsCount || '1'}</div>
+                     </div>
+
+                     {/* 工艺参数 */}
+                     <div className="bg-orange-50 px-4 py-2 border-b">
+                       <h4 className="text-sm font-semibold text-orange-800">工艺参数</h4>
+                     </div>
+                     <div className="grid grid-cols-6 text-xs">
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">外层铜厚</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.outerCopperWeight || '1'} oz</div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">内层铜厚</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">
+                         {Number(pcbFormData.layers) >= 4 ? (pcbFormData.innerCopperWeight || '0.5') + ' oz' : 'N/A'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">最小线宽/线距</div>
+                       <div className="border-b p-2 text-center font-semibold">{pcbFormData.minTrace || '6/6'} mil</div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">最小过孔</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.minHole || '0.3'} mm</div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">阻焊颜色</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.solderMask || 'Green'}</div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">丝印颜色</div>
+                       <div className="border-b p-2 text-center font-semibold">{pcbFormData.silkscreen || 'White'}</div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">表面处理</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.surfaceFinish || 'HASL'}</div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">ENIG厚度</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">
+                         {pcbFormData.surfaceFinish === 'ENIG' ? (pcbFormData.surfaceFinishEnigType || 'Standard') : 'N/A'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">过孔工艺</div>
+                       <div className="border-b p-2 text-center font-semibold">{pcbFormData.maskCover || 'Tented'}</div>
+                     </div>
+
+                     {/* 特殊工艺 */}
+                     <div className="bg-purple-50 px-4 py-2 border-b">
+                       <h4 className="text-sm font-semibold text-purple-800">特殊工艺</h4>
+                     </div>
+                     <div className="grid grid-cols-6 text-xs">
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">阻抗控制</div>
+                       <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                         {pcbFormData.impedance ? '需要' : '不需要'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">金手指</div>
+                       <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                         {pcbFormData.goldFingers ? '需要' : '不需要'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">金手指斜边</div>
+                       <div className="border-b p-2 text-center font-semibold">
+                         {pcbFormData.goldFingers && pcbFormData.goldFingersBevel ? '需要' : '不需要'}
+                       </div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">边缘电镀</div>
+                       <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                         {pcbFormData.edgePlating ? '需要' : '不需要'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">边缘覆盖</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">
+                         {pcbFormData.edgePlating ? (pcbFormData.edgeCover || 'No') : 'N/A'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">UL标记</div>
+                       <div className="border-b p-2 text-center font-semibold">
+                         {pcbFormData.ulMark ? '需要' : '不需要'}
+                       </div>
+                     </div>
+
+                     {/* 拼板信息 */}
+                     {(pcbFormData.shipmentType === 'panel_by_gerber' || pcbFormData.shipmentType === 'panel_by_speedx') && (
+                       <>
+                         <div className="bg-indigo-50 px-4 py-2 border-b">
+                           <h4 className="text-sm font-semibold text-indigo-800">拼板信息</h4>
+                         </div>
+                         <div className="grid grid-cols-6 text-xs">
+                           <div className="border-r border-b p-2 bg-gray-50 font-medium">拼板类型</div>
+                           <div className="border-r border-b p-2 text-center font-semibold">
+                             {pcbFormData.shipmentType === 'panel_by_gerber' ? 'Gerber拼板' : 'SpeedX拼板'}
+                           </div>
+                           <div className="border-r border-b p-2 bg-gray-50 font-medium">拼板尺寸</div>
+                           <div className="border-r border-b p-2 text-center font-semibold">
+                             {pcbFormData.panelDimensions ? 
+                               `${pcbFormData.panelDimensions.row}×${pcbFormData.panelDimensions.column}` : '-'}
+                           </div>
+                           <div className="border-r border-b p-2 bg-gray-50 font-medium">拼板数量</div>
+                           <div className="border-b p-2 text-center font-semibold">{pcbFormData.panelSet || '-'} set</div>
+                           
+                           {pcbFormData.shipmentType === 'panel_by_speedx' && (
+                             <>
+                               <div className="border-r border-b p-2 bg-gray-50 font-medium">工艺边</div>
+                               <div className="border-r border-b p-2 text-center font-semibold">
+                                 {pcbFormData.breakAwayRail || 'None'}
+                               </div>
+                               <div className="border-r border-b p-2 bg-gray-50 font-medium">工艺边宽度</div>
+                               <div className="border-r border-b p-2 text-center font-semibold">
+                                 {pcbFormData.breakAwayRail !== 'None' ? (pcbFormData.border || '5') + 'mm' : 'N/A'}
+                               </div>
+                               <div className="border-r border-b p-2 bg-gray-50 font-medium">分离方式</div>
+                               <div className="border-b p-2 text-center font-semibold">
+                                 {pcbFormData.breakAwayRail !== 'None' ? (pcbFormData.borderCutType || 'V-Cut') : 'N/A'}
+                               </div>
+                             </>
+                           )}
+                           
+                           {pcbFormData.pcbNote && (
+                             <>
+                               <div className="border-r border-b p-2 bg-gray-50 font-medium">拼板备注</div>
+                               <div className="border-b p-2 text-center font-semibold col-span-5 text-left px-3">
+                                 {pcbFormData.pcbNote}
+                               </div>
+                             </>
+                           )}
+                         </div>
+                       </>
+                     )}
+
+                     {/* 测试与质量 */}
+                     <div className="bg-green-50 px-4 py-2 border-b">
+                       <h4 className="text-sm font-semibold text-green-800">测试与质量</h4>
+                     </div>
+                     <div className="grid grid-cols-6 text-xs">
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">电测方式</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.testMethod || 'Flying Probe'}</div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">工作Gerber</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.workingGerber || 'Yes'}</div>
+                                               <div className="border-r border-b p-2 bg-gray-50 font-medium">质量要求</div>
+                        <div className="border-b p-2 text-center font-semibold">Standard</div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">IPC等级</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.ipcClass || 'IPC Class 2'}</div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">不良品处理</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">
+                         {pcbFormData.crossOuts === 'Not Accept' ? '不接受' : '接受'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">数据冲突处理</div>
+                       <div className="border-b p-2 text-center font-semibold">
+                         {pcbFormData.ifDataConflicts || 'Contact Customer'}
+                       </div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">产品报告</div>
+                       <div className="border-b p-2 text-center font-semibold col-span-5 text-left px-3">
+                         {Array.isArray(pcbFormData.productReport) ? 
+                           pcbFormData.productReport.join(', ') : (pcbFormData.productReport || 'None')}
+                       </div>
+                     </div>
+
+                     {/* 交付信息 */}
+                     <div className="bg-yellow-50 px-4 py-2 border-b">
+                       <h4 className="text-sm font-semibold text-yellow-800">交付信息</h4>
+                     </div>
+                     <div className="grid grid-cols-4 text-xs">
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">交付类型</div>
+                       <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                         {pcbFormData.delivery === 'urgent' ? '加急' : '标准'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">预计交期</div>
+                       <div className="border-b p-2 text-center font-semibold">
+                         {pcbFormData.delivery === 'urgent' ? '48小时' : '5-7天'}
+                       </div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">特殊要求</div>
+                       <div className="border-b p-2 text-center font-semibold col-span-3 text-left px-3">
+                         {pcbFormData.specialRequests || '无'}
+                       </div>
+                     </div>
+
+                     {/* 费用明细 */}
+                     <div className="bg-red-50 px-4 py-2 border-b">
+                       <h4 className="text-sm font-semibold text-red-800">费用明细</h4>
+                     </div>
+                     <div className="grid grid-cols-4 text-xs">
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">PCB基础价</div>
+                       <div className="border-r border-b p-2 text-center font-semibold">
+                         {order.cal_values ? formatPrice((order.cal_values as any)?.pcbPrice || (order.cal_values as any)?.price, 'USD') : '-'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">工程费</div>
+                       <div className="border-b p-2 text-center font-semibold">
+                         {order.cal_values ? formatPrice((order.cal_values as any)?.engineeringFee || 0, 'USD') : '0.00'}
+                       </div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">加急费</div>
+                       <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                         {pcbFormData.delivery === 'urgent' ? 
+                           (order.cal_values ? formatPrice((order.cal_values as any)?.urgentFee || 0, 'USD') : '50.00') : '0.00'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">阻抗费</div>
+                       <div className="border-b p-2 text-center font-semibold text-red-600">
+                         {pcbFormData.impedance ? '5.00' : '0.00'}
+                       </div>
+                       
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">总价(USD)</div>
+                       <div className="border-r border-b p-2 text-center font-semibold text-red-600 text-sm">
+                         {order.cal_values ? formatPrice((order.cal_values as any)?.totalPrice || (order.cal_values as any)?.price, 'USD') : '-'}
+                       </div>
+                       <div className="border-r border-b p-2 bg-gray-50 font-medium">管理员价格</div>
+                       <div className="border-b p-2 text-center font-semibold text-red-600 text-sm">
+                         {adminOrder ? formatPrice(adminOrder.admin_price, adminOrder.currency || 'USD') : '-'}
+                       </div>
+                     </div>
+
+                     {/* 物流信息 */}
+                     {pcbFormData.shippingAddress && (
+                       <>
+                         <div className="bg-cyan-50 px-4 py-2 border-b">
+                           <h4 className="text-sm font-semibold text-cyan-800">物流信息</h4>
+                         </div>
+                         <div className="grid grid-cols-4 text-xs">
+                           <div className="border-r border-b p-2 bg-gray-50 font-medium">收货人</div>
+                           <div className="border-r border-b p-2 text-center font-semibold">
+                             {(pcbFormData.shippingAddress as any).contactName || '-'}
+                           </div>
+                           <div className="border-r border-b p-2 bg-gray-50 font-medium">联系电话</div>
+                           <div className="border-b p-2 text-center font-semibold">
+                             {(pcbFormData.shippingAddress as any).phone || '-'}
+                           </div>
+                           
+                           <div className="border-r border-b p-2 bg-gray-50 font-medium">收货地址</div>
+                           <div className="border-b p-2 text-center font-semibold col-span-3">
+                             {(pcbFormData.shippingAddress as any).address || '-'}, {(pcbFormData.shippingAddress as any).city || '-'}, {(pcbFormData.shippingAddress as any).country || '-'}
+                           </div>
+                           
+                           <div className="border-r border-b p-2 bg-gray-50 font-medium">快递公司</div>
+                           <div className="border-r border-b p-2 text-center font-semibold">
+                             {(pcbFormData.shippingAddress as any).courier || '联邦通'}
+                           </div>
+                           <div className="border-r border-b p-2 bg-gray-50 font-medium">快递费</div>
+                           <div className="border-b p-2 text-center font-semibold">0.00</div>
+                         </div>
+                       </>
+                     )}
+
+                     {/* 备注信息 */}
+                     {(pcbFormData.userNote || pcbFormData.specialRequests) && (
+                       <>
+                         <div className="bg-gray-50 px-4 py-2 border-b">
+                           <h4 className="text-sm font-semibold text-gray-800">备注信息</h4>
+                         </div>
+                         <div className="p-3 text-xs">
+                           {pcbFormData.userNote && (
+                             <div className="mb-2">
+                               <span className="font-medium text-gray-600">用户备注：</span>
+                               <span>{pcbFormData.userNote}</span>
+                             </div>
+                           )}
+                           {pcbFormData.specialRequests && (
+                             <div>
+                               <span className="font-medium text-gray-600">特殊要求：</span>
+                               <span>{pcbFormData.specialRequests}</span>
+                             </div>
+                           )}
+                         </div>
+                       </>
+                     )}
+                   </div>
+                 ) : (
+                   <div className="text-center py-8 text-red-600">
+                     <AlertCircle className="w-12 h-12 mx-auto mb-2" />
+                     <p className="text-sm font-semibold">⚠️ 缺少PCB规格信息</p>
+                     <p className="text-xs">无法进行技术审核，请联系客户补充完整的PCB规格</p>
+                   </div>
+                 )}
+                 </div>
+               </div>
+             </div>
+             
+             {/* 右侧：计算结果面板 */}
+             <div className="col-span-4 space-y-3">
+               {/* 价格计算结果 */}
+               <div className="bg-white border rounded">
+                 <div className="bg-green-50 px-3 py-2 border-b">
+                   <h3 className="text-sm font-semibold text-green-800 flex items-center gap-2">
+                     <DollarSign className="w-4 h-4" />
+                     价格计算结果
+                     {pcbFormData && calculationNotes.length > 0 && (
+                       <Badge variant="outline" className="ml-auto bg-green-100 text-green-700 border-green-300 text-xs">
+                         ✓ 已自动计算
+                       </Badge>
+                     )}
+                   </h3>
+                 </div>
+                 <div className="p-3">
+                   {pcbFormData ? (
+                     <>
+                       <div className="grid grid-cols-2 gap-2 text-xs">
+                         <div className="space-y-2">
+                           <div className="flex justify-between">
+                             <span className="text-gray-600">PCB基础价:</span>
+                             <span className="font-semibold">
+                               {(() => {
+                                 try {
+                                   const result = calcPcbPriceV3(pcbFormData);
+                                   return `¥${Number(result.total).toFixed(2)}`;
+                                 } catch {
+                                   return '计算中...';
+                                 }
+                               })()}
+                             </span>
+                           </div>
+                           <div className="flex justify-between">
+                             <span className="text-gray-600">工程费:</span>
+                             <span className="font-semibold">¥50.00</span>
+                           </div>
+                           <div className="flex justify-between">
+                             <span className="text-gray-600">阻抗费:</span>
+                             <span className={`font-semibold ${pcbFormData.impedance ? 'text-red-600' : 'text-gray-400'}`}>
+                               {pcbFormData.impedance ? '¥50.00' : '¥0.00'}
+                             </span>
+                           </div>
+                           <div className="flex justify-between">
+                             <span className="text-gray-600">金手指费:</span>
+                             <span className={`font-semibold ${pcbFormData.goldFingers ? 'text-red-600' : 'text-gray-400'}`}>
+                               {pcbFormData.goldFingers ? '¥30.00' : '¥0.00'}
+                             </span>
+                           </div>
+                         </div>
+                         <div className="space-y-2">
+                           <div className="flex justify-between">
+                             <span className="text-gray-600">加急费:</span>
+                             <span className={`font-semibold ${pcbFormData.delivery === 'urgent' ? 'text-red-600' : 'text-gray-400'}`}>
+                               {pcbFormData.delivery === 'urgent' ? '¥100.00' : '¥0.00'}
+                             </span>
+                           </div>
+                           <div className="flex justify-between">
+                             <span className="text-gray-600">边缘电镀:</span>
+                             <span className={`font-semibold ${pcbFormData.edgePlating ? 'text-red-600' : 'text-gray-400'}`}>
+                               {pcbFormData.edgePlating ? '¥25.00' : '¥0.00'}
+                             </span>
+                           </div>
+                           <div className="flex justify-between">
+                             <span className="text-gray-600">运费:</span>
+                             <span className="font-semibold">¥15.00</span>
+                           </div>
+                           <div className="flex justify-between pt-2 border-t border-gray-200">
+                             <span className="text-gray-800 font-medium">预估总价:</span>
+                             <span className="font-bold text-green-600">
+                               {(() => {
+                                 try {
+                                   const result = calcPcbPriceV3(pcbFormData);
+                                   let total = Number(result.total) + 50 + 15;
+                                   if (pcbFormData.impedance) total += 50;
+                                   if (pcbFormData.goldFingers) total += 30;
+                                   if (pcbFormData.edgePlating) total += 25;
+                                   if (pcbFormData.delivery === 'urgent') total += 100;
+                                   return `¥${total.toFixed(2)}`;
+                                 } catch {
+                                   return '¥0.00';
+                                 }
+                               })()}
+                             </span>
+                           </div>
+                         </div>
+                       </div>
+                       
+                       <div className="mt-3 pt-3 border-t border-green-200 bg-green-50 rounded p-2">
+                         <div className="text-xs font-medium text-green-800 mb-2">💰 价格计算明细</div>
+                         <div className="space-y-1 text-xs text-green-700">
+                           {calculationNotes.length > 0 ? (
+                             calculationNotes.map((note, i) => (
+                               <div key={i} className="bg-green-100 p-1.5 rounded text-xs">
+                                 • {note}
+                               </div>
+                             ))
+                           ) : (
+                             <div className="text-green-600">点击&quot;计算价格&quot;查看详细计算过程</div>
+                           )}
+                         </div>
+                       </div>
+                     </>
+                   ) : (
+                     <div className="text-center text-gray-500 text-xs">
+                       <Calculator className="w-6 h-6 mx-auto mb-1" />
+                       <p>需要PCB规格才能计算价格</p>
+                     </div>
+                   )}
+                 </div>
+               </div>
+
+               {/* 交期计算结果 */}
+               <div className="bg-white border rounded">
+                 <div className="bg-purple-50 px-3 py-2 border-b">
+                   <h3 className="text-sm font-semibold text-purple-800 flex items-center gap-2">
+                     <Clock className="w-4 h-4" />
+                     交期计算结果
+                     {pcbFormData && deliveryNotes.length > 0 && (
+                       <Badge variant="outline" className="ml-auto bg-purple-100 text-purple-700 border-purple-300 text-xs">
+                         ✓ 已自动计算
+                       </Badge>
+                     )}
+                   </h3>
+                 </div>
+                 <div className="p-3">
+                   {pcbFormData ? (
+                     <>
+                       <div className="space-y-2 text-xs">
+                         <div className="flex justify-between">
+                           <span className="text-gray-600">基础周期:</span>
+                           <span className="font-semibold">
+                             {pcbFormData.delivery === 'urgent' ? '2天' : '5天'}
+                           </span>
+                         </div>
+                         <div className="flex justify-between">
+                           <span className="text-gray-600">层数影响:</span>
+                           <span className="font-semibold">
+                             {Number(pcbFormData.layers) > 4 ? '+1天' : '标准'}
+                           </span>
+                         </div>
+                         <div className="flex justify-between">
+                           <span className="text-gray-600">特殊工艺:</span>
+                           <span className="font-semibold">
+                             {(pcbFormData.goldFingers || pcbFormData.edgePlating || pcbFormData.impedance) ? '+1-2天' : '无'}
+                           </span>
+                         </div>
+                         <div className="flex justify-between">
+                           <span className="text-gray-600">交付类型:</span>
+                           <span className={`font-semibold ${pcbFormData.delivery === 'urgent' ? 'text-red-600' : 'text-green-600'}`}>
+                             {pcbFormData.delivery === 'urgent' ? '加急48h' : '标准5-7天'}
+                           </span>
+                         </div>
+                         <div className="flex justify-between pt-2 border-t border-gray-200">
+                           <span className="text-gray-800 font-medium">总生产周期:</span>
+                           <span className="font-bold text-purple-600">
+                             {(() => {
+                               try {
+                                 const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+                                 return `${cycle.cycleDays}天`;
+                               } catch {
+                                 return '计算中...';
+                               }
+                             })()}
+                           </span>
+                         </div>
+                         <div className="flex justify-between">
+                           <span className="text-gray-600">预计完成:</span>
+                           <span className="font-semibold text-purple-800">
+                             {(() => {
+                               try {
+                                 const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+                                 const targetDate = new Date();
+                                 targetDate.setDate(targetDate.getDate() + cycle.cycleDays);
+                                 return targetDate.toLocaleDateString('zh-CN');
+                               } catch {
+                                 return '计算中...';
+                               }
+                             })()}
+                           </span>
+                         </div>
+                       </div>
+                       
+                       {/* 交期计算明细 */}
+                       <div className="mt-3 pt-3 border-t border-purple-200 bg-purple-50 rounded p-2">
+                         <div className="text-xs font-medium text-purple-800 mb-2">⏰ 交期计算明细</div>
+                         <div className="space-y-1 text-xs text-purple-700">
+                           {deliveryNotes.length > 0 ? (
+                             deliveryNotes.map((note, i) => (
+                               <div key={i} className="bg-purple-100 p-1.5 rounded text-xs">
+                                 • {note}
+                               </div>
+                             ))
+                           ) : (
+                             <div className="text-purple-600">点击&quot;计算交期&quot;查看详细计算过程</div>
+                           )}
+                         </div>
+                       </div>
+                     </>
+                   ) : (
+                     <div className="text-center text-gray-500 text-xs">
+                       <Clock className="w-6 h-6 mx-auto mb-1" />
+                       <p>需要PCB规格才能计算交期</p>
+                     </div>
+                   )}
+                 </div>
+               </div>
+
+               {/* 重量和运费计算 */}
+               <div className="bg-white border rounded">
+                 <div className="bg-cyan-50 px-3 py-2 border-b">
+                   <h3 className="text-sm font-semibold text-cyan-800 flex items-center gap-2">
+                     <Package className="w-4 h-4" />
+                     重量运费计算
+                     {pcbFormData && shippingNotes.costBreakdown.length > 0 && (
+                       <Badge variant="outline" className="ml-auto bg-cyan-100 text-cyan-700 border-cyan-300 text-xs">
+                         ✓ 已自动计算
+                       </Badge>
+                     )}
+                   </h3>
+                 </div>
+                 <div className="p-3">
+                   {pcbFormData ? (
+                     <>
+                       <div className="space-y-2 text-xs">
+                         <div className="flex justify-between">
+                           <span className="text-gray-600">单片重量:</span>
+                           <span className="font-semibold">
+                             {pcbFormData.singleDimensions ? 
+                               `${((pcbFormData.singleDimensions.length * pcbFormData.singleDimensions.width * Number(pcbFormData.thickness || 1.6) * 1.8) / 1000000).toFixed(3)} kg` : '-'}
+                           </span>
+                         </div>
+                         <div className="flex justify-between">
+                           <span className="text-gray-600">总重量:</span>
+                           <span className="font-semibold">
+                             {pcbFormData.singleDimensions ? 
+                               `${(((pcbFormData.singleDimensions.length * pcbFormData.singleDimensions.width * Number(pcbFormData.thickness || 1.6) * 1.8) / 1000000) * (pcbFormData.singleCount || pcbFormData.panelSet || 1)).toFixed(3)} kg` : '-'}
+                           </span>
+                         </div>
+                         <div className="flex justify-between">
+                           <span className="text-gray-600">包装重量:</span>
+                           <span className="font-semibold">约 +0.2 kg</span>
+                         </div>
+                         <div className="flex justify-between">
+                           <span className="text-gray-600">快递方式:</span>
+                           <span className="font-semibold">联邦快递</span>
+                         </div>
+                         <div className="flex justify-between pt-2 border-t border-gray-200">
+                           <span className="text-gray-800 font-medium">预估运费:</span>
+                           <span className="font-bold text-cyan-600">
+                             {(() => {
+                               if (shippingNotes.basicInfo.includes('预估运费')) {
+                                 const match = shippingNotes.basicInfo.match(/预估运费: (¥[\d.]+)/);
+                                 return match ? match[1] : '¥15.00';
+                               }
+                               return '¥15.00';
+                             })()}
+                           </span>
+                         </div>
+                       </div>
+                       
+                       {/* 运费计算明细 */}
+                       <div className="mt-3 pt-3 border-t border-cyan-200 bg-cyan-50 rounded p-2">
+                         <div className="text-xs font-medium text-cyan-800 mb-2">🚚 运费计算明细</div>
+                         <div className="space-y-1 text-xs text-cyan-700">
+                           {shippingNotes.costBreakdown.length > 0 ? (
+                             shippingNotes.costBreakdown.map((note, i) => (
+                               <div key={i} className="bg-cyan-100 p-1.5 rounded text-xs">
+                                 • {note}
+                               </div>
+                             ))
+                           ) : (
+                             <div className="text-cyan-600">正在计算运费明细...</div>
+                           )}
+                         </div>
+                       </div>
+                     </>
+                   ) : (
+                     <div className="text-center text-gray-500 text-xs">
+                       <Truck className="w-6 h-6 mx-auto mb-1" />
+                       <p>需要PCB规格才能计算重量</p>
+                     </div>
+                   )}
+                 </div>
+               </div>
+
+               {/* 价格对比 */}
+               <div className="bg-white border rounded">
+                 <div className="bg-orange-50 px-3 py-2 border-b">
+                   <h3 className="text-sm font-semibold text-orange-800 flex items-center gap-2">
+                     <AlertCircle className="w-4 h-4" />
+                     价格对比
+                   </h3>
+                 </div>
+                 <div className="p-3">
+                   <div className="space-y-2 text-xs">
+                     <div className="flex justify-between">
+                       <span className="text-gray-600">客户询价:</span>
+                       <span className="font-semibold text-blue-600">
+                         {order.cal_values ? formatPrice((order.cal_values as any)?.totalPrice || (order.cal_values as any)?.price, 'USD') : '-'}
+                       </span>
+                     </div>
+                     <div className="flex justify-between">
+                       <span className="text-gray-600">系统计算:</span>
+                       <span className="font-semibold text-green-600">
+                         {pcbFormData ? (
+                           (() => {
+                             try {
+                               const result = calcPcbPriceV3(pcbFormData);
+                               let total = Number(result.total) + 50 + 15;
+                               if (pcbFormData.impedance) total += 50;
+                               if (pcbFormData.goldFingers) total += 30;
+                               if (pcbFormData.edgePlating) total += 25;
+                               if (pcbFormData.delivery === 'urgent') total += 100;
+                               return `¥${total.toFixed(2)}`;
+                             } catch {
+                               return '¥0.00';
+                             }
+                           })()
+                         ) : '-'}
+                       </span>
+                     </div>
+                     <div className="flex justify-between">
+                       <span className="text-gray-600">管理员价格:</span>
+                       <span className="font-semibold text-purple-600">
+                         {adminOrder ? formatPrice(adminOrder.admin_price, adminOrder.currency || 'CNY') : '待设置'}
+                       </span>
+                     </div>
+                     <div className="flex justify-between pt-2 border-t border-gray-200">
+                       <span className="text-gray-800 font-medium">差异:</span>
+                       <span className="font-bold text-orange-600">
+                         {order.cal_values && pcbFormData ? (
+                           (() => {
+                             try {
+                               const customerPrice = (order.cal_values as any)?.totalPrice || (order.cal_values as any)?.price || 0;
+                               const result = calcPcbPriceV3(pcbFormData);
+                               let systemPrice = Number(result.total) + 50 + 15;
+                               if (pcbFormData.impedance) systemPrice += 50;
+                               if (pcbFormData.goldFingers) systemPrice += 30;
+                               if (pcbFormData.edgePlating) systemPrice += 25;
+                               if (pcbFormData.delivery === 'urgent') systemPrice += 100;
+                               const diff = ((systemPrice - customerPrice * 7.2) / (customerPrice * 7.2) * 100);
+                               return `${diff > 0 ? '+' : ''}${diff.toFixed(1)}%`;
+                             } catch {
+                               return '计算中...';
+                             }
+                           })()
+                         ) : '-'}
+                       </span>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+             </div>
+           </div>
+         </div>
+
+        {/* 右侧：管理员操作面板 - 紧凑布局 */}
+        <div className="col-span-3 space-y-3">
+          {/* 审核状态 - 紧凑表格 */}
+          <div className="bg-white border rounded">
+            <div className="bg-green-50 px-3 py-2 border-b">
+              <h3 className="text-sm font-semibold text-green-800 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                审核状态
+              </h3>
+            </div>
+            {pcbFormData ? (
+              <div className="grid grid-cols-1 text-xs">
+                <div className="flex justify-between p-2 border-b bg-gray-50">
+                  <span>基本参数</span>
+                  <Badge className="bg-green-100 text-green-700 text-xs">✓ 通过</Badge>
+                </div>
+                <div className="flex justify-between p-2 border-b">
+                  <span>材料工艺</span>
+                  <Badge className={pcbFormData.surfaceFinish === 'HASL' ? 'bg-green-100 text-green-700 text-xs' : 'bg-yellow-100 text-yellow-700 text-xs'}>
+                    {pcbFormData.surfaceFinish === 'HASL' ? '✓ 通过' : '⚠ 注意'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between p-2 border-b bg-gray-50">
+                  <span>特殊工艺</span>
+                  <Badge className={pcbFormData.goldFingers || pcbFormData.edgePlating ? 'bg-orange-100 text-orange-700 text-xs' : 'bg-green-100 text-green-700 text-xs'}>
+                    {pcbFormData.goldFingers || pcbFormData.edgePlating ? '⚠ 特殊' : '✓ 标准'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between p-2">
+                  <span>文件完整</span>
+                  <Badge className={pcbFormData.gerberUrl ? 'bg-green-100 text-green-700 text-xs' : 'bg-red-100 text-red-700 text-xs'}>
+                    {pcbFormData.gerberUrl ? '✓ 完整' : '✗ 缺失'}
+                  </Badge>
                 </div>
               </div>
-            </div>
-          );
-        })()}
-
-        {/* 主内容区 */}
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-          {/* 左侧管理员表单 */}
-          <div className="xl:col-span-3 space-y-6">
-            {!isAdminOrderCreated && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                <div className="flex items-center gap-2 text-amber-800">
-                  <span className="text-lg">⚠️</span>
-                  <span className="font-medium">还未创建管理员订单</span>
-                </div>
-                <p className="text-sm text-amber-700 mt-1">请填写并创建管理员订单信息</p>
+            ) : (
+              <div className="p-3 text-center text-red-600 text-xs">
+                <AlertCircle className="w-4 h-4 mx-auto mb-1" />
+                <p>PCB规格缺失</p>
               </div>
             )}
-            
-            {/* 管理员表单 */}
-            <div className="sticky top-24">
-                          <AdminOrderForm
-              initialValues={adminOrderEdits[0] || {}}
-              onSave={handleSave}
-              onRecalc={handleRecalc}
-              onCalcPCB={handleCalcPCB}
-              onCalcDelivery={handleCalcDelivery}
-              onCalcShipping={handleCalcShipping}
-              readOnly={false}
-              submitButtonText={isAdminOrderCreated ? '保存' : '创建'}
-              hideActionButtons={false}
-              onStatusChange={handleStatusChange}
-            />
+          </div>
+
+          {/* 价格管理 - 紧凑表格 */}
+          <div className="bg-white border rounded">
+            <div className="bg-blue-50 px-3 py-2 border-b">
+              <h3 className="text-sm font-semibold text-blue-800 flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                价格管理
+              </h3>
+            </div>
+            <div className="p-3 space-y-2">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <Label className="text-xs text-gray-500">PCB价格(¥)</Label>
+                  <Input 
+                    type="number"
+                    placeholder="0.00"
+                    value={String(adminOrderEdits[0]?.pcb_price || '')}
+                    onChange={(e) => {
+                      const values = { ...adminOrderEdits[0], pcb_price: e.target.value };
+                      updatePriceCalculation(values);
+                    }}
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">运费(¥)</Label>
+                  <Input 
+                    type="number"
+                    placeholder="0.00"
+                    value={String(adminOrderEdits[0]?.ship_price || '')}
+                    onChange={(e) => {
+                      const values = { ...adminOrderEdits[0], ship_price: e.target.value };
+                      updatePriceCalculation(values);
+                    }}
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <Label className="text-xs text-gray-500">关税(¥)</Label>
+                  <Input 
+                    type="number"
+                    placeholder="0.00"
+                    value={String(adminOrderEdits[0]?.custom_duty || '')}
+                    onChange={(e) => {
+                      const values = { ...adminOrderEdits[0], custom_duty: e.target.value };
+                      updatePriceCalculation(values);
+                    }}
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">优惠券(¥)</Label>
+                  <Input 
+                    type="number"
+                    placeholder="0.00"
+                    value={String(adminOrderEdits[0]?.coupon || '')}
+                    onChange={(e) => {
+                      const values = { ...adminOrderEdits[0], coupon: e.target.value };
+                      updatePriceCalculation(values);
+                    }}
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <Label className="text-xs text-gray-500">汇率</Label>
+                  <Input 
+                    type="number"
+                    placeholder="7.2"
+                    value={String(adminOrderEdits[0]?.exchange_rate || '7.2')}
+                    onChange={(e) => {
+                      const values = { ...adminOrderEdits[0], exchange_rate: e.target.value };
+                      updatePriceCalculation(values);
+                    }}
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">币种</Label>
+                  <select 
+                    value={String(adminOrderEdits[0]?.currency || 'USD')}
+                    onChange={(e) => {
+                      const values = { ...adminOrderEdits[0], currency: e.target.value };
+                      updatePriceCalculation(values);
+                    }}
+                    className="mt-1 h-7 text-xs border border-gray-300 rounded px-2"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="CNY">CNY</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 价格显示 */}
+              <div className="bg-gray-50 p-2 rounded text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span>人民币价格:</span>
+                  <span className="font-semibold">¥{adminOrderEdits[0]?.cny_price || '0.00'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>管理员价格:</span>
+                  <span className="font-semibold text-blue-600">
+                    {adminOrderEdits[0]?.currency === 'CNY' ? '¥' : adminOrderEdits[0]?.currency === 'EUR' ? '€' : '$'}
+                    {adminOrderEdits[0]?.admin_price || '0.00'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <Label className="text-xs text-gray-500">交期(天)</Label>
+                  <Input 
+                    type="number"
+                    placeholder="0"
+                    value={String(adminOrderEdits[0]?.production_days || '')}
+                    onChange={(e) => {
+                      setAdminOrderEdits(prev => [
+                        { ...prev[0] || adminOrderDefaultValues, production_days: e.target.value }
+                      ]);
+                    }}
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">状态</Label>
+                  <select 
+                    value={String(adminOrderEdits[0]?.status || 'created')}
+                    onChange={(e) => {
+                      setAdminOrderEdits(prev => [
+                        { ...prev[0] || adminOrderDefaultValues, status: e.target.value }
+                      ]);
+                    }}
+                    className="mt-1 h-7 text-xs border border-gray-300 rounded px-2"
+                  >
+                    <option value="created">已创建</option>
+                    <option value="reviewed">已审核</option>
+                    <option value="paid">已付款</option>
+                    <option value="in_production">生产中</option>
+                    <option value="shipped">已发货</option>
+                    <option value="completed">已完成</option>
+                    <option value="cancelled">已取消</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs text-gray-500">管理员备注</Label>
+                <Textarea 
+                  placeholder="添加备注..."
+                  value={String(adminOrderEdits[0]?.admin_note || '')}
+                  onChange={(e) => {
+                    setAdminOrderEdits(prev => [
+                      { ...prev[0] || adminOrderDefaultValues, admin_note: e.target.value }
+                    ]);
+                  }}
+                  className="mt-1 text-xs"
+                  rows={2}
+                />
+              </div>
+              
+              {/* 附加费用管理 */}
+              <div className="border-t pt-2">
+                <Label className="text-xs text-gray-500 mb-2 block">附加费用</Label>
+                <div className="space-y-1">
+                  {(() => {
+                    let surcharges: Array<{name: string, amount: number}> = [];
+                    try {
+                      if (Array.isArray(adminOrderEdits[0]?.surcharges)) {
+                        surcharges = adminOrderEdits[0].surcharges as Array<{name: string, amount: number}>;
+                      } else if (typeof adminOrderEdits[0]?.surcharges === 'string') {
+                        surcharges = JSON.parse(adminOrderEdits[0].surcharges);
+                      }
+                    } catch {
+                      surcharges = [];
+                    }
+                    
+                    return (
+                      <>
+                        {surcharges.map((surcharge, index) => (
+                          <div key={index} className="flex items-center gap-1 text-xs">
+                            <Input 
+                              placeholder="费用名称"
+                              value={surcharge.name}
+                              onChange={(e) => {
+                                const newSurcharges = [...surcharges];
+                                newSurcharges[index] = { ...surcharge, name: e.target.value };
+                                const values = { ...adminOrderEdits[0], surcharges: newSurcharges };
+                                updatePriceCalculation(values);
+                              }}
+                              className="h-6 text-xs flex-1"
+                            />
+                            <Input 
+                              type="number"
+                              placeholder="0.00"
+                              value={surcharge.amount}
+                              onChange={(e) => {
+                                const newSurcharges = [...surcharges];
+                                newSurcharges[index] = { ...surcharge, amount: Number(e.target.value) };
+                                const values = { ...adminOrderEdits[0], surcharges: newSurcharges };
+                                updatePriceCalculation(values);
+                              }}
+                              className="h-6 text-xs w-16"
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                const newSurcharges = surcharges.filter((_, i) => i !== index);
+                                const values = { ...adminOrderEdits[0], surcharges: newSurcharges };
+                                updatePriceCalculation(values);
+                              }}
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            const newSurcharges = [...surcharges, { name: '', amount: 0 }];
+                            const values = { ...adminOrderEdits[0], surcharges: newSurcharges };
+                            updatePriceCalculation(values);
+                          }}
+                          className="h-6 text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          + 添加费用
+                        </Button>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* 右侧信息区 */}
-          <div className="xl:col-span-2 space-y-6">
-            {/* 管理员审核清单 */}
-            <AdminReviewChecklist />
-
-            {/* 价格明细卡片 */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  💰 询价明细
-                </h3>
+          {/* 快速操作 */}
+          <div className="bg-white border rounded">
+            <div className="bg-orange-50 px-3 py-2 border-b">
+              <h3 className="text-sm font-semibold text-orange-800 flex items-center gap-2">
+                <Calculator className="w-4 h-4" />
+                管理操作
+              </h3>
+            </div>
+            <div className="p-3 space-y-2">
+              <div className="grid grid-cols-3 gap-1">
+                <Button 
+                  onClick={handleCalcPCB}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                  disabled={!pcbFormData}
+                >
+                  <Calculator className="w-3 h-3 mr-1" />
+                  重算价格
+                </Button>
+                <Button 
+                  onClick={handleCalcDelivery}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs border-purple-200 text-purple-700 hover:bg-purple-50"
+                  disabled={!pcbFormData}
+                >
+                  <Clock className="w-3 h-3 mr-1" />
+                  重算交期
+                </Button>
+                <Button 
+                  onClick={handleRecalc}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs border-orange-200 text-orange-700 hover:bg-orange-50"
+                  disabled={!pcbFormData}
+                >
+                  🔄 全部
+                </Button>
               </div>
-              <div className="p-6">
-                {order.cal_values ? (
-                  <div className="space-y-6">
-                    {/* 基础价格信息 */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
-                        <div className="text-sm text-emerald-600 font-medium mb-1">总价</div>
-                        <div className="text-2xl font-bold text-emerald-700">
-                          ${Number((order.cal_values as any)?.totalPrice || (order.cal_values as any)?.price || 0).toFixed(2)}
-                        </div>
-                      </div>
-                      
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                        <div className="text-sm text-blue-600 font-medium mb-1">PCB价格</div>
-                        <div className="text-xl font-bold text-blue-700">
-                          ${Number(order.cal_values.pcbPrice || 0).toFixed(2)}
-                        </div>
-                      </div>
-                      
-                      <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                        <div className="text-sm text-purple-600 font-medium mb-1">单价</div>
-                        <div className="text-xl font-bold text-purple-700">
-                          ${Number(order.cal_values.unitPrice || 0).toFixed(2)}
-                        </div>
-                      </div>
-                      
-                      <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                        <div className="text-sm text-orange-600 font-medium mb-1">数量</div>
-                        <div className="text-xl font-bold text-orange-700">
-                          {(order.cal_values as any)?.totalCount || (order.cal_values as any)?.totalQuantity || '0'} 片
-                        </div>
-                      </div>
-                      
-                      <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-100">
-                        <div className="text-sm text-cyan-600 font-medium mb-1">面积</div>
-                        <div className="text-xl font-bold text-cyan-700">
-                          {Number(order.cal_values.totalArea || 0).toFixed(4)} ㎡
-                        </div>
-                      </div>
-                      
-                      <div className="bg-pink-50 p-4 rounded-lg border border-pink-100">
-                        <div className="text-sm text-pink-600 font-medium mb-1">交期</div>
-                        <div className="text-xl font-bold text-pink-700">
-                          {(order.cal_values as any)?.leadTimeDays || '0'} 天
-                        </div>
-                      </div>
-                      
-                      {(order.cal_values as any)?.shippingActualWeight && (
-                        <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                          <div className="text-sm text-indigo-600 font-medium mb-1">运费重量</div>
-                          <div className="text-xl font-bold text-indigo-700">
-                            {Number((order.cal_values as any).shippingActualWeight).toFixed(3)} kg
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 其他详细信息 */}
-                    {(order.cal_values as any)?.priceDetail && (
-                      <div>
-                        <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                          📊 费用分解
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                            <span className="text-gray-600">基础价格</span>
-                            <span className="font-semibold text-gray-900">¥{Number((order.cal_values as any)?.priceDetail?.basePrice || 0).toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                            <span className="text-gray-600">测试费用</span>
-                            <span className="font-semibold text-gray-900">¥{Number((order.cal_values as any)?.priceDetail?.testMethod || 0).toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                            <span className="text-gray-600">工程费用</span>
-                            <span className="font-semibold text-gray-900">¥{Number((order.cal_values as any)?.priceDetail?.engFee || 0).toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+              <Button 
+                onClick={() => handleSave(adminOrderEdits[0] || {})}
+                size="sm"
+                className="w-full bg-green-600 hover:bg-green-700 text-white text-xs"
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    保存中
+                  </>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <span className="text-4xl mb-2 block">📊</span>
-                    <p>暂无价格信息</p>
-                  </div>
+                  <>
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    {isAdminOrderCreated ? '保存订单' : '创建订单'}
+                  </>
                 )}
-              </div>
+              </Button>
+              <Button 
+                variant="outline"
+                size="sm"
+                className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 text-xs"
+                onClick={() => handleSave(adminOrderEdits[0] || {}, { sendNotification: true, notificationType: 'order_updated' })}
+                disabled={isUpdating}
+              >
+                <Send className="w-3 h-3 mr-1" />
+                保存并通知客户
+              </Button>
             </div>
+          </div>
 
-            {/* 计算备注卡片 - 带关闭按钮 */}
-            {calculationNotes.length > 0 && showCalculationNotes && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-500 to-cyan-600 px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                      📋 价格计算明细
-                      <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
-                        {calculationNotes.length} 项
-                      </span>
-                    </h3>
-                    <button
-                      onClick={() => setShowCalculationNotes(false)}
-                      className="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors"
-                      title="关闭价格计算明细"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-3">
-                    {calculationNotes.map((note: string, i: number) => (
-                      <div key={i} className="flex items-start gap-3 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
-                        <div className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
-                          {i + 1}
-                        </div>
-                        <span className="text-gray-800 text-sm leading-relaxed">{note}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+          
+
+          {/* 退款处理 */}
+          {adminOrder?.refund_status === 'requested' && (
+            <div className="bg-white border border-yellow-400 rounded">
+              <div className="bg-yellow-50 px-3 py-2 border-b">
+                <h3 className="text-sm font-semibold text-yellow-700 flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  退款申请
+                </h3>
+                <p className="text-xs text-yellow-600">
+                  申请金额: {formatPrice(adminOrder.requested_refund_amount, adminOrder.currency || 'CNY')}
+                </p>
               </div>
-            )}
-
-            {/* 交期计算备注卡片 - 带关闭按钮 */}
-            {deliveryNotes.length > 0 && showDeliveryNotes && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                      📅 交期计算明细
-                      <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
-                        {deliveryNotes.length} 项
-                      </span>
-                    </h3>
-                    <button
-                      onClick={() => setShowDeliveryNotes(false)}
-                      className="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors"
-                      title="关闭交期计算明细"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
+              <div className="p-3 space-y-2">
+                <div>
+                  <Label className="text-xs">批准金额</Label>
+                  <Input
+                    type="number"
+                    placeholder="输入退款金额"
+                    value={refundReviewAmount}
+                    onChange={(e) => setRefundReviewAmount(e.target.value)}
+                    disabled={isReviewingRefund}
+                    className="mt-1 h-7 text-xs"
+                  />
                 </div>
-                <div className="p-6">
-                  <div className="space-y-3">
-                    {deliveryNotes.map((note: string, i: number) => (
-                      <div key={i} className="flex items-start gap-3 p-3 bg-violet-50/50 rounded-lg border border-violet-100">
-                        <div className="w-6 h-6 bg-violet-100 text-violet-700 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
-                          {i + 1}
-                        </div>
-                        <span className="text-gray-800 text-sm leading-relaxed">{note}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div>
+                  <Label className="text-xs">处理说明</Label>
+                  <Textarea
+                    placeholder="说明原因..."
+                    value={refundReviewReason}
+                    onChange={(e) => setRefundReviewReason(e.target.value)}
+                    disabled={isReviewingRefund}
+                    rows={2}
+                    className="mt-1 text-xs"
+                  />
                 </div>
-              </div>
-            )}
-
-            {/* 运费计算备注卡片 - 带关闭按钮 */}
-            {(shippingNotes.basicInfo || shippingNotes.costBreakdown.length > 0) && showShippingNotes && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-orange-500 to-red-600 px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                      🚚 运费计算明细
-                      <span className="px-2 py-1 bg-white/20 text-white text-xs rounded-full font-medium">
-                        详细
-                      </span>
-                    </h3>
-                    <button
-                      onClick={() => setShowShippingNotes(false)}
-                      className="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors"
-                      title="关闭运费计算明细"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <div className="p-6">
-                  {shippingNotes.basicInfo && (
-                    <div className="mb-4 p-3 bg-orange-50/50 rounded-lg border border-orange-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium text-orange-800">📦 运输方式</span>
-                      </div>
-                      <p className="text-sm text-gray-700">{shippingNotes.basicInfo}</p>
-                    </div>
-                  )}
-                  
-                  {shippingNotes.weightInfo && (
-                    <div className="mb-4 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium text-blue-800">⚖️ 重量信息</span>
-                      </div>
-                      <p className="text-sm text-gray-700">{shippingNotes.weightInfo}</p>
-                    </div>
-                  )}
-                  
-                  {shippingNotes.costBreakdown.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-green-800">💰 费用明细</span>
-                      </div>
-                      {shippingNotes.costBreakdown.map((item: string, i: number) => (
-                        <div key={i} className="flex items-start gap-3 p-3 bg-green-50/50 rounded-lg border border-green-100">
-                          <div className="w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
-                            {i + 1}
-                          </div>
-                          <span className="text-gray-800 text-sm leading-relaxed">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* 订单信息卡片 */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <OrderOverviewTabs
-                order={order as unknown as Record<string, unknown>}
-                pcbFieldGroups={pcbFieldGroups}
-                pcbFieldLabelMap={pcbFieldLabelMap}
-                pcbFieldValueMap={pcbFieldValueMap}
-                hidePriceDetailsTab={true}
-              />
-            </div>
-
-            {adminOrder?.refund_status === 'requested' && (
-              <Card className="mt-6 border-yellow-400">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Info className="text-yellow-500" />
-                    <span>Refund Request Pending Review</span>
-                  </CardTitle>
-                  <CardDescription>
-                    The user has requested a refund. Please review and approve or reject the request.
-                    Estimated refund amount based on policy was: ${adminOrder.requested_refund_amount?.toFixed(2)}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="refundAmount">Approved Refund Amount ({adminOrder.currency})</Label>
-                    <Input
-                      id="refundAmount"
-                      type="number"
-                      placeholder="Enter final refund amount"
-                      value={refundReviewAmount}
-                      onChange={(e) => setRefundReviewAmount(e.target.value)}
-                      disabled={isReviewingRefund}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="refundReason">Reason for Decision</Label>
-                    <Textarea
-                      id="refundReason"
-                      placeholder="Explain the reason for your approval or rejection..."
-                      value={refundReviewReason}
-                      onChange={(e) => setRefundReviewReason(e.target.value)}
-                      disabled={isReviewingRefund}
-                    />
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-end gap-2">
+                <div className="flex gap-2">
                   <Button
                     variant="destructive"
+                    size="sm"
                     onClick={() => handleRefundReview('reject')}
                     disabled={isReviewingRefund}
+                    className="flex-1 text-xs"
                   >
-                    {isReviewingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject'}
+                    拒绝
                   </Button>
                   <Button
-                    variant="default"
+                    size="sm"
                     onClick={() => handleRefundReview('approve')}
                     disabled={isReviewingRefund}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-xs"
                   >
-                    {isReviewingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Approve'}
+                    批准
                   </Button>
-                </CardFooter>
-              </Card>
-            )}
+                </div>
+              </div>
+            </div>
+          )}
 
-            {adminOrder?.refund_status === 'processing' && (
-              <Card className="mt-6 border-green-400">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="text-green-500" />
-                    <span>Ready to Process Refund</span>
-                  </CardTitle>
-                  <CardDescription>
-                    The user has confirmed the refund amount of ${adminOrder.approved_refund_amount?.toFixed(2)}. You can now process the refund via Stripe.
-                  </CardDescription>
-                </CardHeader>
-                <CardFooter>
-                  <Button
-                    onClick={handleProcessStripeRefund}
-                    disabled={isProcessingStripeRefund}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    {isProcessingStripeRefund ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <CreditCard className="mr-2 h-4 w-4" />
-                    )}
-                    Process Refund via Stripe
-                  </Button>
-                </CardFooter>
-              </Card>
-            )}
-          </div>
+          {adminOrder?.refund_status === 'processing' && (
+            <div className="bg-white border border-green-400 rounded">
+              <div className="bg-green-50 px-3 py-2 border-b">
+                <h3 className="text-sm font-semibold text-green-700 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  处理退款
+                </h3>
+                <p className="text-xs text-green-600">
+                  批准金额: {formatPrice(adminOrder.approved_refund_amount, adminOrder.currency || 'CNY')}
+                </p>
+              </div>
+              <div className="p-3">
+                <Button
+                  onClick={handleProcessStripeRefund}
+                  disabled={isProcessingStripeRefund}
+                  size="sm"
+                  className="w-full bg-green-600 hover:bg-green-700 text-xs"
+                >
+                  {isProcessingStripeRefund ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <CreditCard className="mr-1 h-3 w-3" />
+                  )}
+                  Stripe退款
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

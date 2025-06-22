@@ -497,9 +497,6 @@ export const basePriceHandler = Object.assign(
           break;
         }
       }
-      if (calculatedBasePrice > 0) {
-        notes.push(`PCB Basic Price: ¥${calculatedBasePrice}`);
-      }
     }
 
     // 板厚加价逻辑
