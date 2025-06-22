@@ -60,6 +60,8 @@ export function PriceManagementPanel({
   const [isLoadingRates, setIsLoadingRates] = useState(false);
   const [rateError, setRateError] = useState<string | null>(null);
   const [localData, setLocalData] = useState<AdminOrderEdit>(adminOrderEdit);
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [dueDate, setDueDate] = useState('');
 
   // 获取币种符号
   const getCurrencySymbol = (currency?: string) => {
@@ -549,6 +551,17 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
   // 同步外部数据变化
   useEffect(() => {
     setLocalData(adminOrderEdit);
+    // 同步日期状态
+    if (adminOrderEdit.delivery_date) {
+      setDeliveryDate(new Date(adminOrderEdit.delivery_date).toISOString().split('T')[0]);
+    } else {
+      setDeliveryDate('');
+    }
+    if (adminOrderEdit.due_date) {
+      setDueDate(new Date(adminOrderEdit.due_date).toISOString().split('T')[0]);
+    } else {
+      setDueDate('');
+    }
   }, [adminOrderEdit]);
 
   // 初始化时获取当前币种汇率（优先使用管理员订单表中的汇率）
@@ -577,7 +590,7 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
 
   return (
     <div className="bg-white border rounded-lg">
-      <div className="bg-gray-50 px-4 py-3 border-b">
+      <div className="bg-gray-50 px-3 md:px-4 py-2 md:py-3 border-b">
         <h3 className="text-sm font-medium text-gray-800 flex items-center gap-2">
           <DollarSign className="w-4 h-4" />
           价格管理
@@ -585,10 +598,10 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
         </h3>
       </div>
       
-      <div className="p-4 space-y-4">
+      <div className="p-3 md:p-4 space-y-3 md:space-y-4">
         {/* 币种和汇率设置 */}
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2 md:space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
             <div>
               <Label className="text-xs font-medium text-gray-700 mb-1 block">币种</Label>
               <select 
@@ -665,8 +678,8 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
         </div>
 
         {/* 价格字段 */}
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2 md:space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
             <div>
               <Label className="text-xs font-medium text-gray-700 mb-1 block">
                 PCB价格 ({getCurrencySymbol(currentCurrency)})
@@ -716,7 +729,7 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
             <div>
               <Label className="text-xs font-medium text-gray-700 mb-1 block">
                 关税 ({getCurrencySymbol(currentCurrency)})
@@ -841,7 +854,7 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
             </label>
           </div>
           
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-2 md:gap-3">
             <div>
               <Label className="text-xs font-medium text-gray-700 mb-1 block flex items-center gap-1">
                 <Clock className="w-3 h-3" />
@@ -892,9 +905,10 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
               </Label>
               <Input 
                 type="date"
-                value={localData.delivery_date || ''}
+                value={deliveryDate}
                 onChange={(e) => {
                   const date = e.target.value;
+                  setDeliveryDate(date);
                   onFieldChange('delivery_date', date);
                   
                   // 检查是否为工作日
@@ -943,7 +957,7 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
           </Label>
           
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
               <div>
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">订单状态</Label>
                 <select 
@@ -991,13 +1005,17 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-2 md:gap-3">
               <div>
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">到期日</Label>
                 <Input 
                   type="date"
-                  value={localData.due_date || ''}
-                  onChange={(e) => onFieldChange('due_date', e.target.value)}
+                  value={dueDate}
+                  onChange={(e) => {
+                    const date = e.target.value;
+                    setDueDate(date);
+                    onFieldChange('due_date', date);
+                  }}
                   className="h-8 text-xs"
                 />
               </div>

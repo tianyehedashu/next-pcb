@@ -37,6 +37,46 @@ const getStatusColor = (status: string) => {
 };
 
 export function OrderOverview({ order, pcbFormData, adminOrder }: OrderOverviewProps) {
+  const orderData = [
+    { label: '客户邮箱', value: order.email || '-' },
+    { label: 'PCB层数', value: pcbFormData?.layers || '-' },
+    { label: '询价金额', value: order.cal_values ? formatPrice((order.cal_values as any)?.totalPrice || (order.cal_values as any)?.price, 'USD') : '-', highlight: 'text-red-600' },
+    { label: '用户名', value: order.user_name || '-' },
+    { label: 'PCB数量', value: pcbFormData?.singleCount ? `${pcbFormData.singleCount} pcs` : '-' },
+    { label: '管理价格', value: adminOrder ? formatPrice(adminOrder.admin_price, adminOrder.currency || 'CNY') : '-', highlight: 'text-green-600' },
+    { 
+      label: '订单状态', 
+      value: (
+        <Badge className={getStatusColor(order.status || 'pending')} variant="outline">
+          {order.status || 'pending'}
+        </Badge>
+      )
+    },
+    { 
+      label: 'PCB尺寸', 
+      value: pcbFormData?.singleDimensions ? 
+        `${pcbFormData.singleDimensions.length}×${pcbFormData.singleDimensions.width}mm` : '-'
+    },
+    { 
+      label: 'Gerber文件', 
+      value: (() => {
+        const gerberUrl = pcbFormData?.gerberUrl || order.gerber_file_url;
+        const hasGerberFile = gerberUrl && typeof gerberUrl === 'string';
+        return hasGerberFile ? (
+          <DownloadButton 
+            filePath={gerberUrl}
+            bucket="gerber"
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1"
+          >
+            下载
+          </DownloadButton>
+        ) : (
+          <span className="text-red-500">缺失</span>
+        );
+      })()
+    }
+  ];
+
   return (
     <div className="bg-white border rounded">
       <div className="bg-gray-50 px-3 py-2 border-b">
@@ -45,53 +85,32 @@ export function OrderOverview({ order, pcbFormData, adminOrder }: OrderOverviewP
           订单概览
         </h3>
       </div>
-      <div className="grid grid-cols-6 text-xs">
-        <div className="border-r border-b p-2 bg-gray-50 font-medium">客户邮箱</div>
-        <div className="border-r border-b p-2 text-center">{order.email || '-'}</div>
-        <div className="border-r border-b p-2 bg-gray-50 font-medium">PCB层数</div>
-        <div className="border-r border-b p-2 text-center">{pcbFormData?.layers || '-'}</div>
-        <div className="border-r border-b p-2 bg-gray-50 font-medium">询价金额</div>
-        <div className="border-b p-2 text-center font-semibold text-red-600">
-          {order.cal_values ? formatPrice((order.cal_values as any)?.totalPrice || (order.cal_values as any)?.price, 'USD') : '-'}
+      
+      {/* 桌面端表格布局 */}
+      <div className="hidden lg:block">
+        <div className="grid grid-cols-6 text-xs">
+          {orderData.map((item, index) => (
+            <React.Fragment key={index}>
+              <div className="border-r border-b p-2 bg-gray-50 font-medium">{item.label}</div>
+              <div className={`border-r border-b p-2 text-center ${item.highlight || ''} ${index === orderData.length - 1 ? 'border-b-0' : ''}`}>
+                {typeof item.value === 'string' ? item.value : item.value}
+              </div>
+            </React.Fragment>
+          ))}
         </div>
-        
-        <div className="border-r border-b p-2 bg-gray-50 font-medium">用户名</div>
-        <div className="border-r border-b p-2 text-center">{order.user_name || '-'}</div>
-        <div className="border-r border-b p-2 bg-gray-50 font-medium">PCB数量</div>
-        <div className="border-r border-b p-2 text-center">{pcbFormData?.singleCount || '-'} pcs</div>
-        <div className="border-r border-b p-2 bg-gray-50 font-medium">管理价格</div>
-        <div className="border-b p-2 text-center font-semibold text-green-600">
-          {adminOrder ? formatPrice(adminOrder.admin_price, adminOrder.currency || 'CNY') : '-'}
-        </div>
-        
-        <div className="border-r p-2 bg-gray-50 font-medium">订单状态</div>
-        <div className="border-r p-2 text-center">
-          <Badge className={getStatusColor(order.status || 'pending')} variant="outline">
-            {order.status || 'pending'}
-          </Badge>
-        </div>
-        <div className="border-r p-2 bg-gray-50 font-medium">PCB尺寸</div>
-        <div className="border-r p-2 text-center">
-          {pcbFormData?.singleDimensions ? 
-            `${pcbFormData.singleDimensions.length}×${pcbFormData.singleDimensions.width}mm` : '-'}
-        </div>
-        <div className="border-r p-2 bg-gray-50 font-medium">Gerber文件</div>
-        <div className="p-2 text-center">
-          {(() => {
-            const gerberUrl = pcbFormData?.gerberUrl || order.gerber_file_url;
-            const hasGerberFile = gerberUrl && typeof gerberUrl === 'string';
-            return hasGerberFile ? (
-              <DownloadButton 
-                filePath={gerberUrl}
-                bucket="gerber"
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1"
-              >
-                下载
-              </DownloadButton>
-            ) : (
-              <span className="text-red-500">缺失</span>
-            );
-          })()}
+      </div>
+
+      {/* 移动端卡片布局 */}
+      <div className="lg:hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+          {orderData.map((item, index) => (
+            <div key={index} className="bg-gray-50 rounded p-2">
+              <div className="text-xs text-gray-600 mb-1">{item.label}</div>
+              <div className={`text-sm font-medium ${item.highlight || ''}`}>
+                {typeof item.value === 'string' ? item.value : item.value}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

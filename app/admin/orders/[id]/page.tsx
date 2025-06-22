@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 // 导入拆分的组件
 import { PageHeader } from './components/PageHeader';
@@ -23,12 +24,51 @@ import { CalculationResultPanels } from './components/CalculationResultPanels';
 import { ReviewStatusPanel } from './components/ReviewStatusPanel';
 import { PriceManagementPanel } from './components/PriceManagementPanel';
 import { ManagementActionsPanel } from './components/ManagementActionsPanel';
+import { AddressFormValue } from '@/app/quote2/components/AddressFormComponent';
 
 function getAdminOrders(admin_orders: unknown): AdminOrder[] {
   if (!admin_orders) return [];
   if (Array.isArray(admin_orders)) return admin_orders as AdminOrder[];
   return [admin_orders as AdminOrder];
 }
+
+// 辅助函数
+const getCurrencySymbol = (currency?: string) => {
+  switch (currency) {
+    case 'CNY': return '¥';
+    case 'EUR': return '€';
+    case 'USD':
+    default: return '$';
+  }
+};
+
+const getStatusColor = (status: string) => {
+  const statusColors: Record<string, string> = {
+    'created': 'bg-blue-100 text-blue-800',
+    'reviewed': 'bg-yellow-100 text-yellow-800',
+    'paid': 'bg-green-100 text-green-800',
+    'in_production': 'bg-purple-100 text-purple-800',
+    'shipped': 'bg-indigo-100 text-indigo-800',
+    'completed': 'bg-emerald-100 text-emerald-800',
+    'cancelled': 'bg-red-100 text-red-800',
+    'pending': 'bg-orange-100 text-orange-800',
+  };
+  return statusColors[status] || 'bg-gray-100 text-gray-800';
+};
+
+const getStatusLabel = (status: string) => {
+  const statusLabels: Record<string, string> = {
+    'created': '已创建',
+    'reviewed': '已审核',
+    'paid': '已付款',
+    'in_production': '生产中',
+    'shipped': '已发货',
+    'completed': '已完成',
+    'cancelled': '已取消',
+    'pending': '待处理',
+  };
+  return statusLabels[status] || status;
+};
 
 export default function AdminOrderDetailPage() {
   const params = useParams();
@@ -55,6 +95,9 @@ export default function AdminOrderDetailPage() {
   const [refundReviewAmount, setRefundReviewAmount] = useState<string>("");
   const [refundReviewReason, setRefundReviewReason] = useState("");
   const [isProcessingStripeRefund, setIsProcessingStripeRefund] = useState(false);
+  
+  // 移动端管理面板展开状态
+  const [isMobilePanelExpanded, setIsMobilePanelExpanded] = useState(false);
   
   // 定义默认值
   const adminOrderDefaultValues = {
@@ -494,14 +537,19 @@ export default function AdminOrderDetailPage() {
   const isAdminOrderCreated = !!order?.admin_orders;
   const adminOrder = order ? getAdminOrders(order.admin_orders)[0] : null;
 
-
-
   // 字段更新函数
   const handleFieldChange = (field: string, value: unknown) => {
-    setAdminOrderEdits(prev => [
-      { ...prev[0] || adminOrderDefaultValues, [field]: value }
-    ]);
-  };
+    setAdminOrderEdits(prev => {
+        const newEdits = [...prev];
+        if (newEdits.length > 0) {
+            newEdits[0] = {
+                ...newEdits[0],
+                [field]: value
+            };
+        }
+        return newEdits;
+    });
+};
 
   // 运费重算回调（用于价格管理面板）
   const handleCalcShipping = useCallback(() => {
@@ -691,7 +739,7 @@ export default function AdminOrderDetailPage() {
             updatePriceCalculation(values);
             setCalculationNotes([
               ...result.notes || [],
-              `�� PCB价格已转换为${currentCurrency}币种 (原始价格: ¥${pcbPriceCNY.toFixed(2)})`
+              `💡 PCB价格已转换为${currentCurrency}币种 (原始价格: ¥${pcbPriceCNY.toFixed(2)})`
             ]);
             setDeliveryNotes(cycle.reason || []);
             
@@ -1034,26 +1082,118 @@ export default function AdminOrderDetailPage() {
   }
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-2 md:p-4 space-y-3 md:space-y-4">
       {/* 页面标题 */}
       <PageHeader order={order} adminOrder={adminOrder} />
 
-      {/* 主要内容区域 - 紧凑布局 */}
-      <div className="grid grid-cols-12 gap-3">
+      {/* 移动端管理面板 - 只在小屏幕上显示 */}
+      <div className="xl:hidden">
+        <div className="bg-white border rounded-lg sticky top-2 z-10 shadow-md">
+          <div 
+            className="bg-gray-50 px-3 py-2 border-b cursor-pointer flex items-center justify-between"
+            onClick={() => setIsMobilePanelExpanded(!isMobilePanelExpanded)}
+          >
+            <h3 className="text-sm font-semibold text-gray-800">管理面板</h3>
+            <div className="flex items-center gap-2">
+              {!isAdminOrderCreated && (
+                <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded">待创建</span>
+              )}
+              <svg 
+                className={`w-4 h-4 transition-transform ${isMobilePanelExpanded ? 'rotate-180' : ''}`}
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          
+          {isMobilePanelExpanded && (
+            <div className="p-3 space-y-3 max-h-96 overflow-y-auto">
+              {/* 价格管理 - 简化版 */}
+              <div className="border rounded p-2">
+                <h4 className="text-xs font-medium text-gray-700 mb-2">价格管理</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-gray-600">PCB价格:</span>
+                    <div className="font-mono">{getCurrencySymbol(String(adminOrderEdits[0]?.currency || 'USD'))}{String(adminOrderEdits[0]?.pcb_price || '0.00')}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">运费:</span>
+                    <div className="font-mono">{getCurrencySymbol(String(adminOrderEdits[0]?.currency || 'USD'))}{String(adminOrderEdits[0]?.ship_price || '0.00')}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">总价:</span>
+                    <div className="font-mono font-semibold text-green-600">
+                      {getCurrencySymbol(String(adminOrderEdits[0]?.currency || 'USD'))}{String(adminOrderEdits[0]?.admin_price || '0.00')}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">状态:</span>
+                    <div className="text-sm">
+                      <Badge className={getStatusColor(String(adminOrderEdits[0]?.status || 'created'))} variant="outline">
+                        {getStatusLabel(String(adminOrderEdits[0]?.status || 'created'))}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 管理操作按钮 */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRecalc}
+                  disabled={!pcbFormData}
+                  className="text-xs"
+                >
+                  🔄 重新计算
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleSave(adminOrderEdits[0] || {})}
+                  disabled={isUpdating}
+                  className="text-xs bg-blue-600 hover:bg-blue-700"
+                >
+                  {isUpdating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : '💾 保存'}
+                </Button>
+              </div>
+              
+              {/* 详细设置按钮 */}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full text-xs text-gray-600"
+                onClick={() => setIsMobilePanelExpanded(false)}
+              >
+                收起面板 ↑
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 主要内容区域 - 响应式布局 */}
+      <div className="flex flex-col xl:grid xl:grid-cols-12 gap-3 md:gap-4">
         {/* 左侧：订单详情 */}
-        <div className="col-span-9 space-y-3">
+        <div className="xl:col-span-9 space-y-3 md:space-y-4">
           {/* 订单概览 */}
           <OrderOverview order={order} pcbFormData={pcbFormData} adminOrder={adminOrder} />
 
           {/* PCB技术规格审核 + 计算结果 */}
-          <div className="grid grid-cols-12 gap-3">
-            {/* 左侧：PCB技术规格审核 */}
-            <div className="col-span-8">
-              <PCBSpecReview pcbFormData={pcbFormData as QuoteFormData | null} />
+          <div className="flex flex-col lg:grid lg:grid-cols-12 gap-3 md:gap-4">
+            {/* PCB技术规格审核 */}
+            <div className="lg:col-span-8">
+              <PCBSpecReview 
+                pcbFormData={pcbFormData as QuoteFormData | null} 
+                shippingAddress={order?.shipping_address as AddressFormValue | null}
+              />
             </div>
             
-            {/* 右侧：计算结果面板 */}
-            <div className="col-span-4">
+            {/* 计算结果面板 */}
+            <div className="lg:col-span-4">
               <CalculationResultPanels 
                 pcbFormData={pcbFormData as QuoteFormData | null}
                 calculationNotes={calculationNotes}
@@ -1064,8 +1204,8 @@ export default function AdminOrderDetailPage() {
           </div>
         </div>
 
-        {/* 右侧：管理员操作面板 - 紧凑布局 */}
-        <div className="col-span-3 space-y-3">
+        {/* 右侧：管理员操作面板 - 只在大屏幕上显示 */}
+        <div className="hidden xl:block xl:col-span-3 space-y-3 md:space-y-4">
           {/* 审核状态 */}
           <ReviewStatusPanel pcbFormData={pcbFormData} />
 
@@ -1077,7 +1217,6 @@ export default function AdminOrderDetailPage() {
             pcbFormData={pcbFormData as Record<string, unknown> | undefined}
             onCalcShipping={handleCalcShipping}
           />         
-
 
           {/* 管理操作 */}
           <ManagementActionsPanel 
