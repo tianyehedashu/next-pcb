@@ -5,10 +5,21 @@ import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 import { Order } from '@/app/admin/types/order';
 import { QuoteFormData } from '@/app/quote2/schema/quoteSchema';
 
+interface CalValues {
+  totalPrice?: number;
+  price?: number;
+  singlePcbArea?: number;
+  totalArea?: number;
+  shippingWeight?: number;
+}
+
 interface OrderOverviewProps {
   order: Order;
   pcbFormData: QuoteFormData | null;
-  adminOrder: any;
+  adminOrder: {
+    admin_price: number;
+    currency?: string;
+  } | null;
 }
 
 // 价格格式化
@@ -19,6 +30,14 @@ const formatPrice = (price: number | string | null | undefined, currency = 'CNY'
   
   const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '¥';
   return `${symbol}${num.toFixed(2)}`;
+};
+
+// 格式化数值，保留4位小数
+const formatNumber = (value: number | string | null | undefined, unit: string) => {
+  if (!value) return '-';
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(num)) return '-';
+  return `${num.toFixed(4)}${unit}`;
 };
 
 // 状态颜色映射
@@ -37,10 +56,12 @@ const getStatusColor = (status: string) => {
 };
 
 export function OrderOverview({ order, pcbFormData, adminOrder }: OrderOverviewProps) {
+  const calValues = order.cal_values as CalValues;
+  
   const orderData = [
     { label: '客户邮箱', value: order.email || '-' },
     { label: 'PCB层数', value: pcbFormData?.layers || '-' },
-    { label: '询价金额', value: order.cal_values ? formatPrice((order.cal_values as any)?.totalPrice || (order.cal_values as any)?.price, 'USD') : '-', highlight: 'text-red-600' },
+    { label: '询价金额', value: order.cal_values ? formatPrice(calValues?.totalPrice || calValues?.price, 'USD') : '-', highlight: 'text-red-600' },
     { label: '用户名', value: order.user_name || '-' },
     { label: 'PCB数量', value: pcbFormData?.singleCount ? `${pcbFormData.singleCount} pcs` : '-' },
     { label: '管理价格', value: adminOrder ? formatPrice(adminOrder.admin_price, adminOrder.currency || 'CNY') : '-', highlight: 'text-green-600' },
@@ -57,6 +78,9 @@ export function OrderOverview({ order, pcbFormData, adminOrder }: OrderOverviewP
       value: pcbFormData?.singleDimensions ? 
         `${pcbFormData.singleDimensions.length}×${pcbFormData.singleDimensions.width}mm` : '-'
     },
+    { label: '单片面积', value: formatNumber(calValues?.singlePcbArea, '㎡') },
+    { label: '总面积', value: formatNumber(calValues?.totalArea, '㎡') },
+    { label: '运输重量', value: formatNumber(calValues?.shippingWeight, 'kg') },
     { 
       label: 'Gerber文件', 
       value: (() => {

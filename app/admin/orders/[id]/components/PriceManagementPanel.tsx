@@ -599,165 +599,146 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
       </div>
       
       <div className="p-3 md:p-4 space-y-3 md:space-y-4">
-        {/* 币种和汇率设置 */}
-        <div className="space-y-2 md:space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
-            <div>
-              <Label className="text-xs font-medium text-gray-700 mb-1 block">币种</Label>
-              <select 
-                value={currentCurrency}
-                onChange={(e) => handleCurrencyChange(e.target.value)}
-                className="h-8 text-xs border border-gray-300 rounded px-2 w-full bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="USD">美元 (USD)</option>
-                <option value="CNY">人民币 (CNY)</option>
-                <option value="EUR">欧元 (EUR)</option>
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-gray-700 mb-1 block">
-                汇率
-                {isCNY && <span className="text-green-600 ml-1">(固定)</span>}
-              </Label>
-              <div className="flex gap-1">
-                <Input 
-                  type="number"
-                  step="0.01"
-                  value={currentRate}
-                  onChange={(e) => handlePriceFieldChange('exchange_rate', e.target.value)}
-                  disabled={isCNY}
-                  className="h-8 text-xs flex-1"
-                  placeholder="汇率"
-                />
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => refreshExchangeRate()}
-                  disabled={isLoadingRates || isCNY}
-                  className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700"
-                  title="刷新汇率"
-                >
-                  {isLoadingRates ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-3 h-3" />
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-          
-          {/* 汇率状态指示 */}
-          {!isCNY && (
-            <div className="text-xs text-gray-500 flex items-center gap-1">
-              {localData.exchange_rate && Number(localData.exchange_rate) > 0 ? (
-                <>
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                  <span>订单汇率</span>
-                </>
-              ) : exchangeRates[currentCurrency] ? (
-                <>
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                  <span>API汇率</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
-                  <span>默认汇率</span>
-                </>
-              )}
-            </div>
-          )}
-          
-          {rateError && (
-            <div className="text-xs text-red-500 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              <span>汇率获取失败</span>
-            </div>
-          )}
-        </div>
+                 {/* 币种、汇率和状态 - 紧凑布局 */}
+         <div className="space-y-2">
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+             <div>
+               <Label className="text-xs font-medium text-gray-700 mb-1 block">币种</Label>
+               <select 
+                 value={currentCurrency}
+                 onChange={(e) => handleCurrencyChange(e.target.value)}
+                 className="h-7 text-xs border border-gray-300 rounded px-2 w-full bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+               >
+                 <option value="USD">美元 (USD)</option>
+                 <option value="CNY">人民币 (CNY)</option>
+                 <option value="EUR">欧元 (EUR)</option>
+               </select>
+             </div>
+             <div>
+               <Label className="text-xs font-medium text-gray-700 mb-1 block">
+                 汇率 {isCNY && <span className="text-green-600">(固定)</span>}
+               </Label>
+               <Input 
+                 type="number"
+                 step="0.01"
+                 value={currentRate}
+                 onChange={(e) => handlePriceFieldChange('exchange_rate', e.target.value)}
+                 disabled={isCNY}
+                 className="h-7 text-xs"
+                 placeholder="汇率"
+               />
+             </div>
+             <div>
+               <Label className="text-xs font-medium text-gray-700 mb-1 block">操作</Label>
+               <div className="flex gap-1">
+                 <Button
+                   size="sm"
+                   variant="outline"
+                   onClick={() => refreshExchangeRate()}
+                   disabled={isLoadingRates || isCNY}
+                   className="h-7 px-2 text-xs flex-1"
+                 >
+                   {isLoadingRates ? (
+                     <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                   ) : (
+                     <RefreshCw className="w-3 h-3 mr-1" />
+                   )}
+                   刷新
+                 </Button>
+                 <Button
+                   size="sm"
+                   variant="outline"
+                   onClick={handleShippingRecalc}
+                   disabled={isLoadingRates || !pcbFormData}
+                   className="h-7 px-2 text-xs flex-1"
+                 >
+                   <Calculator className="w-3 h-3 mr-1" />
+                   运费
+                 </Button>
+               </div>
+             </div>
+           </div>
+           
+           {/* 状态指示器 */}
+           <div className="flex items-center justify-between text-xs text-gray-500">
+             {!isCNY && (
+               <div className="flex items-center gap-1">
+                 {localData.exchange_rate && Number(localData.exchange_rate) > 0 ? (
+                   <>
+                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                     <span>订单汇率</span>
+                   </>
+                 ) : exchangeRates[currentCurrency] ? (
+                   <>
+                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                     <span>API汇率</span>
+                   </>
+                 ) : (
+                   <>
+                     <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
+                     <span>默认汇率</span>
+                   </>
+                 )}
+               </div>
+             )}
+             {rateError && (
+               <div className="flex items-center gap-1 text-red-500">
+                 <AlertCircle className="w-3 h-3" />
+                 <span>汇率获取失败</span>
+               </div>
+             )}
+             {!pcbFormData && (
+               <div className="flex items-center gap-1 text-orange-500">
+                 <span>⚠ 缺少PCB规格数据</span>
+               </div>
+             )}
+           </div>
+         </div>
 
-        {/* 价格字段 */}
-        <div className="space-y-2 md:space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
-            <div>
-              <Label className="text-xs font-medium text-gray-700 mb-1 block">
-                PCB价格 ({getCurrencySymbol(currentCurrency)})
-              </Label>
-              <Input 
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={localData.pcb_price || ''}
-                onChange={(e) => handlePriceFieldChange('pcb_price', e.target.value)}
-                className="h-8 text-xs"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-gray-700 mb-1 block">
-                运费 ({getCurrencySymbol(currentCurrency)})
-              </Label>
-              <div className="flex gap-1">
-                <Input 
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={localData.ship_price || ''}
-                  onChange={(e) => handlePriceFieldChange('ship_price', e.target.value)}
-                  className="h-8 text-xs flex-1"
-                />
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleShippingRecalc}
-                  disabled={isLoadingRates || !pcbFormData}
-                  className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700"
-                  title="重新计算运费"
-                >
-                  {isLoadingRates ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Calculator className="w-3 h-3" />
-                  )}
-                </Button>
-              </div>
-              {!pcbFormData && (
-                <div className="text-xs text-orange-500 mt-1">
-                  需要PCB规格数据
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
-            <div>
-              <Label className="text-xs font-medium text-gray-700 mb-1 block">
-                关税 ({getCurrencySymbol(currentCurrency)})
-              </Label>
-              <Input 
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={localData.custom_duty || ''}
-                onChange={(e) => handlePriceFieldChange('custom_duty', e.target.value)}
-                className="h-8 text-xs"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-gray-700 mb-1 block">
-                优惠券 ({getCurrencySymbol(currentCurrency)})
-              </Label>
-              <Input 
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={localData.coupon || ''}
-                onChange={(e) => handlePriceFieldChange('coupon', e.target.value)}
-                className="h-8 text-xs"
-              />
-            </div>
-          </div>
-        </div>
+         {/* 价格字段 - 3列布局 */}
+         <div className="space-y-2">
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+             <div>
+               <Label className="text-xs font-medium text-gray-700 mb-1 block">
+                 PCB价格 ({getCurrencySymbol(currentCurrency)})
+               </Label>
+               <Input 
+                 type="number"
+                 step="0.01"
+                 placeholder="0.00"
+                 value={localData.pcb_price || ''}
+                 onChange={(e) => handlePriceFieldChange('pcb_price', e.target.value)}
+                 className="h-7 text-xs"
+               />
+             </div>
+             <div>
+               <Label className="text-xs font-medium text-gray-700 mb-1 block">
+                 运费 ({getCurrencySymbol(currentCurrency)})
+               </Label>
+               <Input 
+                 type="number"
+                 step="0.01"
+                 placeholder="0.00"
+                 value={localData.ship_price || ''}
+                 onChange={(e) => handlePriceFieldChange('ship_price', e.target.value)}
+                 className="h-7 text-xs"
+               />
+             </div>
+             <div>
+               <Label className="text-xs font-medium text-gray-700 mb-1 block">
+                 关税 ({getCurrencySymbol(currentCurrency)})
+               </Label>
+               <Input 
+                 type="number"
+                 step="0.01"
+                 placeholder="0.00"
+                 value={localData.custom_duty || ''}
+                 onChange={(e) => handlePriceFieldChange('custom_duty', e.target.value)}
+                 className="h-7 text-xs"
+               />
+             </div>
+           </div>
+         </div>
 
         {/* 附加费用 */}
         <div className="border-t pt-3">
@@ -956,89 +937,89 @@ ${calculation.skippedDays.length > 0 ? `跳过: ${calculation.skippedDays.length
             状态管理
           </Label>
           
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
-              <div>
-                <Label className="text-xs font-medium text-gray-700 mb-1 block">订单状态</Label>
-                <select 
-                  value={localData.status || 'created'}
-                  onChange={(e) => {
-                    const newStatus = e.target.value;
-                    
-                    // 币种检查
-                    if (newStatus === 'reviewed' && currentCurrency !== 'USD') {
-                      toast.warning('币种提醒', {
-                        description: `当前币种为${getCurrencyName(currentCurrency)}，建议使用美元(USD)`,
-                        duration: 3000
-                      });
-                    }
-                    
-                    onFieldChange('status', newStatus);
-                  }}
-                  className="h-8 text-xs border border-gray-300 rounded px-2 w-full bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="created">已创建</option>
-                  <option value="reviewed">已审核</option>
-                  <option value="paid">已付款</option>
-                  <option value="in_production">生产中</option>
-                  <option value="shipped">已发货</option>
-                  <option value="completed">已完成</option>
-                  <option value="cancelled">已取消</option>
-                </select>
-              </div>
-              
-              <div>
-                <Label className="text-xs font-medium text-gray-700 mb-1 block">支付状态</Label>
-                <select
-                  value={localData.payment_status || 'unpaid'}
-                  onChange={(e) => onFieldChange('payment_status', e.target.value)}
-                  className="h-8 text-xs border border-gray-300 rounded px-2 w-full bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="unpaid">未支付</option>
-                  <option value="pending">支付中</option>
-                  <option value="paid">已支付</option>
-                  <option value="partially_paid">部分支付</option>
-                  <option value="failed">支付失败</option>
-                  <option value="cancelled">已取消</option>
-                  <option value="refunded">已退款</option>
-                </select>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-2 md:gap-3">
-              <div>
-                <Label className="text-xs font-medium text-gray-700 mb-1 block">到期日</Label>
-                <Input 
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => {
-                    const date = e.target.value;
-                    setDueDate(date);
-                    onFieldChange('due_date', date);
-                  }}
-                  className="h-8 text-xs"
-                />
-              </div>
-              
-              <div>
-                <Label className="text-xs font-medium text-gray-700 mb-1 block flex items-center gap-1">
-                  支付时间
-                  {localData.payment_status === 'paid' && (
-                    <CheckCircle className="w-3 h-3 text-green-500" />
-                  )}
-                </Label>
-                <Input 
-                  type="datetime-local"
-                  value={localData.pay_time ? new Date(localData.pay_time).toISOString().slice(0, 16) : ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    onFieldChange('pay_time', value ? new Date(value).toISOString() : '');
-                  }}
-                  className="h-8 text-xs"
-                  disabled={localData.payment_status !== 'paid'}
-                />
-              </div>
-            </div>
+                     <div className="space-y-3">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
+               <div>
+                 <Label className="text-xs font-medium text-gray-700 mb-1 block">订单状态</Label>
+                 <select 
+                   value={localData.status || 'created'}
+                   onChange={(e) => {
+                     const newStatus = e.target.value;
+                     
+                     // 币种检查
+                     if (newStatus === 'reviewed' && currentCurrency !== 'USD') {
+                       toast.warning('币种提醒', {
+                         description: `当前币种为${getCurrencyName(currentCurrency)}，建议使用美元(USD)`,
+                         duration: 3000
+                       });
+                     }
+                     
+                     onFieldChange('status', newStatus);
+                   }}
+                   className="h-8 text-xs border border-gray-300 rounded px-2 w-full bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                 >
+                   <option value="created">已创建</option>
+                   <option value="reviewed">已审核</option>
+                   <option value="paid">已付款</option>
+                   <option value="in_production">生产中</option>
+                   <option value="shipped">已发货</option>
+                   <option value="completed">已完成</option>
+                   <option value="cancelled">已取消</option>
+                 </select>
+               </div>
+               
+               <div>
+                 <Label className="text-xs font-medium text-gray-700 mb-1 block">支付状态</Label>
+                 <select
+                   value={localData.payment_status || 'unpaid'}
+                   onChange={(e) => onFieldChange('payment_status', e.target.value)}
+                   className="h-8 text-xs border border-gray-300 rounded px-2 w-full bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                 >
+                   <option value="unpaid">未支付</option>
+                   <option value="pending">支付中</option>
+                   <option value="paid">已支付</option>
+                   <option value="partially_paid">部分支付</option>
+                   <option value="failed">支付失败</option>
+                   <option value="cancelled">已取消</option>
+                   <option value="refunded">已退款</option>
+                 </select>
+               </div>
+             </div>
+             
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
+               <div>
+                 <Label className="text-xs font-medium text-gray-700 mb-1 block flex items-center gap-1">
+                   支付时间
+                   {localData.payment_status === 'paid' && (
+                     <CheckCircle className="w-3 h-3 text-green-500" />
+                   )}
+                 </Label>
+                 <Input 
+                   type="datetime-local"
+                   value={localData.pay_time ? new Date(localData.pay_time).toISOString().slice(0, 16) : ''}
+                   onChange={(e) => {
+                     const value = e.target.value;
+                     onFieldChange('pay_time', value ? new Date(value).toISOString() : '');
+                   }}
+                   className="h-8 text-xs"
+                   disabled={localData.payment_status !== 'paid'}
+                 />
+               </div>
+               
+               <div>
+                 <Label className="text-xs font-medium text-gray-700 mb-1 block">到期日</Label>
+                 <Input 
+                   type="date"
+                   value={dueDate}
+                   onChange={(e) => {
+                     const date = e.target.value;
+                     setDueDate(date);
+                     onFieldChange('due_date', date);
+                   }}
+                   className="h-8 text-xs"
+                 />
+               </div>
+             </div>
           </div>
         </div>
 

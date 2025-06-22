@@ -1182,33 +1182,12 @@ export default function AdminOrderDetailPage() {
           {/* 订单概览 */}
           <OrderOverview order={order} pcbFormData={pcbFormData} adminOrder={adminOrder} />
 
-          {/* PCB技术规格审核 + 计算结果 */}
-          <div className="flex flex-col lg:grid lg:grid-cols-12 gap-3 md:gap-4">
-            {/* PCB技术规格审核 */}
-            <div className="lg:col-span-8">
-              <PCBSpecReview 
-                pcbFormData={pcbFormData as QuoteFormData | null} 
-                shippingAddress={order?.shipping_address as AddressFormValue | null}
-              />
-            </div>
-            
-            {/* 计算结果面板 */}
-            <div className="lg:col-span-4">
-              <CalculationResultPanels 
-                pcbFormData={pcbFormData as QuoteFormData | null}
-                calculationNotes={calculationNotes}
-                deliveryNotes={deliveryNotes}
-                shippingNotes={shippingNotes}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 右侧：管理员操作面板 - 只在大屏幕上显示 */}
-        <div className="hidden xl:block xl:col-span-3 space-y-3 md:space-y-4">
-          {/* 审核状态 */}
-          <ReviewStatusPanel pcbFormData={pcbFormData} />
-
+          {/* PCB技术规格审核 */}
+          <PCBSpecReview 
+            pcbFormData={pcbFormData as QuoteFormData | null} 
+            shippingAddress={order?.shipping_address as AddressFormValue | null}
+          />
+          
           {/* 价格管理 */}
           <PriceManagementPanel 
             adminOrderEdit={adminOrderEdits[0] || adminOrderDefaultValues}
@@ -1216,7 +1195,21 @@ export default function AdminOrderDetailPage() {
             onFieldChange={handleFieldChange}
             pcbFormData={pcbFormData as Record<string, unknown> | undefined}
             onCalcShipping={handleCalcShipping}
-          />         
+          />
+        </div>
+
+        {/* 右侧：管理员操作面板 - 只在大屏幕上显示 */}
+        <div className="hidden xl:block xl:col-span-3 space-y-3 md:space-y-4">
+          {/* 审核状态 */}
+          <ReviewStatusPanel pcbFormData={pcbFormData} />
+
+          {/* 计算结果面板 */}
+          <CalculationResultPanels 
+            pcbFormData={pcbFormData as QuoteFormData | null}
+            calculationNotes={calculationNotes}
+            deliveryNotes={deliveryNotes}
+            shippingNotes={shippingNotes}
+          />
 
           {/* 管理操作 */}
           <ManagementActionsPanel 

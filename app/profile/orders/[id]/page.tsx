@@ -789,8 +789,8 @@ export default function OrderDetailPage() {
           {/* Order Details Row */}
           <div className="space-y-6">
             {/* PCB Specifications */}
-            <Card>
-              <CardHeader className="pb-2">
+            <Card className="border-2 border-orange-200">
+              <CardHeader className="bg-orange-50 border-b">
                 <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <FileText className="w-5 h-5 text-orange-600" />
@@ -798,259 +798,400 @@ export default function OrderDetailPage() {
                   </div>
                   {pcbFormData && (
                     <div className="flex items-center gap-2 text-sm flex-wrap">
-                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded font-medium text-xs sm:text-sm">
+                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded font-medium text-xs sm:text-sm border border-blue-200">
                         {pcbFormData.layers}L
                       </span>
-                      <span className="px-2 py-1 bg-green-50 text-green-700 rounded font-medium text-xs sm:text-sm">
-                        {pcbFormData.singleCount}pcs
+                      <span className="px-2 py-1 bg-green-50 text-green-700 rounded font-medium text-xs sm:text-sm border border-green-200">
+                        {pcbFormData.singleCount || pcbFormData.panelSet}
+                        {pcbFormData.shipmentType === 'single' ? 'pcs' : 'set'}
                       </span>
-                      <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded font-medium text-xs sm:text-sm">
+                      <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded font-medium text-xs sm:text-sm border border-purple-200">
                         {pcbFormData.thickness}mm
                       </span>
                     </div>
                   )}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-0 pb-3 px-4">
+              <CardContent className="p-0">
                 {pcbFormData ? (
-                  <div className="space-y-1 text-xs">
-                    {/* Compact Multi-Column Layout */}
-                    {/* Row 1: Basic Info */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Size:</span>
-                          <span className="font-medium">{pcbFormData.singleDimensions.length}×{pcbFormData.singleDimensions.width}mm</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Material:</span>
-                          <span className="font-medium">{pcbFormData.pcbType}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Shipment:</span>
-                          <span className="font-medium">{pcbFormData.shipmentType}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">TG:</span>
-                          <span className="font-medium">{pcbFormData.tg}</span>
+                  <div className="space-y-0">
+                    {/* Basic Parameters */}
+                    <div className="border-b">
+                      <div className="bg-blue-50 px-4 py-2 border-b">
+                        <h4 className="text-sm font-semibold text-blue-800">Basic Parameters</h4>
+                      </div>
+                      {/* Desktop Table */}
+                      <div className="hidden lg:block">
+                        <div className="grid grid-cols-6 text-xs">
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Material</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.pcbType || 'FR-4'}</div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Layers</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.layers}</div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Thickness</div>
+                          <div className="border-b p-2 text-center font-semibold">{pcbFormData.thickness}mm</div>
+                          
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Size</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">
+                            {pcbFormData.singleDimensions?.length}×{pcbFormData.singleDimensions?.width}mm
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Quantity Type</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">
+                            {pcbFormData.shipmentType === 'single' ? 'Single' : 
+                             pcbFormData.shipmentType === 'panel_by_gerber' ? 'Gerber Panel' :
+                             pcbFormData.shipmentType === 'panel_by_speedx' ? 'SpeedX Panel' : '-'}
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Quantity</div>
+                          <div className="border-b p-2 text-center font-semibold">
+                            {pcbFormData.shipmentType === 'single' ? 
+                             `${pcbFormData.singleCount} pcs` :
+                             `${pcbFormData.panelSet} set`}
+                          </div>
+                          
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">HDI</div>
+                          <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                            {pcbFormData.hdi || 'None'}
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">TG</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.tg || 'Standard'}</div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Designs</div>
+                          <div className="border-b p-2 text-center font-semibold">{pcbFormData.differentDesignsCount || '1'}</div>
                         </div>
                       </div>
-
-                      {/* Row 2: Panel & Design Info */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">HDI:</span>
-                          <span className="font-medium">{pcbFormData.hdi}</span>
+                      
+                      {/* Mobile Cards */}
+                      <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Material</div>
+                          <div className="text-sm font-medium">{pcbFormData.pcbType || 'FR-4'}</div>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Designs Count:</span>
-                          <span className="font-medium">{pcbFormData.differentDesignsCount}</span>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Layers</div>
+                          <div className="text-sm font-medium">{pcbFormData.layers}</div>
                         </div>
-                        {pcbFormData.shipmentType !== 'single' && pcbFormData.panelDimensions && (
-                          <>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Panel Size:</span>
-                              <span className="font-medium">{pcbFormData.panelDimensions.row}×{pcbFormData.panelDimensions.column}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Panel Set:</span>
-                              <span className="font-medium">{pcbFormData.panelSet}</span>
-                            </div>
-                          </>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Shengyi Material:</span>
-                          <span className="font-medium">{pcbFormData.useShengyiMaterial ? 'Yes' : 'No'}</span>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Thickness</div>
+                          <div className="text-sm font-medium">{pcbFormData.thickness}mm</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Size</div>
+                          <div className="text-sm font-medium">
+                            {pcbFormData.singleDimensions?.length}×{pcbFormData.singleDimensions?.width}mm
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Quantity Type</div>
+                          <div className="text-sm font-medium">
+                            {pcbFormData.shipmentType === 'single' ? 'Single' : 
+                             pcbFormData.shipmentType === 'panel_by_gerber' ? 'Gerber Panel' :
+                             pcbFormData.shipmentType === 'panel_by_speedx' ? 'SpeedX Panel' : '-'}
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Quantity</div>
+                          <div className="text-sm font-medium">
+                            {pcbFormData.shipmentType === 'single' ? 
+                             `${pcbFormData.singleCount} pcs` :
+                             `${pcbFormData.panelSet} set`}
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">HDI</div>
+                          <div className="text-sm font-medium text-red-600">{pcbFormData.hdi || 'None'}</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">TG</div>
+                          <div className="text-sm font-medium">{pcbFormData.tg || 'Standard'}</div>
                         </div>
                       </div>
-
-                      {/* Row 3: Break-away Rail & Border */}
-                      {(pcbFormData.breakAwayRail && pcbFormData.breakAwayRail !== 'None') || pcbFormData.border || pcbFormData.borderCutType ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                          {pcbFormData.breakAwayRail && pcbFormData.breakAwayRail !== 'None' && (
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Break-away Rail:</span>
-                              <span className="font-medium">{pcbFormData.breakAwayRail}</span>
-                            </div>
-                          )}
-                          {pcbFormData.border && (
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Board Edge:</span>
-                              <span className="font-medium">{pcbFormData.border}mm</span>
-                            </div>
-                          )}
-                          {pcbFormData.borderCutType && (
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">PCB Separation:</span>
-                              <span className="font-medium">{pcbFormData.borderCutType}</span>
-                            </div>
-                          )}
-                        </div>
-                      ) : null}
-
-                      {/* Row 4: Colors & Finish */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Solder Mask:</span>
-                          <span className="font-medium">{pcbFormData.solderMask}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Silkscreen:</span>
-                          <span className="font-medium">{pcbFormData.silkscreen}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Surface Finish:</span>
-                          <span className="font-medium">{pcbFormData.surfaceFinish}</span>
-                        </div>
-                        {pcbFormData.surfaceFinish === 'ENIG' && pcbFormData.surfaceFinishEnigType && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">ENIG Type:</span>
-                            <span className="font-medium">{pcbFormData.surfaceFinishEnigType}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Via Process:</span>
-                          <span className="font-medium">{pcbFormData.maskCover}</span>
-                        </div>
-                      </div>
-
-                      {/* Row 5: Copper & Trace */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Outer Copper:</span>
-                          <span className="font-medium">{pcbFormData.outerCopperWeight}oz</span>
-                        </div>
-                        {pcbFormData.layers >= 4 && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Inner Copper:</span>
-                            <span className="font-medium">{pcbFormData.innerCopperWeight}oz</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Min Trace/Space:</span>
-                          <span className="font-medium">{pcbFormData.minTrace}mil</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Min Hole Size:</span>
-                          <span className="font-medium">{pcbFormData.minHole}mm</span>
-                        </div>
-                        {pcbFormData.holeCount && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Hole Count:</span>
-                            <span className="font-medium">{pcbFormData.holeCount}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Row 6: Edge Processing */}
-                      {pcbFormData.edgePlating || pcbFormData.halfHole ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                          {pcbFormData.edgePlating && (
-                            <>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">Edge Plating:</span>
-                                <span className="font-medium">Yes</span>
-                              </div>
-                              {pcbFormData.edgeCover && (
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Edge Cover:</span>
-                                  <span className="font-medium">{pcbFormData.edgeCover}</span>
-                                </div>
-                              )}
-                            </>
-                          )}
-                          {pcbFormData.halfHole && (
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Half Hole:</span>
-                              <span className="font-medium">{pcbFormData.halfHole}</span>
-                            </div>
-                          )}
-                        </div>
-                      ) : null}
-
-                      {/* Row 7: Test & Quality */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Electrical Test:</span>
-                          <span className="font-medium">{pcbFormData.testMethod}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">IPC Class:</span>
-                          <span className="font-medium">{pcbFormData.ipcClass}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Cross Outs:</span>
-                          <span className="font-medium">{pcbFormData.crossOuts}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Data Conflicts:</span>
-                          <span className="font-medium">{pcbFormData.ifDataConflicts}</span>
-                        </div>
-                      </div>
-
-                      {/* Row 8: Service & Reports */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Working Gerber:</span>
-                          <span className="font-medium">{pcbFormData.workingGerber}</span>
-                        </div>
-                        {pcbFormData.productReport && pcbFormData.productReport.length > 0 && pcbFormData.productReport[0] !== 'None' && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Product Report:</span>
-                            <span className="font-medium">{pcbFormData.productReport.join(', ')}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">UL Mark:</span>
-                          <span className="font-medium">{pcbFormData.ulMark ? 'Yes' : 'No'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Delivery Type:</span>
-                          <span className="font-medium text-orange-600">{pcbFormData.delivery}</span>
-                        </div>
-                      </div>
-
-                      {/* Special Features - Compact Tags */}
-                      {(pcbFormData.impedance || pcbFormData.goldFingers || pcbFormData.edgePlating || pcbFormData.bga || pcbFormData.holeCu25um || pcbFormData.blueMask || pcbFormData.ulMark) && (
-                        <div className="pt-2 border-t border-gray-200">
-                          <div className="text-gray-600 text-xs mb-1">Special Features:</div>
-                          <div className="flex flex-wrap gap-1">
-                            {pcbFormData.impedance && (
-                              <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded">Impedance</span>
-                            )}
-                            {pcbFormData.goldFingers && (
-                              <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded">Gold Fingers</span>
-                            )}
-                            {pcbFormData.edgePlating && (
-                              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">Edge Plating</span>
-                            )}
-                            {pcbFormData.bga && (
-                              <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded">BGA</span>
-                            )}
-                            {pcbFormData.holeCu25um && (
-                              <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded">Cu 25μm</span>
-                            )}
-                            {pcbFormData.blueMask && (
-                              <span className="px-2 py-0.5 bg-cyan-100 text-cyan-800 text-xs rounded">Blue Mask</span>
-                            )}
-                            {pcbFormData.ulMark && (
-                              <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs rounded">UL Mark</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Notes */}
-                      {pcbFormData.pcbNote && (
-                        <div className="pt-2 border-t border-gray-200">
-                          <div className="text-gray-600 text-xs mb-1">PCB Note:</div>
-                          <div className="text-xs bg-gray-50 p-2 rounded">
-                            {pcbFormData.pcbNote}
-                          </div>
-                        </div>
-                      )}
                     </div>
+
+                    {/* Process Parameters */}
+                    <div className="border-b">
+                      <div className="bg-orange-50 px-4 py-2 border-b">
+                        <h4 className="text-sm font-semibold text-orange-800">Process Parameters</h4>
+                      </div>
+                      {/* Desktop Table */}
+                      <div className="hidden lg:block">
+                        <div className="grid grid-cols-6 text-xs">
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Outer Copper</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.outerCopperWeight || '1'}oz</div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Inner Copper</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">
+                            {Number(pcbFormData.layers) >= 4 ? `${pcbFormData.innerCopperWeight || '0.5'}oz` : 'N/A'}
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Min Trace/Space</div>
+                          <div className="border-b p-2 text-center font-semibold">{pcbFormData.minTrace || '6/6'}mil</div>
+                          
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Min Hole</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.minHole || '0.3'}mm</div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Solder Mask</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.solderMask || 'Green'}</div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Silkscreen</div>
+                          <div className="border-b p-2 text-center font-semibold">{pcbFormData.silkscreen || 'White'}</div>
+                          
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Surface Finish</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.surfaceFinish || 'HASL'}</div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">ENIG Type</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">
+                            {pcbFormData.surfaceFinish === 'ENIG' ? (pcbFormData.surfaceFinishEnigType || 'Standard') : 'N/A'}
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Via Process</div>
+                          <div className="border-b p-2 text-center font-semibold">{pcbFormData.maskCover || 'Tented'}</div>
+                        </div>
+                      </div>
+                      
+                      {/* Mobile Cards */}
+                      <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Outer Copper</div>
+                          <div className="text-sm font-medium">{pcbFormData.outerCopperWeight || '1'}oz</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Inner Copper</div>
+                          <div className="text-sm font-medium">
+                            {Number(pcbFormData.layers) >= 4 ? `${pcbFormData.innerCopperWeight || '0.5'}oz` : 'N/A'}
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Min Trace/Space</div>
+                          <div className="text-sm font-medium">{pcbFormData.minTrace || '6/6'}mil</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Min Hole</div>
+                          <div className="text-sm font-medium">{pcbFormData.minHole || '0.3'}mm</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Solder Mask</div>
+                          <div className="text-sm font-medium">{pcbFormData.solderMask || 'Green'}</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Silkscreen</div>
+                          <div className="text-sm font-medium">{pcbFormData.silkscreen || 'White'}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Special Features */}
+                    <div className="border-b">
+                      <div className="bg-purple-50 px-4 py-2 border-b">
+                        <h4 className="text-sm font-semibold text-purple-800">Special Features</h4>
+                      </div>
+                      {/* Desktop Table */}
+                      <div className="hidden lg:block">
+                        <div className="grid grid-cols-6 text-xs">
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Impedance Control</div>
+                          <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                            {pcbFormData.impedance ? 'Required' : 'Not Required'}
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Gold Fingers</div>
+                          <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                            {pcbFormData.goldFingers ? 'Required' : 'Not Required'}
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Gold Fingers Bevel</div>
+                          <div className="border-b p-2 text-center font-semibold">
+                            {pcbFormData.goldFingers && pcbFormData.goldFingersBevel ? 'Required' : 'Not Required'}
+                          </div>
+                          
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Edge Plating</div>
+                          <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                            {pcbFormData.edgePlating ? 'Required' : 'Not Required'}
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Edge Cover</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">
+                            {pcbFormData.edgePlating ? (pcbFormData.edgeCover || 'No') : 'N/A'}
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">UL Mark</div>
+                          <div className="border-b p-2 text-center font-semibold">
+                            {pcbFormData.ulMark ? 'Required' : 'Not Required'}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Mobile Cards */}
+                      <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Impedance Control</div>
+                          <div className="text-sm font-medium text-red-600">
+                            {pcbFormData.impedance ? 'Required' : 'Not Required'}
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Gold Fingers</div>
+                          <div className="text-sm font-medium text-red-600">
+                            {pcbFormData.goldFingers ? 'Required' : 'Not Required'}
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Edge Plating</div>
+                          <div className="text-sm font-medium text-red-600">
+                            {pcbFormData.edgePlating ? 'Required' : 'Not Required'}
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">UL Mark</div>
+                          <div className="text-sm font-medium">
+                            {pcbFormData.ulMark ? 'Required' : 'Not Required'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Service & Other Requirements */}
+                    <div className="border-b">
+                      <div className="bg-teal-50 px-4 py-2 border-b">
+                        <h4 className="text-sm font-semibold text-teal-800">Service & Other Requirements</h4>
+                      </div>
+                      {/* Desktop Table */}
+                      <div className="hidden lg:block">
+                        <div className="grid grid-cols-6 text-xs">
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Shengyi Material</div>
+                          <div className="border-r border-b p-2 text-center font-semibold text-red-600">
+                            {pcbFormData.useShengyiMaterial ? 'Yes' : 'No'}
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Test Method</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.testMethod || 'Default'}</div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">IPC Class</div>
+                          <div className="border-b p-2 text-center font-semibold">{pcbFormData.ipcClass || 'IPC Class 2'}</div>
+                          
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Delivery Type</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">
+                            {pcbFormData.delivery === 'Urgent' ? 'Urgent ⚡' : 'Standard'}
+                          </div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Working Gerber</div>
+                          <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.workingGerber || 'Customer Provided'}</div>
+                          <div className="border-r border-b p-2 bg-gray-50 font-medium">Data Conflicts</div>
+                          <div className="border-b p-2 text-center font-semibold">{pcbFormData.ifDataConflicts || 'Follow Gerber'}</div>
+                          
+                          <div className="border-r p-2 bg-gray-50 font-medium">Accept Cross Outs</div>
+                          <div className="border-r p-2 text-center font-semibold">
+                            {pcbFormData.crossOuts === 'Accept' ? 'Yes' : 'No'}
+                          </div>
+                          <div className="border-r p-2 bg-gray-50 font-medium">Product Report</div>
+                          <div className="col-span-3 p-2 text-center font-semibold">
+                            {(pcbFormData.productReport && pcbFormData.productReport.length > 0 && !pcbFormData.productReport.includes('None'))
+                              ? pcbFormData.productReport.join(', ')
+                              : 'None'}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Mobile Cards */}
+                      <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Shengyi Material</div>
+                          <div className="text-sm font-medium text-red-600">
+                            {pcbFormData.useShengyiMaterial ? 'Yes' : 'No'}
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Test Method</div>
+                          <div className="text-sm font-medium">{pcbFormData.testMethod || 'Default'}</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">IPC Class</div>
+                          <div className="text-sm font-medium">{pcbFormData.ipcClass || 'IPC Class 2'}</div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2">
+                          <div className="text-xs text-gray-600 mb-1">Delivery Type</div>
+                          <div className="text-sm font-medium">
+                            {pcbFormData.delivery === 'Urgent' ? 'Urgent ⚡' : 'Standard'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Panel Information - if applicable */}
+                    {(pcbFormData.shipmentType === 'panel_by_gerber' || pcbFormData.shipmentType === 'panel_by_speedx') && (
+                      <div className="border-b">
+                        <div className="bg-indigo-50 px-4 py-2 border-b">
+                          <h4 className="text-sm font-semibold text-indigo-800">Panel Information</h4>
+                        </div>
+                        {/* Desktop Table */}
+                        <div className="hidden lg:block">
+                          <div className="grid grid-cols-6 text-xs">
+                            <div className="border-r border-b p-2 bg-gray-50 font-medium">Panel Type</div>
+                            <div className="border-r border-b p-2 text-center font-semibold">
+                              {pcbFormData.shipmentType === 'panel_by_gerber' ? 'Gerber Panel' : 'SpeedX Panel'}
+                            </div>
+                            <div className="border-r border-b p-2 bg-gray-50 font-medium">Panel Size</div>
+                            <div className="border-r border-b p-2 text-center font-semibold">
+                              {pcbFormData.panelDimensions ? 
+                                `${pcbFormData.panelDimensions.row}×${pcbFormData.panelDimensions.column}` : '-'}
+                            </div>
+                            <div className="border-r border-b p-2 bg-gray-50 font-medium">Panel Quantity</div>
+                            <div className="border-b p-2 text-center font-semibold">{pcbFormData.panelSet || '-'} set</div>
+                            
+                            {pcbFormData.shipmentType === 'panel_by_speedx' && (
+                              <>
+                                <div className="border-r border-b p-2 bg-gray-50 font-medium">Break-away Rail</div>
+                                <div className="border-r border-b p-2 text-center font-semibold">
+                                  {pcbFormData.breakAwayRail || 'None'}
+                                </div>
+                                <div className="border-r border-b p-2 bg-gray-50 font-medium">Rail Width</div>
+                                <div className="border-r border-b p-2 text-center font-semibold">
+                                  {pcbFormData.breakAwayRail !== 'None' ? (pcbFormData.border || '5') + 'mm' : 'N/A'}
+                                </div>
+                                <div className="border-r border-b p-2 bg-gray-50 font-medium">Separation</div>
+                                <div className="border-b p-2 text-center font-semibold">
+                                  {pcbFormData.breakAwayRail !== 'None' ? (pcbFormData.borderCutType || 'V-Cut') : 'N/A'}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Mobile Cards */}
+                        <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+                          <div className="bg-gray-50 rounded p-2">
+                            <div className="text-xs text-gray-600 mb-1">Panel Type</div>
+                            <div className="text-sm font-medium">
+                              {pcbFormData.shipmentType === 'panel_by_gerber' ? 'Gerber Panel' : 'SpeedX Panel'}
+                            </div>
+                          </div>
+                          <div className="bg-gray-50 rounded p-2">
+                            <div className="text-xs text-gray-600 mb-1">Panel Size</div>
+                            <div className="text-sm font-medium">
+                              {pcbFormData.panelDimensions ? 
+                                `${pcbFormData.panelDimensions.row}×${pcbFormData.panelDimensions.column}` : '-'}
+                            </div>
+                          </div>
+                          <div className="bg-gray-50 rounded p-2">
+                            <div className="text-xs text-gray-600 mb-1">Panel Quantity</div>
+                            <div className="text-sm font-medium">{pcbFormData.panelSet || '-'} set</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notes and Special Requests */}
+                    {(pcbFormData.pcbNote || pcbFormData.specialRequests) && (
+                      <div>
+                        <div className="bg-yellow-50 px-4 py-2 border-b">
+                          <h4 className="text-sm font-semibold text-yellow-800">Notes & Special Requests</h4>
+                        </div>
+                        <div className="p-3 text-xs space-y-2">
+                          {pcbFormData.pcbNote && (
+                            <div>
+                              <strong className="font-medium text-gray-700">PCB Note:</strong>
+                              <p className="p-2 bg-gray-50 rounded mt-1 whitespace-pre-wrap text-gray-800">{pcbFormData.pcbNote}</p>
+                            </div>
+                          )}
+                          {pcbFormData.specialRequests && (
+                            <div>
+                              <strong className="font-medium text-gray-700">Special Requests:</strong>
+                              <p className="p-2 bg-gray-50 rounded mt-1 whitespace-pre-wrap text-gray-800">{pcbFormData.specialRequests}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <p className="text-gray-500 text-center py-4">PCB specifications not available</p>
+                  <div className="text-center py-8 text-red-600">
+                    <AlertCircle className="w-12 h-12 mx-auto mb-2" />
+                    <p className="text-sm font-semibold">⚠️ PCB specifications not available</p>
+                    <p className="text-xs">Unable to display technical specifications</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
