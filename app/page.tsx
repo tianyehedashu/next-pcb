@@ -4,6 +4,32 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
 import { Carousel } from "@/app/components/custom-ui/carousel";
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Professional PCB Manufacturing & Assembly Services',
+  description: 'SpeedXPCB delivers fast, high-quality PCB manufacturing, fabrication, and assembly services worldwide. Get instant quotes, 24-48h prototypes, and reliable mass production. Trusted by 10,000+ customers.',
+  keywords: [
+    'PCB manufacturing service',
+    'PCB fabrication company', 
+    'fast PCB prototype',
+    'PCB assembly service',
+    'custom PCB manufacturer',
+    'professional PCB',
+    'quick turn PCB',
+    'PCB manufacturing China',
+    'HDI PCB fabrication',
+    'flex rigid PCB'
+  ],
+  openGraph: {
+    title: 'SpeedXPCB - Professional PCB Manufacturing & Assembly Services',
+    description: 'Fast, high-quality PCB manufacturing with instant quotes and 24-48h prototypes. Trusted by 10,000+ customers worldwide.',
+    images: ['/og-home.jpg'],
+  },
+  alternates: {
+    canonical: 'https://speedxpcb.com',
+  },
+}
 
 export default function Home() {
   return (

@@ -71,6 +71,16 @@ export function AdminSidebar() {
       >
         {desktopSidebarOpen ? '汇率管理' : 'E'}
       </Link>
+      <Link 
+        href="/admin/contacts" 
+        className={`block px-3 py-2 rounded-md text-foreground hover:bg-accent hover:text-primary font-medium transition-colors text-sm md:text-base ${
+          !desktopSidebarOpen ? 'md:text-center' : ''
+        }`}
+        onClick={() => setSidebarOpen(false)}
+        title="联系表单"
+      >
+        {desktopSidebarOpen ? '联系表单' : 'C'}
+      </Link>
     </nav>
   );
 
@@ -133,6 +143,13 @@ export function AdminSidebar() {
                     onClick={() => setSidebarOpen(false)}
                   >
                     汇率管理
+                  </Link>
+                  <Link 
+                    href="/admin/contacts" 
+                    className="block px-3 py-2 rounded-md text-foreground hover:bg-accent hover:text-primary font-medium transition-colors text-sm md:text-base"
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    联系表单
                   </Link>
                 </nav>
               </div>

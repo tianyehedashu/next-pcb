@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { useChatwoot } from "@/lib/hooks/useChatwoot";
 import Link from "next/link";
 import { 
@@ -42,20 +41,29 @@ export default function ContactPageClient() {
     setSuccess(false);
 
     try {
-      const { error: contactError } = await supabase
-        .from("contacts")
-        .insert([
-          {
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            company: formData.company,
-            project_type: formData.projectType,
-            message: formData.message,
-          },
-        ]);
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          company: formData.company,
+          projectType: formData.projectType,
+          message: formData.message,
+        }),
+      });
 
-      if (contactError) throw contactError;
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = data.details 
+          ? `${data.error}: ${data.details}` 
+          : data.error || 'Failed to send message';
+        throw new Error(errorMessage);
+      }
 
       setSuccess(true);
       setFormData({
