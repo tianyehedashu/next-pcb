@@ -83,7 +83,7 @@ export async function PUT(
       .from('admin_orders')
       .select(`
         *,
-        pcb_quotes!user_order_id (
+        pcb_quotes!fk_admin_orders_user_order_id (
           id,
           status,
           email,

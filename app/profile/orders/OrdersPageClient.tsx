@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUserStore } from "@/lib/userStore";
 import { toUSD } from "@/lib/utils";
 import { canOrderBePaid, getOrderPaymentAmount, type OrderWithAdminOrder } from "@/lib/utils/orderHelpers";
+import { RefundStatusBadge } from "@/app/components/custom-ui/RefundStatusBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
@@ -27,6 +28,9 @@ interface AdminOrderInfo {
   admin_price: number | null;
   currency: string;
   payment_status?: string | null;
+  refund_status?: string | null;
+  requested_refund_amount?: number | null;
+  approved_refund_amount?: number | null;
   [key: string]: unknown;
 }
 
@@ -93,7 +97,10 @@ export default function OrdersPageClient(): React.ReactElement {
             status,
             admin_price,
             currency,
-            payment_status
+            payment_status,
+            refund_status,
+            requested_refund_amount,
+            approved_refund_amount
           )
         `)
         .eq('user_id', user.id)
@@ -299,13 +306,22 @@ export default function OrdersPageClient(): React.ReactElement {
     const statusInfo = ORDER_STATUS_MAP[status] || ORDER_STATUS_MAP.pending;
     
     return (
-      <Badge 
-        variant="outline" 
-        className={`${statusInfo.style} border font-medium`}
-        title={statusInfo.description}
-      >
-        {statusInfo.text}
-      </Badge>
+      <div className="flex flex-col gap-1">
+        <Badge 
+          variant="outline" 
+          className={`${statusInfo.style} border font-medium`}
+          title={statusInfo.description}
+        >
+          {statusInfo.text}
+        </Badge>
+        <RefundStatusBadge 
+          refundStatus={adminOrder?.refund_status || null}
+          paymentStatus={adminOrder?.payment_status || undefined}
+          requestedAmount={adminOrder?.requested_refund_amount || undefined}
+          approvedAmount={adminOrder?.approved_refund_amount || undefined}
+          showDetails={false}
+        />
+      </div>
     );
   };
 

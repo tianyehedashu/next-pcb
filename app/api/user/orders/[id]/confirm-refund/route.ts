@@ -13,24 +13,54 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // 获取订单详细信息，包括所有退款相关字段和用户邮箱
+  // 首先验证用户是否有权限访问这个订单
+  const { data: userOrder, error: userOrderError } = await supabase
+    .from('pcb_quotes')
+    .select('id, user_id, email')
+    .eq('id', orderId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (userOrderError || !userOrder) {
+    console.error('User order not found or no permission:', { 
+      orderId, 
+      userId: user.id, 
+      error: userOrderError?.message || userOrderError,
+      details: userOrderError?.details || 'No additional details'
+    });
+    return NextResponse.json({ 
+      error: 'Order not found or you do not have permission to access it',
+      debug: process.env.NODE_ENV === 'development' ? { orderId, userId: user.id } : undefined
+    }, { status: 404 });
+  }
+
+  // 获取对应的管理员订单信息，包括所有退款相关字段
   const { data: orderData, error: orderError } = await supabase
     .from('admin_orders')
     .select(`
-      id, refund_status, approved_refund_amount, refund_reason, refund_request_at, requested_refund_amount,
-      pcb_quotes!admin_orders_user_order_id_fkey(email)
+      id, refund_status, approved_refund_amount, refund_reason, refund_request_at, requested_refund_amount
     `)
     .eq('user_order_id', orderId)
     .single();
 
   if (orderError || !orderData) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    console.error('Admin order not found:', { 
+      orderId, 
+      error: orderError?.message || orderError,
+      details: orderError?.details || 'No additional details'
+    });
+    return NextResponse.json({ 
+      error: 'Admin order not found. This order may not have been processed by our team yet.',
+      debug: process.env.NODE_ENV === 'development' ? { 
+        orderId,
+        hasUserOrder: !!userOrder,
+        errorDetails: orderError
+      } : undefined
+    }, { status: 404 });
   }
 
   const adminOrder = orderData;
-  const userEmail = Array.isArray(orderData.pcb_quotes) 
-    ? orderData.pcb_quotes[0]?.email 
-    : orderData.pcb_quotes?.email;
+  const userEmail = userOrder.email;
 
   if (adminOrder.refund_status !== 'pending_confirmation') {
     return NextResponse.json(

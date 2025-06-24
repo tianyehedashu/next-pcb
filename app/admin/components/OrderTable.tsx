@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { RefundStatusBadge } from '@/app/components/custom-ui/RefundStatusBadge';
 
 interface OrderTableProps {
   data: Order[];
@@ -170,6 +171,8 @@ export function OrderTable({
               <th className="py-3 px-2 text-left font-semibold text-gray-700">PCB Lead Time</th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">PCB Status</th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">Admin Order Status</th>
+              <th className="py-3 px-2 text-left font-semibold text-gray-700">Payment Status</th>
+              <th className="py-3 px-2 text-left font-semibold text-gray-700">Refund Status</th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">Admin Order Price</th>
               <th className="py-3 px-2 text-left font-semibold text-gray-700">Admin Order Lead Time</th>
               <th 
@@ -187,7 +190,7 @@ export function OrderTable({
           <tbody>
             {data.length === 0 ? (
               <tr>
-                <td colSpan={13} className="py-8 text-center text-gray-400">No orders found.</td>
+                <td colSpan={15} className="py-8 text-center text-gray-400">No orders found.</td>
               </tr>
             ) : data.map(order => (
               <tr key={order.id} className="hover:bg-gray-50 transition-all border-b border-gray-100">
@@ -217,6 +220,28 @@ export function OrderTable({
                 <td className="py-2 px-2">{getPcbLeadTime(order)}</td>
                 <td className="py-2 px-2">{order.status}</td>
                 <td className="py-2 px-2">{getAdminOrderStatus(order)}</td>
+                <td className="py-2 px-2">
+                  {order.admin_orders?.payment_status ? (
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      order.admin_orders.payment_status === 'paid' 
+                        ? 'bg-green-100 text-green-800'
+                        : order.admin_orders.payment_status === 'unpaid'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {order.admin_orders.payment_status}
+                    </span>
+                  ) : '-'}
+                </td>
+                <td className="py-2 px-2">
+                  <RefundStatusBadge 
+                    refundStatus={order.admin_orders?.refund_status || null}
+                    paymentStatus={order.admin_orders?.payment_status || undefined}
+                    requestedAmount={order.admin_orders?.requested_refund_amount || undefined}
+                    approvedAmount={order.admin_orders?.approved_refund_amount || undefined}
+                    showDetails={false}
+                  />
+                </td>
                 <td className="py-2 px-2">{getAdminOrderPrice(order)}</td>
                 <td className="py-2 px-2">{getAdminOrderLeadTime(order)}</td>
                 <td className="py-2 px-2 text-gray-500">{order.created_at ? format(new Date(order.created_at), 'yyyy-MM-dd HH:mm:ss') : '-'}</td>
