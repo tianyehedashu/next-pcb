@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
-import { notifyAdminRefundConfirmed } from '@/lib/email/admin-notifications';
+import { notifyAdminRefundConfirmed, notifyAdminRefundCancelled } from '@/lib/email/admin-notifications';
 
 export async function POST(
   request: NextRequest,
@@ -100,15 +100,31 @@ export async function POST(
 
   } else if (action === 'cancel') {
     // 用户取消退款请求，完全重置退款状态
+    const cancellationTime = new Date().toISOString();
     updateData = {
       refund_status: null, // Reset the refund status
       approved_refund_amount: null,
       refund_reason: null,
       refund_request_at: null,
       refund_note: `User cancelled refund request on ${new Date().toLocaleDateString()}`,
-      updated_at: new Date().toISOString(),
+      updated_at: cancellationTime,
     };
     successMessage = 'Refund request has been cancelled successfully. You can request a new refund if needed.';
+    
+    // 发送邮件通知管理员用户已取消退款
+    if (userEmail && adminOrder.approved_refund_amount) {
+      try {
+        await notifyAdminRefundCancelled(
+          orderId,
+          userEmail,
+          adminOrder.approved_refund_amount,
+          cancellationTime
+        );
+      } catch (emailError) {
+        console.error('Failed to send admin notification for refund cancellation:', emailError);
+        // 不要因为邮件发送失败而让整个请求失败
+      }
+    }
   } else {
     return NextResponse.json({ error: 'Invalid action. Must be "confirm" or "cancel"' }, { status: 400 });
   }
