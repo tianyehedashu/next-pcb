@@ -190,20 +190,48 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  // Check for payment pending notification
+  // Check for payment related notifications
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    
     if (urlParams.get('payment_pending') === 'true') {
       toast({
         title: "支付已提交",
-        description: "支付已成功提交，订单状态更新可能需要几分钟时间。如果状态长时间未更新，请点击刷新按钮。",
-        duration: 8000,
+        description: "支付已成功提交，订单状态更新可能需要几分钟时间。查看所有订单的最新状态，请前往订单列表。",
+        duration: 10000,
+        action: (
+          <button
+            onClick={() => router.push('/profile/orders?from_payment=true')}
+            className="px-3 py-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            查看订单列表
+          </button>
+        ),
       });
-      // Clear the URL parameter
+    }
+    
+    if (urlParams.get('payment_completed') === 'true') {
+      toast({
+        title: "支付已完成",
+        description: "订单支付已确认！您可以在订单列表中查看所有订单的最新状态。",
+        duration: 8000,
+        action: (
+          <button
+            onClick={() => router.push('/profile/orders?from_payment=true')}
+            className="px-3 py-2 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+          >
+            查看订单列表
+          </button>
+        ),
+      });
+    }
+    
+    // Clear the URL parameters
+    if (urlParams.get('payment_pending') || urlParams.get('payment_completed')) {
       const newUrl = window.location.pathname;
       window.history.replaceState({}, '', newUrl);
     }
-  }, [toast]);
+  }, [toast, router]);
   const [order, setOrder] = useState<Order | null>(null);
   const [pcbFormData, setPcbFormData] = useState<QuoteFormData | null>(null);
   const [loading, setLoading] = useState(true);

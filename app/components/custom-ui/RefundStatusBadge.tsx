@@ -73,10 +73,10 @@ export function RefundStatusBadge({
         };
       case 'processed':
         return {
-          label: 'Processed',
-          emoji: '✅',
-          bgColor: 'bg-green-100',
-          textColor: 'text-green-800',
+          label: 'Refunded',
+          emoji: '💰',
+          bgColor: 'bg-emerald-100',
+          textColor: 'text-emerald-800',
           description: 'Refund completed successfully'
         };
       default:

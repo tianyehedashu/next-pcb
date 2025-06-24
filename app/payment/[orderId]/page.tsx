@@ -51,7 +51,7 @@ export default function PaymentPage() {
         const currentAdminOrder = getAdminOrder(data);
         
         if (currentAdminOrder?.payment_status === 'paid') {
-          router.push(`/profile/orders/${orderId}`);
+          router.push(`/profile/orders/${orderId}?payment_completed=true`);
           return;
         }
 
@@ -77,7 +77,7 @@ export default function PaymentPage() {
   }, [orderId, router]);
 
   const handlePaymentSuccess = () => {
-    router.push(`/profile/orders/${orderId}`);
+    router.push(`/profile/orders/${orderId}?payment_pending=true`);
   }
 
   const handlePaymentError = (errorMessage: string) => {

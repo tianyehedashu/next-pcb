@@ -52,11 +52,13 @@ const ORDER_STATUS_MAP: Record<string, { text: string; style: string; descriptio
   'quoted': { text: "Quoted", style: "bg-green-100 text-green-800 border-green-200", description: "Quote provided" },
   'reviewed': { text: "Reviewed", style: "bg-green-100 text-green-800 border-green-200", description: "Admin reviewed and approved" },
   'confirmed': { text: "Confirmed", style: "bg-indigo-100 text-indigo-800 border-indigo-200", description: "Order confirmed" },
+  'paid': { text: "Paid", style: "bg-emerald-100 text-emerald-800 border-emerald-200", description: "Payment completed, ready for production" },
   'in_production': { text: "In Production", style: "bg-blue-100 text-blue-800 border-blue-200", description: "PCBs being manufactured" },
   'shipped': { text: "Shipped", style: "bg-cyan-100 text-cyan-800 border-cyan-200", description: "Order shipped" },
   'delivered': { text: "Delivered", style: "bg-emerald-100 text-emerald-800 border-emerald-200", description: "Order delivered" },
   'completed': { text: "Completed", style: "bg-green-100 text-green-800 border-green-200", description: "Order completed" },
   'cancelled': { text: "Cancelled", style: "bg-red-100 text-red-800 border-red-200", description: "Order cancelled" },
+  'refunded': { text: "Refunded", style: "bg-purple-100 text-purple-800 border-purple-200", description: "Order refunded" },
 };
 
 export default function OrdersPageClient(): React.ReactElement {
@@ -119,6 +121,30 @@ export default function OrdersPageClient(): React.ReactElement {
   useEffect(() => {
     fetchOrders();
   }, [user?.id]);
+
+  // 检查是否从支付页面返回，如果是则定期刷新状态
+  useEffect(() => {
+    const fromPayment = searchParams.get('from_payment');
+    
+    if (fromPayment === 'true') {
+      // 从URL中移除参数
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('from_payment');
+      router.replace(`/profile/orders?${newParams.toString()}`);
+      
+      // 设置定期刷新，直到状态更新
+      const intervalId = setInterval(() => {
+        fetchOrders();
+      }, 3000); // 每3秒刷新一次
+      
+      // 30秒后停止自动刷新
+      setTimeout(() => {
+        clearInterval(intervalId);
+      }, 30000);
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [searchParams, router]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -302,8 +328,20 @@ export default function OrdersPageClient(): React.ReactElement {
 
   const renderOrderStatus = (order: OrderListItem) => {
     const adminOrder = getAdminOrderInfo(order);
-    const status = adminOrder?.status || order.status || 'pending';
-    const statusInfo = ORDER_STATUS_MAP[status] || ORDER_STATUS_MAP.pending;
+    
+    // 优先使用同步后的用户订单状态，如果没有则使用管理员订单状态
+    let displayStatus = order.status || 'pending';
+    
+    // 如果退款已完成，显示为退款状态
+    if (adminOrder?.refund_status === 'processed') {
+      displayStatus = 'refunded';
+    }
+    // 如果管理员订单存在且已付款，确保显示正确的状态
+    else if (adminOrder?.payment_status === 'paid' && displayStatus === 'pending') {
+      displayStatus = 'paid';
+    }
+    
+    const statusInfo = ORDER_STATUS_MAP[displayStatus] || ORDER_STATUS_MAP.pending;
     
     return (
       <div className="flex flex-col gap-1">
@@ -314,13 +352,21 @@ export default function OrdersPageClient(): React.ReactElement {
         >
           {statusInfo.text}
         </Badge>
-        <RefundStatusBadge 
-          refundStatus={adminOrder?.refund_status || null}
-          paymentStatus={adminOrder?.payment_status || undefined}
-          requestedAmount={adminOrder?.requested_refund_amount || undefined}
-          approvedAmount={adminOrder?.approved_refund_amount || undefined}
-          showDetails={false}
-        />
+        {adminOrder?.payment_status === 'paid' && displayStatus !== 'refunded' && displayStatus !== 'paid' && (
+          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs">
+            Paid
+          </Badge>
+        )}
+        {/* 只在非已退款状态下显示退款徽章 */}
+        {displayStatus !== 'refunded' && (
+          <RefundStatusBadge 
+            refundStatus={adminOrder?.refund_status || null}
+            paymentStatus={adminOrder?.payment_status || undefined}
+            requestedAmount={adminOrder?.requested_refund_amount || undefined}
+            approvedAmount={adminOrder?.approved_refund_amount || undefined}
+            showDetails={false}
+          />
+        )}
       </div>
     );
   };
