@@ -15,20 +15,29 @@
    Could not find the 'refund_request_at' column of 'admin_orders' in the schema cache
    ```
 
-## 数据库现状分析
+## 数据库现状分析（基于实际表结构）
 
-根据检查，当前数据库已有基础字段：
-- `payment_status` - 包含 'refunded' 状态
-- `order_status` - 订单整体状态
+### ✅ **admin_orders 表已存在的退款相关字段**
+- `refund_status` (text) - 退款状态
+- `requested_refund_amount` (numeric) - 请求退款金额  
+- `approved_refund_amount` (numeric) - 批准退款金额
+- `payment_status` (varchar(32)) - 支付状态（支持'refunded'）
+- `payment_method` (text) - 支付方式
 
-**缺失的退款管理字段**（已通过脚本添加）：
-- 退款请求和审批流程字段
-- 详细的时间跟踪字段
-- Stripe集成相关字段
+### ❌ **缺失的退款管理字段**（需要添加）
+- `refund_request_at` - 退款请求时间
+- `actual_refund_amount` - 实际退款金额
+- `refund_processed_at` - 退款处理时间
+- `user_refund_confirmation_at` - 用户确认时间
+- `refunded_at` - 退款完成时间
+- `refund_note` - 退款备注
+- `refund_reason` - 退款原因
+- `stripe_refund_id` - Stripe退款ID
+- `order_status` - 订单状态（用于退款策略）
 
 ## 修复方案
 
-### 1. API 文件修复 (Next.js 15 兼容)
+### 1. API 文件修复 (Next.js 15 兼容) ✅
 
 修复了以下 API 文件中的异步 params 问题：
 
@@ -50,48 +59,50 @@ const orderId = params.id;
 const { id: orderId } = await params;
 ```
 
-### 2. 数据库结构完善
+### 2. 数据库结构补充
 
-创建了 `scripts/add_refund_fields_to_admin_orders.sql` 脚本，智能添加以下退款管理字段：
+创建了 `scripts/add_refund_fields_to_admin_orders.sql` 脚本，智能添加缺失的退款管理字段：
 
-#### 核心退款字段
-- `refund_status` - 退款状态 (VARCHAR(50))
-- `refund_request_at` - 退款请求时间 (TIMESTAMP)
-- `requested_refund_amount` - 请求退款金额 (DECIMAL(10,2))
-- `approved_refund_amount` - 批准退款金额 (DECIMAL(10,2))
+#### 新增时间跟踪字段
+- `refund_request_at` - 退款请求时间 (TIMESTAMP WITH TIME ZONE)
+- `user_refund_confirmation_at` - 用户确认时间 (TIMESTAMP WITH TIME ZONE)
+- `refund_processed_at` - 处理开始时间 (TIMESTAMP WITH TIME ZONE)
+- `refunded_at` - 退款完成时间 (TIMESTAMP WITH TIME ZONE)
 
-#### 处理流程字段
-- `user_refund_confirmation_at` - 用户确认时间 (TIMESTAMP)
-- `refund_processed_at` - 处理开始时间 (TIMESTAMP)
-- `refunded_at` - 退款完成时间 (TIMESTAMP)
-- `actual_refund_amount` - 实际退款金额 (DECIMAL(10,2))
+#### 新增金额字段
+- `actual_refund_amount` - 实际退款金额 (NUMERIC)
 
-#### 辅助信息字段
+#### 新增信息字段
 - `refund_reason` - 退款原因 (TEXT)
 - `refund_note` - 退款备注 (TEXT)
-- `stripe_refund_id` - Stripe退款ID (VARCHAR(255))
+- `stripe_refund_id` - Stripe退款ID (TEXT)
+- `order_status` - 订单状态，用于退款策略 (VARCHAR(32))
 
-#### 兼容性保证
-- 脚本使用 `IF NOT EXISTS` 检查，避免重复创建
-- 兼容现有的 `payment_status` 和 `order_status` 字段
-- 自动创建适当的索引和约束
+#### 脚本特点
+- ✅ 检测现有字段，避免重复创建
+- ✅ 使用与现有表一致的数据类型 (NUMERIC, TEXT, VARCHAR(32))
+- ✅ 兼容现有索引结构
+- ✅ 智能跳过已存在的字段
 
 ## 完整退款状态流程
 
-### 退款状态 (refund_status)
+### 退款状态流转 (refund_status)
 1. **null** - 无退款请求
 2. **requested** - 用户已请求退款
-3. **pending_confirmation** - 管理员已批准，等待用户确认
+3. **pending_confirmation** - 管理员已批准，等待用户确认  
 4. **approved** - 管理员批准（备用状态）
 5. **rejected** - 管理员拒绝
 6. **processing** - 用户已确认，等待Stripe处理
 7. **processed** - Stripe退款完成
 
-### 支付状态 (payment_status)
+### 支付状态更新 (payment_status)
 - **paid** → **refunded** (退款完成后更新)
 
-### 订单状态 (order_status)
-- 保持原有状态或更新为 **refunded**
+### 订单状态 (order_status) - 用于退款策略判断
+- **paid** - 已支付 (95% 退款)
+- **in_production** - 生产中 (50% 退款)
+- **shipped** - 已发货 (0% 退款)
+- **completed** - 已完成 (0% 退款)
 
 ## 执行修复
 
@@ -116,40 +127,44 @@ const { id: orderId } = await params;
 
 ### 数据库验证
 ```sql
--- 检查退款相关字段
+-- 检查新增的退款相关字段
 SELECT column_name, data_type, is_nullable 
 FROM information_schema.columns 
 WHERE table_name = 'admin_orders' 
-  AND column_name LIKE '%refund%';
+  AND column_name IN (
+    'refund_request_at', 'actual_refund_amount', 'refund_processed_at',
+    'user_refund_confirmation_at', 'refunded_at', 'refund_note',
+    'refund_reason', 'stripe_refund_id', 'order_status'
+  );
 ```
 
 ### 功能测试流程
-1. 用户请求退款 → `refund_status: 'requested'`
-2. 管理员审批 → `refund_status: 'pending_confirmation'`
-3. 用户确认 → `refund_status: 'processing'`
-4. Stripe处理 → `refund_status: 'processed'`, `payment_status: 'refunded'`
+1. **用户请求** → `refund_status: 'requested'`, `refund_request_at: now()`
+2. **管理员批准** → `refund_status: 'pending_confirmation'`, `approved_refund_amount: X`
+3. **用户确认** → `refund_status: 'processing'`, `user_refund_confirmation_at: now()`
+4. **Stripe处理** → `refund_status: 'processed'`, `payment_status: 'refunded'`, `refunded_at: now()`
 
 ## 技术特点
 
-### 安全性
-- 所有字段默认值为 NULL，不影响现有数据
-- 使用事务性脚本，确保数据一致性
-- 完整的错误处理和回滚机制
+### 数据一致性
+- 使用现有表的数据类型规范 (NUMERIC 而非 DECIMAL)
+- 遵循现有字段命名约定
+- 与现有 UUID 主键和约束兼容
 
 ### 性能优化
-- 为关键字段创建索引
-- 避免重复字段创建
-- 优化查询性能
+- 仅为新增字段创建必要索引
+- 复用现有的 payment_status 索引
+- 避免重复索引创建
 
-### 扩展性
-- 支持未来的退款政策调整
-- 完整的审计跟踪
-- 兼容多种支付平台
+### 安全性
+- 所有新字段默认值为 NULL，不影响现有数据
+- 幂等性脚本，可安全重复执行
+- 完整的字段检查和错误处理
 
 ## 注意事项
 
-- ✅ 生产环境执行前请备份数据库
-- ✅ 所有API现在兼容 Next.js 15
-- ✅ 数据库字段设计支持完整的退款工作流程  
-- ✅ 包含适当的索引和约束确保数据完整性
-- ✅ 脚本具有幂等性，可安全重复执行 
+- ✅ **兼容性确认**：基于实际表结构设计，完全兼容
+- ✅ **生产安全**：新字段不影响现有功能，可安全部署
+- ✅ **Next.js 15 兼容**：所有API已修复异步params问题
+- ✅ **完整工作流**：支持从请求到完成的全流程退款管理
+- ✅ **Stripe集成**：包含完整的第三方支付跟踪字段 

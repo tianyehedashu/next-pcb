@@ -14,20 +14,12 @@ import {
 } from 'lucide-react';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 import OrderStepBar from '@/components/ui/OrderStepBar';
+import { RefundStatusBadge, RefundDetails } from '@/app/components/custom-ui/RefundStatusBadge';
+import { RefundActionButtons } from '@/app/components/custom-ui/RefundActionButtons';
 import { supabase } from '@/lib/supabaseClient';
 import { useUserStore } from "@/lib/userStore";
 import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+
 import { useToast } from '@/components/ui/use-toast';
 import { AddressFormComponent, AddressFormValue } from '@/app/quote2/components/AddressFormComponent';
 import { PCBSpecificationDisplay } from '@/app/components/custom-ui/PCBSpecificationDisplay';
@@ -65,13 +57,20 @@ interface CalValues {
 interface AdminOrder {
   id: string;
   payment_status?: string | null;
-  order_status?: string | null;
+  status?: string | null;
   refund_status?: string | null;
+  requested_refund_amount?: number | null;
   approved_refund_amount?: number | null;
+  actual_refund_amount?: number | null;
   refund_reason?: string | null;
+  refund_note?: string | null;
+  refund_request_at?: string | null;
+  user_refund_confirmation_at?: string | null;
+  refund_processed_at?: string | null;
+  refunded_at?: string | null;
+  stripe_refund_id?: string | null;
   admin_price?: number | null;
   currency?: string | null;
-  status?: string | null;
   delivery_date?: string | null;
   admin_note?: string | null;
   pcb_price?: number | null;
@@ -210,8 +209,7 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const user = useUserStore((state) => state.user);
-  const [isRefunding, setIsRefunding] = useState(false);
-  const [isConfirmingRefund, setIsConfirmingRefund] = useState(false);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [paymentIntentStatus, setPaymentIntentStatus] = useState<{
     hasPaymentIntent: boolean;
@@ -408,62 +406,6 @@ export default function OrderDetailPage() {
   const adminOrder = Array.isArray(order?.admin_orders) 
     ? order?.admin_orders?.[0] 
     : order?.admin_orders;
-  const canRequestRefund = adminOrder?.payment_status === 'paid' && (!adminOrder.refund_status || adminOrder.refund_status === 'rejected');
-
-  const handleRefundRequest = async () => {
-    setIsRefunding(true);
-    try {
-      const response = await fetch(`/api/user/orders/${orderId}/request-refund`, {
-        method: 'POST',
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to request refund.');
-      }
-      toast({
-        title: 'Refund Request Submitted',
-        description: 'Your refund request has been submitted for admin review.',
-      });
-      fetchOrderData();
-    } catch (err: Error | unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsRefunding(false);
-    }
-  };
-
-  const handleRefundConfirmation = async (action: 'confirm' | 'cancel') => {
-    setIsConfirmingRefund(true);
-    try {
-      const response = await fetch(`/api/user/orders/${orderId}/confirm-refund`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to process your request.');
-      
-      toast({
-        title: 'Success',
-        description: data.message,
-      });
-      fetchOrderData();
-    } catch (err: Error | unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsConfirmingRefund(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -570,6 +512,13 @@ export default function OrderDetailPage() {
               Paid
             </Badge>
           )}
+          <RefundStatusBadge 
+            refundStatus={adminOrder?.refund_status || null} 
+            paymentStatus={adminOrder?.payment_status || undefined}
+            requestedAmount={adminOrder?.requested_refund_amount || undefined}
+            approvedAmount={adminOrder?.approved_refund_amount || undefined}
+            showDetails={false}
+          />
           <Button
             variant="outline"
             size="sm"
@@ -813,57 +762,15 @@ export default function OrderDetailPage() {
                   ) : null}
 
                   {/* Refund Actions */}
-                  {(canRequestRefund || adminOrder?.refund_status === 'pending_confirmation') && (
-                    <div className="mt-3 pt-3 border-t">
-                      {canRequestRefund && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" className="w-full" disabled={isRefunding}>
-                              Request Refund
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Request Refund</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will submit a refund request for administrator review.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleRefundRequest} disabled={isRefunding}>
-                                {isRefunding ? 'Submitting...' : 'Yes, Request Refund'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                      
-                      {adminOrder?.refund_status === 'pending_confirmation' && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
-                          <h4 className="font-semibold text-blue-800 mb-2">Confirm Your Refund</h4>
-                          <p className="text-sm text-blue-700 mb-2">Amount: ${adminOrder.approved_refund_amount?.toFixed(2)}</p>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRefundConfirmation('cancel')}
-                              disabled={isConfirmingRefund}
-                            >
-                              Cancel Request
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleRefundConfirmation('confirm')}
-                              disabled={isConfirmingRefund}
-                            >
-                              {isConfirmingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm Refund'}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <div className="mt-3 pt-3 border-t">
+                    <RefundActionButtons
+                      orderId={order.id}
+                      refundStatus={adminOrder?.refund_status || null}
+                      paymentStatus={adminOrder?.payment_status || ''}
+                      approvedAmount={adminOrder?.approved_refund_amount || undefined}
+                      onRefundStatusChange={fetchOrderData}
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -871,6 +778,22 @@ export default function OrderDetailPage() {
 
           {/* Order Details Row */}
           <div className="space-y-6">
+            {/* Refund Details */}
+            <RefundDetails
+              refundStatus={adminOrder?.refund_status || null}
+              paymentStatus={adminOrder?.payment_status || undefined}
+              requestedAmount={adminOrder?.requested_refund_amount || undefined}
+              approvedAmount={adminOrder?.approved_refund_amount || undefined}
+              actualRefundAmount={adminOrder?.actual_refund_amount || undefined}
+              refundReason={adminOrder?.refund_reason || undefined}
+              refundNote={adminOrder?.refund_note || undefined}
+              refundRequestAt={adminOrder?.refund_request_at || undefined}
+              userRefundConfirmationAt={adminOrder?.user_refund_confirmation_at || undefined}
+              refundProcessedAt={adminOrder?.refund_processed_at || undefined}
+              refundedAt={adminOrder?.refunded_at || undefined}
+              stripeRefundId={adminOrder?.stripe_refund_id || undefined}
+            />
+
             {/* PCB Specifications */}
             <PCBSpecificationDisplay pcbFormData={pcbFormData} />
 

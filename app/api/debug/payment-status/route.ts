@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         id: adminOrder.id,
         status: adminOrder.status,
         payment_status: adminOrder.payment_status,
-        order_status: adminOrder.order_status,
+        order_status: adminOrder.status,
         admin_price: adminOrder.admin_price,
         currency: adminOrder.currency,
         payment_method: adminOrder.payment_method,

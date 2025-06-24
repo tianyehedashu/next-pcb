@@ -12,7 +12,6 @@ export interface AdminOrder {
   delivery_date: string | null;
   admin_note: string | null;
   payment_status?: string | null;
-  order_status?: string | null;
   payment_intent_id?: string | null;
   payment_method?: string | null;
   paid_at?: string | null;
@@ -96,7 +95,7 @@ export function getOrderPaymentStatus(order: OrderWithAdminOrder): string {
  */
 export function getOrderStatus(order: OrderWithAdminOrder): string {
   const adminOrder = getAdminOrder(order);
-  return adminOrder?.order_status || 'pending_review';
+  return adminOrder?.status || 'pending_review';
 }
 
 /**
