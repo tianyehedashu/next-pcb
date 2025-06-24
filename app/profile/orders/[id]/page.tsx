@@ -8,9 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
-  Pencil, DollarSign, MapPin, FileText, AlertCircle, 
+  Pencil, DollarSign, MapPin, AlertCircle, 
   ArrowLeft, CheckCircle, Truck, AlertTriangle, CreditCard, Info, Loader2,
-  Shield, Download, Phone, Mail
+  Shield, Download, Phone, Mail, RefreshCw
 } from 'lucide-react';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 import OrderStepBar from '@/components/ui/OrderStepBar';
@@ -63,7 +63,7 @@ interface CalValues {
 
 // Define more specific types
 interface AdminOrder {
-  id: number;
+  id: string;
   payment_status?: string | null;
   order_status?: string | null;
   refund_status?: string | null;
@@ -101,7 +101,7 @@ interface Order {
   user_name: string | null;
   cal_values?: CalValues | null;
   payment_intent_id?: string | null;
-  admin_orders: AdminOrder[];
+  admin_orders: AdminOrder | AdminOrder[] | null;
 }
 
 // Order status mapping with English labels
@@ -190,6 +190,21 @@ export default function OrderDetailPage() {
   const orderId = params?.id as string;
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Check for payment pending notification
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment_pending') === 'true') {
+      toast({
+        title: "支付已提交",
+        description: "支付已成功提交，订单状态更新可能需要几分钟时间。如果状态长时间未更新，请点击刷新按钮。",
+        duration: 8000,
+      });
+      // Clear the URL parameter
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [toast]);
   const [order, setOrder] = useState<Order | null>(null);
   const [pcbFormData, setPcbFormData] = useState<QuoteFormData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -197,6 +212,36 @@ export default function OrderDetailPage() {
   const user = useUserStore((state) => state.user);
   const [isRefunding, setIsRefunding] = useState(false);
   const [isConfirmingRefund, setIsConfirmingRefund] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [paymentIntentStatus, setPaymentIntentStatus] = useState<{
+    hasPaymentIntent: boolean;
+    stripeStatus?: string;
+    isPaid?: boolean;
+    needsSync?: boolean;
+  } | null>(null);
+  // Function to check payment intent status (only when manually triggered)
+  const checkPaymentIntentStatus = useCallback(async () => {
+    if (!orderId) return;
+    
+    try {
+      const response = await fetch(`/api/payment/check-intent?orderId=${orderId}`);
+      if (response.ok) {
+        const status = await response.json();
+        setPaymentIntentStatus(status);
+        
+        // If payment is confirmed in Stripe but not in DB, show a message
+        if (status.needsSync) {
+          toast({
+            title: "支付已确认",
+            description: "支付已在Stripe确认，正在同步订单状态...",
+            duration: 5000,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking payment intent status:', error);
+    }
+  }, [orderId, toast]);
 
   // Edit states
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -207,77 +252,73 @@ export default function OrderDetailPage() {
   });
   const [editedPhone, setEditedPhone] = useState('');
 
-  // Fetch order details
-  const fetchOrder = useCallback(async () => {
-    if (!orderId || !user) return;
+  // Function to fetch order data
+  const fetchOrderData = useCallback(async (showLoading = true) => {
+    if (!orderId) return;
+    
+    if (showLoading) setLoading(true);
+    setError(null);
     
     try {
-      setLoading(true);
-      
-      const { data: orderData, error: orderError } = await supabase
-        .from('pcb_quotes')
-        .select('*')
-        .eq('id', orderId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (orderError) throw orderError;
-      if (!orderData) throw new Error('Order not found');
-      
-      const { data: adminOrderData, error: adminOrderError } = await supabase
-        .from('admin_orders')
-        .select('*')
-        .eq('user_order_id', orderId)
-        .maybeSingle();
-
-      if (adminOrderError && adminOrderError.code !== 'PGRST116') {
-        console.warn('Error fetching admin order:', adminOrderError);
+      const response = await fetch(`/api/user/orders/${orderId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch order data');
       }
 
-      const combinedOrder: Order = {
-        ...orderData,
-        admin_orders: adminOrderData ? [adminOrderData] : []
-      };
-      
-      setOrder(combinedOrder);
+      const orderData: Order = await response.json();
+      setOrder(orderData);
 
+      // Convert pcb_spec to QuoteFormData for display
       if (orderData.pcb_spec) {
         try {
-          const result = quoteSchema.safeParse(orderData.pcb_spec);
-          if (result.success) {
-            setPcbFormData(result.data);
-          } else {
-            console.warn('PCB spec validation failed:', result.error);
-            setPcbFormData(orderData.pcb_spec as QuoteFormData);
+          const parsedSpec = quoteSchema.safeParse(orderData.pcb_spec);
+          if (parsedSpec.success) {
+            setPcbFormData(parsedSpec.data);
           }
         } catch (err) {
           console.warn('Failed to parse PCB spec:', err);
-          setPcbFormData(orderData.pcb_spec as QuoteFormData);
         }
       }
-
-      setEditedAddress(orderData.shipping_address || {});
-      setEditedPhone(orderData.phone || '');
-      
-    } catch (err: Error | unknown) {
+    } catch (err) {
       console.error('Error fetching order:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
-      toast({
-        title: 'Error Fetching Order',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      setError(err instanceof Error ? err.message : 'Failed to load order data');
     } finally {
       setLoading(false);
     }
-  }, [orderId, user, toast]);
+  }, [orderId]);
 
+  // Initial load
   useEffect(() => {
     if (user) {
-      fetchOrder();
+      fetchOrderData();
     }
-  }, [user, fetchOrder]);
+  }, [user, fetchOrderData]);
+
+  // Update edit states when order data changes
+  useEffect(() => {
+    if (order) {
+      setEditedAddress(order.shipping_address || {} as AddressFormValue);
+      setEditedPhone(order.phone || '');
+    }
+  }, [order]);
+
+  // No automatic polling - rely on webhook and manual refresh only
+
+  // Manual refresh function with payment status check
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchOrderData(false);
+    // Also check payment intent status if needed
+    if (order?.payment_intent_id) {
+      await checkPaymentIntentStatus();
+    }
+    setIsRefreshing(false);
+    toast({
+      title: "刷新完成",
+      description: "订单数据已更新",
+    });
+  };
 
   // Check if editing is allowed
   const canEdit = order && ['created', 'pending', 'reviewed'].includes(order.status || '');
@@ -300,7 +341,7 @@ export default function OrderDetailPage() {
         title: 'Success',
         description: 'Order updated successfully'
       });
-      await fetchOrder();
+      await fetchOrderData();
     } catch (err: Error | unknown) {
       console.error('Error updating order:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -363,7 +404,10 @@ export default function OrderDetailPage() {
     }
   };
 
-  const adminOrder = order?.admin_orders?.[0];
+  // Handle both array and object format for admin_orders
+  const adminOrder = Array.isArray(order?.admin_orders) 
+    ? order?.admin_orders?.[0] 
+    : order?.admin_orders;
   const canRequestRefund = adminOrder?.payment_status === 'paid' && (!adminOrder.refund_status || adminOrder.refund_status === 'rejected');
 
   const handleRefundRequest = async () => {
@@ -380,7 +424,7 @@ export default function OrderDetailPage() {
         title: 'Refund Request Submitted',
         description: 'Your refund request has been submitted for admin review.',
       });
-      fetchOrder();
+      fetchOrderData();
     } catch (err: Error | unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       toast({
@@ -408,7 +452,7 @@ export default function OrderDetailPage() {
         title: 'Success',
         description: data.message,
       });
-      fetchOrder();
+      fetchOrderData();
     } catch (err: Error | unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       toast({
@@ -460,7 +504,16 @@ export default function OrderDetailPage() {
   }
 
   const statusInfo = ORDER_STATUS_MAP[order.status || 'created'];
-  const isReadyForPayment = adminOrder && adminOrder.admin_price && adminOrder.status === 'reviewed';
+  
+  // Enhanced payment readiness check
+  const isReadyForPayment = adminOrder && 
+    adminOrder.admin_price && 
+    adminOrder.status === 'reviewed' && 
+    adminOrder.payment_status !== 'paid' && 
+    (!paymentIntentStatus?.hasPaymentIntent || 
+     paymentIntentStatus?.stripeStatus === 'failed' || 
+     paymentIntentStatus?.stripeStatus === 'canceled' ||
+     paymentIntentStatus?.stripeStatus === 'requires_payment_method');
 
   const getCurrentStep = () => {
     const userStatus = order.status || 'created';
@@ -517,6 +570,15 @@ export default function OrderDetailPage() {
               Paid
             </Badge>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
         </div>
       </div>
 
@@ -708,6 +770,21 @@ export default function OrderDetailPage() {
 
                 {/* Action Area */}
                 <div className="border-t pt-3">
+                  {/* Payment status display */}
+                  {paymentIntentStatus?.hasPaymentIntent && paymentIntentStatus?.isPaid && adminOrder?.payment_status !== 'paid' && (
+                    <div className="flex items-center justify-center gap-2 text-blue-700 bg-blue-50 py-3 rounded-lg mb-3">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="font-medium">Payment Confirmed - Updating Status...</span>
+                    </div>
+                  )}
+                  
+                  {paymentIntentStatus?.hasPaymentIntent && !paymentIntentStatus?.isPaid && (
+                    <div className="flex items-center justify-center gap-2 text-amber-700 bg-amber-50 py-3 rounded-lg mb-3">
+                      <AlertTriangle className="h-5 w-5" />
+                      <span className="font-medium">Payment in Progress - Status: {paymentIntentStatus.stripeStatus}</span>
+                    </div>
+                  )}
+
                   {isReadyForPayment && adminOrder?.payment_status !== 'paid' ? (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-green-700 text-sm">
@@ -723,10 +800,15 @@ export default function OrderDetailPage() {
                         Pay Now - {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price?.toFixed(2)}
                       </Button>
                     </div>
-                  ) : adminOrder?.payment_status === 'paid' ? (
+                  ) : adminOrder?.payment_status === 'paid' || paymentIntentStatus?.isPaid ? (
                     <div className="flex items-center justify-center gap-2 text-green-700 bg-green-50 py-3 rounded-lg">
                       <CheckCircle className="h-5 w-5" />
                       <span className="font-medium">Payment Completed</span>
+                    </div>
+                  ) : order.payment_intent_id && !paymentIntentStatus?.isPaid && !isReadyForPayment ? (
+                    <div className="flex items-center justify-center gap-2 text-orange-700 bg-orange-50 py-3 rounded-lg">
+                      <Info className="h-5 w-5" />
+                      <span className="font-medium">Payment Already Initiated</span>
                     </div>
                   ) : null}
 

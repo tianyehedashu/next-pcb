@@ -3,6 +3,7 @@
 
 import type { QuoteFormData as PcbQuoteForm } from '@/app/quote2/schema/quoteSchema';
 import { calculateTotalPcbArea } from './utils/precision';
+import { ProductReport } from '@/types/form';
 // 节假日/周末判断与顺延用到的假期列表
 const holidays = [
   // 示例：2024年五一假期
@@ -151,7 +152,7 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
     reason.push(`Edge plating: +1 day × ${areaFactor} = +${add} days`);
   }
 
-  if (form.productReport && form.productReport.length > 0) {
+  if (form.productReport && form.productReport.length > 0 && !form.productReport.includes(ProductReport.None)) {
     const add = 1 * areaFactor;
     extraDays += add;
     reason.push(`Product report: +1 day × ${areaFactor} = +${add} days`);

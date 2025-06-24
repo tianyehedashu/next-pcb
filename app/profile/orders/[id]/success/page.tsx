@@ -1,107 +1,178 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, ArrowRight, Home, Package } from 'lucide-react';
-import { OrderWithAdminOrder, getAdminOrder, formatOrderPrice } from '@/lib/utils/orderHelpers';
-import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { CheckCircle2, ArrowRight, Package, Download, Calendar } from 'lucide-react';
+import { getAdminOrder, formatOrderPrice, type OrderWithAdminOrder } from '@/lib/utils/orderHelpers';
 
 export default function PaymentSuccessPage() {
+  const router = useRouter();
   const params = useParams();
   const orderId = params.id as string;
-
+  
   const [order, setOrder] = useState<OrderWithAdminOrder | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!orderId) {
-      setError("Order ID not found.");
-      setLoading(false);
-      return;
-    }
-
     const fetchOrder = async () => {
       try {
-        const { data, error } = await supabase
-          .from('pcb_quotes')
-          .select('*, admin_orders(*)')
-          .eq('id', orderId)
-          .single();
+        const { data: { session }, error: authError } = await supabase.auth.getSession();
+        if (authError || !session) {
+          router.push('/auth');
+          return;
+        }
 
-        if (error) throw error;
+        const response = await fetch(`/api/user/orders/${orderId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch order details');
+        }
+
+        const data: OrderWithAdminOrder = await response.json();
         setOrder(data);
       } catch (err) {
-        setError("Failed to fetch order details.");
-        console.error(err);
+        console.error('Error fetching order:', err);
+        // Redirect to order page if there's an error
+        router.push(`/profile/orders/${orderId}`);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOrder();
-  }, [orderId]);
+    if (orderId) {
+      fetchOrder();
+    }
+  }, [orderId, router]);
 
-  const adminOrder = order ? getAdminOrder(order) : null;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return null;
+  }
+
+  const adminOrder = getAdminOrder(order);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl mx-auto">
-        <Card className="shadow-2xl border-0 rounded-2xl bg-white/80 backdrop-blur-xl">
-          <CardHeader className="text-center items-center pt-10">
-            <div className="bg-green-100 p-4 rounded-full mb-4">
-              <CheckCircle className="h-12 w-12 text-green-600" />
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
+      <div className="container mx-auto px-4 py-12">
+        <div className="max-w-2xl mx-auto">
+          {/* Success Header */}
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle2 className="w-10 h-10 text-green-600" />
             </div>
-            <CardTitle className="text-3xl font-bold text-gray-900">Payment Successful!</CardTitle>
-            <p className="text-gray-600 mt-2">Thank you for your order. Your payment has been confirmed.</p>
-          </CardHeader>
-          <CardContent className="p-8">
-            {loading ? (
-              <div className="text-center text-gray-500">Loading order summary...</div>
-            ) : error || !order || !adminOrder ? (
-              <div className="text-center text-red-500">{error || "Could not display order summary."}</div>
-            ) : (
-              <div className="bg-gray-50/80 rounded-xl p-6 border border-gray-100 space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-gray-600">Order ID:</span>
-                  <span className="font-mono text-gray-800">{order.id}</span>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
+            <p className="text-gray-600">Thank you for your order. We'll start processing it right away.</p>
+          </div>
+
+          {/* Order Details Card */}
+          <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm mb-6">
+            <CardHeader className="border-b border-gray-100">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-green-600" />
+                Order Confirmation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Order ID</p>
+                  <p className="text-lg font-mono">#{order.id.slice(0, 8)}...</p>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-gray-600">Amount Paid:</span>
-                  <span className="font-bold text-lg text-green-700">{formatOrderPrice(order)}</span>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Amount Paid</p>
+                  <p className="text-lg font-semibold text-green-600">
+                    {formatOrderPrice(order)}
+                  </p>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-gray-600">Payment Date:</span>
-                  <span className="text-gray-800">{new Date().toLocaleDateString()}</span>
-                </div>
-                {adminOrder.delivery_date && (
-                  <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                    <span className="font-medium text-gray-600">Estimated Delivery:</span>
-                    <span className="text-blue-600 font-semibold">
-                      {new Date(adminOrder.delivery_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                )}
               </div>
-            )}
-            
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Link href={`/profile/orders/${orderId}`} passHref>
-                <Button variant="outline" className="w-full h-12 text-base">
-                  <Package className="mr-2 h-5 w-5" /> View Order Details
-                </Button>
-              </Link>
-              <Link href="/profile/orders" passHref>
-                <Button className="w-full h-12 text-base bg-blue-600 hover:bg-blue-700">
-                  <Home className="mr-2 h-5 w-5" /> All My Orders <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+              
+              {adminOrder?.delivery_date && (
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Expected Delivery</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                    <p className="text-gray-900">
+                      {new Date(adminOrder.delivery_date).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Next Steps */}
+          <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg text-gray-900">What happens next?</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-bold text-green-600">1</span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Production begins</p>
+                  <p className="text-sm text-gray-600">Our team will start manufacturing your PCB according to your specifications.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-bold text-blue-600">2</span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Quality control</p>
+                  <p className="text-sm text-gray-600">We'll perform thorough quality checks before shipping.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-bold text-purple-600">3</span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Shipping & delivery</p>
+                  <p className="text-sm text-gray-600">Your order will be shipped and you'll receive tracking information.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex gap-4">
+            <Button 
+              onClick={() => router.push(`/profile/orders/${orderId}`)}
+              className="flex-1"
+              size="lg"
+            >
+              View Order Details
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+            <Button 
+              onClick={() => router.push('/profile/orders')}
+              variant="outline"
+              className="flex-1"
+              size="lg"
+            >
+              All Orders
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

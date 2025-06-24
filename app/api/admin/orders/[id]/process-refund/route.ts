@@ -5,9 +5,9 @@ import { sendNotificationToUser } from '@/app/api/admin/orders/[id]/admin-order/
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const orderId = params.id;
+  const { id: orderId } = await params;
   const supabase = await createSupabaseServerClient(false);
 
   // 1. Fetch the order details, including payment_intent_id from the user order (pcb_quotes)

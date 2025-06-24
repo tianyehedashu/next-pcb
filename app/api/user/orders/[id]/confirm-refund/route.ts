@@ -3,9 +3,9 @@ import { createSupabaseServerClient } from '@/utils/supabase/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const orderId = params.id;
+  const { id: orderId } = await params;
   const { action } = await request.json(); // action can be 'confirm' or 'cancel'
 
   const supabase = await createSupabaseServerClient(true);

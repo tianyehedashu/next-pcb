@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1: Authenticate the user to get their ID.
-    const supabaseUserClient = await createSupabaseServerClient(true);
+    const supabaseUserClient = await createSupabaseServerClient();
     const {
       data: { user },
       error: authError,
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Use the Supabase admin client to bypass RLS.
     // This is safe because we use the authenticated user's ID to scope all queries.
-    const supabaseAdmin = await createSupabaseServerClient(false);
+    const supabaseAdmin = await createSupabaseServerClient();
 
     // Step 3: Use the admin client for the query, but scoped to the user's ID.
     const { data: quote, error: quoteError } = await supabaseAdmin
@@ -92,10 +92,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 🔍 币种检查：确保订单币种为美元才能支付
-    if (adminOrder.currency !== 'USD') {
+    // Check if payment intent already exists and verify its status
+    if (quote.payment_intent_id) {
+      try {
+        const existingPaymentIntent = await stripe.paymentIntents.retrieve(quote.payment_intent_id);
+        
+        if (existingPaymentIntent.status === 'succeeded') {
+          return NextResponse.json(
+            { error: 'Payment has already been completed successfully' },
+            { status: 400 }
+          );
+        }
+        
+        if (existingPaymentIntent.status === 'processing') {
+          return NextResponse.json(
+            { error: 'Payment is currently being processed. Please wait.' },
+            { status: 400 }
+          );
+        }
+        
+        // If payment intent exists but failed/canceled, we can create a new one
+        if (existingPaymentIntent.status !== 'requires_payment_method' && 
+            existingPaymentIntent.status !== 'canceled') {
+          return NextResponse.json(
+            { error: `Payment intent exists with status: ${existingPaymentIntent.status}. Cannot create new payment.` },
+            { status: 400 }
+          );
+        }
+      } catch (stripeError) {
+        console.error('Error checking existing payment intent:', stripeError);
+        // If we can't verify the existing payment intent, proceed with caution
+        // but log this for monitoring
+      }
+    }
+
+    // Currency validation - normalize and check supported currencies
+    const normalizedAdminCurrency = adminOrder.currency?.toUpperCase() || 'USD';
+    const supportedCurrencies = ['USD', 'CNY'];
+    
+    console.log('Currency check:', {
+      adminOrderCurrency: adminOrder.currency,
+      normalizedAdminCurrency,
+      requestCurrency: currency,
+      supportedCurrencies
+    });
+
+    if (!supportedCurrencies.includes(normalizedAdminCurrency)) {
       return NextResponse.json(
-        { error: `Payment not allowed. Order currency must be USD, current currency: ${adminOrder.currency}` },
+        { error: `Payment not supported for currency: ${normalizedAdminCurrency}. Supported currencies: ${supportedCurrencies.join(', ')}` },
         { status: 400 }
       );
     }
@@ -112,20 +156,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Determine the correct currency for Stripe (convert CNY to USD for Stripe processing)
+    let stripeCurrency = currency.toLowerCase();
+    const stripeAmount = paymentAmount;
+
+    // If admin order is in CNY but we need to process in USD for Stripe
+    if (normalizedAdminCurrency === 'CNY') {
+      // For now, keep CNY as CNY since Stripe supports it
+      // In the future, you might want to convert to USD using exchange rates
+      stripeCurrency = 'cny';
+    } else {
+      stripeCurrency = 'usd';
+    }
+
+    console.log('Stripe payment details:', {
+      stripeCurrency,
+      stripeAmount,
+      amountInCents: Math.round(stripeAmount * 100)
+    });
+
     // Create payment intent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(paymentAmount * 100), // Convert to cents
-      currency: currency.toLowerCase(),
+      amount: Math.round(stripeAmount * 100), // Convert to cents
+      currency: stripeCurrency,
       metadata: {
         orderId: orderId,
         adminOrderId: adminOrder.id.toString(),
         userId: user.id,
         userEmail: user.email || '',
+        originalCurrency: normalizedAdminCurrency,
       },
       automatic_payment_methods: {
         enabled: true,
       },
     });
+
+    console.log('Payment intent created successfully:', paymentIntent.id);
 
     // Update user order with payment intent ID using user client (safer)
     // Users have permission to update their own pcb_quotes records

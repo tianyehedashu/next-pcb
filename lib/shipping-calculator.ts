@@ -145,6 +145,7 @@ function isPeakSeason(date: Date = new Date()): boolean {
 // 计算实际运费（异步版本，使用动态汇率）
 export async function calculateShippingCost(
   specs: PcbQuoteForm,
+  usdToCnyRateOverride?: number // 可选的汇率参数，避免重复请求
 ): Promise<{
   actualWeight: number;
   volumetricWeight: number;
@@ -265,17 +266,27 @@ export async function calculateShippingCost(
   // 🔧 重要修改：使用动态汇率将所有费用转换为人民币
   let usdToCnyRate = DEFAULT_USD_TO_CNY_RATE; // 默认汇率作为降级方案
   
-  try {
-    // 尝试获取最新汇率
-    const exchangeRateData = await getExchangeRate('USD', 'CNY');
-    if (exchangeRateData) {
-      usdToCnyRate = exchangeRateData.rate;
-      console.log(`🌐 使用动态汇率: 1 USD = ${usdToCnyRate} CNY (${exchangeRateData.source})`);
-    } else {
-      console.warn(`⚠️ 未找到USD->CNY汇率，使用默认汇率: ${DEFAULT_USD_TO_CNY_RATE}`);
+  // 如果提供了汇率参数，直接使用，避免重复请求
+  if (usdToCnyRateOverride) {
+    usdToCnyRate = usdToCnyRateOverride;
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔄 使用传入汇率: 1 USD = ${usdToCnyRate} CNY`);
     }
-  } catch (error) {
-    console.warn(`❌ 获取汇率失败，使用默认汇率: ${DEFAULT_USD_TO_CNY_RATE}`, error);
+  } else {
+    // 只有在没有提供汇率时才请求
+    try {
+      const exchangeRateData = await getExchangeRate('USD', 'CNY');
+      if (exchangeRateData) {
+        usdToCnyRate = exchangeRateData.rate;
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🌐 获取动态汇率: 1 USD = ${usdToCnyRate} CNY (${exchangeRateData.source})`);
+        }
+      } else {
+        console.warn(`⚠️ 未找到USD->CNY汇率，使用默认汇率: ${DEFAULT_USD_TO_CNY_RATE}`);
+      }
+    } catch (error) {
+      console.warn(`❌ 获取汇率失败，使用默认汇率: ${DEFAULT_USD_TO_CNY_RATE}`, error);
+    }
   }
   
   const baseCostCNY = baseCost * usdToCnyRate;

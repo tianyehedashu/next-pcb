@@ -4,9 +4,9 @@ import { sendNotificationToUser } from '@/app/api/admin/orders/[id]/admin-order/
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const orderId = params.id;
+  const { id: orderId } = await params;
   const { amount, reason, action } = await request.json(); // action can be 'approve' or 'reject'
 
   const supabase = await createSupabaseServerClient(false); // Use service role

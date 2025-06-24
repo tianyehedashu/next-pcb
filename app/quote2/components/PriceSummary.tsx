@@ -62,14 +62,6 @@ export default function PriceSummary() {
     setIsClient(true);
   }, []);
 
-  // 初始化汇率（如果需要）
-  useEffect(() => {
-    if (isClient && cnyToUsdRate <= 0) {
-      // 如果汇率为0或负数，可以触发获取最新汇率
-      // 这里暂时使用默认值，避免阻塞渲染
-    }
-  }, [isClient, cnyToUsdRate]);
-
   // CNY 转 USD 的辅助函数 - 使用实时汇率
   const convertCnyToUsd = useCallback((cnyAmount: number): number => {
     // 如果汇率无效，使用默认汇率 0.14
@@ -77,13 +69,14 @@ export default function PriceSummary() {
     return cnyAmount * rate;
   }, [cnyToUsdRate]);
 
-  // 运费计算逻辑（异步）
+  // 运费计算逻辑（异步）- 使用防抖避免频繁计算
   useEffect(() => {
-    const calculateShipping = async () => {
-      if (!isClient) {
-        return;
-      }
+    if (!isClient) {
+      return;
+    }
 
+    // 防抖：延迟执行，避免快速连续的状态变化触发多次计算
+    const timeoutId = setTimeout(async () => {
       // 优先使用 shippingAddress，如果没有则使用 shippingCostEstimation
       const hasShippingAddress = formData.shippingAddress?.country && formData.shippingAddress?.courier;
       const hasShippingEstimation = formData.shippingCostEstimation?.country && formData.shippingCostEstimation?.courier;
@@ -173,9 +166,10 @@ export default function PriceSummary() {
           error: errorMessage,
         });
       }
-    };
+    }, 300); // 300ms 防抖延迟
 
-    calculateShipping();
+    // 清理函数：取消之前的定时器
+    return () => clearTimeout(timeoutId);
   }, [formData, isClient, calculated.totalQuantity, convertCnyToUsd]);
 
   // 使用 calcPcbPriceV3 进行价格计算（只做纯计算，不做副作用）

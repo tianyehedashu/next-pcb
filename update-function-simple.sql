@@ -1,5 +1,5 @@
--- Filename: handle_payment_success.sql
--- Description: Creates a transaction function to atomically update order statuses upon successful payment.
+-- Update handle_payment_success function with correct UUID types
+-- Run this in Supabase SQL Editor
 
 CREATE OR REPLACE FUNCTION public.handle_payment_success(p_payment_intent_id TEXT)
 RETURNS VOID AS $$
@@ -24,9 +24,9 @@ BEGIN
   UPDATE public.admin_orders
   SET
     payment_status = 'paid',
-    status = 'paid',
+    order_status = 'paid',
     payment_method = 'stripe',
-    pay_time = timezone('utc'::text, now()),
+    paid_at = timezone('utc'::text, now()),
     updated_at = timezone('utc'::text, now())
   WHERE id = v_admin_order_id;
 

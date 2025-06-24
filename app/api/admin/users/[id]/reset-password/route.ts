@@ -3,7 +3,7 @@ import { createSupabaseServerClient, createSupabaseAdminClient } from '@/utils/s
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createSupabaseServerClient();
 
@@ -23,7 +23,7 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden: Admins only' }, { status: 403 });
   }
 
-  const userIdToReset = params.id;
+  const { id: userIdToReset } = await params;
   if (!userIdToReset) {
     return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
   }
