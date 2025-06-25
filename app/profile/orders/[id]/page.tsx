@@ -269,6 +269,8 @@ export default function OrderDetailPage() {
     }
   }, [orderId, toast]);
 
+
+
   // Edit states
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
@@ -320,6 +322,13 @@ export default function OrderDetailPage() {
       fetchOrderData();
     }
   }, [user, fetchOrderData]);
+
+  // Auto-check payment status when order loads and has a payment_intent_id
+  useEffect(() => {
+    if (order?.payment_intent_id && !paymentIntentStatus) {
+      checkPaymentIntentStatus();
+    }
+  }, [order?.payment_intent_id, paymentIntentStatus, checkPaymentIntentStatus]);
 
   // Update edit states when order data changes
   useEffect(() => {
@@ -483,7 +492,11 @@ export default function OrderDetailPage() {
     (!paymentIntentStatus?.hasPaymentIntent || 
      paymentIntentStatus?.stripeStatus === 'failed' || 
      paymentIntentStatus?.stripeStatus === 'canceled' ||
-     paymentIntentStatus?.stripeStatus === 'requires_payment_method');
+     paymentIntentStatus?.stripeStatus === 'requires_payment_method' ||
+     paymentIntentStatus?.stripeStatus === 'requires_action' ||
+     paymentIntentStatus?.stripeStatus === 'requires_confirmation');
+
+
 
   const getCurrentStep = () => {
     const userStatus = order.status || 'created';
@@ -756,9 +769,42 @@ export default function OrderDetailPage() {
                   )}
                   
                   {paymentIntentStatus?.hasPaymentIntent && !paymentIntentStatus?.isPaid && (
-                    <div className="flex items-center justify-center gap-2 text-amber-700 bg-amber-50 py-3 rounded-lg mb-3">
-                      <AlertTriangle className="h-5 w-5" />
-                      <span className="font-medium">Payment in Progress - Status: {paymentIntentStatus.stripeStatus}</span>
+                    <div className={`flex items-center justify-center gap-2 py-3 rounded-lg mb-3 ${
+                      paymentIntentStatus.stripeStatus === 'requires_payment_method' || 
+                      paymentIntentStatus.stripeStatus === 'failed' ||
+                      paymentIntentStatus.stripeStatus === 'canceled'
+                        ? 'text-orange-700 bg-orange-50' 
+                        : paymentIntentStatus.stripeStatus === 'requires_action' ||
+                          paymentIntentStatus.stripeStatus === 'requires_confirmation'
+                        ? 'text-blue-700 bg-blue-50'
+                        : paymentIntentStatus.stripeStatus === 'processing'
+                        ? 'text-green-700 bg-green-50'
+                        : 'text-amber-700 bg-amber-50'
+                    }`}>
+                      {paymentIntentStatus.stripeStatus === 'requires_payment_method' || 
+                       paymentIntentStatus.stripeStatus === 'failed' ||
+                       paymentIntentStatus.stripeStatus === 'canceled' ? (
+                        <>
+                          <AlertTriangle className="h-5 w-5" />
+                          <span className="font-medium">Payment Failed - You can retry payment below</span>
+                        </>
+                      ) : paymentIntentStatus.stripeStatus === 'requires_action' || 
+                            paymentIntentStatus.stripeStatus === 'requires_confirmation' ? (
+                        <>
+                          <AlertTriangle className="h-5 w-5" />
+                          <span className="font-medium">Payment Action Required - Click Pay Now to complete</span>
+                        </>
+                      ) : paymentIntentStatus.stripeStatus === 'processing' ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span className="font-medium">Payment Processing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="h-5 w-5" />
+                          <span className="font-medium">Payment Status: {paymentIntentStatus.stripeStatus}</span>
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -766,15 +812,42 @@ export default function OrderDetailPage() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-green-700 text-sm">
                         <CheckCircle className="h-4 w-4" />
-                        <span>Price confirmed and ready for payment</span>
+                        <span>
+                          {paymentIntentStatus?.stripeStatus === 'requires_payment_method' || 
+                           paymentIntentStatus?.stripeStatus === 'failed' ||
+                           paymentIntentStatus?.stripeStatus === 'canceled'
+                            ? 'Payment failed - ready to retry'
+                            : paymentIntentStatus?.stripeStatus === 'requires_action' ||
+                              paymentIntentStatus?.stripeStatus === 'requires_confirmation'  
+                            ? 'Payment action required'
+                            : 'Ready for payment'
+                          }
+                        </span>
                       </div>
                       <Button 
                         onClick={() => router.push(`/payment/${order.id}`)}
-                        className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white py-3 text-sm sm:text-base"
+                        className={`w-full text-white py-3 text-sm sm:text-base ${
+                          paymentIntentStatus?.stripeStatus === 'requires_payment_method' || 
+                          paymentIntentStatus?.stripeStatus === 'failed' ||
+                          paymentIntentStatus?.stripeStatus === 'canceled'
+                            ? 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700'
+                            : paymentIntentStatus?.stripeStatus === 'requires_action' ||
+                              paymentIntentStatus?.stripeStatus === 'requires_confirmation'
+                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+                            : 'bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700'
+                        }`}
                         size="lg"
                       >
                         <CreditCard className="h-5 w-5 mr-2" />
-                        Pay Now - {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price?.toFixed(2)}
+                        {paymentIntentStatus?.stripeStatus === 'requires_payment_method' || 
+                         paymentIntentStatus?.stripeStatus === 'failed' ||
+                         paymentIntentStatus?.stripeStatus === 'canceled'
+                          ? 'Retry Payment'
+                          : paymentIntentStatus?.stripeStatus === 'requires_action' ||
+                            paymentIntentStatus?.stripeStatus === 'requires_confirmation'
+                          ? 'Complete Payment'
+                          : 'Pay Now'
+                        } - {adminOrder.currency === 'CNY' ? '¥' : '$'}{adminOrder.admin_price?.toFixed(2)}
                       </Button>
                     </div>
                   ) : adminOrder?.payment_status === 'paid' || paymentIntentStatus?.isPaid ? (
@@ -782,10 +855,10 @@ export default function OrderDetailPage() {
                       <CheckCircle className="h-5 w-5" />
                       <span className="font-medium">Payment Completed</span>
                     </div>
-                  ) : order.payment_intent_id && !paymentIntentStatus?.isPaid && !isReadyForPayment ? (
-                    <div className="flex items-center justify-center gap-2 text-orange-700 bg-orange-50 py-3 rounded-lg">
-                      <Info className="h-5 w-5" />
-                      <span className="font-medium">Payment Already Initiated</span>
+                  ) : order.payment_intent_id && !paymentIntentStatus?.isPaid && !isReadyForPayment && paymentIntentStatus?.stripeStatus === 'processing' ? (
+                    <div className="flex items-center justify-center gap-2 text-blue-700 bg-blue-50 py-3 rounded-lg">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="font-medium">Payment Processing...</span>
                     </div>
                   ) : null}
 

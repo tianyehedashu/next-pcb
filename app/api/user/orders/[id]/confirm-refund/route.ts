@@ -1,36 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
+import { checkUserAuth } from '@/lib/auth-utils';
 import { notifyAdminRefundConfirmed, notifyAdminRefundCancelled } from '@/lib/email/admin-notifications';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Check user authentication
+  const { user, error } = await checkUserAuth();
+  if (error) return error;
+
   const { id: orderId } = await params;
   const { action } = await request.json(); // action can be 'confirm' or 'cancel'
 
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const supabase = await createClient();
 
   // 首先验证用户是否有权限访问这个订单
   const { data: userOrder, error: userOrderError } = await supabase
     .from('pcb_quotes')
     .select('id, user_id, email')
     .eq('id', orderId)
-    .eq('user_id', user.id)
+    .eq('user_id', user!.id)
     .single();
 
   if (userOrderError || !userOrder) {
     console.error('User order not found or no permission:', { 
       orderId, 
-      userId: user.id, 
+      userId: user!.id, 
       error: userOrderError?.message || userOrderError,
       details: userOrderError?.details || 'No additional details'
     });
     return NextResponse.json({ 
       error: 'Order not found or you do not have permission to access it',
-      debug: process.env.NODE_ENV === 'development' ? { orderId, userId: user.id } : undefined
+      debug: process.env.NODE_ENV === 'development' ? { orderId, userId: user!.id } : undefined
     }, { status: 404 });
   }
 

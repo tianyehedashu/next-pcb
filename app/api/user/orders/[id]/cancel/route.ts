@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { cookies } from 'next/headers';
+import { checkUserAuth } from '@/lib/auth-utils';
 
 // 可取消的订单状态
 const CANCELLABLE_STATUSES = [
@@ -20,6 +20,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Check user authentication
+  const { user, error } = await checkUserAuth();
+  if (error) return error;
+
   try {
     const orderId = params.id;
     const body: CancelOrderRequest = await request.json();
@@ -31,17 +35,7 @@ export async function POST(
       );
     }
 
-    const cookieStore = cookies();
-    const supabase = createClient(cookieStore);
-    
-    // 获取当前用户
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const supabase = await createClient();
 
     // 获取订单信息
     const { data: order, error: fetchError } = await supabase

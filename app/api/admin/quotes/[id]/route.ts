@@ -1,23 +1,28 @@
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
+import { checkAdminAuth } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createClient();
     const { id } = await params;
 
-    const { data: quote, error } = await supabase
+    const { data: quote, error: queryError } = await supabase
       .from("pcb_quotes")
       .select("*")
       .eq("id", id)
       .is("user_id", null)
       .single();
 
-    if (error) {
-      console.error("Error fetching quote:", error);
+    if (queryError) {
+      console.error("Error fetching quote:", queryError);
       return NextResponse.json(
         { error: "Failed to fetch quote" },
         { status: 500 }
@@ -45,12 +50,16 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createClient();
     const body = await request.json();
     const { id } = await params;
 
-    const { data: quote, error } = await supabase
+    const { data: quote, error: updateError } = await supabase
       .from("pcb_quotes")
       .update({
         status: body.status,
@@ -62,8 +71,8 @@ export async function PATCH(
       .select()
       .single();
 
-    if (error) {
-      console.error("Error updating quote:", error);
+    if (updateError) {
+      console.error("Error updating quote:", updateError);
       return NextResponse.json(
         { error: "Failed to update quote" },
         { status: 500 }

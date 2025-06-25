@@ -65,6 +65,7 @@ function AuthContent() {
   const searchParams = useSearchParams();
   const isSignUp = !!searchParams.get("signup");
   const isForgotPassword = !!searchParams.get('forgot_password');
+  const isNetworkError = !!searchParams.get('error') && searchParams.get('error') === 'network';
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -402,6 +403,30 @@ function AuthContent() {
               </button>
             </div>
           </form>
+        )}
+        
+        {/* Network Error Alert */}
+        {isNetworkError && (
+          <div className="w-full bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+            <div className="text-sm text-amber-800 font-medium mb-1">Service Temporarily Unavailable</div>
+            <div className="text-xs text-amber-700">
+              We&apos;re experiencing connectivity issues. Please try refreshing the page or signing in again.
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 text-amber-700 border-amber-300 hover:bg-amber-100"
+              onClick={() => {
+                // Clear network error from URL and retry
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete('error');
+                router.replace(`/auth?${params.toString()}`);
+                window.location.reload();
+              }}
+            >
+              Retry
+            </Button>
+          </div>
         )}
         
         {/* Error/Info Message */}

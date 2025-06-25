@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
+import { checkUserAuth } from '@/lib/auth-utils';
 import { notifyAdminRefundRequest } from '@/lib/email/admin-notifications';
 
 // Define refund percentages based on order status
@@ -14,23 +15,19 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Check user authentication
+  const { user, error } = await checkUserAuth();
+  if (error) return error;
+
   const { id: orderId } = await params;
-  const supabase = await createSupabaseServerClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const supabase = await createClient();
 
   // 获取订单信息，包括管理员订单的所有相关字段和用户邮箱
   const { data: quote, error: quoteError } = await supabase
     .from('pcb_quotes')
     .select('email, admin_orders!inner(id, payment_status, refund_status, status, admin_price, user_id)')
     .eq('id', orderId)
-    .eq('user_id', user.id)
+    .eq('user_id', user!.id)
     .single();
 
   if (quoteError || !quote) {

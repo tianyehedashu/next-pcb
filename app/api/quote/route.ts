@@ -1,27 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// 这里建议将环境变量配置在 .env.local
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { createClient } from '@/utils/supabase/server';
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. 获取token
-    const authHeader = req.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    // Create client that works for both authenticated and anonymous users
+    const supabase = await createClient();
     
-    // 2. 用token初始化supabase客户端
-    const supabase = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } }
-    });
-    
-    // 3. 验证用户（如果有token）
-    let user = null;
-    if (token) {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      user = authUser;
-    }
+    // Try to get user (will be null for anonymous users)
+    const { data: { user } } = await supabase.auth.getUser();
     
     // 4. 处理业务逻辑
     const body = await req.json();

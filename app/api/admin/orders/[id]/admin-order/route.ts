@@ -1,39 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/utils/supabase/server';
+import { checkAdminAuth } from '@/lib/auth-utils';
 import { ADMIN_ORDER, USER_ORDER } from '@/app/constants/tableNames';
 import nodemailer from 'nodemailer';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-// 验证管理员权限
-async function verifyAdminRole(supabase: SupabaseClient) {
-  try {
-    // 获取当前用户
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { isAdmin: false, error: 'Unauthorized' };
-    }
-
-    // 检查用户角色 - 这里假设你有一个 user_roles 表或 profiles 表中有 role 字段
-    // 根据你的实际数据库结构调整
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return { isAdmin: false, error: 'User profile not found' };
-    }
-
-    // 检查是否为管理员角色
-    const isAdmin = profile.role === 'admin' || profile.role === 'super_admin';
-    
-    return { isAdmin, user, error: isAdmin ? null : 'Insufficient permissions' };
-  } catch (error) {
-    console.error('Error verifying admin role:', error);
-    return { isAdmin: false, error: 'Failed to verify permissions' };
-  }
-}
 
 // 清理和验证管理员订单字段
 function sanitizeAdminOrderFields(body: Record<string, unknown>) {
@@ -146,7 +115,7 @@ export async function sendNotificationToUser(
 
     // 发送邮件
     const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.QQ_EMAIL_USER;
-    const fromName = process.env.SMTP_FROM_NAME || 'PCB Manufacturing';
+    const fromName = process.env.SMTP_FROM_NAME || 'SpeedxPCB Manufacturing';
     
     await transporter.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
@@ -182,9 +151,9 @@ export async function POST(
 
   try {
     // 验证管理员权限
-    const { isAdmin, error: authError } = await verifyAdminRole(supabase);
-    if (!isAdmin) {
-      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
+    const { error: authError } = await checkAdminAuth();
+    if (authError) {
+      return authError;
     }
 
     const body = await request.json();
@@ -278,9 +247,9 @@ export async function PATCH(
 
   
   try {
-    const { isAdmin, error: authError } = await verifyAdminRole(supabase);
-    if (!isAdmin) {
-      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
+    const { error: authError } = await checkAdminAuth();
+    if (authError) {
+      return authError;
     }
 
     const body = await request.json();

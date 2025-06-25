@@ -29,6 +29,7 @@ export interface OrderWithAdminOrder {
   created_at: string | null;
   updated_at: string | null;
   user_name: string | null;
+  payment_intent_id?: string | null;
   admin_orders?: AdminOrder[] | AdminOrder;
 }
 
@@ -76,6 +77,94 @@ export function canOrderBePaid(order: OrderWithAdminOrder): boolean {
   }
   
   return true;
+}
+
+export interface PaymentIntentStatus {
+  hasPaymentIntent: boolean;
+  stripeStatus?: string;
+  paymentIntentId?: string;
+  dbStatus?: string;
+  amount?: number;
+  currency?: string;
+  isPaid?: boolean;
+  needsSync?: boolean;
+  error?: string;
+}
+
+/**
+ * 检查订单是否处于失败支付状态，需要重新支付
+ * @param order 订单对象
+ * @param paymentIntentStatus 支付意图状态
+ * @returns 是否需要重新支付
+ */
+export function isPaymentRetryable(order: OrderWithAdminOrder, paymentIntentStatus?: PaymentIntentStatus): boolean {
+  if (!canOrderBePaid(order)) {
+    return false;
+  }
+  
+  // 如果没有支付意图，可以支付
+  if (!paymentIntentStatus?.hasPaymentIntent) {
+    return true;
+  }
+  
+  // 可重试的Stripe状态
+  const retryableStatuses = [
+    'failed',
+    'canceled',
+    'requires_payment_method',
+    'requires_action',
+    'requires_confirmation'
+  ];
+  
+  return retryableStatuses.includes(paymentIntentStatus.stripeStatus || '');
+}
+
+/**
+ * 获取支付状态描述
+ * @param order 订单对象
+ * @param paymentIntentStatus 支付意图状态
+ * @returns 支付状态描述
+ */
+export function getPaymentStatusDescription(order: OrderWithAdminOrder, paymentIntentStatus?: PaymentIntentStatus): string {
+  const adminOrder = getAdminOrder(order);
+  
+  if (adminOrder?.payment_status === 'paid') {
+    return 'Payment Completed';
+  }
+  
+  if (!canOrderBePaid(order)) {
+    if (!adminOrder?.admin_price) {
+      return 'Waiting for Price Quote';
+    }
+    if (adminOrder?.status !== 'reviewed') {
+      return 'Waiting for Admin Review';
+    }
+    return 'Not Ready for Payment';
+  }
+  
+  if (!paymentIntentStatus?.hasPaymentIntent) {
+    return 'Ready for Payment';
+  }
+  
+  const status = paymentIntentStatus.stripeStatus;
+  switch (status) {
+    case 'requires_payment_method':
+      return 'Payment Failed - Retry Available';
+    case 'requires_action':
+      return 'Payment Requires Action';
+    case 'requires_confirmation':
+      return 'Payment Needs Confirmation';
+    case 'processing':
+      return 'Payment Processing';
+    case 'failed':
+      return 'Payment Failed - Retry Available';
+    case 'canceled':
+      return 'Payment Canceled - Retry Available';
+    case 'succeeded':
+      return 'Payment Completed';
+    default:
+      return 'Unknown Payment Status';
+  }
 }
 
 /**

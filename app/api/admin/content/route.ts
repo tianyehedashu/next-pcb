@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
 import { ContentPageFormData, ContentTag } from '@/types/content';
+import { checkAdminAuth } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
+  const { error: authError } = await checkAdminAuth();
+  if (authError) {
+    return authError;
+  }
+  
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     
     const page = parseInt(searchParams.get('page') || '1');
@@ -71,26 +77,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const { user, error: authError } = await checkAdminAuth();
+  if (authError) {
+    return authError;
+  }
+
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createClient();
     const body: ContentPageFormData = await request.json();
     
-    // Verify admin access
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const { tag_ids, ...pageData } = body;
 
     // Create the page
@@ -99,7 +94,7 @@ export async function POST(request: NextRequest) {
       .insert({
         ...pageData,
         category_id: pageData.category_id || null,
-        author_id: user.id,
+        author_id: user!.id,
         published_at: pageData.status === 'published' ? new Date().toISOString() : null
       })
       .select()

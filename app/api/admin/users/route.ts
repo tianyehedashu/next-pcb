@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdminClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/server';
+import { checkAdminAuth } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
-    const supabaseAdmin = createSupabaseAdminClient();
+    const supabaseAdmin = createAdminClient();
     const { searchParams } = new URL(request.url);
 
     const page = parseInt(searchParams.get('page') || '1', 10);

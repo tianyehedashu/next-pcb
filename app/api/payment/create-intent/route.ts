@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
+import { checkUserAuth } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
+  // Check user authentication
+  const { user, error } = await checkUserAuth();
+  if (error) return error;
+
   try {
     const body = await request.json();
     const { orderId, amount, currency = 'usd' } = body;
@@ -14,23 +19,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 1: Authenticate the user to get their ID.
-    const supabaseUserClient = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseUserClient.auth.getUser();
+    const supabase = await createClient();
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Step 2: Use the Supabase admin client to bypass RLS.
-    // This is safe because we use the authenticated user's ID to scope all queries.
-    const supabaseAdmin = await createSupabaseServerClient();
-
-    // Step 3: Use the admin client for the query, but scoped to the user's ID.
-    const { data: quote, error: quoteError } = await supabaseAdmin
+    // Query the order with user authentication
+    const { data: quote, error: quoteError } = await supabase
       .from('pcb_quotes')
       .select(
         `
@@ -39,7 +31,7 @@ export async function POST(request: NextRequest) {
       `
       )
       .eq('id', orderId)
-      .eq('user_id', user.id) // Security check: ensuring the order belongs to the user
+      .eq('user_id', user!.id) // Security check: ensuring the order belongs to the user
       .single();
 
     if (quoteError || !quote) {
@@ -111,14 +103,17 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        // If payment intent exists but failed/canceled, we can create a new one
-        if (existingPaymentIntent.status !== 'requires_payment_method' && 
-            existingPaymentIntent.status !== 'canceled') {
+        // If payment intent exists but failed/canceled/requires_action, we can create a new one
+        const retriableStatuses = ['requires_payment_method', 'canceled', 'failed', 'requires_action', 'requires_confirmation'];
+        if (!retriableStatuses.includes(existingPaymentIntent.status)) {
           return NextResponse.json(
             { error: `Payment intent exists with status: ${existingPaymentIntent.status}. Cannot create new payment.` },
             { status: 400 }
           );
         }
+        
+        // Log that we're creating a new payment intent to replace the old one
+        console.log(`Creating new payment intent to replace existing one with status: ${existingPaymentIntent.status}`);
       } catch (stripeError) {
         console.error('Error checking existing payment intent:', stripeError);
         // If we can't verify the existing payment intent, proceed with caution
@@ -182,8 +177,8 @@ export async function POST(request: NextRequest) {
       metadata: {
         orderId: orderId,
         adminOrderId: adminOrder.id.toString(),
-        userId: user.id,
-        userEmail: user.email || '',
+        userId: user!.id,
+        userEmail: user!.email || '',
         originalCurrency: normalizedAdminCurrency,
       },
       automatic_payment_methods: {
@@ -193,16 +188,15 @@ export async function POST(request: NextRequest) {
 
     console.log('Payment intent created successfully:', paymentIntent.id);
 
-    // Update user order with payment intent ID using user client (safer)
-    // Users have permission to update their own pcb_quotes records
-    const { error: updateError } = await supabaseUserClient
+    // Update user order with payment intent ID
+    const { error: updateError } = await supabase
       .from('pcb_quotes')
       .update({
         payment_intent_id: paymentIntent.id,
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId)
-      .eq('user_id', user.id); // Double security check
+      .eq('user_id', user!.id); // Double security check
 
     if (updateError) {
       console.error('Failed to update quote with payment intent:', updateError);

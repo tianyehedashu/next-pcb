@@ -1,23 +1,21 @@
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth-utils';
 
 async function getOrder(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabaseUserClient = await createSupabaseServerClient(true);
-  const {
-    data: { user },
-  } = await supabaseUserClient.auth.getUser();
-
+  const user = await getCurrentUser();
+  
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const supabaseAdmin = await createSupabaseServerClient(false);
+  const supabase = await createClient();
   const { id: orderId } = await params;
 
-  const { data: order, error } = await supabaseAdmin
+  const { data: order, error } = await supabase
     .from('pcb_quotes')
     .select(
       `
@@ -41,11 +39,8 @@ async function postOrder(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabaseUserClient = await createSupabaseServerClient(true);
-  const {
-    data: { user },
-  } = await supabaseUserClient.auth.getUser();
-
+  const user = await getCurrentUser();
+  
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -59,10 +54,10 @@ async function postOrder(
     );
   }
 
-  const supabaseAdmin = await createSupabaseServerClient(false);
+  const supabase = await createClient();
   const { id: orderId } = await params;
 
-  const { data: updatedOrder, error } = await supabaseAdmin
+  const { data: updatedOrder, error } = await supabase
     .from('pcb_quotes')
     .update({
       shipping_address: shippingAddress,
@@ -89,18 +84,16 @@ async function putOrder(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabaseUserClient = await createSupabaseServerClient(true);
-  const {
-    data: { user },
-  } = await supabaseUserClient.auth.getUser();
+  const user = await getCurrentUser();
+  
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const supabaseAdmin = await createSupabaseServerClient(false);
+  const supabase = await createClient();
   const { id: orderId } = await params;
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('pcb_quotes')
     .update({ status: 'cancelled' })
     .eq('id', orderId)

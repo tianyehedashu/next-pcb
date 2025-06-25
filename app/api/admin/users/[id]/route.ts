@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdminClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/server';
+import { checkAdminAuth } from '@/lib/auth-utils';
 
 export async function GET(
   request: NextRequest
 ) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
-    const supabaseAdmin = createSupabaseAdminClient();
+    const supabaseAdmin = createAdminClient();
     // Workaround for Next.js params handling issue.
     const urlParts = request.url.split('/');
     let id = urlParts[urlParts.length - 1];
@@ -19,11 +24,11 @@ export async function GET(
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin.auth.admin.getUserById(id);
+    const { data, error: userError } = await supabaseAdmin.auth.admin.getUserById(id);
 
-    if (error) {
-      console.error('Error fetching user by id:', error);
-      return NextResponse.json({ error: error.message }, { status: 404 });
+    if (userError) {
+      console.error('Error fetching user by id:', userError);
+      return NextResponse.json({ error: userError.message }, { status: 404 });
     }
 
     return NextResponse.json(data.user);

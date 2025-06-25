@@ -56,7 +56,7 @@ export const ChatwootEmergencyFix = () => {
     setLastFixResult('');
     
     try {
-      let fixSteps: string[] = [];
+      const fixSteps: string[] = [];
 
       // 步骤1: 清理所有 Chatwoot 相关的脚本
       const scripts = document.querySelectorAll('script[src*="chatwoot"], script[src*="sdk.js"]');

@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
+import { checkUserAuth } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
+  // Check user authentication
+  const { user, error } = await checkUserAuth();
+  if (error) return error;
+
   try {
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
@@ -14,20 +19,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Authenticate user
-    const supabase = await createSupabaseServerClient(true);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const supabase = await createClient();
 
     // Get order with payment intent ID
     const { data: order, error: orderError } = await supabase
       .from('pcb_quotes')
       .select('payment_intent_id, admin_orders(payment_status)')
       .eq('id', orderId)
-      .eq('user_id', user.id)
+      .eq('user_id', user!.id)
       .single();
 
     if (orderError || !order) {

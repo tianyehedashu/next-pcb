@@ -26,7 +26,7 @@ export function calculateCustomsFee({
   // 示例逻辑（实际可更复杂）
   let dutyRate = 0.1; // 默认10%
   let vatRate = 0.2;  // 默认20%
-  let agentFee = 20;  // 代理报关费
+  const agentFee = 20;  // 代理报关费
   let includedInCourier = false;
 
   // 按国家调整税率

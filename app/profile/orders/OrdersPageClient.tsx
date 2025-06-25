@@ -3,10 +3,10 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/lib/supabaseClient";
-import { useUserStore } from "@/lib/userStore";
+import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toUSD } from "@/lib/utils";
-import { canOrderBePaid, getOrderPaymentAmount, type OrderWithAdminOrder } from "@/lib/utils/orderHelpers";
+import { getOrderPaymentAmount, isPaymentRetryable, type OrderWithAdminOrder, type PaymentIntentStatus } from "@/lib/utils/orderHelpers";
 import { RefundStatusBadge } from "@/app/components/custom-ui/RefundStatusBadge";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +41,7 @@ interface OrderListItem {
   status: string | null;
   pcb_spec?: Record<string, unknown>;
   cal_values?: { leadTimeDays?: number; totalPrice?: number };
+  payment_intent_id?: string | null;
   admin_orders?: AdminOrderInfo[] | AdminOrderInfo;
 }
 
@@ -49,12 +50,12 @@ type SortOrder = 'asc' | 'desc';
 
 const ORDER_STATUS_MAP: Record<string, { text: string; style: string; description: string }> = {
   'created': { text: "Created", style: "bg-blue-100 text-blue-800 border-blue-200", description: "Quote request submitted" },
-  'pending': { text: "Pending", style: "bg-yellow-100 text-yellow-800 border-yellow-200", description: "Awaiting review" },
-  'quoted': { text: "Quoted", style: "bg-green-100 text-green-800 border-green-200", description: "Quote provided" },
-  'reviewed': { text: "Reviewed", style: "bg-green-100 text-green-800 border-green-200", description: "Admin reviewed and approved" },
+  'pending': { text: "Pending", style: "bg-yellow-100 text-yellow-800 border-yellow-200", description: "Under review" },
+  'quoted': { text: "Quoted", style: "bg-green-100 text-green-800 border-green-200", description: "Quote ready" },
+  'reviewed': { text: "Reviewed", style: "bg-green-100 text-green-800 border-green-200", description: "Ready for payment" },
   'confirmed': { text: "Confirmed", style: "bg-indigo-100 text-indigo-800 border-indigo-200", description: "Order confirmed" },
-  'paid': { text: "Paid", style: "bg-emerald-100 text-emerald-800 border-emerald-200", description: "Payment completed, ready for production" },
-  'in_production': { text: "In Production", style: "bg-blue-100 text-blue-800 border-blue-200", description: "PCBs being manufactured" },
+  'paid': { text: "Paid", style: "bg-emerald-100 text-emerald-800 border-emerald-200", description: "Payment completed" },
+  'in_production': { text: "In Production", style: "bg-blue-100 text-blue-800 border-blue-200", description: "Manufacturing in progress" },
   'shipped': { text: "Shipped", style: "bg-cyan-100 text-cyan-800 border-cyan-200", description: "Order shipped" },
   'delivered': { text: "Delivered", style: "bg-emerald-100 text-emerald-800 border-emerald-200", description: "Order delivered" },
   'completed': { text: "Completed", style: "bg-green-100 text-green-800 border-green-200", description: "Order completed" },
@@ -67,6 +68,7 @@ export default function OrdersPageClient(): React.ReactElement {
   const [loadingOrders, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [orderPaymentStatus, setOrderPaymentStatus] = useState<{ [orderId: string]: PaymentIntentStatus }>({});
   
   const [showCancelledOrders, setShowCancelledOrders] = useState(false);
   
@@ -80,9 +82,10 @@ export default function OrdersPageClient(): React.ReactElement {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const user = useUserStore(state => state.user);
+  const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
   const orderType = searchParams.get('type');
+  const supabase = createClient();
 
   const fetchOrders = async () => {
     if (!user?.id) return;
@@ -97,6 +100,7 @@ export default function OrdersPageClient(): React.ReactElement {
           status,
           pcb_spec,
           cal_values,
+          payment_intent_id,
           admin_orders (
             id,
             status,
@@ -113,12 +117,46 @@ export default function OrdersPageClient(): React.ReactElement {
 
       if (error) throw error;
       
-      setOrders(data as OrderListItem[] || []);
+      const ordersData = data as OrderListItem[] || [];
+      setOrders(ordersData);
+      
+      // 检查有支付意图的订单的支付状态
+      await checkPaymentStatuses(ordersData);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const checkPaymentStatuses = async (ordersList: OrderListItem[]) => {
+    const ordersWithPaymentIntent = ordersList.filter(order => order.payment_intent_id);
+    
+    if (ordersWithPaymentIntent.length === 0) return;
+    
+    const statusPromises = ordersWithPaymentIntent.map(async (order) => {
+      try {
+        const response = await fetch(`/api/payment/check-intent?orderId=${order.id}`);
+        if (response.ok) {
+          const status = await response.json();
+          return { orderId: order.id, status };
+        }
+      } catch (error) {
+        console.error(`Error checking payment status for order ${order.id}:`, error);
+      }
+      return null;
+    });
+    
+    const results = await Promise.all(statusPromises);
+    const statusMap: { [orderId: string]: PaymentIntentStatus } = {};
+    
+    results.forEach(result => {
+      if (result) {
+        statusMap[result.orderId] = result.status;
+      }
+    });
+    
+    setOrderPaymentStatus(statusMap);
   };
 
   useEffect(() => {
@@ -226,8 +264,9 @@ export default function OrdersPageClient(): React.ReactElement {
     }
 
     if (orderType === 'pending-payment') {
-      const canPay = canOrderBePaid(order as OrderWithAdminOrder);
-      return matchesSearch && canPay;
+      const paymentStatus = orderPaymentStatus[order.id];
+      const canRetry = isPaymentRetryable(order as OrderWithAdminOrder, paymentStatus);
+      return matchesSearch && canRetry;
     }
 
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
@@ -338,6 +377,7 @@ export default function OrdersPageClient(): React.ReactElement {
 
   const renderOrderStatus = (order: OrderListItem) => {
     const adminOrder = getAdminOrderInfo(order);
+    const paymentStatus = orderPaymentStatus[order.id];
     
     // 优先使用同步后的用户订单状态，如果没有则使用管理员订单状态
     let displayStatus = order.status || 'pending';
@@ -362,12 +402,34 @@ export default function OrdersPageClient(): React.ReactElement {
         >
           {statusInfo.text}
         </Badge>
-        {adminOrder?.payment_status === 'paid' && displayStatus !== 'refunded' && displayStatus !== 'paid' && (
-          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs">
-            Paid
-          </Badge>
+        
+        {/* 支付状态指示器 */}
+        {paymentStatus && adminOrder?.status === 'reviewed' && adminOrder?.payment_status !== 'paid' && (
+          <div className="text-xs">
+            {paymentStatus.stripeStatus === 'requires_payment_method' && (
+              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                Payment Failed
+              </Badge>
+            )}
+            {paymentStatus.stripeStatus === 'requires_action' && (
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                Action Required
+              </Badge>
+            )}
+            {paymentStatus.stripeStatus === 'processing' && (
+              <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                Processing
+              </Badge>
+            )}
+            {paymentStatus.stripeStatus === 'failed' && (
+              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                Payment Failed
+              </Badge>
+            )}
+          </div>
         )}
-        {/* 只在非已退款状态下显示退款徽章 */}
+        
+        {/* 简化显示逻辑：只在非已退款状态下显示退款徽章 */}
         {displayStatus !== 'refunded' && (
           <RefundStatusBadge 
             refundStatus={adminOrder?.refund_status || null}
@@ -382,29 +444,59 @@ export default function OrdersPageClient(): React.ReactElement {
   };
 
   const renderPaymentButton = (order: OrderListItem, isMobile = false) => {
-    const canPay = canOrderBePaid(order as OrderWithAdminOrder);
+    const adminOrder = Array.isArray(order.admin_orders) ? order.admin_orders[0] : order.admin_orders;
     const paymentAmount = getOrderPaymentAmount(order as OrderWithAdminOrder);
     
-    if (!canPay) return null;
+    // 检查基本支付条件
+    if (!adminOrder?.admin_price || adminOrder.status !== 'reviewed' || adminOrder.payment_status === 'paid') {
+      return null;
+    }
+    
+    // 获取当前订单的支付状态
+    const paymentStatus = orderPaymentStatus[order.id];
+    const canRetry = isPaymentRetryable(order as OrderWithAdminOrder, paymentStatus);
+    
+    if (!canRetry) return null;
+    
+    // 根据支付状态显示不同的按钮样式和文本
+    const isFailedPayment = paymentStatus?.stripeStatus && 
+      ['requires_payment_method', 'failed', 'canceled'].includes(paymentStatus.stripeStatus);
+    
+    const isActionRequired = paymentStatus?.stripeStatus && 
+      ['requires_action', 'requires_confirmation'].includes(paymentStatus.stripeStatus);
+    
+    let buttonClass = `flex items-center gap-1 whitespace-nowrap min-w-0 ${isMobile ? 'px-3' : 'px-2'}`;
+    let buttonText = 'Pay Now';
+         const buttonVariant: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" = "default";
+    
+    if (isFailedPayment) {
+      buttonClass += ' bg-orange-600 hover:bg-orange-700 text-white';
+      buttonText = 'Retry Payment';
+    } else if (isActionRequired) {
+      buttonClass += ' bg-blue-600 hover:bg-blue-700 text-white';
+      buttonText = 'Complete Payment';
+    } else {
+      buttonClass += ' bg-green-600 hover:bg-green-700 text-white';
+      buttonText = 'Pay Now';
+    }
     
     return (
       <Button
         size="sm"
+        variant={buttonVariant}
         onClick={() => router.push(`/payment/${order.id}`)}
-        className={`bg-green-600 hover:bg-green-700 text-white flex items-center gap-1 whitespace-nowrap min-w-0 ${
-          isMobile ? 'px-3' : 'px-2'
-        }`}
-        title={`Pay ${toUSD(paymentAmount)}`}
+        className={buttonClass}
+        title={`${buttonText} ${toUSD(paymentAmount)}`}
       >
         <CreditCard className="h-3 w-3 flex-shrink-0" />
         {isMobile ? (
           <>
-            <span className="hidden xs:inline">Pay </span>
+            <span className="hidden xs:inline">{buttonText} </span>
             <span className="truncate">{toUSD(paymentAmount)}</span>
           </>
         ) : (
           <>
-            <span className="hidden xl:inline">Pay </span>
+            <span className="hidden xl:inline">{buttonText} </span>
             <span className="text-xs truncate">{toUSD(paymentAmount)}</span>
           </>
         )}

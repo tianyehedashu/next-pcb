@@ -1,13 +1,17 @@
 import React from "react";
+import { requireAuth } from '@/lib/auth-utils'
 import ProfileSidebar from "@/app/components/custom-ui/profile-sidebar";
 
-export default function ProfileLayout({
+export default async function ProfileLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Use official docs pattern: always use supabase.auth.getUser() to protect pages
+  await requireAuth({ redirectTo: '/auth?redirect=/profile' })
+
   return (
-          <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
       {/* 顶部装饰条 */}
       <div className="h-1 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600"></div>
       

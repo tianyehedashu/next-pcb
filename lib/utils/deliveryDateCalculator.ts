@@ -141,7 +141,7 @@ export function calculateSmartDeliveryDate(
   }
   
   // 从第二天开始计算（当天不算）
-  let currentDate = new Date(startDate);
+  const currentDate = new Date(startDate);
   currentDate.setDate(currentDate.getDate() + 1);
   
   let workingDaysCount = 0;

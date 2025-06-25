@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/utils/supabase/server';
+import { checkAdminAuth } from '@/lib/auth-utils';
 import { USER_ORDER } from '@/app/constants/tableNames';
 
 interface UpdateData {
@@ -15,6 +16,10 @@ interface BatchUpdateData {
 
 // GET /api/admin/orders
 export async function GET(request: NextRequest) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
@@ -77,129 +82,139 @@ export async function GET(request: NextRequest) {
 
 // PATCH /api/admin/orders?id=xxx
 export async function PATCH(request: NextRequest) {
-    const supabase = await createSupabaseServerClient();
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
 
-    if (!id) {
-        return NextResponse.json({ error: 'Quote ID is required' }, { status: 400 });
-    }
+  const supabase = await createSupabaseServerClient();
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
 
-    const body = await request.json();
-    const updateData: UpdateData = {
-        updated_at: new Date().toISOString()
-    };
+  if (!id) {
+      return NextResponse.json({ error: 'Quote ID is required' }, { status: 400 });
+  }
 
-    if (body.status !== undefined) updateData.status = body.status;
-    if (body.admin_notes !== undefined) updateData.admin_notes = body.admin_notes;
+  const body = await request.json();
+  const updateData: UpdateData = {
+      updated_at: new Date().toISOString()
+  };
 
-    if (Object.keys(updateData).length === 1) {
-        return NextResponse.json({ message: 'No fields to update' }, { status: 200 });
-    }
+  if (body.status !== undefined) updateData.status = body.status;
+  if (body.admin_notes !== undefined) updateData.admin_notes = body.admin_notes;
 
-    const { error } = await supabase
-        .from(USER_ORDER)
-        .update(updateData)
-        .eq('id', id);
+  if (Object.keys(updateData).length === 1) {
+      return NextResponse.json({ message: 'No fields to update' }, { status: 200 });
+  }
 
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    return NextResponse.json({ message: 'Quote updated successfully', id });
+  const { error: updateError } = await supabase
+      .from(USER_ORDER)
+      .update(updateData)
+      .eq('id', id);
+
+  if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+  return NextResponse.json({ message: 'Quote updated successfully', id });
 }
 
 // POST /api/admin/orders/batch
 export async function POST(request: NextRequest) {
-    const supabase = await createSupabaseServerClient();
-    const body = await request.json();
-    const { orderIds, status } = body;
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
 
-    if (!Array.isArray(orderIds) || orderIds.length === 0) {
-        return NextResponse.json({ error: 'orderIds array is required' }, { status: 400 });
-    }
+  const supabase = await createSupabaseServerClient();
+  const body = await request.json();
+  const { orderIds, status } = body;
 
-    const updateData: BatchUpdateData = {
-        updated_at: new Date().toISOString()
-    };
-    if (status !== undefined) updateData.status = status;
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      return NextResponse.json({ error: 'orderIds array is required' }, { status: 400 });
+  }
 
-    if (Object.keys(updateData).length === 1) {
-        return NextResponse.json({ message: 'No fields to update in batch' }, { status: 200 });
-    }
+  const updateData: BatchUpdateData = {
+      updated_at: new Date().toISOString()
+  };
+  if (status !== undefined) updateData.status = status;
 
-    const { error } = await supabase
-        .from(USER_ORDER)
-        .update(updateData)
-        .in('id', orderIds);
+  if (Object.keys(updateData).length === 1) {
+      return NextResponse.json({ message: 'No fields to update in batch' }, { status: 200 });
+  }
 
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    return NextResponse.json({ message: 'Batch operation successful' });
+  const { error: batchError } = await supabase
+      .from(USER_ORDER)
+      .update(updateData)
+      .in('id', orderIds);
+
+  if (batchError) {
+      return NextResponse.json({ error: batchError.message }, { status: 500 });
+  }
+  return NextResponse.json({ message: 'Batch operation successful' });
 }
 
 // DELETE /api/admin/orders?id=xxx 或 批量
 export async function DELETE(request: NextRequest) {
-    // Note: The middleware should already have verified for admin privileges.
-    
-    // For this privileged operation, we use the admin client which has the service_role key.
-    const supabaseAdmin = createSupabaseAdminClient();
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+  
+  // For this privileged operation, we use the admin client which has the service_role key.
+  const supabaseAdmin = createSupabaseAdminClient();
 
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
 
-    // Case 1: Single delete from query param
-    if (id) {
-        // WARNING: This is NOT an atomic transaction. 
-        // If the second delete fails, data will be inconsistent.
-        
-        // First, delete the associated admin_order.
-        const { error: adminError } = await supabaseAdmin.from('admin_orders').delete().eq('user_order_id', id);
-        if (adminError) {
-            console.error('Admin order deletion error:', adminError);
-            return NextResponse.json({ error: `Failed to delete related admin order: ${adminError.message}` }, { status: 500 });
-        }
-        
-        // Second, delete the main quote.
-        const { error: quoteError } = await supabaseAdmin.from(USER_ORDER).delete().eq('id', id);
-        if (quoteError) {
-            // CRITICAL: At this point, the admin_order is deleted but the pcb_quote is not.
-            // This leaves the database in an inconsistent state.
-            console.error('Main quote deletion error (INCONSISTENT STATE):', quoteError);
-            return NextResponse.json({ error: `Failed to delete main quote, leaving inconsistent data: ${quoteError.message}` }, { status: 500 });
-        }
-        
-        return NextResponse.json({ message: 'Quote and related orders deleted successfully', id });
-    }
+  // Case 1: Single delete from query param
+  if (id) {
+      // WARNING: This is NOT an atomic transaction. 
+      // If the second delete fails, data will be inconsistent.
+      
+      // First, delete the associated admin_order.
+      const { error: adminError } = await supabaseAdmin.from('admin_orders').delete().eq('user_order_id', id);
+      if (adminError) {
+          console.error('Admin order deletion error:', adminError);
+          return NextResponse.json({ error: `Failed to delete related admin order: ${adminError.message}` }, { status: 500 });
+      }
+      
+      // Second, delete the main quote.
+      const { error: quoteError } = await supabaseAdmin.from(USER_ORDER).delete().eq('id', id);
+      if (quoteError) {
+          // CRITICAL: At this point, the admin_order is deleted but the pcb_quote is not.
+          // This leaves the database in an inconsistent state.
+          console.error('Main quote deletion error (INCONSISTENT STATE):', quoteError);
+          return NextResponse.json({ error: `Failed to delete main quote, leaving inconsistent data: ${quoteError.message}` }, { status: 500 });
+      }
+      
+      return NextResponse.json({ message: 'Quote and related orders deleted successfully', id });
+  }
 
-    // Case 2: Batch delete from request body
-    try {
-        const body = await request.json();
-        const idList = body.idList;
-        if (!Array.isArray(idList) || idList.length === 0) {
-            return NextResponse.json({ error: 'For batch delete, idList array is required in the body' }, { status: 400 });
-        }
+  // Case 2: Batch delete from request body
+  try {
+      const body = await request.json();
+      const idList = body.idList;
+      if (!Array.isArray(idList) || idList.length === 0) {
+          return NextResponse.json({ error: 'For batch delete, idList array is required in the body' }, { status: 400 });
+      }
 
-        // WARNING: This is NOT an atomic transaction.
-        
-        // First, delete associated admin_orders.
-        const { error: adminError } = await supabaseAdmin.from('admin_orders').delete().in('user_order_id', idList);
-        if (adminError) {
-            console.error('Batch admin order deletion error:', adminError);
-            return NextResponse.json({ error: `Batch delete of admin orders failed: ${adminError.message}` }, { status: 500 });
-        }
-        
-        // Second, delete main quotes.
-        const { error: quoteError } = await supabaseAdmin.from(USER_ORDER).delete().in('id', idList);
-        if (quoteError) {
-            // CRITICAL: Inconsistent data state.
-            console.error('Batch main quote deletion error (INCONSISTENT STATE):', quoteError);
-            return NextResponse.json({ error: `Batch delete of main quotes failed, leaving inconsistent data: ${quoteError.message}` }, { status: 500 });
-        }
+      // WARNING: This is NOT an atomic transaction.
+      
+      // First, delete associated admin_orders.
+      const { error: adminError } = await supabaseAdmin.from('admin_orders').delete().in('user_order_id', idList);
+      if (adminError) {
+          console.error('Batch admin order deletion error:', adminError);
+          return NextResponse.json({ error: `Batch delete of admin orders failed: ${adminError.message}` }, { status: 500 });
+      }
+      
+      // Second, delete main quotes.
+      const { error: quoteError } = await supabaseAdmin.from(USER_ORDER).delete().in('id', idList);
+      if (quoteError) {
+          // CRITICAL: Inconsistent data state.
+          console.error('Batch main quote deletion error (INCONSISTENT STATE):', quoteError);
+          return NextResponse.json({ error: `Batch delete of main quotes failed, leaving inconsistent data: ${quoteError.message}` }, { status: 500 });
+      }
 
-        return NextResponse.json({ message: 'Quotes and related orders deleted successfully', idList });
-    } catch(e) {
-        console.error("Error parsing request body for batch delete:", e);
-        return NextResponse.json({ error: 'Invalid request. Provide an `id` query parameter or a request body with `idList`.' }, { status: 400 });
-    }
+      return NextResponse.json({ message: 'Quotes and related orders deleted successfully', idList });
+  } catch(e) {
+      console.error("Error parsing request body for batch delete:", e);
+      return NextResponse.json({ error: 'Invalid request. Provide an `id` query parameter or a request body with `idList`.' }, { status: 400 });
+  }
 } 

@@ -1,7 +1,11 @@
 import React, { Suspense } from "react";
+import { requireAuth } from '@/lib/auth-utils'
 import { AdminSidebar } from "./components/AdminSidebar";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Use official docs pattern: always use supabase.auth.getUser() to protect pages
+  await requireAuth({ requireAdmin: true, redirectTo: '/auth?redirect=/admin' })
+
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       <AdminSidebar />

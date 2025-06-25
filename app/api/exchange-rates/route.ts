@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdminClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/server';
 
 // 固定汇率作为降级方案
 const FALLBACK_RATES: Record<string, Record<string, { rate: number; source: string; last_updated: string }>> = {
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       console.log('🔍 尝试连接数据库...');
       
       // 先尝试用管理员客户端绕过RLS
-      const supabase = createSupabaseAdminClient();
+      const supabase = createAdminClient();
       console.log('✅ 数据库连接成功 (使用管理员客户端)');
       
       // 构建查询 - 只返回激活的汇率

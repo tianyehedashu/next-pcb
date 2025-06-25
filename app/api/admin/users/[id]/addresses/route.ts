@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
+import { checkAdminAuth } from '@/lib/auth-utils';
 
 export async function GET(
   request: NextRequest
 ) {
+  const { error } = await checkAdminAuth();
+  if (error) {
+    return error;
+  }
+
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createClient();
 
     const urlParts = request.url.split('/');
     // The user ID is before '/addresses'

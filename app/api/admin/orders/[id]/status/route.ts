@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
+import { checkAdminAuth } from '@/lib/auth-utils';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // 管理员订单状态枚举
 enum AdminOrderStatus {
@@ -46,28 +48,14 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Check admin authentication
+  const { user, error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createClient();
     const { id } = await params;
     const body = await request.json();
-
-    // 获取当前用户并验证管理员权限
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const isAdmin = await checkAdminRole(user.id, supabase);
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
-    }
 
     const { status: newStatus, reason } = body;
 
@@ -160,7 +148,7 @@ export async function PUT(
       existingAdminOrder.user_order_id,
       existingAdminOrder.status,
       newStatus,
-      user.id,
+      user!.id, // user is guaranteed to exist after checkAdminAuth
       reason,
       supabase
     );
@@ -185,18 +173,13 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { id } = await params;
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
 
-    // 验证管理员权限
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !await checkAdminRole(user.id, supabase)) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
-    }
+  try {
+    const supabase = await createClient();
+    const { id } = await params;
 
     // 查询管理员订单当前状态
     const { data: adminOrder, error } = await supabase
@@ -230,21 +213,6 @@ export async function GET(
       { error: 'Internal server error' },
       { status: 500 }
     );
-  }
-}
-
-// 检查管理员角色
-async function checkAdminRole(userId: string, supabase: any): Promise<boolean> {
-  try {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    return profile?.role === 'admin';
-  } catch {
-    return false;
   }
 }
 
@@ -309,7 +277,7 @@ async function recordAdminStatusChange(
   toStatus: string,
   adminId: string,
   reason: string | undefined,
-  supabase: any
+  supabase: SupabaseClient
 ): Promise<void> {
   try {
     await supabase

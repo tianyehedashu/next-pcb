@@ -1,7 +1,12 @@
-import { createSupabaseServerClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
+import { checkAdminAuth } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -9,7 +14,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
     const pageSize = 10;
 
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createClient();
 
     // 构建查询
     let query = supabase
@@ -35,10 +40,10 @@ export async function GET(request: NextRequest) {
     // 按创建时间降序排序
     query = query.order("created_at", { ascending: false });
 
-    const { data: quotes, error, count } = await query;
+    const { data: quotes, error: queryError, count } = await query;
 
-    if (error) {
-      console.error("Error fetching quotes:", error);
+    if (queryError) {
+      console.error("Error fetching quotes:", queryError);
       return NextResponse.json(
         { error: "Failed to fetch quotes" },
         { status: 500 }

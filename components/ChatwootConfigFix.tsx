@@ -59,7 +59,7 @@ export const ChatwootConfigFix = () => {
 
     // 验证 URL 格式
     let urlValid = false;
-    let actualUrl = baseUrl || 'https://app.chatwoot.com';
+    const actualUrl = baseUrl || 'https://app.chatwoot.com';
     
     try {
       new URL(actualUrl);

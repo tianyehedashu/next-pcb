@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdminClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/server';
+import { checkAdminAuth } from '@/lib/auth-utils';
 
 export async function POST(
   request: NextRequest
 ) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
-    const supabaseAdmin = createSupabaseAdminClient();
+    const supabaseAdmin = createAdminClient();
     const urlParts = request.url.split('/');
     // The user ID is before '/make-admin'
     const id = urlParts[urlParts.length - 2];
