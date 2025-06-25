@@ -3,10 +3,10 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { createClient } from "@/utils/supabase/client";
+
 import { useAuth } from "@/hooks/useAuth";
 import { toUSD } from "@/lib/utils";
-import { getOrderPaymentAmount, isPaymentRetryable, type OrderWithAdminOrder, type PaymentIntentStatus } from "@/lib/utils/orderHelpers";
+import { getOrderPaymentAmount, type OrderWithAdminOrder, type PaymentIntentStatus } from "@/lib/utils/orderHelpers";
 import { RefundStatusBadge } from "@/app/components/custom-ui/RefundStatusBadge";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,6 +43,7 @@ interface OrderListItem {
   cal_values?: { leadTimeDays?: number; totalPrice?: number };
   payment_intent_id?: string | null;
   admin_orders?: AdminOrderInfo[] | AdminOrderInfo;
+  payment_status_info?: PaymentIntentStatus;
 }
 
 type SortField = 'created_at' | 'status' | 'admin_price' | 'lead_time';
@@ -75,6 +76,8 @@ export default function OrdersPageClient(): React.ReactElement {
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   
   // 排序状态
   const [sortField, setSortField] = useState<SortField>('created_at');
@@ -85,43 +88,47 @@ export default function OrdersPageClient(): React.ReactElement {
   const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
   const orderType = searchParams.get('type');
-  const supabase = createClient();
 
   const fetchOrders = async () => {
     if (!user?.id) return;
     
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('pcb_quotes')
-        .select(`
-          id,
-          created_at,
-          status,
-          pcb_spec,
-          cal_values,
-          payment_intent_id,
-          admin_orders (
-            id,
-            status,
-            admin_price,
-            currency,
-            payment_status,
-            refund_status,
-            requested_refund_amount,
-            approved_refund_amount
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // 构建查询参数
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        pageSize: pageSize.toString(),
+        status: statusFilter,
+        search: searchTerm,
+        sortField: sortField,
+        sortOrder: sortOrder
+      });
 
-      if (error) throw error;
+      // 使用新的分页 API
+      const response = await fetch(`/api/user/orders?${params}`);
       
-      const ordersData = data as OrderListItem[] || [];
-      setOrders(ordersData);
+      if (!response.ok) {
+        throw new Error('Failed to fetch orders');
+      }
       
-      // 检查有支付意图的订单的支付状态
-      await checkPaymentStatuses(ordersData);
+      const { orders: ordersData, pagination } = await response.json();
+      setOrders(ordersData || []);
+      
+      // 提取支付状态信息
+      const statusMap: { [orderId: string]: PaymentIntentStatus } = {};
+      ordersData?.forEach((order: OrderListItem) => {
+        if (order.payment_status_info) {
+          statusMap[order.id] = order.payment_status_info;
+        }
+      });
+      setOrderPaymentStatus(statusMap);
+      
+      // 更新分页信息
+      if (pagination) {
+        setTotalItems(pagination.total);
+        setTotalPages(pagination.totalPages);
+      }
+      
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -129,35 +136,7 @@ export default function OrdersPageClient(): React.ReactElement {
     }
   };
 
-  const checkPaymentStatuses = async (ordersList: OrderListItem[]) => {
-    const ordersWithPaymentIntent = ordersList.filter(order => order.payment_intent_id);
-    
-    if (ordersWithPaymentIntent.length === 0) return;
-    
-    const statusPromises = ordersWithPaymentIntent.map(async (order) => {
-      try {
-        const response = await fetch(`/api/payment/check-intent?orderId=${order.id}`);
-        if (response.ok) {
-          const status = await response.json();
-          return { orderId: order.id, status };
-        }
-      } catch (error) {
-        console.error(`Error checking payment status for order ${order.id}:`, error);
-      }
-      return null;
-    });
-    
-    const results = await Promise.all(statusPromises);
-    const statusMap: { [orderId: string]: PaymentIntentStatus } = {};
-    
-    results.forEach(result => {
-      if (result) {
-        statusMap[result.orderId] = result.status;
-      }
-    });
-    
-    setOrderPaymentStatus(statusMap);
-  };
+
 
   useEffect(() => {
     fetchOrders();
@@ -215,73 +194,14 @@ export default function OrdersPageClient(): React.ReactElement {
     setCurrentPage(1); // 重置到第一页
   };
 
-  // 获取排序后的订单
-  const getSortedOrders = (ordersToSort: OrderListItem[]) => {
-    return [...ordersToSort].sort((a, b) => {
-      let aValue: string | number;
-      let bValue: string | number;
-
-      switch (sortField) {
-        case 'created_at':
-          aValue = new Date(a.created_at || 0).getTime();
-          bValue = new Date(b.created_at || 0).getTime();
-          break;
-        case 'status':
-          const aAdminOrder = Array.isArray(a.admin_orders) ? a.admin_orders[0] : a.admin_orders;
-          const bAdminOrder = Array.isArray(b.admin_orders) ? b.admin_orders[0] : b.admin_orders;
-          aValue = aAdminOrder?.status || a.status || '';
-          bValue = bAdminOrder?.status || b.status || '';
-          break;
-        case 'admin_price':
-          const aAdmin = Array.isArray(a.admin_orders) ? a.admin_orders[0] : a.admin_orders;
-          const bAdmin = Array.isArray(b.admin_orders) ? b.admin_orders[0] : b.admin_orders;
-          aValue = aAdmin?.admin_price || 0;
-          bValue = bAdmin?.admin_price || 0;
-          break;
-        case 'lead_time':
-          aValue = a.cal_values?.leadTimeDays || 0;
-          bValue = b.cal_values?.leadTimeDays || 0;
-          break;
-        default:
-          return 0;
-      }
-
-      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-  };
 
 
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = searchTerm === '' ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // 默认隐藏已取消的订单，除非明确要显示
-    if (!showCancelledOrders && order.status === 'cancelled') {
-      return false;
-    }
-
-    if (orderType === 'pending-payment') {
-      const paymentStatus = orderPaymentStatus[order.id];
-      const canRetry = isPaymentRetryable(order as OrderWithAdminOrder, paymentStatus);
-      return matchesSearch && canRetry;
-    }
-
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    return matchesStatus && matchesSearch;
-  });
-
-  // 应用排序
-  const sortedOrders = getSortedOrders(filteredOrders);
-
-  // 应用分页
-  const totalItems = sortedOrders.length;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedOrders = sortedOrders.slice(startIndex, endIndex);
+  // 服务端已经处理了筛选、排序和分页，直接使用返回的数据
+  const paginatedOrders = orders;
+  
+  // 服务端分页已处理，无需客户端计算显示范围
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -293,6 +213,21 @@ export default function OrdersPageClient(): React.ReactElement {
     setPageSize(parseInt(newPageSize));
     setCurrentPage(1);
   };
+
+  // 当分页、排序、筛选状态改变时重新获取数据
+  useEffect(() => {
+    fetchOrders();
+  }, [currentPage, pageSize, statusFilter, sortField, sortOrder]);
+
+  // 搜索词变化时的防抖处理
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setCurrentPage(1); // 搜索时重置到第一页
+      fetchOrders();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   const renderSortIcon = (field: SortField) => {
     if (sortField !== field) {
@@ -446,39 +381,16 @@ export default function OrdersPageClient(): React.ReactElement {
   const renderPaymentButton = (order: OrderListItem, isMobile = false) => {
     const adminOrder = Array.isArray(order.admin_orders) ? order.admin_orders[0] : order.admin_orders;
     const paymentAmount = getOrderPaymentAmount(order as OrderWithAdminOrder);
-    
-    // 检查基本支付条件
-    if (!adminOrder?.admin_price || adminOrder.status !== 'reviewed' || adminOrder.payment_status === 'paid') {
+
+    // 检查基本支付条件：必须是已审核状态，且未支付
+    if (adminOrder?.status !== 'reviewed' || adminOrder?.payment_status === 'paid' || !adminOrder?.admin_price) {
       return null;
     }
     
-    // 获取当前订单的支付状态
-    const paymentStatus = orderPaymentStatus[order.id];
-    const canRetry = isPaymentRetryable(order as OrderWithAdminOrder, paymentStatus);
-    
-    if (!canRetry) return null;
-    
-    // 根据支付状态显示不同的按钮样式和文本
-    const isFailedPayment = paymentStatus?.stripeStatus && 
-      ['requires_payment_method', 'failed', 'canceled'].includes(paymentStatus.stripeStatus);
-    
-    const isActionRequired = paymentStatus?.stripeStatus && 
-      ['requires_action', 'requires_confirmation'].includes(paymentStatus.stripeStatus);
-    
-    let buttonClass = `flex items-center gap-1 whitespace-nowrap min-w-0 ${isMobile ? 'px-3' : 'px-2'}`;
-    let buttonText = 'Pay Now';
-         const buttonVariant: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" = "default";
-    
-    if (isFailedPayment) {
-      buttonClass += ' bg-orange-600 hover:bg-orange-700 text-white';
-      buttonText = 'Retry Payment';
-    } else if (isActionRequired) {
-      buttonClass += ' bg-blue-600 hover:bg-blue-700 text-white';
-      buttonText = 'Complete Payment';
-    } else {
-      buttonClass += ' bg-green-600 hover:bg-green-700 text-white';
-      buttonText = 'Pay Now';
-    }
+    // 简化后的支付按钮逻辑
+    const buttonClass = `flex items-center gap-1 whitespace-nowrap min-w-0 bg-green-600 hover:bg-green-700 text-white ${isMobile ? 'px-3' : 'px-2'}`;
+    const buttonText = 'Pay Now';
+    const buttonVariant: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" = "default";
     
     return (
       <Button
@@ -597,24 +509,19 @@ export default function OrdersPageClient(): React.ReactElement {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} orders
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowCancelledOrders(!showCancelledOrders)}
-            className={`flex items-center gap-2 text-xs ${
-              showCancelledOrders 
-                ? 'bg-red-50 text-red-700 border-red-200' 
-                : 'text-gray-600'
-            }`}
-          >
-            <AlertTriangle className="h-3 w-3" />
-            {showCancelledOrders ? 'Hide' : 'Show'} Cancelled
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowCancelledOrders(!showCancelledOrders)}
+          className={`flex items-center gap-2 text-xs ${
+            showCancelledOrders 
+              ? 'bg-red-50 text-red-700 border-red-200' 
+              : 'text-gray-600'
+          }`}
+        >
+          <AlertTriangle className="h-3 w-3" />
+          {showCancelledOrders ? 'Hide' : 'Show'} Cancelled
+        </Button>
       </div>
 
       {/* Orders Table - Large Desktop */}
