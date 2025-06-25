@@ -102,6 +102,7 @@ export default function OrdersPageClient(): React.ReactElement {
         search: searchTerm,
         sortField: sortField,
         sortOrder: sortOrder,
+        showCancelled: showCancelledOrders.toString(),
         ...(orderType && { type: orderType })
       });
 
@@ -223,7 +224,7 @@ export default function OrdersPageClient(): React.ReactElement {
   // 当分页、排序、筛选状态改变时重新获取数据
   useEffect(() => {
     fetchOrders();
-  }, [currentPage, pageSize, statusFilter, sortField, sortOrder, orderType]);
+  }, [currentPage, pageSize, statusFilter, sortField, sortOrder, orderType, showCancelledOrders]);
 
   // 搜索词变化时的防抖处理
   useEffect(() => {

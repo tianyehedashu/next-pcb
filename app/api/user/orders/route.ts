@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const sortField = url.searchParams.get('sortField') || 'created_at';
     const sortOrder = url.searchParams.get('sortOrder') || 'desc';
     const orderType = url.searchParams.get('type');
+    const showCancelled = url.searchParams.get('showCancelled') === 'true';
 
     const supabase = await createClient();
 
@@ -48,6 +49,11 @@ export async function GET(request: Request) {
     // 添加状态筛选
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter);
+    }
+
+    // 添加取消订单筛选
+    if (!showCancelled) {
+      query = query.neq('status', 'cancelled');
     }
 
     // 对于 pending-payment，我们需要在获取数据后进行筛选，因为 Supabase 关联查询的限制
