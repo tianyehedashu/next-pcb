@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if admin has reviewed and approved the order
-    if (adminOrder.status !== 'reviewed') {
+    if (adminOrder.status !== 'reviewed' && adminOrder.status !== 'payment_failed') {
       return NextResponse.json(
         { error: 'Order has not been reviewed and approved by admin yet' },
         { status: 400 }

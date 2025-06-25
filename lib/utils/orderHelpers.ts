@@ -66,8 +66,8 @@ export function canOrderBePaid(order: OrderWithAdminOrder): boolean {
     return false;
   }
   
-  // 必须管理员已审核通过（状态为 'reviewed'）
-  if (adminOrder.status !== 'reviewed') {
+  // 必须管理员已审核通过（状态为 'reviewed'）或支付失败可重试（状态为 'payment_failed'）
+  if (adminOrder.status !== 'reviewed' && adminOrder.status !== 'payment_failed') {
     return false;
   }
   
