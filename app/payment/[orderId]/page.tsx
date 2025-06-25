@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
 import StripePaymentForm from '@/components/custom-ui/StripePaymentForm';
 import { getAdminOrder, canOrderBePaid, getOrderPaymentAmount, formatOrderPrice, type OrderWithAdminOrder, type AdminOrder } from '@/lib/utils/orderHelpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, Package, MapPin, Shield } from 'lucide-react';
+import { fetchWithRetry, checkAuthAndRedirect } from '@/lib/auth';
 
 // Use the standardized interface from orderHelpers
 type Order = OrderWithAdminOrder;
@@ -33,19 +33,14 @@ export default function PaymentPage() {
     const fetchOrder = async () => {
       setLoading(true);
       try {
-        const { data: { session }, error: authError } = await supabase.auth.getSession();
-        if (authError || !session) {
-          router.push('/auth');
-          return;
+        // Check authentication
+        const session = await checkAuthAndRedirect('/auth');
+        if (!session) {
+          return; // checkAuthAndRedirect will handle the redirect
         }
 
-        const response = await fetch(`/api/user/orders/${orderId}`);
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch order details');
-        }
-
-        const data: Order = await response.json();
+        // Fetch order data with retry mechanism and safe JSON parsing
+        const data: Order = await fetchWithRetry<Order>(`/api/user/orders/${orderId}`);
         
         // Get admin order first
         const currentAdminOrder = getAdminOrder(data);

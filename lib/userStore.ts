@@ -70,25 +70,36 @@ export function useBridgeUser() {
 
   useEffect(() => {
     const sync = async (session: Session | null) => {
-      setUser({ isLoading: true });
-      
-      if (session?.user) {
-        // 只在有 user 时拉 profile，合并 user_metadata
-   
-        const userMetaRole = session.user.user_metadata?.role;
-           const mergedUser: UserInfo = {
-          id: session.user.id,
-          email: session.user.email,
-          ...session.user.user_metadata,
-          role: userMetaRole,
-        };
-        setUser({
-          user: mergedUser,
-          session,
-          accessToken: session.access_token,
-          isLoading: false,
-        });
-      } else {
+      try {
+        setUser({ isLoading: true });
+        
+        if (session?.user) {
+          // 只在有 user 时拉 profile，合并 user_metadata
+     
+          const userMetaRole = session.user.user_metadata?.role;
+             const mergedUser: UserInfo = {
+            id: session.user.id,
+            email: session.user.email,
+            ...session.user.user_metadata,
+            role: userMetaRole,
+          };
+          setUser({
+            user: mergedUser,
+            session,
+            accessToken: session.access_token || '',
+            isLoading: false,
+          });
+        } else {
+          setUser({
+            user: null,
+            session: null,
+            accessToken: null,
+            isLoading: false,
+          });
+        }
+      } catch (error) {
+        console.error('Error in sync function:', error);
+        // 在出错时设置为未登录状态
         setUser({
           user: null,
           session: null,
@@ -98,14 +109,52 @@ export function useBridgeUser() {
       }
     };
 
-    // 首次同步
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      sync(session);
-    });
+    // 首次同步 - 添加错误处理
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        sync(session);
+      })
+      .catch((error) => {
+        console.error('Failed to get session:', error);
+        // 尝试使用 getUser 作为备用方案
+        supabase.auth.getUser()
+          .then(({ data: { user }, error: userError }) => {
+            if (userError || !user) {
+              // 如果也失败了，设置为未登录状态
+              sync(null);
+            } else {
+              // 创建一个简化的 session 对象
+              const fallbackSession = {
+                user,
+                access_token: '',
+                refresh_token: '',
+                expires_in: 0,
+                expires_at: 0,
+                token_type: 'bearer'
+              } as Session;
+              sync(fallbackSession);
+            }
+          })
+          .catch(() => {
+            // 彻底失败，设置为未登录状态
+            sync(null);
+          });
+      });
 
-    // 监听 session 变化
+    // 监听 session 变化 - 添加错误处理
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      sync(session);
+      try {
+        sync(session);
+      } catch (error) {
+        console.error('Error in auth state change handler:', error);
+        // 在出错时设置为未登录状态
+        setUser({
+          user: null,
+          session: null,
+          accessToken: null,
+          isLoading: false,
+        });
+      }
     });
 
     const unsub = () => listener.subscription.unsubscribe();

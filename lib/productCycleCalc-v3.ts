@@ -168,12 +168,6 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
     }
   }
 
-  // 7. 下单时间晚于20:00，顺延一天
-  const cutoffHour = 20;
-  if (orderTime.getHours() >= cutoffHour) {
-    totalDays += 1;
-    reason.push("Order after 20:00: +1 day");
-  }
 
   // 8. 返回最终生产周期天数和明细原因
   return { cycleDays: totalDays, reason };

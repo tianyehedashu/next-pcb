@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, ArrowRight, Package, Download, Calendar } from 'lucide-react';
 import { getAdminOrder, formatOrderPrice, type OrderWithAdminOrder } from '@/lib/utils/orderHelpers';
+import { checkAuthAndRedirect } from '@/lib/auth';
 
 export default function PaymentSuccessPage() {
   const router = useRouter();
@@ -19,10 +19,9 @@ export default function PaymentSuccessPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const { data: { session }, error: authError } = await supabase.auth.getSession();
-        if (authError || !session) {
-          router.push('/auth');
-          return;
+        const session = await checkAuthAndRedirect('/auth');
+        if (!session) {
+          return; // checkAuthAndRedirect will handle the redirect
         }
 
         const response = await fetch(`/api/user/orders/${orderId}`);

@@ -8,10 +8,11 @@ import { useUserStore } from "@/lib/userStore";
 import { toUSD } from "@/lib/utils";
 import { canOrderBePaid, getOrderPaymentAmount, type OrderWithAdminOrder } from "@/lib/utils/orderHelpers";
 import { RefundStatusBadge } from "@/app/components/custom-ui/RefundStatusBadge";
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
-import { Search, Package, Plus, RefreshCw, Eye, CreditCard, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, Package, Plus, RefreshCw, Eye, CreditCard, ArrowUpDown, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -66,6 +67,8 @@ export default function OrdersPageClient(): React.ReactElement {
   const [loadingOrders, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  
+  const [showCancelledOrders, setShowCancelledOrders] = useState(false);
   
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
@@ -211,9 +214,16 @@ export default function OrdersPageClient(): React.ReactElement {
     });
   };
 
+
+
   const filteredOrders = orders.filter(order => {
     const matchesSearch = searchTerm === '' ||
       order.id.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // 默认隐藏已取消的订单，除非明确要显示
+    if (!showCancelledOrders && order.status === 'cancelled') {
+      return false;
+    }
 
     if (orderType === 'pending-payment') {
       const canPay = canOrderBePaid(order as OrderWithAdminOrder);
@@ -477,6 +487,7 @@ export default function OrdersPageClient(): React.ReactElement {
               <SelectItem value="quoted">Quoted</SelectItem>
               <SelectItem value="reviewed">Reviewed</SelectItem>
               <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
         )}
@@ -494,8 +505,23 @@ export default function OrdersPageClient(): React.ReactElement {
             </SelectContent>
           </Select>
         </div>
-        <div className="text-sm text-gray-600">
-          Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} orders
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-gray-600">
+            Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} orders
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCancelledOrders(!showCancelledOrders)}
+            className={`flex items-center gap-2 text-xs ${
+              showCancelledOrders 
+                ? 'bg-red-50 text-red-700 border-red-200' 
+                : 'text-gray-600'
+            }`}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {showCancelledOrders ? 'Hide' : 'Show'} Cancelled
+          </Button>
         </div>
       </div>
 
@@ -796,6 +822,8 @@ export default function OrdersPageClient(): React.ReactElement {
           />
         </div>
       )}
+
+
     </div>
   );
 } 
