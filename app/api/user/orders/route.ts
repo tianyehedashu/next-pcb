@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { checkUserAuth } from '@/lib/auth-utils';
 
+type OrderType = Record<string, any>;
+
 export async function GET(request: Request) {
   // Check user authentication
   const { user, error } = await checkUserAuth();
@@ -16,6 +18,7 @@ export async function GET(request: Request) {
     const searchTerm = url.searchParams.get('search') || '';
     const sortField = url.searchParams.get('sortField') || 'created_at';
     const sortOrder = url.searchParams.get('sortOrder') || 'desc';
+    const orderType = url.searchParams.get('type');
 
     const supabase = await createClient();
 
@@ -47,6 +50,13 @@ export async function GET(request: Request) {
       query = query.eq('status', statusFilter);
     }
 
+    if (orderType === 'pending-payment') {
+      query = query
+        .not('status', 'eq', 'cancelled')
+        .gt('admin_orders.admin_price', 0)
+        .neq('admin_orders.payment_status', 'paid');
+    }
+
     // 添加搜索筛选
     if (searchTerm) {
       query = query.ilike('id', `%${searchTerm}%`);
@@ -74,7 +84,7 @@ export async function GET(request: Request) {
     }
 
     // 对于复杂排序，先获取所有数据
-    let allOrdersData;
+    let allOrdersData: OrderType[];
     let totalCount;
     
     if (sortField === 'admin_price' || sortField === 'lead_time') {
@@ -138,7 +148,7 @@ export async function GET(request: Request) {
     }
 
     // 为当前页的订单获取支付状态，不再依赖 Stripe
-    const processedOrders = allOrdersData.map((order: Record<string, any>) => {
+    const processedOrders = allOrdersData.map((order: OrderType) => {
       const adminOrder = Array.isArray(order.admin_orders) ? order.admin_orders[0] : order.admin_orders;
       const dbPaymentStatus = adminOrder?.payment_status || 'unpaid';
 

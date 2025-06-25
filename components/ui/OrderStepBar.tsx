@@ -22,13 +22,13 @@ export default function OrderStepBar({
 
   return (
     <div className="flex items-center justify-center mt-2 mb-2 px-1 sm:px-2 bg-white/80 rounded-xl shadow-sm overflow-x-auto">
-      <div className="flex items-center gap-1 sm:gap-0 min-w-max">
+      <div className="flex items-center gap-0 min-w-0">
         {steps.map((step, idx) => {
           const isDone = idx < currentStep;
           const isActive = idx === currentStep;
           return (
             <React.Fragment key={step.label}>
-              <div className="flex flex-col items-center min-w-0">
+              <div className="flex flex-col items-center flex-shrink-0">
                 <div
                   className={["flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 shadow-sm transition-all duration-200",
                     isDone
@@ -55,14 +55,14 @@ export default function OrderStepBar({
                       ? "text-blue-700"
                       : "text-gray-400"
                   ].join(" ")}
-                  style={{ minWidth: 40, maxWidth: 70 }}
+                  style={{ minWidth: 40, maxWidth: 60 }}
                 >
                   {step.label}
                 </div>
               </div>
               {idx < steps.length - 1 && (
-                <div className="flex items-center mx-1 sm:mx-3">
-                  <svg width="16" height="8" className="sm:w-[22px] sm:h-[12px]" viewBox="0 0 22 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <div className="flex items-center mx-1 sm:mx-2">
+                  <svg width="14" height="6" className="sm:w-[22px] sm:h-[12px]" viewBox="0 0 22 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M2 6H20M20 6L17 3M20 6L17 9" stroke={isDone || isActive ? '#2563eb' : '#d1d5db'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>

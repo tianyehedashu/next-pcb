@@ -101,7 +101,8 @@ export default function OrdersPageClient(): React.ReactElement {
         status: statusFilter,
         search: searchTerm,
         sortField: sortField,
-        sortOrder: sortOrder
+        sortOrder: sortOrder,
+        ...(orderType && { type: orderType })
       });
 
       // 使用新的分页 API

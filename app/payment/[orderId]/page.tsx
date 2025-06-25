@@ -12,14 +12,15 @@ import PaymentPageClient from './PaymentPageClient';
 type Order = OrderWithAdminOrder;
 
 export default async function PaymentPage({ params }: { params: { orderId: string } }) {
-  const user = await requireAuth({ redirectTo: `/auth?redirect=/payment/${params.orderId}` });
+  const { orderId } = await params;
+  const user = await requireAuth({ redirectTo: `/auth?redirect=/payment/${orderId}` });
 
   const supabase = await createClient();
 
   const { data: orderData, error: orderError } = await supabase
     .from('pcb_quotes')
-    .select('*, admin_orders(*), shipping_address:user_addresses(*)')
-    .eq('id', params.orderId)
+    .select('*, admin_orders(*)')
+    .eq('id', orderId)
     .eq('user_id', user.id)
     .single();
 
@@ -53,7 +54,7 @@ export default async function PaymentPage({ params }: { params: { orderId: strin
   const adminOrder = getAdminOrder(typedOrder);
 
   if (adminOrder?.payment_status === 'paid') {
-    return redirect(`/profile/orders/${params.orderId}?payment_completed=true`);
+    return redirect(`/profile/orders/${orderId}?payment_completed=true`);
   }
 
   if (!canOrderBePaid(typedOrder)) {
@@ -69,7 +70,7 @@ export default async function PaymentPage({ params }: { params: { orderId: strin
                 <Alert variant="default" className="mb-4 bg-orange-50 border-orange-200 text-orange-800">
                   <AlertDescription>This order is not ready for payment. Please wait for admin review.</AlertDescription>
                 </Alert>
-                <Link href={`/profile/orders/${params.orderId}`}>
+                <Link href={`/profile/orders/${orderId}`}>
                   <Button variant="outline" className="w-full">
                     <ArrowLeft className="mr-2 h-4 w-4" /> View Order Status
                   </Button>

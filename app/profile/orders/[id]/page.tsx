@@ -239,6 +239,7 @@ export default function OrderDetailPage() {
   const user = useUserStore((state) => state.user);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const dataFetchedRef = React.useRef(false);
   const [paymentIntentStatus, setPaymentIntentStatus] = useState<{
     hasPaymentIntent: boolean;
     stripeStatus?: string;
@@ -318,8 +319,9 @@ export default function OrderDetailPage() {
 
   // Initial load
   useEffect(() => {
-    if (user) {
+    if (user && !dataFetchedRef.current) {
       fetchOrderData();
+      dataFetchedRef.current = true;
     }
   }, [user, fetchOrderData]);
 
@@ -485,18 +487,23 @@ export default function OrderDetailPage() {
   const statusInfo = ORDER_STATUS_MAP[order.status || 'created'];
   
   // Enhanced payment readiness check
-  const isReadyForPayment = adminOrder && 
-    adminOrder.admin_price && 
-    adminOrder.status === 'reviewed' && 
-    adminOrder.payment_status !== 'paid' && 
-    (!paymentIntentStatus?.hasPaymentIntent || 
-     paymentIntentStatus?.stripeStatus === 'failed' || 
-     paymentIntentStatus?.stripeStatus === 'canceled' ||
-     paymentIntentStatus?.stripeStatus === 'requires_payment_method' ||
-     paymentIntentStatus?.stripeStatus === 'requires_action' ||
-     paymentIntentStatus?.stripeStatus === 'requires_confirmation');
+  const isPayableIntent = paymentIntentStatus?.hasPaymentIntent &&
+    (
+      paymentIntentStatus?.stripeStatus === 'failed' ||
+      paymentIntentStatus?.stripeStatus === 'canceled' ||
+      paymentIntentStatus?.stripeStatus === 'requires_payment_method' ||
+      paymentIntentStatus?.stripeStatus === 'requires_action' ||
+      paymentIntentStatus?.stripeStatus === 'requires_confirmation'
+    );
 
-
+  const isReadyForPayment =
+    adminOrder &&
+    adminOrder.admin_price &&
+    adminOrder.payment_status !== 'paid' &&
+    (
+      (adminOrder.status === 'reviewed' && !paymentIntentStatus?.hasPaymentIntent) ||
+      isPayableIntent
+    );
 
   const getCurrentStep = () => {
     const userStatus = order.status || 'created';
