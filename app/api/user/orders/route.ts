@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { checkUserAuth } from '@/lib/auth-utils';
 
-type OrderType = Record<string, any>;
+type OrderType = Record<string, unknown>;
 
 export async function GET(request: Request) {
   // Check user authentication
@@ -50,12 +50,8 @@ export async function GET(request: Request) {
       query = query.eq('status', statusFilter);
     }
 
-    if (orderType === 'pending-payment') {
-      query = query
-        .not('status', 'eq', 'cancelled')
-        .gt('admin_orders.admin_price', 0)
-        .neq('admin_orders.payment_status', 'paid');
-    }
+    // 对于 pending-payment，我们需要在获取数据后进行筛选，因为 Supabase 关联查询的限制
+    // 先不在这里筛选，而是在后面筛选
 
     // 添加搜索筛选
     if (searchTerm) {
@@ -83,11 +79,11 @@ export async function GET(request: Request) {
         query = query.order('created_at', { ascending: false });
     }
 
-    // 对于复杂排序，先获取所有数据
+    // 对于复杂排序或 pending-payment 筛选，先获取所有数据
     let allOrdersData: OrderType[];
     let totalCount;
     
-    if (sortField === 'admin_price' || sortField === 'lead_time') {
+    if (sortField === 'admin_price' || sortField === 'lead_time' || orderType === 'pending-payment') {
       // 获取所有数据进行排序
       const { data: allOrders, error: allOrdersError, count } = await query;
       if (allOrdersError) {
@@ -97,40 +93,50 @@ export async function GET(request: Request) {
         );
       }
       
-      // 手动排序
-      const sortedOrders = (allOrders || []).sort((aOrder, bOrder) => {
-        const a = aOrder as Record<string, unknown>;
-        const b = bOrder as Record<string, unknown>;
-        let aValue: string | number;
-        let bValue: string | number;
-
-        switch (sortField) {
-          case 'admin_price':
-            const aAdminOrders = a.admin_orders as Record<string, unknown>[] | Record<string, unknown>;
-            const bAdminOrders = b.admin_orders as Record<string, unknown>[] | Record<string, unknown>;
-            const aAdminOrder = Array.isArray(aAdminOrders) ? aAdminOrders[0] : aAdminOrders;
-            const bAdminOrder = Array.isArray(bAdminOrders) ? bAdminOrders[0] : bAdminOrders;
-            aValue = (aAdminOrder?.admin_price as number) || 0;
-            bValue = (bAdminOrder?.admin_price as number) || 0;
-            break;
-          case 'lead_time':
-            const aCalValues = a.cal_values as Record<string, unknown>;
-            const bCalValues = b.cal_values as Record<string, unknown>;
-            aValue = (aCalValues?.leadTimeDays as number) || 0;
-            bValue = (bCalValues?.leadTimeDays as number) || 0;
-            break;
-          default:
-            return 0;
-        }
-
-        if (aValue < bValue) return ascending ? -1 : 1;
-        if (aValue > bValue) return ascending ? 1 : -1;
-        return 0;
-      });
+      // 手动排序（当需要复杂排序时）
+      let sortedOrders = allOrders || [];
       
-      // 应用分页
-      totalCount = count;
-      allOrdersData = sortedOrders.slice((page - 1) * pageSize, page * pageSize);
+      if (sortField === 'admin_price' || sortField === 'lead_time') {
+        sortedOrders = sortedOrders.sort((aOrder, bOrder) => {
+          const a = aOrder as Record<string, unknown>;
+          const b = bOrder as Record<string, unknown>;
+          let aValue: string | number;
+          let bValue: string | number;
+
+          switch (sortField) {
+            case 'admin_price':
+              const aAdminOrders = a.admin_orders as Record<string, unknown>[] | Record<string, unknown>;
+              const bAdminOrders = b.admin_orders as Record<string, unknown>[] | Record<string, unknown>;
+              const aAdminOrder = Array.isArray(aAdminOrders) ? aAdminOrders[0] : aAdminOrders;
+              const bAdminOrder = Array.isArray(bAdminOrders) ? bAdminOrders[0] : bAdminOrders;
+              aValue = (aAdminOrder?.admin_price as number) || 0;
+              bValue = (bAdminOrder?.admin_price as number) || 0;
+              break;
+            case 'lead_time':
+              const aCalValues = a.cal_values as Record<string, unknown>;
+              const bCalValues = b.cal_values as Record<string, unknown>;
+              aValue = (aCalValues?.leadTimeDays as number) || 0;
+              bValue = (bCalValues?.leadTimeDays as number) || 0;
+              break;
+            default:
+              return 0;
+          }
+
+          if (aValue < bValue) return ascending ? -1 : 1;
+          if (aValue > bValue) return ascending ? 1 : -1;
+          return 0;
+        });
+      }
+      
+      // 对于 pending-payment，先不应用分页，因为后面会筛选
+      if (orderType === 'pending-payment') {
+        totalCount = count;
+        allOrdersData = sortedOrders;
+      } else {
+        // 应用分页
+        totalCount = count;
+        allOrdersData = sortedOrders.slice((page - 1) * pageSize, page * pageSize);
+      }
     } else {
       // 简单排序直接使用数据库分页
       const { data: orders, error: orderError, count } = await query
@@ -148,7 +154,7 @@ export async function GET(request: Request) {
     }
 
     // 为当前页的订单获取支付状态，不再依赖 Stripe
-    const processedOrders = allOrdersData.map((order: OrderType) => {
+    let processedOrders = allOrdersData.map((order: OrderType) => {
       const adminOrder = Array.isArray(order.admin_orders) ? order.admin_orders[0] : order.admin_orders;
       const dbPaymentStatus = adminOrder?.payment_status || 'unpaid';
 
@@ -166,6 +172,48 @@ export async function GET(request: Request) {
         payment_status_info: paymentStatusInfo,
       };
     });
+
+    // 对于 pending-payment 类型，在数据处理后进行筛选
+    if (orderType === 'pending-payment') {
+      console.log('Filtering orders for pending-payment, total orders before filtering:', processedOrders.length);
+      
+      const filteredOrders = processedOrders.filter((order: OrderType) => {
+        const adminOrder = Array.isArray(order.admin_orders) ? order.admin_orders[0] : order.admin_orders;
+        
+        const isValidOrder = (
+          order.status !== 'cancelled' &&
+          adminOrder &&
+          adminOrder.admin_price &&
+          adminOrder.admin_price > 0 &&
+          adminOrder.payment_status !== 'paid' &&
+          (adminOrder.status === 'reviewed' || adminOrder.status === 'payment_failed')
+        );
+        
+        // 调试日志
+        if (!isValidOrder) {
+          console.log(`Order ${order.id} filtered out:`, {
+            orderStatus: order.status,
+            adminOrderExists: !!adminOrder,
+            adminPrice: adminOrder?.admin_price,
+            paymentStatus: adminOrder?.payment_status,
+            adminStatus: adminOrder?.status,
+          });
+        }
+        
+        return isValidOrder;
+      });
+      
+      console.log('Orders after filtering for pending-payment:', filteredOrders.length);
+      processedOrders = filteredOrders;
+      
+      // 更新总数和总页数
+      totalCount = processedOrders.length;
+      
+      // 重新应用分页（因为筛选可能改变了结果数量）
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      processedOrders = processedOrders.slice(startIndex, endIndex);
+    }
 
     return NextResponse.json({
       orders: processedOrders,

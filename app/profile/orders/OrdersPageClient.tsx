@@ -215,10 +215,15 @@ export default function OrdersPageClient(): React.ReactElement {
     setCurrentPage(1);
   };
 
+  // 当 orderType 变化时重置分页状态
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [orderType]);
+
   // 当分页、排序、筛选状态改变时重新获取数据
   useEffect(() => {
     fetchOrders();
-  }, [currentPage, pageSize, statusFilter, sortField, sortOrder]);
+  }, [currentPage, pageSize, statusFilter, sortField, sortOrder, orderType]);
 
   // 搜索词变化时的防抖处理
   useEffect(() => {
@@ -287,7 +292,17 @@ export default function OrdersPageClient(): React.ReactElement {
 
   const renderOrderPrice = (order: OrderListItem) => {
     const adminOrder = getAdminOrderInfo(order);
-    if (adminOrder && adminOrder.admin_price != null) {
+    
+    // 调试日志
+    console.log('Price render debug:', {
+      orderId: order.id.slice(0, 8),
+      adminOrder: adminOrder,
+      adminPriceExists: adminOrder && adminOrder.admin_price != null,
+      adminPrice: adminOrder?.admin_price,
+      calValues: order.cal_values?.totalPrice
+    });
+    
+    if (adminOrder && adminOrder.admin_price != null && adminOrder.admin_price > 0) {
       return (
         <div className="flex flex-col">
           <span className="font-semibold text-gray-800">

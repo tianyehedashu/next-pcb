@@ -1,5 +1,5 @@
 "use client";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
@@ -44,7 +44,26 @@ const menu = [
 
 export default function ProfileSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
+
+  // 检查当前 URL 是否与菜单项匹配
+  const isActive = (href: string) => {
+    const [path, query] = href.split('?');
+    if (pathname !== path) return false;
+    
+    if (!query) {
+      // 如果菜单项没有查询参数，则检查当前 URL 也没有相关查询参数
+      return !searchParams.get('type');
+    }
+    
+    // 如果菜单项有查询参数，检查当前 URL 的查询参数是否匹配
+    const params = new URLSearchParams(query);
+    for (const [key, value] of params.entries()) {
+      if (searchParams.get(key) !== value) return false;
+    }
+    return true;
+  };
 
   // 侧边栏内容
   const sidebarContent = (
@@ -59,7 +78,7 @@ export default function ProfileSidebar() {
                   href={item.href}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded transition-colors",
-                    pathname === item.href
+                    isActive(item.href)
                       ? "bg-primary text-white font-semibold"
                       : "hover:bg-muted"
                   )}
@@ -89,7 +108,7 @@ export default function ProfileSidebar() {
                   href={item.href}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded transition-colors",
-                    pathname === item.href
+                    isActive(item.href)
                       ? "bg-primary text-white font-semibold"
                       : "hover:bg-muted"
                   )}
