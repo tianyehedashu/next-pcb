@@ -63,7 +63,13 @@ export const quoteSchema = z.object({
   pcbNote: z.string().min(1, "Panel Note is required").max(1000, "Panel note too long"),
 
   // === Delivery Information ===
-  delivery: z.nativeEnum(DeliveryType).default(DeliveryType.Standard),
+  deliveryOptions: z.object({
+    delivery: z.nativeEnum(DeliveryType).default(DeliveryType.Standard),
+    urgentReduceDays: z.number().int().min(0).max(8).default(0),
+  }).default({
+    delivery: DeliveryType.Standard,
+    urgentReduceDays: 0,
+  }),
 
   // === Process Information ===
   outerCopperWeight: z.nativeEnum(CopperWeight, { required_error: "Outer copper weight is required" }).default(CopperWeight.One),

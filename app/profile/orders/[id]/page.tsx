@@ -23,6 +23,7 @@ import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
 import { useToast } from '@/components/ui/use-toast';
 import { AddressFormComponent, AddressFormValue } from '@/app/quote2/components/AddressFormComponent';
 import { PCBSpecificationDisplay } from '@/app/components/custom-ui/PCBSpecificationDisplay';
+import { DeliveryInfoDisplay } from '@/app/components/custom-ui/DeliveryInfoDisplay';
 
 
 // Define cal_values type
@@ -903,7 +904,24 @@ export default function OrderDetailPage() {
             />
 
             {/* PCB Specifications */}
-            <PCBSpecificationDisplay pcbFormData={pcbFormData} />
+            <div className="space-y-4">
+              <PCBSpecificationDisplay pcbFormData={pcbFormData} />
+              
+              {/* Delivery Information */}
+              {pcbFormData && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Truck className="w-5 h-5 text-orange-600" />
+                      Delivery Type
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <DeliveryInfoDisplay pcbSpec={pcbFormData} size="md" />
+                  </CardContent>
+                </Card>
+              )}
+            </div>
 
             {/* Contact & Shipping */}
             <Card>

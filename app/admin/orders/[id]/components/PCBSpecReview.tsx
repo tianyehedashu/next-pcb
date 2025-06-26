@@ -3,7 +3,6 @@ import { Settings, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { QuoteFormData } from '@/app/quote2/schema/quoteSchema';
 import { AddressFormValue } from '@/app/quote2/components/AddressFormComponent';
-import { DeliveryType } from '@/app/quote2/schema/shared-types';
 import { ProductReport } from '@/types/form';
 
 interface PCBSpecReviewProps {
@@ -88,11 +87,26 @@ export function PCBSpecReview({ pcbFormData, shippingAddress: externalShippingAd
     { label: 'UL标记', value: pcbFormData.ulMark ? '需要' : '不需要' }
   ];
 
+  // 获取delivery信息，优先使用新的deliveryOptions结构
+  const delivery = pcbFormData.deliveryOptions?.delivery || 'standard';
+  const urgentReduceDays = pcbFormData.deliveryOptions?.urgentReduceDays || 0;
+  
+  // 格式化delivery显示
+  let deliveryDisplay = '标准';
+  let deliveryHighlight = false;
+  if (delivery === 'urgent' && urgentReduceDays > 0) {
+    deliveryDisplay = `加急 ⚡ (减${urgentReduceDays}天)`;
+    deliveryHighlight = true;
+  } else if (delivery === 'urgent') {
+    deliveryDisplay = '加急 ⚡';
+    deliveryHighlight = true;
+  }
+
   const serviceSpecs = [
     { label: '使用盛意料', value: pcbFormData.useShengyiMaterial ? '是' : '否', highlight: !!pcbFormData.useShengyiMaterial },
     { label: '测试方式', value: pcbFormData.testMethod || '默认' },
     { label: 'IPC 等级', value: pcbFormData.ipcClass || 'IPC Class 2' },
-    { label: '交货类型', value: pcbFormData.delivery === DeliveryType.Urgent ? '加急 ⚡' : '标准' },
+    { label: '交货类型', value: deliveryDisplay, highlight: deliveryHighlight },
     { label: '工作Gerber来源', value: pcbFormData.workingGerber || '客户提供' },
     { label: '数据冲突时', value: pcbFormData.ifDataConflicts || '以Gerber为准' },
     { label: '接受瑕疵板', value: pcbFormData.crossOuts === 'Accept' ? '是' : '否' },

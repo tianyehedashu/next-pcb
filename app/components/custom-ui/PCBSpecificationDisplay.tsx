@@ -2,7 +2,6 @@ import React from 'react';
 import { FileText, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QuoteFormData } from '@/app/quote2/schema/quoteSchema';
-import { DeliveryType } from '@/app/quote2/schema/shared-types';
 import { ProductReport } from '@/types/form';
 
 interface PCBSpecificationDisplayProps {
@@ -10,6 +9,21 @@ interface PCBSpecificationDisplayProps {
 }
 
 export function PCBSpecificationDisplay({ pcbFormData }: PCBSpecificationDisplayProps) {
+  // 获取delivery信息，优先使用新的deliveryOptions结构
+  const getDeliveryDisplay = () => {
+    if (!pcbFormData) return 'Standard';
+    
+    const delivery = pcbFormData.deliveryOptions?.delivery || 'standard';
+    const urgentReduceDays = pcbFormData.deliveryOptions?.urgentReduceDays || 0;
+    
+    if (delivery === 'urgent' && urgentReduceDays > 0) {
+      return `Urgent ⚡ (-${urgentReduceDays}d)`;
+    } else if (delivery === 'urgent') {
+      return 'Urgent ⚡';
+    }
+    return 'Standard';
+  };
+
   if (!pcbFormData) {
     return (
       <Card className="border-2 border-orange-200">
@@ -294,7 +308,7 @@ export function PCBSpecificationDisplay({ pcbFormData }: PCBSpecificationDisplay
                 
                 <div className="border-r border-b p-2 bg-gray-50 font-medium">Delivery Type</div>
                 <div className="border-r border-b p-2 text-center font-semibold">
-                  {pcbFormData.delivery === DeliveryType.Urgent ? 'Urgent ⚡' : 'Standard'}
+                  {getDeliveryDisplay()}
                 </div>
                 <div className="border-r border-b p-2 bg-gray-50 font-medium">Working Gerber</div>
                 <div className="border-r border-b p-2 text-center font-semibold">{pcbFormData.workingGerber || 'Customer Provided'}</div>
@@ -333,7 +347,7 @@ export function PCBSpecificationDisplay({ pcbFormData }: PCBSpecificationDisplay
               <div className="bg-gray-50 rounded p-2">
                 <div className="text-xs text-gray-600 mb-1">Delivery Type</div>
                 <div className="text-sm font-medium">
-                  {pcbFormData.delivery === DeliveryType.Urgent ? 'Urgent ⚡' : 'Standard'}
+                  {getDeliveryDisplay()}
                 </div>
               </div>
             </div>

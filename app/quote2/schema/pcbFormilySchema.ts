@@ -702,17 +702,14 @@ export const pcbFormilySchema: ISchema = {
       }
     },
 
-    delivery: {
-      type: "string",
+    deliveryOptions: {
+      type: "object",
       title: "Delivery Type",
-      "x-component": "RadioTabs",
-      "x-component-props": {
-        options: [
-          { label: "Standard", value: DeliveryType.Standard },
-          { label: "Urgent ⚡", value: DeliveryType.Urgent }
-        ]
-      },
-      default: DeliveryType.Standard
+      "x-component": "UrgentDeliverySelector",
+      default: {
+        delivery: DeliveryType.Standard,
+        urgentReduceDays: 0
+      }
     },
 
     // === 文件上传 ===
@@ -801,7 +798,7 @@ export const fieldGroups = [
     fields: [
       'hdi', 'castellated', 'testMethod', 'workingGerber',
       'productReport', 'ulMark', 'crossOuts', 'ipcClass', 'ifDataConflicts',
-      'delivery', 'specialRequests'
+      'deliveryOptions', 'specialRequests'
     ]
   },
   {

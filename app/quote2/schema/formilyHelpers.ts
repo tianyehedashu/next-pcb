@@ -335,7 +335,7 @@ export function getTestMethodOptions([layers, singleDimensions, singleCount, shi
     };
   } else {
     // 多层板
-    if (area > 5) {
+    if (area.totalArea > 5) {
       // 面积 > 5㎡：只能选 Fixture
       return {
         options: [

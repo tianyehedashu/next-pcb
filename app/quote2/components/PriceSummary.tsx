@@ -196,7 +196,8 @@ export default function PriceSummary() {
       const totalCount = calculated.totalQuantity;
       const pcbCostUsd = convertCnyToUsd(total); // 转换为 USD
       const unitPrice = totalCount > 0 ? pcbCostUsd / totalCount : 0;
-      const leadTimeResult = calculateLeadTime(formData, new Date(), formData.delivery);
+      const delivery = formData.deliveryOptions?.delivery || 'standard';
+      const leadTimeResult = calculateLeadTime(formData, new Date(), delivery);
       
       // 转换detail中的价格
       const detailUsd: Record<string, number> = {};
@@ -246,7 +247,8 @@ export default function PriceSummary() {
       const totalCount = calculated.totalQuantity;
       const pcbCostUsd = convertCnyToUsd(total); // 转换为 USD
       const unitPrice = totalCount > 0 ? pcbCostUsd / totalCount : 0;
-      const leadTimeResult = calculateLeadTime(formData, new Date(), formData.delivery);
+      const delivery = formData.deliveryOptions?.delivery || 'standard';
+      const leadTimeResult = calculateLeadTime(formData, new Date(), delivery);
       const shippingCost = shippingInfo.cost;
       const shippingWeight = shippingInfo.weight;
       const actualWeight = shippingInfo.actualWeight;
@@ -320,7 +322,8 @@ export default function PriceSummary() {
     const now = new Date();
     
     // 直接计算交期数据
-    const leadTimeData = calculateLeadTime(formData, new Date(), formData.delivery);
+    const delivery = formData.deliveryOptions?.delivery || 'standard';
+    const leadTimeData = calculateLeadTime(formData, new Date(), delivery);
     const standardFinish = getRealDeliveryDate(now, leadTimeData.cycleDays);
     
     // 添加调试信息

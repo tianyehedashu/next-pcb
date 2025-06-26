@@ -152,7 +152,10 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
   pcbNote: '',
 
   // Delivery Information
-  delivery: DeliveryType.Standard,
+  deliveryOptions: {
+    delivery: DeliveryType.Standard,
+    urgentReduceDays: 0,
+  },
 
   // Process Information
   outerCopperWeight: CopperWeight.One,

@@ -1,5 +1,6 @@
 import type { QuoteFormData as PcbQuoteForm } from '@/app/quote2/schema/quoteSchema';
 import {ShipmentType, TestMethod, SurfaceFinish, SurfaceFinishEnigType, SolderMask, MaskCover, CopperWeight, EdgeCover, TgType, ProductReport } from '../types/form';
+import { calculateUrgentFee, isUrgentSupported } from './urgentDeliverySystem-v4';
 
 // 类型定义
 /**
@@ -1375,42 +1376,63 @@ export const thicknessHandler = Object.assign(
 );
 
 /**
- * 加急费用处理器
- * 规则：
- * - 标准交期（delivery=standard）：不收费
- * - 加急交期（delivery=urgent）：
- *   - 样品（面积<1㎡）：加急费100元/款
- *   - 批量（面积≥1㎡）：加急费50元/㎡，最低100元
+ * 加急费用处理器 v4
+ * 基于新的精细化加急系统
  * 
- * Urgent Delivery Fee Handler
- * - Standard delivery (delivery=standard): no charge
- * - Urgent delivery (delivery=urgent):
- *   - Sample (area < 1㎡): +100 CNY/lot
- *   - Batch (area ≥ 1㎡): +50 CNY/㎡, minimum 100 CNY
+ * 规则：
+ * - 标准交期（delivery=standard 或 urgentReduceDays=0）：不收费
+ * - 加急交期（delivery=urgent 且 urgentReduceDays>0）：
+ *   - 使用 urgentDeliverySystem-v4 计算精确费用
+ *   - 支持固定费用和按平米费用两种模式
+ *   - 根据层数、铜厚、面积自动选择费用标准
+ * 
+ * Urgent Delivery Fee Handler v4
+ * - Standard delivery: no charge
+ * - Urgent delivery: dynamic pricing based on configuration
  */
 export const urgentDeliveryHandler: PriceHandler = (form, area) => {
   let extra = 0;
   const detail: Record<string, number> = {};
   const notes: string[] = [];
   
-  if (form.delivery === 'urgent') {
-    const isSample = area < 1;
+  // 检查是否为加急订单
+  const delivery = form.deliveryOptions?.delivery || form.delivery;
+  const urgentReduceDays = form.deliveryOptions?.urgentReduceDays || form.urgentReduceDays || 0;
+  const isUrgent = delivery === 'urgent' && urgentReduceDays > 0;
+  
+  if (isUrgent) {
+    const reduceDays = urgentReduceDays;
+    const urgentSupported = isUrgentSupported(form, area);
     
-    if (isSample) {
-      // 样品加急费：100元/款
-      extra = 100;
-      detail['urgentDelivery'] = 100;
-      notes.push('Urgent delivery: sample +100 CNY/lot');
+    if (urgentSupported && reduceDays > 0) {
+      const feeInfo = calculateUrgentFee(form, area, reduceDays);
+      
+      if (feeInfo.supported) {
+        extra = feeInfo.fee;
+        detail['urgentDelivery'] = feeInfo.fee;
+        notes.push(`Urgent delivery: ${feeInfo.description}`);
+        notes.push(`Lead time reduced by ${reduceDays} day${reduceDays > 1 ? 's' : ''}`);
+      } else {
+        // 不支持的配置，回退到原有逻辑
+        notes.push('Urgent delivery not supported for this configuration');
+      }
     } else {
-      // 批量加急费：50元/㎡，最低100元
-      const fee = Math.max(100, 50 * area);
-      extra = fee;
-      detail['urgentDelivery'] = fee;
-      notes.push(`Urgent delivery: +50 CNY/㎡ × ${area.toFixed(2)} = ${(50 * area).toFixed(2)} CNY, minimum 100 CNY, actual fee: ${fee.toFixed(2)} CNY`);
+      // 配置不支持加急，但用户选择了加急 - 回退到原有简单逻辑
+      const isSample = area < 1;
+      
+      if (isSample) {
+        extra = 100;
+        detail['urgentDelivery'] = 100;
+        notes.push('Urgent delivery: sample +100 CNY/lot (fallback pricing)');
+      } else {
+        const fee = Math.max(100, 50 * area);
+        extra = fee;
+        detail['urgentDelivery'] = fee;
+        notes.push(`Urgent delivery: +50 CNY/㎡ × ${area.toFixed(2)} = ${(50 * area).toFixed(2)} CNY, minimum 100 CNY, actual fee: ${fee.toFixed(2)} CNY (fallback pricing)`);
+      }
+      
+      notes.push('Urgent delivery: lead time reduced by 2 days (minimum 1 day)');
     }
-    
-    // 添加交期说明
-    notes.push('Urgent delivery: lead time reduced by 2 days (minimum 1 day)');
   }
   
   return {

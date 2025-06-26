@@ -15,6 +15,10 @@ export const getOrderSummary = (order: OrderListItem): OrderSummary => {
     thickness?: number; 
     surfaceFinish?: string; 
     delivery?: string;
+    deliveryOptions?: {
+      delivery?: string;
+      urgentReduceDays?: number;
+    };
     layers?: number;
     singleCount?: number;
   };
@@ -23,12 +27,24 @@ export const getOrderSummary = (order: OrderListItem): OrderSummary => {
     width?: number; 
   } | undefined;
   
+  // 获取delivery信息，优先使用新的deliveryOptions结构
+  const delivery = pcbSpec?.deliveryOptions?.delivery || pcbSpec?.delivery || 'standard';
+  const urgentReduceDays = pcbSpec?.deliveryOptions?.urgentReduceDays || 0;
+  
+  // 格式化delivery显示
+  let deliveryDisplay = 'Standard';
+  if (delivery === 'urgent' && urgentReduceDays > 0) {
+    deliveryDisplay = `Urgent (-${urgentReduceDays}d)`;
+  } else if (delivery === 'urgent') {
+    deliveryDisplay = 'Urgent';
+  }
+  
   return {
     layers: String(pcbSpec?.layers || '-'),
     quantity: String(pcbSpec?.singleCount || '-'),
     size: singleDimensions?.length && singleDimensions?.width ? 
       `${singleDimensions.length}×${singleDimensions.width}mm` : '-',
-    delivery: pcbSpec?.delivery === 'urgent' ? 'Urgent' : 'Standard',
+    delivery: deliveryDisplay,
     thickness: pcbSpec?.thickness ? `${pcbSpec.thickness}mm` : '-',
     surfaceFinish: String(pcbSpec?.surfaceFinish || '-'),
   };

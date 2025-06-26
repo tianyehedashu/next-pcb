@@ -26,11 +26,12 @@ export function getRealDeliveryDate(start: Date, days: number) {
 }
 
 /**
- * PCB生产周期全字段参与的计算公式（V2风格）
- * @param form PCB报价表单对象（PcbQuoteForm）
- * @param orderTime 下单时间
+ * 生产周期计算函数 v3.1 - 支持精细化加急
+ * 支持HTML文档中详细的加急逻辑
+ * @param form 表单数据
+ * @param orderTime 下单时间，默认当前时间
  * @param delivery 交期类型（standard/urgent），如需加急请传'urgent'
- * @returns { cycleDays: number, reason: string[] }
+ * @returns 生产周期天数和明细原因
  */
 export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Date(), delivery: 'standard' | 'urgent' = 'standard'): { cycleDays: number, reason: string[] } {
   // 1. 定义各类特殊工艺、服务等加天规则（以对象表形式，便于维护和扩展）
@@ -158,16 +159,30 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
     reason.push(`Product report: +1 day × ${areaFactor} = +${add} days`);
   }
 
-  // 6. 加急服务：最多减2天，最少1天，reason中注明
+  // 6. 加急服务：使用精细化减天数，支持v4加急系统
   let totalDays = baseDays + extraDays;
   if (delivery === 'urgent') {
     const before = totalDays;
-    totalDays = Math.max(1, totalDays - 2);
-    if (before !== totalDays) {
-      reason.push("Urgent: -2 days");
+    let reduceDays = 0;
+    
+    // 如果表单中有指定的减天数，使用该值
+    const formUrgentReduceDays = form.deliveryOptions?.urgentReduceDays || form.urgentReduceDays;
+    if (formUrgentReduceDays && formUrgentReduceDays > 0) {
+      reduceDays = formUrgentReduceDays;
     }
+    
+    // 计算实际减少的天数，最少保证1天生产时间
+    const actualReduceDays = Math.min(reduceDays, totalDays - 1);
+    totalDays = Math.max(1, totalDays - actualReduceDays);
+    
+          if (before !== totalDays) {
+        if (formUrgentReduceDays && formUrgentReduceDays > 0) {
+          reason.push(`Urgent: -${actualReduceDays} days (requested: ${reduceDays} days)`);
+        } else {
+          reason.push(`Urgent: -${actualReduceDays} days (default)`);
+        }
+      }
   }
-
 
   // 8. 返回最终生产周期天数和明细原因
   return { cycleDays: totalDays, reason };

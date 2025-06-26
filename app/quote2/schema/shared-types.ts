@@ -36,4 +36,12 @@ export const componentMap: Record<ComponentType, string> = {
 export enum DeliveryType {
   Standard = "standard",
   Urgent = "urgent"
+}
+
+// 加急选项类型
+export interface UrgentDeliveryInfo {
+  reduceDays: number;           // 减少的天数
+  fee: number;                  // 加急费用
+  feeType: 'fixed' | 'per_sqm'; // 费用类型
+  description: string;          // 费用描述
 } 
