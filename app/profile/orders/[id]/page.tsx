@@ -544,7 +544,7 @@ export default function OrderDetailPage() {
               Back
             </Button>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Order #{order.id.slice(-8)}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Order #{order.id.slice(0, 8)}</h1>
               <p className="text-gray-600">Created {order.created_at ? new Date(order.created_at).toLocaleDateString() : '-'}</p>
             </div>
           </div>

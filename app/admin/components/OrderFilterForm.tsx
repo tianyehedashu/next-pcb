@@ -74,7 +74,12 @@ export function OrderFilterForm({ value, onChange }: { value: OrderFilterFormVal
       </div>
       <div className="w-full">
         <label className="block mb-1 text-sm font-medium">Order ID</label>
-        <Input name="id" defaultValue={value?.id || ''} placeholder="Search by ID..." className="w-full" />
+        <Input 
+          name="id" 
+          defaultValue={value?.id || ''} 
+          placeholder="Search by ID (supports partial UUID)..." 
+          className="w-full font-mono text-sm" 
+        />
       </div>
       <div className="w-full">
         <label className="block mb-1 text-sm font-medium">Status</label>

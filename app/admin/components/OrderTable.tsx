@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { RefundStatusBadge } from '@/app/components/custom-ui/RefundStatusBadge';
+import { toast } from 'sonner';
 
 interface OrderTableProps {
   data: Order[];
@@ -202,9 +203,26 @@ export function OrderTable({
                   />
                 </td>
                 <td className="py-2 px-2">
-                  <span className="font-mono text-sm text-blue-600 hover:underline cursor-pointer" onClick={() => router.push(`/admin/orders/${order.id}`)}>
-                    #{order.id.slice(0, 8)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span 
+                      className="font-mono text-sm text-blue-600 hover:underline cursor-pointer"
+                      onClick={() => router.push(`/admin/orders/${order.id}`)}
+                      title={`Full ID: ${order.id}`}
+                    >
+                      #{order.id.slice(0, 8)}...
+                    </span>
+                    <button
+                      className="text-gray-400 hover:text-gray-600 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(order.id);
+                        toast.success('Order ID copied to clipboard');
+                      }}
+                      title="Copy full UUID"
+                    >
+                      📋
+                    </button>
+                  </div>
                 </td>
                 <td className="py-2 px-2">
                   <div className="flex items-center gap-2">

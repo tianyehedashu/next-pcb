@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId') || '';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
+    const startDate = searchParams.get('start');
+    const endDate = searchParams.get('end');
 
     if (detailId) {
       // 详情查询
@@ -55,8 +57,33 @@ export async function GET(request: NextRequest) {
       if (keyword) {
         query = query.or(`email.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
       }
+      if (startDate) {
+        query = query.gte('created_at', startDate);
+      }
+      if (endDate) {
+        // Add 1 day to include the end date fully
+        const endOfDay = new Date(endDate);
+        endOfDay.setDate(endOfDay.getDate() + 1);
+        query = query.lt('created_at', endOfDay.toISOString());
+      }
+
+      // Handle UUID search via RPC
       if (id) {
-        query = query.ilike('id', `%${id}%`);
+        const { data: idData, error: rpcError } = await supabase
+          .rpc('search_orders_by_uuid', { search_text: id });
+        
+        if (rpcError) {
+          console.error('RPC search_orders_by_uuid failed:', rpcError);
+          return NextResponse.json({ error: 'Failed to search by ID due to a database error.' }, { status: 500 });
+        }
+
+        if (idData && idData.length > 0) {
+          const foundIds = idData.map((item: { id: string }) => item.id);
+          query = query.in('id', foundIds);
+        } else {
+          // If no IDs match the partial search, return no results
+          query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+        }
       }
 
       const from = (page - 1) * pageSize;
@@ -66,6 +93,7 @@ export async function GET(request: NextRequest) {
       const { data, error, count } = await query;
 
       if (error) {
+        console.error("Error fetching orders:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 

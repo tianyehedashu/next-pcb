@@ -16,10 +16,28 @@ export async function GET(request: Request) {
     const pageSize = parseInt(url.searchParams.get('pageSize') || '10');
     const statusFilter = url.searchParams.get('status') || 'all';
     const searchTerm = url.searchParams.get('search') || '';
+    const searchColumn = url.searchParams.get('searchColumn') || 'order_id';
     const sortField = url.searchParams.get('sortField') || 'created_at';
     const sortOrder = url.searchParams.get('sortOrder') || 'desc';
     const orderType = url.searchParams.get('type');
     const showCancelled = url.searchParams.get('showCancelled') === 'true';
+    const dateStart = url.searchParams.get('dateStart');
+    const dateEnd = url.searchParams.get('dateEnd');
+ 
+    console.log('Orders API request params:', {
+      page,
+      pageSize,
+      statusFilter,
+      searchTerm,
+      searchColumn,
+      sortField,
+      sortOrder,
+      orderType,
+      showCancelled,
+      dateStart,
+      dateEnd,
+      userId: user!.id
+    });
 
     const supabase = await createClient();
 
@@ -30,6 +48,8 @@ export async function GET(request: Request) {
         id,
         created_at,
         status,
+        email,
+        phone,
         pcb_spec,
         cal_values,
         payment_intent_id,
@@ -56,12 +76,35 @@ export async function GET(request: Request) {
       query = query.neq('status', 'cancelled');
     }
 
+    // 添加日期筛选
+    if (dateStart) {
+      query = query.gte('created_at', dateStart);
+    }
+    if (dateEnd) {
+      const endOfDay = new Date(dateEnd);
+      endOfDay.setDate(endOfDay.getDate() + 1);
+      query = query.lt('created_at', endOfDay.toISOString());
+    }
+
     // 对于 pending-payment，我们需要在获取数据后进行筛选，因为 Supabase 关联查询的限制
     // 先不在这里筛选，而是在后面筛选
 
     // 添加搜索筛选
     if (searchTerm) {
-      query = query.ilike('id', `%${searchTerm}%`);
+      console.log('Applying search filter for term:', searchTerm, 'in column:', searchColumn);
+      
+      switch (searchColumn) {
+                case 'order_id':
+          // 使用 UUID 部分匹配搜索
+          query = query.or(`id.ilike.%${searchTerm}%`);
+          break;
+        case 'email':
+          query = query.ilike('email', `%${searchTerm}%`);
+          break;
+        case 'phone':
+          query = query.ilike('phone', `%${searchTerm}%`);
+          break;
+      }
     }
 
     // 添加排序
@@ -93,8 +136,9 @@ export async function GET(request: Request) {
       // 获取所有数据进行排序
       const { data: allOrders, error: allOrdersError, count } = await query;
       if (allOrdersError) {
+        console.error('Supabase query error:', allOrdersError);
         return NextResponse.json(
-          { error: 'Error fetching orders' },
+          { error: 'Error fetching orders', details: allOrdersError.message },
           { status: 500 }
         );
       }
@@ -149,8 +193,9 @@ export async function GET(request: Request) {
         .range((page - 1) * pageSize, page * pageSize - 1);
       
       if (orderError) {
+        console.error('Supabase query error:', orderError);
         return NextResponse.json(
-          { error: 'Error fetching orders' },
+          { error: 'Error fetching orders', details: orderError.message },
           { status: 500 }
         );
       }
@@ -178,6 +223,8 @@ export async function GET(request: Request) {
         payment_status_info: paymentStatusInfo,
       };
     });
+
+    // 前端搜索过滤已经在数据库查询中处理，这里不再需要额外过滤
 
     // 对于 pending-payment 类型，在数据处理后进行筛选
     if (orderType === 'pending-payment') {
