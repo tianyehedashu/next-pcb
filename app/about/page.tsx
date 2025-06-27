@@ -134,7 +134,7 @@ export default function AboutPage() {
             <div className="relative">
               <div className="bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl p-8 shadow-xl">
                 <Image
-                  src="/pcb-hero.svg"
+                  src="/logos/pcb-hero.svg"
                   alt="PCB Manufacturing"
                   width={500}
                   height={400}

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 50" width="200" height="50">
+  <defs>
+    <linearGradient id="navModern" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1"/>
+      <stop offset="40%" style="stop-color:#2563EB;stop-opacity:1"/>
+      <stop offset="80%" style="stop-color:#3B82F6;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#60A5FA;stop-opacity:1"/>
+    </linearGradient>
+    
+    <!-- Subtle drop shadow for depth -->
+    <filter id="navShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#1E40AF" flood-opacity="0.2"/>
+    </filter>
+    
+    <style>
+      .nav-text { 
+        fill: #1E293B; 
+        font-family: 'Arial Black', 'Arial', sans-serif; 
+        font-weight: 900;
+        letter-spacing: 0.8px;
+      }
+      .nav-slogan { 
+        fill: #64748B; 
+        font-family: 'Arial', sans-serif; 
+        font-weight: 500;
+        letter-spacing: 0.2px;
+      }
+    </style>
+  </defs>
+  
+  <!-- Modern S icon with enhanced details -->
+  <g>
+    <path d="M10,15 Q20,10 30,15 Q32,17 30,19 L20,23 Q22,25 24,27 Q30,33 20,37 Q10,41 0,37 Q-2,35 0,33 L10,29 Q8,27 6,25 Q0,19 10,15 Z" 
+          fill="url(#navModern)"
+          filter="url(#navShadow)"/>
+    
+    <!-- Enhanced speed lines with rounded caps -->
+    <g stroke="url(#navModern)" fill="none" stroke-width="2.5" opacity="0.85" stroke-linecap="round">
+      <path d="M34,19 L44,18"/>
+      <path d="M34,27 L44,28"/>
+    </g>
+    
+    <!-- Modern accent with better proportions -->
+    <rect x="46" y="21" width="3.5" height="3.5" fill="url(#navModern)" rx="1.25"/>
+  </g>
+  
+  <!-- Brand text with enhanced typography -->
+  <text x="55" y="30" class="nav-text" font-size="16">SpeedXPCB</text>
+  
+  <!-- Slogan with improved readability -->
+  <text x="55" y="42" class="nav-slogan" font-size="8.5">Fast PCB Flow, Flexible to Grow, Reliable as Pro</text>
+</svg> 

@@ -18,7 +18,7 @@ export default function AuthPage() {
     <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-100 font-sans overflow-hidden">
       {/* 背景图层 */}
       <Image
-        src="/pcb-bg.png"
+        src="/backgrounds/pcb-bg.png"
         alt="PCB background"
         fill
         className="absolute inset-0 w-full h-full object-cover object-center opacity-60 z-0 pointer-events-none select-none"

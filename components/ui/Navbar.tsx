@@ -101,20 +101,20 @@ export default function Navbar() {
         }}
       >
         {/* Logo Section */}
-        <div className="flex items-center gap-4">
-          <div className={`bg-card rounded-lg shadow-md border border-border p-2 flex items-center justify-center transition-all duration-500 ease-out ${mounted && navAnim ? "scale-110 rotate-3" : "scale-100 rotate-0"}`}>
-            <Image 
-              src="/pcb-logo.svg" 
-              alt="PCB Logo" 
-              width={28} 
-              height={28} 
-              className="sm:w-8 sm:h-8 transition-all duration-300" 
-            />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="font-bold text-lg sm:text-xl tracking-tight text-primary leading-tight">SpeedXPCB</span>
-            <span className="text-xs text-muted-foreground font-medium hidden sm:block leading-tight">Professional PCB Solutions</span>
-          </div>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className={`transition-all duration-500 ease-out ${mounted && navAnim ? "scale-105" : "scale-100"}`}>
+              <Image 
+                src="/logos/speedxpcb-logo.svg" 
+                alt="SpeedXPCB" 
+                width={320} 
+                height={45} 
+                className="h-11 w-auto sm:h-12 transition-all duration-300 group-hover:scale-105" 
+                priority
+                unoptimized
+              />
+            </div>
+          </Link>
         </div>
 
         {/* Desktop Navigation */}

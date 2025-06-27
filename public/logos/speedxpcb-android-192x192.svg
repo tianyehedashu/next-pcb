@@ -1,0 +1,46 @@
+<!-- SpeedXPCB Android Icon 192x192 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="android192Gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2B7CE9;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#2563EB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="192" height="192" rx="32" fill="url(#android192Gradient)" />
+  
+  <!-- Speed lines -->
+  <g stroke="white" fill="none" opacity="0.8">
+    <path d="M32,60 Q80,48 128,64" stroke-width="4"/>
+    <path d="M38,76 Q86,64 134,80" stroke-width="3"/>
+    <path d="M44,92 Q92,80 140,96" stroke-width="2.5"/>
+    <path d="M32,132 Q80,144 128,128" stroke-width="4"/>
+    <path d="M38,116 Q86,128 134,112" stroke-width="3"/>
+    <path d="M44,100 Q92,112 140,96" stroke-width="2.5"/>
+  </g>
+  
+  <!-- Large S letter -->
+  <path d="M54,48 Q80,32 106,48 Q116,58 106,68 L80,88 Q90,98 100,108 Q110,128 90,148 Q70,168 50,148 Q40,138 50,128 L76,108 Q66,98 56,88 Q46,68 66,48 Q86,32 54,48 Z" 
+        fill="white" opacity="0.95"/>
+  
+  <!-- Speed effects inside S -->
+  <g stroke="url(#android192Gradient)" stroke-width="3" opacity="0.8">
+    <path d="M70,58 L95,61"/>
+    <path d="M76,78 L91,81"/>
+    <path d="M70,108 L95,111"/>
+    <path d="M76,128 L91,131"/>
+  </g>
+  
+  <!-- Speed accents -->
+  <g fill="white" opacity="0.6">
+    <polygon points="148,68 163,75 148,82"/>
+    <polygon points="153,53 168,60 153,67"/>
+    <polygon points="143,98 158,105 143,112"/>
+    <polygon points="148,118 163,125 148,132"/>
+  </g>
+  
+  <!-- Brand text -->
+  <text x="96" y="175" fill="white" font-size="16" font-weight="bold" text-anchor="middle" opacity="0.9">SPEEDXPCB</text>
+</svg> 

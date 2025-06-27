@@ -1,0 +1,23 @@
+<!-- SpeedXPCB 16x16 Icon - For browser tabs and small displays -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <defs>
+    <linearGradient id="tinyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="16" height="16" rx="2" fill="url(#tinyGradient)" />
+  
+  <!-- Speed lines (simplified) -->
+  <rect x="2" y="6" width="4" height="1" fill="white" opacity="0.8" />
+  <rect x="1" y="8" width="5" height="1" fill="white" opacity="0.9" />
+  <rect x="2" y="10" width="3" height="1" fill="white" opacity="0.7" />
+  
+  <!-- S Letter -->
+  <text x="8" y="12" fill="white" font-size="8" font-weight="900" font-family="Arial, sans-serif" text-anchor="middle">S</text>
+  
+  <!-- Speed accent (minimal) -->
+  <polygon points="12,4 14,5 12,6" fill="white" opacity="0.8" />
+</svg> 

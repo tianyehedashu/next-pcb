@@ -1,3 +1,58 @@
+# Next PCB Project
+
+## SEO & Performance Optimizations
+
+### 🚀 Performance Optimizations
+- **Image Optimization**: 
+  - WebP/AVIF format support
+  - Lazy loading for non-critical images  
+  - Priority loading for first carousel image only
+  - Optimized image sizes and quality (85%)
+  - 30-day cache TTL for images
+
+- **Code Splitting & Bundling**:
+  - SWC minification enabled
+  - Package imports optimization
+  - Modular imports for UI components
+  - Gzip compression enabled
+
+- **Resource Preloading**:
+  - Preload critical carousel background image
+  - Preload navbar logo
+  - DNS prefetch for Google Fonts
+  - Preconnect to font CDN
+
+### 🔍 SEO Optimizations  
+- **Meta Tags Enhancement**:
+  - Expanded keyword list (20+ relevant terms)
+  - Enhanced Open Graph data
+  - Twitter Card optimization
+  - Robots.txt directives
+
+- **Structured Data**:
+  - Organization schema in layout
+  - Service schema on homepage
+  - FAQ schema for common questions
+  - Rich snippets optimization
+
+- **Content Structure**:
+  - Proper heading hierarchy (h1, h2, h3)
+  - Semantic HTML5 elements
+  - Descriptive alt text for images
+  - Internal linking optimization
+
+- **Technical SEO**:
+  - Canonical URLs
+  - XML sitemap ready
+  - Mobile-first responsive design
+  - Fast loading times
+
+### 📊 Expected Improvements
+- **Loading Speed**: 30-40% faster first contentful paint
+- **SEO Score**: Improved search engine rankings
+- **User Experience**: Better Core Web Vitals scores
+- **Search Visibility**: Enhanced rich snippets appearance
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

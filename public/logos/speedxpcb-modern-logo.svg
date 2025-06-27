@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <defs>
+    <linearGradient id="modernBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1"/>
+      <stop offset="30%" style="stop-color:#2563EB;stop-opacity:1"/>
+      <stop offset="70%" style="stop-color:#3B82F6;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#60A5FA;stop-opacity:1"/>
+    </linearGradient>
+    
+    <!-- Add subtle glow effect for S letter -->
+    <filter id="logoGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <style>
+      .brand-text { 
+        fill: #1E293B; 
+        font-family: 'Arial Black', 'Arial', sans-serif; 
+        font-weight: 900;
+        letter-spacing: 1.2px;
+      }
+      .slogan-text { 
+        fill: #64748B; 
+        font-family: 'Arial', sans-serif; 
+        font-weight: 500;
+        letter-spacing: 0.3px;
+      }
+    </style>
+  </defs>
+  
+  <!-- Modern S shape with enhanced details -->
+  <g>
+    <path d="M20,25 Q35,15 50,25 Q55,30 50,35 L35,45 Q40,50 45,55 Q50,65 35,75 Q20,85 5,75 Q0,70 5,65 L20,55 Q15,50 10,45 Q5,35 20,25 Z" 
+          fill="url(#modernBlue)"
+          filter="url(#logoGlow)"/>
+    
+    <!-- Enhanced speed lines with rounded caps -->
+    <g stroke="url(#modernBlue)" fill="none" stroke-width="3.5" opacity="0.85" stroke-linecap="round">
+      <path d="M55,30 L85,28"/>
+      <path d="M60,40 L90,38"/>
+      <path d="M55,50 L85,52"/>
+      <path d="M60,60 L90,62"/>
+    </g>
+    
+    <!-- Refined accent elements with subtle gradients -->
+    <rect x="95" y="35" width="8" height="8" fill="url(#modernBlue)" rx="2.5"/>
+    <rect x="95" y="47" width="8" height="8" fill="url(#modernBlue)" rx="2.5" opacity="0.75"/>
+  </g>
+  
+  <!-- Brand name with enhanced typography -->
+  <text x="120" y="45" class="brand-text" font-size="28">SpeedXPCB</text>
+  
+  <!-- Complete slogan with proper spacing and enhanced readability -->
+  <text x="120" y="65" class="slogan-text" font-size="12">Fast PCB Flow, Flexible to Grow, Reliable as Pro</text>
+  
+  <!-- Enhanced accent line with gradient -->
+  <rect x="120" y="75" width="250" height="2.5" fill="url(#modernBlue)" opacity="0.7" rx="1.25"/>
+</svg>

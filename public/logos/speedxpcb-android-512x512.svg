@@ -1,0 +1,49 @@
+<!-- SpeedXPCB Android Icon 512x512 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="android512Gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2B7CE9;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#2563EB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="url(#android512Gradient)" />
+  
+  <!-- Speed lines -->
+  <g stroke="white" fill="none" opacity="0.8">
+    <path d="M80,160 Q210,128 340,170" stroke-width="8"/>
+    <path d="M90,200 Q220,168 350,210" stroke-width="6"/>
+    <path d="M100,240 Q230,208 360,250" stroke-width="5"/>
+    <path d="M110,280 Q240,248 370,290" stroke-width="4"/>
+    <path d="M80,352 Q210,384 340,342" stroke-width="8"/>
+    <path d="M90,312 Q220,344 350,302" stroke-width="6"/>
+    <path d="M100,272 Q230,304 360,262" stroke-width="5"/>
+  </g>
+  
+  <!-- Large S letter -->
+  <path d="M140,128 Q210,96 280,128 Q300,148 280,168 L210,228 Q230,248 250,268 Q280,308 240,348 Q200,388 160,348 Q140,328 160,308 L230,248 Q210,228 190,208 Q160,168 200,128 Q240,96 140,128 Z" 
+        fill="white" opacity="0.95"/>
+  
+  <!-- Speed effects inside S -->
+  <g stroke="url(#android512Gradient)" stroke-width="6" opacity="0.8">
+    <path d="M180,148 L250,154"/>
+    <path d="M190,188 L240,194"/>
+    <path d="M180,268 L250,274"/>
+    <path d="M190,308 L240,314"/>
+  </g>
+  
+  <!-- Speed accents -->
+  <g fill="white" opacity="0.6">
+    <polygon points="380,178 410,190 380,202"/>
+    <polygon points="390,148 420,160 390,172"/>
+    <polygon points="370,238 400,250 370,262"/>
+    <polygon points="380,298 410,310 380,322"/>
+    <polygon points="390,338 420,350 390,362"/>
+  </g>
+  
+  <!-- Brand text -->
+  <text x="256" y="450" fill="white" font-size="36" font-weight="bold" text-anchor="middle" opacity="0.9">SPEEDXPCB</text>
+  <text x="256" y="480" fill="white" font-size="16" font-weight="normal" text-anchor="middle" opacity="0.8">Fast PCB Flow, Flexible to Grow</text>
+</svg> 

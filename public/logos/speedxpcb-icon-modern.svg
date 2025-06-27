@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="iconBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#2563EB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Add subtle shadow effect -->
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1E40AF" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Modern rounded background with shadow -->
+  <rect width="64" height="64" rx="12" fill="url(#iconBlue)" filter="url(#softShadow)"/>
+  
+  <!-- Refined S letter with better curves -->
+  <g fill="white">
+    <path d="M22,18 Q32,12 42,18 Q44,20 42,22 L32,28 Q34,30 36,32 Q42,38 32,44 Q22,50 12,44 Q10,42 12,40 L22,34 Q20,32 18,30 Q12,24 22,18 Z" 
+          opacity="0.95"
+          style="filter: drop-shadow(0 1px 2px rgba(30,64,175,0.2))"/>
+  </g>
+  
+  <!-- Enhanced speed accent lines with gradient -->
+  <g stroke="white" fill="none" stroke-width="2.5" opacity="0.8">
+    <path d="M46,24 L54,22" stroke-linecap="round"/>
+    <path d="M46,32 L54,30" stroke-linecap="round"/>
+    <path d="M46,40 L54,42" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Modern geometric accent with subtle glow -->
+  <rect x="46" y="46" width="4" height="4" fill="white" rx="1" opacity="0.9"/>
+</svg>

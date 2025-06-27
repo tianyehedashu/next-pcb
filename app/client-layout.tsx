@@ -1,16 +1,19 @@
- 'use client';
+'use client';
 
-import { useEffect } from 'react';
-import { checkVersion } from '@/lib/versionCheck';
+import { usePathname } from 'next/navigation';
+import { ReactNode } from 'react';
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  useEffect(() => {
-    checkVersion();
-  }, []);
+interface ClientLayoutProps {
+  children: ReactNode;
+}
 
-  return <>{children}</>;
+export default function ClientLayout({ children }: ClientLayoutProps) {
+  const pathname = usePathname();
+  const isHomePage = pathname === '/';
+
+  return (
+    <main className={isHomePage ? '' : 'pt-16 sm:pt-20'}>
+      {children}
+    </main>
+  );
 }

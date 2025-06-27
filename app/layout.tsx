@@ -48,6 +48,19 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
+  icons: {
+    icon: [
+      { url: '/logos/speedxpcb-favicon-16x16.svg', sizes: '16x16', type: 'image/svg+xml' },
+      { url: '/logos/speedxpcb-favicon-32x32.svg', sizes: '32x32', type: 'image/svg+xml' },
+      { url: '/logos/speedxpcb-icon-64x64.svg', sizes: '64x64', type: 'image/svg+xml' },
+    ],
+    shortcut: '/logos/speedxpcb-favicon-32x32.svg',
+    apple: '/logos/speedxpcb-apple-180x180.svg',
+    other: [
+      { url: '/logos/speedxpcb-android-192x192.svg', sizes: '192x192', type: 'image/svg+xml' },
+      { url: '/logos/speedxpcb-android-512x512.svg', sizes: '512x512', type: 'image/svg+xml' },
+    ]
+  },
   openGraph: {
     title: 'SpeedXPCB - Professional PCB Manufacturing & Assembly Services',
     description: 'Fast, high-quality PCB manufacturing with instant quotes and 24-48h prototypes. Trusted by 10,000+ customers worldwide.',
@@ -104,7 +117,7 @@ export default function RootLayout({
     name: 'SpeedXPCB',
     description: 'Professional PCB manufacturing and assembly services with fast turnaround times and high quality standards.',
     url: 'https://speedxpcb.com',
-    logo: 'https://speedxpcb.com/logo.png',
+    logo: 'https://speedxpcb.com/logos/speedxpcb-logo.svg',
     contactPoint: {
       '@type': 'ContactPoint',
       contactType: 'Customer Service',
@@ -135,11 +148,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* 预加载关键资源 */}
+        <link rel="preload" href="/home/SpeedxPCB-bg1.png" as="image" type="image/png" />
+        <link rel="preload" href="/logos/speedxpcb-logo.svg" as="image" type="image/svg+xml" />
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <link rel="canonical" href="https://speedxpcb.com" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/icon" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon" />
+        <meta name="theme-color" content="#2563eb" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
@@ -147,7 +170,7 @@ export default function RootLayout({
         <ChatwootProvider>
           <Providers>
             <Navbar />
-            <main className="pt-16 sm:pt-20">
+            <main className="pt-20">
               {children}
             </main>
             <Footer />

@@ -1,0 +1,75 @@
+<!-- SpeedXPCB OpenGraph 1200x630 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="ogGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2B7CE9;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#2563EB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:1" />
+    </linearGradient>
+    
+    <style>
+      .og-title { 
+        fill: white; 
+        font-family: 'Arial Black', 'Arial', sans-serif; 
+        font-weight: 900; 
+      }
+      .og-subtitle { 
+        fill: white; 
+        font-family: 'Arial', sans-serif; 
+        font-weight: 600; 
+        opacity: 0.95;
+      }
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#ogGradient)" />
+  
+  <!-- Large speed lines across the background -->
+  <g stroke="white" fill="none" opacity="0.3">
+    <path d="M0,150 Q300,100 600,150 Q900,200 1200,150" stroke-width="12"/>
+    <path d="M0,200 Q300,150 600,200 Q900,250 1200,200" stroke-width="8"/>
+    <path d="M0,250 Q300,200 600,250 Q900,300 1200,250" stroke-width="6"/>
+    <path d="M0,380 Q300,430 600,380 Q900,330 1200,380" stroke-width="12"/>
+    <path d="M0,430 Q300,480 600,430 Q900,380 1200,430" stroke-width="8"/>
+    <path d="M0,480 Q300,530 600,480 Q900,430 1200,480" stroke-width="6"/>
+  </g>
+  
+  <!-- Main speed lines from S -->
+  <g stroke="white" fill="none" opacity="0.8">
+    <path d="M280,200 Q500,150 720,200 Q900,230 1100,210" stroke-width="6"/>
+    <path d="M290,240 Q510,190 730,240 Q910,270 1110,250" stroke-width="5"/>
+    <path d="M300,280 Q520,230 740,280 Q920,310 1120,290" stroke-width="4"/>
+    <path d="M280,350 Q500,400 720,350 Q900,320 1100,340" stroke-width="6"/>
+    <path d="M290,390 Q510,440 730,390 Q910,360 1110,380" stroke-width="5"/>
+  </g>
+  
+  <!-- Large S letter -->
+  <path d="M80,180 Q140,140 200,180 Q220,200 200,220 L140,280 Q160,300 180,320 Q200,360 160,400 Q120,440 80,400 Q60,380 80,360 L140,300 Q120,280 100,260 Q80,220 120,180 Q160,140 80,180 Z" 
+        fill="white" opacity="0.95"/>
+  
+  <!-- Speed effects inside S -->
+  <g stroke="url(#ogGradient)" stroke-width="4" opacity="0.8">
+    <path d="M110,200 L170,205"/>
+    <path d="M120,240 L150,245"/>
+    <path d="M110,320 L170,325"/>
+    <path d="M120,360 L150,365"/>
+  </g>
+  
+  <!-- Main brand text -->
+  <text x="350" y="280" class="og-title" font-size="72" letter-spacing="2px">SPEEDXPCB</text>
+  
+  <!-- Tagline -->
+  <text x="350" y="320" class="og-subtitle" font-size="28">Fast PCB Flow, Flexible to Grow, Reliable as Pro</text>
+  
+  <!-- Additional subtitle -->
+  <text x="350" y="380" class="og-subtitle" font-size="24" opacity="0.8">Professional PCB Manufacturing & Assembly Services</text>
+  
+  <!-- Speed accent elements -->
+  <g fill="white" opacity="0.4">
+    <polygon points="1050,250 1080,265 1050,280"/>
+    <polygon points="1060,220 1090,235 1060,250"/>
+    <polygon points="1040,310 1070,325 1040,340"/>
+    <polygon points="1050,350 1080,365 1050,380"/>
+  </g>
+</svg> 

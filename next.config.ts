@@ -14,6 +14,26 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_GIT_SHA: getGitSha(),
   },
+  // 性能优化配置
+  images: {
+    formats: ['image/webp', 'image/avif'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 60 * 60 * 24 * 30, // 30天缓存
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+  },
+  experimental: {
+    optimizePackageImports: ['@/components/ui', '@/lib'],
+  },
+  // 压缩配置
+  compress: true,
+  // 异步加载
+  modularizeImports: {
+    '@/components/ui': {
+      transform: '@/components/ui/{{member}}',
+    },
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

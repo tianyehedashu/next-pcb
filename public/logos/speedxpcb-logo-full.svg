@@ -1,0 +1,72 @@
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="fullLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e40af"/>
+      <stop offset="30%" style="stop-color:#3b82f6"/>
+      <stop offset="70%" style="stop-color:#2563eb"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Icon Section -->
+  <g>
+    <!-- Background -->
+    <rect x="5" y="10" width="40" height="40" rx="8" fill="url(#fullLogoGradient)"/>
+    
+    <!-- PCB Board Outline -->
+    <rect x="11" y="16" width="28" height="28" rx="3" fill="none" stroke="white" stroke-width="1.2"/>
+    
+    <!-- Corner Mounting Holes -->
+    <circle cx="15" cy="20" r="1.5" fill="white"/>
+    <circle cx="35" cy="20" r="1.5" fill="white"/>
+    <circle cx="15" cy="40" r="1.5" fill="white"/>
+    <circle cx="35" cy="40" r="1.5" fill="white"/>
+    
+    <!-- Main Circuit Traces -->
+    <line x1="17" y1="30" x2="33" y2="30" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="25" y1="22" x2="25" y2="38" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <!-- Speed Lightning Element -->
+    <path d="M22 24l-2 6h4l-2 6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    
+    <!-- Circuit Components -->
+    <circle cx="19" cy="24" r="1" fill="white" opacity="0.9"/>
+    <circle cx="31" cy="24" r="1" fill="white" opacity="0.9"/>
+    <circle cx="19" cy="36" r="1" fill="white" opacity="0.9"/>
+    <circle cx="31" cy="36" r="1" fill="white" opacity="0.9"/>
+    
+    <!-- Additional traces -->
+    <g stroke="white" stroke-width="0.8" stroke-linecap="round" opacity="0.7">
+      <line x1="13" y1="26" x2="17" y2="26"/>
+      <line x1="33" y1="26" x2="37" y2="26"/>
+      <line x1="13" y1="34" x2="17" y2="34"/>
+      <line x1="33" y1="34" x2="37" y2="34"/>
+      <line x1="21" y1="18" x2="21" y2="22"/>
+      <line x1="29" y1="18" x2="29" y2="22"/>
+      <line x1="21" y1="38" x2="21" y2="42"/>
+      <line x1="29" y1="38" x2="29" y2="42"/>
+    </g>
+  </g>
+  
+  <!-- Text Section -->
+  <g>
+    <!-- Main Brand Text -->
+    <text x="60" y="25" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="16" fill="#1e293b">
+      Speed
+    </text>
+    <text x="60" y="42" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="16" fill="url(#fullLogoGradient)">
+      XPCB
+    </text>
+    
+    <!-- Tagline -->
+    <text x="140" y="25" font-family="system-ui, -apple-system, sans-serif" font-weight="400" font-size="8" fill="#64748b">
+      Professional PCB
+    </text>
+    <text x="140" y="35" font-family="system-ui, -apple-system, sans-serif" font-weight="400" font-size="8" fill="#64748b">
+      Manufacturing
+    </text>
+    <text x="140" y="45" font-family="system-ui, -apple-system, sans-serif" font-weight="400" font-size="8" fill="#64748b">
+      &amp; Assembly
+    </text>
+  </g>
+</svg> 
