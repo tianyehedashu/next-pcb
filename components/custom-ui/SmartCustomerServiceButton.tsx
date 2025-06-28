@@ -58,7 +58,7 @@ export function SmartCustomerServiceButton() {
   // 登录用户：只显示继续对话选项
   if (user) {
     return (
-      <div className="fixed bottom-6 right-6 z-50 group">
+      <div className="fixed bottom-20 right-6 z-50 group">
         <Button
           onClick={handleContinueConversation}
           size="lg"
@@ -88,7 +88,7 @@ export function SmartCustomerServiceButton() {
 
   // 游客：显示下拉菜单选项
   return (
-    <div className="fixed bottom-6 right-6 z-50 group">
+    <div className="fixed bottom-20 right-6 z-50 group">
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <Button

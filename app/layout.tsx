@@ -7,7 +7,6 @@ import Providers from '@/app/components/Providers';
 import { ChatwootProvider } from '@/app/components/ChatwootProvider';
 import { AnalyticsProvider } from '@/app/components/AnalyticsProvider';
 import CookieConsentBanner from '@/app/components/CookieConsentBanner';
-import CookieSettingsButton from '@/app/components/CookieSettingsButton';
 import { Metadata } from 'next';
 
 const geistSans = Geist({
@@ -142,8 +141,31 @@ export default function RootLayout({
   }
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <title>SpeedXPCB - Fast PCB Manufacturing and Assembly</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        
+        {/* Chatwoot Widget Position Override */}
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            .woot-widget-bubble {
+              bottom: 80px !important;
+            }
+            .woot-widget-holder {
+              bottom: 130px !important;
+            }
+            @media only screen and (max-width: 667px) {
+              .woot-widget-bubble {
+                bottom: 60px !important;
+              }
+              .woot-widget-holder {
+                bottom: 100px !important;
+              }
+            }
+          `
+        }} />
+        
         {/* 预加载关键资源 */}
         <link rel="preload" href="/home/SpeedxPCB-bg1.png" as="image" type="image/png" />
         <link rel="preload" href="/logos/speedxpcb-logo.svg" as="image" type="image/svg+xml" />
@@ -175,7 +197,6 @@ export default function RootLayout({
           </ChatwootProvider>
           <Toaster />
           <CookieConsentBanner />
-          <CookieSettingsButton />
         </AnalyticsProvider>
       </body>
     </html>

@@ -38,7 +38,7 @@ export default function ChatwootWidget() {
     }
   };
 
-  const buttonClasses = "fixed bottom-5 right-5 h-14 w-14 rounded-full shadow-lg flex items-center justify-center text-white transition-transform transform hover:scale-110 z-50";
+  const buttonClasses = "fixed bottom-20 right-6 h-14 w-14 rounded-full shadow-lg flex items-center justify-center text-white transition-transform transform hover:scale-110 z-50";
 
   if (error) {
     return (

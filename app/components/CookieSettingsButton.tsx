@@ -10,7 +10,6 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cookieConsent, type CookiePreferences } from '@/lib/analytics/cookie-consent';
@@ -19,6 +18,7 @@ import { Cookie, Shield, BarChart3, Target, Wrench } from 'lucide-react';
 export default function CookieSettingsButton() {
   const [showDialog, setShowDialog] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [preferences, setPreferences] = useState<CookiePreferences>({
     necessary: true,
     analytics: false,
@@ -69,35 +69,31 @@ export default function CookieSettingsButton() {
   const cookieCategories = [
     {
       key: 'necessary' as const,
-      title: 'Necessary Cookies',
-      description: 'Essential for the website to function properly. These cannot be disabled.',
+      title: 'Necessary',
+      description: 'Essential cookies for basic website functionality',
       icon: Shield,
       required: true,
-      examples: 'Login status, shopping cart, security features',
     },
     {
       key: 'analytics' as const,
-      title: 'Analytics Cookies',
-      description: 'Help us understand how visitors interact with our website.',
+      title: 'Analytics',
+      description: 'Help us improve the website performance',
       icon: BarChart3,
       required: false,
-      examples: 'Google Analytics, Microsoft Clarity, page views, user behavior',
     },
     {
       key: 'marketing' as const,
-      title: 'Marketing Cookies',
-      description: 'Used to deliver personalized advertisements and measure their effectiveness.',
+      title: 'Marketing',
+      description: 'Personalized content and advertisements',
       icon: Target,
       required: false,
-      examples: 'Ad targeting, conversion tracking, social media pixels',
     },
     {
       key: 'functional' as const,
-      title: 'Functional Cookies',
-      description: 'Enable enhanced functionality and personalization.',
+      title: 'Functional',
+      description: 'Enhanced features and personalization',
       icon: Wrench,
       required: false,
-      examples: 'Language preferences, region settings, chat widgets',
     },
   ];
 
@@ -105,91 +101,88 @@ export default function CookieSettingsButton() {
   if (!hasConsented) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 z-40">
+    <div 
+      className="fixed bottom-4 left-4 z-40"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogTrigger asChild>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="bg-white shadow-lg hover:shadow-xl border-gray-200"
-          >
-            <Cookie className="w-4 h-4 mr-2" />
-            Cookie Settings
-          </Button>
+          <div className={`transition-all duration-300 ${isHovered ? 'translate-x-0 opacity-100' : '-translate-x-16 opacity-60'}`}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="bg-white shadow-md hover:shadow-lg border-gray-200 text-xs"
+            >
+              <Cookie className="w-3 h-3 mr-1" />
+              {isHovered ? 'Cookie Settings' : '🍪'}
+            </Button>
+          </div>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Cookie className="w-5 h-5" />
-              Manage Cookie Preferences
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Cookie className="w-4 h-4" />
+              Cookie Settings
             </DialogTitle>
-            <DialogDescription>
-              Customize your cookie preferences. Changes will take effect immediately.
+            <DialogDescription className="text-sm">
+              Manage your cookie preferences
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 mt-4">
+          <div className="space-y-3 mt-4">
             {cookieCategories.map((category) => {
               const Icon = category.icon;
               return (
-                <Card key={category.key} className="relative">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
+                <div key={category.key} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-2 flex-1">
+                    <Icon className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <Icon className="w-5 h-5 text-blue-600" />
-                        <CardTitle className="text-base">{category.title}</CardTitle>
+                        <span className="font-medium text-sm">{category.title}</span>
                         {category.required && (
-                          <Badge variant="secondary" className="text-xs">Required</Badge>
+                          <Badge variant="secondary" className="text-xs px-1 py-0">Required</Badge>
                         )}
                       </div>
-                      <Switch
-                        checked={preferences[category.key]}
-                        onCheckedChange={(checked) => 
-                          handlePreferenceChange(category.key, checked)
-                        }
-                        disabled={category.required}
-                      />
+                      <p className="text-xs text-gray-600 mt-1">{category.description}</p>
                     </div>
-                    <CardDescription className="text-sm">
-                      {category.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="text-xs text-gray-500">
-                      <strong>Examples:</strong> {category.examples}
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  <Switch
+                    checked={preferences[category.key]}
+                    onCheckedChange={(checked) => 
+                      handlePreferenceChange(category.key, checked)
+                    }
+                    disabled={category.required}
+                    className="ml-3"
+                  />
+                </div>
               );
             })}
           </div>
           
-          <div className="flex justify-between gap-2 mt-6 pt-4 border-t">
+          <div className="flex gap-2 mt-6">
             <Button 
               variant="outline" 
               onClick={handleRejectAll}
+              size="sm"
               className="flex-1"
             >
               Reject All
             </Button>
             <Button 
               onClick={handleSavePreferences}
+              size="sm"
               className="flex-1"
             >
-              Save Preferences
+              Save
             </Button>
             <Button 
               onClick={handleAcceptAll}
+              size="sm"
               className="flex-1"
             >
               Accept All
             </Button>
-          </div>
-          
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg text-xs text-gray-600">
-            <strong>Current Settings:</strong> Analytics: {preferences.analytics ? 'Enabled' : 'Disabled'}, 
-            Marketing: {preferences.marketing ? 'Enabled' : 'Disabled'}, 
-            Functional: {preferences.functional ? 'Enabled' : 'Disabled'}
           </div>
         </DialogContent>
       </Dialog>

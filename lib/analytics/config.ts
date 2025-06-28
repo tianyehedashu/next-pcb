@@ -44,7 +44,7 @@ export const ANALYTICS_CONFIG = {
   },
   
   // Development settings
-  DEBUG: process.env.NODE_ENV === 'development',
+  DEBUG: process.env.NEXT_PUBLIC_ANALYTICS_DEBUG === 'true',
   PRODUCTION: process.env.NODE_ENV === 'production',
 };
 
