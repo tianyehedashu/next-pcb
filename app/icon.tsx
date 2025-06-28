@@ -22,53 +22,42 @@ export default function Icon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          borderRadius: '8px',
+          borderRadius: '6px',
           position: 'relative',
         }}
       >
-        {/* Modern speed lines */}
+        {/* Left speed lines - matching logo style */}
         <div
           style={{
             position: 'absolute',
-            right: '4px',
-            top: '12px',
+            left: '3px',
+            top: '50%',
+            transform: 'translateY(-50%)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '2px',
+            gap: '1px',
           }}
         >
-          <div style={{ width: '8px', height: '1.5px', background: 'rgba(255,255,255,0.8)' }} />
-          <div style={{ width: '8px', height: '1.5px', background: 'rgba(255,255,255,0.7)' }} />
-          <div style={{ width: '8px', height: '1.5px', background: 'rgba(255,255,255,0.8)' }} />
+          <div style={{ width: '7px', height: '1px', background: '#f1f5f9', borderRadius: '0.5px', opacity: 0.8 }} />
+          <div style={{ width: '8px', height: '1px', background: '#f1f5f9', borderRadius: '0.5px', opacity: 0.8 }} />
+          <div style={{ width: '5px', height: '1px', background: '#f1f5f9', borderRadius: '0.5px', opacity: 0.8 }} />
         </div>
         
-        {/* Main S letter */}
+        {/* Main S letter - matching logo style */}
         <div
           style={{
-            color: 'white',
-            fontSize: 20,
-            fontWeight: 900,
-            fontFamily: 'Arial, sans-serif',
+            color: '#f8fafc',
+            fontSize: 18,
+            fontWeight: 700,
+            fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            filter: 'drop-shadow(0 0.5px 1px rgba(0,0,0,0.15))',
           }}
         >
           S
         </div>
-        
-        {/* Modern geometric accent */}
-        <div
-          style={{
-            position: 'absolute',
-            right: '6px',
-            bottom: '6px',
-            width: '3px',
-            height: '3px',
-            background: 'rgba(255,255,255,0.8)',
-            borderRadius: '1px',
-          }}
-        />
       </div>
     ),
     {

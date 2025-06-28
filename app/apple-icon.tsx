@@ -27,11 +27,11 @@ export default function AppleIcon() {
           border: '4px solid white',
         }}
       >
-        {/* Speed lines background */}
+        {/* Speed lines background - matching logo style */}
         <div
           style={{
             position: 'absolute',
-            left: '20px',
+            left: '25px',
             top: '50%',
             transform: 'translateY(-50%)',
             display: 'flex',
@@ -39,71 +39,40 @@ export default function AppleIcon() {
             gap: '4px',
           }}
         >
-          <div style={{ width: '30px', height: '3px', background: 'rgba(255,255,255,0.8)', borderRadius: '1.5px' }} />
-          <div style={{ width: '40px', height: '3px', background: 'rgba(255,255,255,0.9)', borderRadius: '1.5px' }} />
-          <div style={{ width: '25px', height: '3px', background: 'rgba(255,255,255,0.7)', borderRadius: '1.5px' }} />
-          <div style={{ width: '35px', height: '3px', background: 'rgba(255,255,255,0.85)', borderRadius: '1.5px' }} />
+          <div style={{ width: '45px', height: '5px', background: '#f1f5f9', borderRadius: '2.5px', opacity: 0.8 }} />
+          <div style={{ width: '50px', height: '5px', background: '#f1f5f9', borderRadius: '2.5px', opacity: 0.8 }} />
+          <div style={{ width: '35px', height: '5px', background: '#f1f5f9', borderRadius: '2.5px', opacity: 0.8 }} />
         </div>
         
-        {/* Main S letter */}
+        {/* Main S letter - matching logo style */}
         <div
           style={{
-            color: 'white',
-            fontSize: 100,
-            fontWeight: 900,
-            fontFamily: 'Arial, sans-serif',
+            color: '#f8fafc',
+            fontSize: 90,
+            fontWeight: 700,
+            fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))',
           }}
         >
           S
-        </div>
-        
-        {/* Speed accent arrows */}
-        <div
-          style={{
-            position: 'absolute',
-            right: '25px',
-            top: '40px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '3px',
-          }}
-        >
-          <div 
-            style={{ 
-              width: 0, 
-              height: 0, 
-              borderLeft: '15px solid rgba(255,255,255,0.8)',
-              borderTop: '7px solid transparent',
-              borderBottom: '7px solid transparent'
-            }} 
-          />
-          <div 
-            style={{ 
-              width: 0, 
-              height: 0, 
-              borderLeft: '12px solid rgba(255,255,255,0.6)',
-              borderTop: '6px solid transparent',
-              borderBottom: '6px solid transparent'
-            }} 
-          />
         </div>
         
         {/* Bottom text indicator */}
         <div
           style={{
             position: 'absolute',
-            bottom: '25px',
+            bottom: '20px',
             left: '50%',
             transform: 'translateX(-50%)',
             color: 'white',
-            fontSize: 14,
-            fontWeight: 600,
+            fontSize: 16,
+            fontWeight: 700,
             fontFamily: 'Arial, sans-serif',
-            opacity: 0.9,
+            opacity: 0.95,
+            textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
           }}
         >
           SpeedXPCB

@@ -1,0 +1,39 @@
+{
+  "name": "SpeedXPCB - Professional PCB Manufacturing",
+  "short_name": "SpeedXPCB",
+  "description": "Fast, high-quality PCB manufacturing with instant quotes and 24-48h prototypes",
+  "theme_color": "#1E40AF",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logos/speedxpcb-android-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logos/speedxpcb-android-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "shopping"],
+  "lang": "en"
+} 
