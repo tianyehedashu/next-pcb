@@ -1,17 +1,21 @@
 import { googleAnalytics } from './google-analytics';
 import { microsoftClarity } from './microsoft-clarity';
 import { ANALYTICS_CONFIG, STANDARD_EVENTS } from './config';
+import { cookieConsent } from './cookie-consent';
 
 // Mixpanel integration (optional)
 let mixpanel: any = null;
 if (ANALYTICS_CONFIG.MIXPANEL.enabled && typeof window !== 'undefined') {
   import('mixpanel-browser').then((mp) => {
     mixpanel = mp.default;
-    mixpanel.init(ANALYTICS_CONFIG.MIXPANEL.token, {
-      debug: ANALYTICS_CONFIG.DEBUG,
-      track_pageview: true,
-      persistence: 'localStorage',
-    });
+    // Only initialize if analytics cookies are allowed
+    if (cookieConsent.isAnalyticsAllowed()) {
+      mixpanel.init(ANALYTICS_CONFIG.MIXPANEL.token, {
+        debug: ANALYTICS_CONFIG.DEBUG,
+        track_pageview: true,
+        persistence: 'localStorage',
+      });
+    }
   }).catch(console.error);
 }
 
@@ -20,10 +24,13 @@ let posthog: any = null;
 if (ANALYTICS_CONFIG.POSTHOG.enabled && typeof window !== 'undefined') {
   import('posthog-js').then((ph) => {
     posthog = ph.default;
-    posthog.init(ANALYTICS_CONFIG.POSTHOG.apiKey, {
-      api_host: ANALYTICS_CONFIG.POSTHOG.apiHost,
-      debug: ANALYTICS_CONFIG.DEBUG,
-    });
+    // Only initialize if analytics cookies are allowed
+    if (cookieConsent.isAnalyticsAllowed()) {
+      posthog.init(ANALYTICS_CONFIG.POSTHOG.apiKey, {
+        api_host: ANALYTICS_CONFIG.POSTHOG.apiHost,
+        debug: ANALYTICS_CONFIG.DEBUG,
+      });
+    }
   }).catch(console.error);
 }
 
@@ -65,17 +72,29 @@ class AnalyticsManager {
 
   constructor() {
     // Don't initialize in constructor for SSR compatibility
+    // Set up consent change listener
+    if (typeof window !== 'undefined') {
+      cookieConsent.onConsentChange((consentData) => {
+        if (consentData.preferences.analytics && !this.initialized) {
+          this.ensureInitialized();
+        } else if (!consentData.preferences.analytics && this.initialized) {
+          // User revoked consent, disable analytics
+          this.disableAnalytics();
+        }
+      });
+    }
   }
 
   private ensureInitialized() {
-    if (!this.initialized && typeof window !== 'undefined') {
+    // Only initialize if analytics cookies are allowed
+    if (!this.initialized && typeof window !== 'undefined' && cookieConsent.isAnalyticsAllowed()) {
       this.initialized = true; // Set this BEFORE calling initializeTracking to prevent circular calls
       this.initializeTracking();
     }
   }
 
   private initializeTracking() {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !cookieConsent.isAnalyticsAllowed()) return;
 
     // Track initial page load
     this.trackPageView(window.location.pathname);
@@ -87,12 +106,34 @@ class AnalyticsManager {
     this.trackScrollDepth();
 
     if (ANALYTICS_CONFIG.DEBUG) {
-      console.log('📊 Analytics Manager initialized');
+      console.log('📊 Analytics Manager initialized with cookie consent');
     }
+  }
+
+  private disableAnalytics() {
+    this.initialized = false;
+    this.userIdentified = false;
+    
+    if (ANALYTICS_CONFIG.DEBUG) {
+      console.log('🚫 Analytics disabled due to cookie consent');
+    }
+  }
+
+  // Check if analytics is allowed before any tracking
+  private checkAnalyticsAllowed(): boolean {
+    if (!cookieConsent.isAnalyticsAllowed()) {
+      if (ANALYTICS_CONFIG.DEBUG) {
+        console.log('🍪 Analytics tracking skipped: cookies not consented');
+      }
+      return false;
+    }
+    return true;
   }
 
   // User identification and properties
   identifyUser(userData: UserData) {
+    if (!this.checkAnalyticsAllowed()) return;
+    
     this.ensureInitialized();
     if (this.userIdentified) return;
 
@@ -144,6 +185,9 @@ class AnalyticsManager {
     // If not initialized yet and not in browser, return early
     if (typeof window === 'undefined') return;
     
+    // Check cookie consent first
+    if (!this.checkAnalyticsAllowed()) return;
+    
     // If not initialized yet, ensure initialization happens first
     // But only if we're not currently in the middle of initialization
     if (!this.initialized) {
@@ -168,6 +212,8 @@ class AnalyticsManager {
 
   // Quote tracking (業務核心功能)
   trackQuoteSubmission(quoteData: QuoteData) {
+    if (!this.checkAnalyticsAllowed()) return;
+    
     // Google Analytics with enhanced e-commerce
     googleAnalytics.trackQuoteSubmission(quoteData);
 
@@ -327,6 +373,8 @@ class AnalyticsManager {
     currency?: string;
     custom_parameters?: Record<string, any>;
   }) {
+    if (!this.checkAnalyticsAllowed()) return;
+    
     this.ensureInitialized();
     
     // Google Analytics with standard parameters

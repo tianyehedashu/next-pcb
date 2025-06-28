@@ -1,222 +1,303 @@
 'use client';
 
-import { useState } from 'react';
-import { useAnalytics } from '@/hooks/useAnalytics';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getAnalyticsStatus, debug } from '@/lib/analytics';
+import { useAnalytics } from '@/hooks/useAnalytics';
+import { analytics } from '@/lib/analytics/analytics-manager';
+import { ANALYTICS_CONFIG } from '@/lib/analytics/config';
 
 export default function TestAnalyticsPage() {
-  const analytics = useAnalytics();
-  const [testResults, setTestResults] = useState<string[]>([]);
+  const {
+    trackButtonClick,
+    trackPageView,
+    trackQuoteStart,
+    trackFormStart,
+    trackContentView,
+    trackCustomEvent,
+    identifyUser,
+  } = useAnalytics();
 
-  const addResult = (message: string) => {
-    setTestResults(prev => [...prev, `${new Date().toLocaleTimeString()} - ${message}`]);
+  const [testResults, setTestResults] = useState<Record<string, any>>({});
+  const [gtag, setGtag] = useState<typeof window.gtag | null>(null);
+
+  // Check if gtag is available
+  useEffect(() => {
+    const checkGtag = () => {
+      if (typeof window !== 'undefined' && (window as any).gtag) {
+        setGtag((window as any).gtag);
+      }
+    };
+    
+    checkGtag();
+    const interval = setInterval(checkGtag, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // GA4 Configuration Diagnostics
+  const runGADiagnostics = () => {
+    const results: Record<string, any> = {};
+    
+    // Check environment variables
+    results.measurementId = ANALYTICS_CONFIG.GA4.measurementId;
+    results.gaEnabled = ANALYTICS_CONFIG.GA4.enabled;
+    
+    // Check if gtag is loaded
+    results.gtagLoaded = typeof window !== 'undefined' && !!(window as any).gtag;
+    
+    // Check if dataLayer exists
+    results.dataLayerExists = typeof window !== 'undefined' && !!(window as any).dataLayer;
+    
+    // Check GA config
+    if ((window as any).gtag) {
+      try {
+        (window as any).gtag('get', ANALYTICS_CONFIG.GA4.measurementId, 'client_id', (clientId: string) => {
+          console.log('GA4 Client ID:', clientId);
+          results.clientId = clientId;
+        });
+      } catch (error) {
+        console.error('GA4 Config Error:', error);
+        results.configError = error;
+      }
+    }
+    
+    console.log('🔍 GA4 Diagnostics:', results);
+    setTestResults(results);
   };
 
   const runBasicTests = () => {
-    addResult('开始基础测试...');
+    console.log('🧪 Running basic analytics tests...');
     
-    // 测试页面浏览
-    analytics.trackPageView();
-    addResult('✅ 页面浏览事件已发送');
-
-    // 测试按钮点击
-    analytics.trackButtonClick('测试按钮', 'test-page');
-    addResult('✅ 按钮点击事件已发送');
-
-    // 测试自定义事件
-    analytics.trackCustomEvent('test_analytics_page', {
-      test_type: 'basic_functionality',
+    // Test 1: Page view
+    trackPageView('/test-analytics', 'Analytics Test Page');
+    trackButtonClick('run-tests', 'test-page');
+    
+    // Test 2: User identification
+    identifyUser({
+      id: 'test-user-123',
+      email: 'test@example.com',
+      type: 'registered',
+      company: 'Test Company',
+      country: 'US',
+    });
+    
+    // Test 3: Quote tracking
+    trackQuoteStart();
+    
+    // Test 4: Form tracking
+    trackFormStart('test-form');
+    
+    // Test 5: Content tracking
+    trackContentView('article', 'test-article-123', 'Test Article');
+    
+    // Test 6: Custom event
+    trackCustomEvent('test_event', {
+      test_parameter: 'test_value',
       timestamp: new Date().toISOString(),
     });
-    addResult('✅ 自定义事件已发送');
+    
+    console.log('✅ Basic tests completed. Check browser console and GA4 Real-time reports.');
   };
 
-  const testQuoteTracking = () => {
-    addResult('测试报价追踪...');
+  const testGAConnection = () => {
+    if (!gtag) {
+      console.error('❌ gtag not loaded');
+      return;
+    }
     
-    analytics.trackQuoteSubmit({
-      quote_id: 'TEST-Q-' + Date.now(),
-      pcb_type: 'rigid',
-      layers: 4,
-      quantity: 100,
-      value: 299.99,
-      user_type: 'guest',
-      gerber_analyzed: false,
+    // Send a test event directly via gtag
+    gtag('event', 'test_ga_connection', {
+      event_category: 'test',
+      event_label: 'direct_gtag_call',
+      custom_parameter_1: 'test_value',
     });
-    addResult('✅ 报价提交事件已发送');
+    
+    console.log('📤 Test event sent directly via gtag');
   };
 
-  const testErrorTracking = () => {
-    addResult('测试错误追踪...');
+  const debugAnalytics = () => {
+    const status = analytics.getStatus();
+    console.log('📊 Analytics Status:', status);
     
-    analytics.trackError('test_error', '这是一个测试错误', {
-      test_page: '/test-analytics',
-      error_severity: 'low',
+    // Check all analytics tools
+    console.log('🔧 Environment Check:', {
+      GA4_ID: process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID,
+      CLARITY_ID: process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID,
+      NODE_ENV: process.env.NODE_ENV,
+      window_gtag: typeof window !== 'undefined' ? !!(window as any).gtag : false,
+      window_clarity: typeof window !== 'undefined' ? !!(window as any).clarity : false,
+      window_dataLayer: typeof window !== 'undefined' ? !!(window as any).dataLayer : false,
     });
-    addResult('✅ 错误事件已发送');
-  };
-
-  const checkAnalyticsStatus = () => {
-    const status = getAnalyticsStatus();
-    addResult(`📊 GA4: ${status.ga4_enabled ? '启用' : '禁用'}`);
-    addResult(`📊 Clarity: ${status.clarity_enabled ? '启用' : '禁用'}`);
-    addResult(`👤 用户识别: ${status.user_identified ? '是' : '否'}`);
-    
-    const toolsStatus = debug.checkToolsLoaded();
-    addResult(`🔧 工具加载状态: gtag=${!!toolsStatus.gtag}, clarity=${!!toolsStatus.clarity}`);
-  };
-
-  const clearResults = () => {
-    setTestResults([]);
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Analytics Testing Dashboard
-          </h1>
-          <p className="text-gray-600">
-            测试 Google Analytics 4 和 Microsoft Clarity 集成
-          </p>
-        </div>
+    <div className="container mx-auto p-8 space-y-8">
+      <div className="text-center space-y-4">
+        <h1 className="text-4xl font-bold">Analytics Testing Dashboard</h1>
+        <p className="text-muted-foreground">
+          Test and debug analytics implementation
+        </p>
+      </div>
 
-        {/* 状态概览 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>集成状态</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <Badge variant="secondary" className="mb-2">Google Analytics 4</Badge>
-                <div className="text-2xl font-bold text-green-600">✅</div>
-                <div className="text-sm text-gray-600">已集成</div>
-              </div>
-              
-              <div className="text-center">
-                <Badge variant="secondary" className="mb-2">Microsoft Clarity</Badge>
-                <div className="text-2xl font-bold text-green-600">✅</div>
-                <div className="text-sm text-gray-600">已集成</div>
-              </div>
-              
-              <div className="text-center">
-                <Badge variant="outline" className="mb-2">Mixpanel</Badge>
-                <div className="text-2xl font-bold text-gray-400">➖</div>
-                <div className="text-sm text-gray-600">未启用</div>
-              </div>
-              
-              <div className="text-center">
-                <Badge variant="outline" className="mb-2">PostHog</Badge>
-                <div className="text-2xl font-bold text-gray-400">➖</div>
-                <div className="text-sm text-gray-600">未启用</div>
-              </div>
+      {/* GA4 Configuration Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            📊 GA4 Configuration Status
+            <Badge variant={ANALYTICS_CONFIG.GA4.enabled ? 'default' : 'destructive'}>
+              {ANALYTICS_CONFIG.GA4.enabled ? 'Enabled' : 'Disabled'}
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            Current Google Analytics 4 configuration and status
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <strong>Measurement ID:</strong> 
+              <code className="ml-2 bg-muted px-2 py-1 rounded">
+                {ANALYTICS_CONFIG.GA4.measurementId}
+              </code>
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <strong>gtag Loaded:</strong> 
+              <Badge variant={gtag ? 'default' : 'destructive'} className="ml-2">
+                {gtag ? 'Yes' : 'No'}
+              </Badge>
+            </div>
+            <div>
+              <strong>dataLayer:</strong> 
+              <Badge variant={typeof window !== 'undefined' && (window as any).dataLayer ? 'default' : 'destructive'} className="ml-2">
+                {typeof window !== 'undefined' && (window as any).dataLayer ? 'Available' : 'Missing'}
+              </Badge>
+            </div>
+            <div>
+              <strong>Debug Mode:</strong> 
+              <Badge variant={ANALYTICS_CONFIG.DEBUG ? 'secondary' : 'outline'} className="ml-2">
+                {ANALYTICS_CONFIG.DEBUG ? 'On' : 'Off'}
+              </Badge>
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button onClick={runGADiagnostics} variant="outline">
+              🔍 Run GA Diagnostics
+            </Button>
+            <Button onClick={testGAConnection} variant="outline" disabled={!gtag}>
+              📤 Test GA Connection
+            </Button>
+          </div>
+          
+          {Object.keys(testResults).length > 0 && (
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <h4 className="font-semibold mb-2">Diagnostic Results:</h4>
+              <pre className="text-xs overflow-auto">
+                {JSON.stringify(testResults, null, 2)}
+              </pre>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* 测试按钮 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>测试功能</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Button onClick={runBasicTests} variant="default" className="w-full">
-                基础测试
-              </Button>
-              
-              <Button onClick={testQuoteTracking} variant="default" className="w-full">
-                报价追踪
-              </Button>
-              
-              <Button onClick={testErrorTracking} variant="default" className="w-full">
-                错误追踪
-              </Button>
-              
-              <Button onClick={checkAnalyticsStatus} variant="outline" className="w-full">
-                检查状态
-              </Button>
+      {/* Analytics Tools Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle>🛠️ Analytics Tools Status</CardTitle>
+          <CardDescription>
+            Status of all integrated analytics tools
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 border rounded-lg">
+              <div className="text-2xl mb-2">📈</div>
+              <div className="font-semibold">Google Analytics</div>
+              <Badge variant={ANALYTICS_CONFIG.GA4.enabled ? 'default' : 'destructive'}>
+                {ANALYTICS_CONFIG.GA4.enabled ? 'Enabled' : 'Disabled'}
+              </Badge>
             </div>
             
-            <div className="mt-4">
-              <Button onClick={clearResults} variant="secondary" size="sm">
-                清空日志
-              </Button>
+            <div className="text-center p-4 border rounded-lg">
+              <div className="text-2xl mb-2">👁️</div>
+              <div className="font-semibold">Microsoft Clarity</div>
+              <Badge variant={ANALYTICS_CONFIG.CLARITY.enabled ? 'default' : 'destructive'}>
+                {ANALYTICS_CONFIG.CLARITY.enabled ? 'Enabled' : 'Disabled'}
+              </Badge>
             </div>
-          </CardContent>
-        </Card>
+            
+            <div className="text-center p-4 border rounded-lg">
+              <div className="text-2xl mb-2">🔄</div>
+              <div className="font-semibold">Mixpanel</div>
+              <Badge variant={ANALYTICS_CONFIG.MIXPANEL.enabled ? 'default' : 'destructive'}>
+                {ANALYTICS_CONFIG.MIXPANEL.enabled ? 'Enabled' : 'Disabled'}
+              </Badge>
+            </div>
+            
+            <div className="text-center p-4 border rounded-lg">
+              <div className="text-2xl mb-2">🦔</div>
+              <div className="font-semibold">PostHog</div>
+              <Badge variant={ANALYTICS_CONFIG.POSTHOG.enabled ? 'default' : 'destructive'}>
+                {ANALYTICS_CONFIG.POSTHOG.enabled ? 'Enabled' : 'Disabled'}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* 测试结果日志 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>测试日志</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-              {testResults.length === 0 ? (
-                <p className="text-gray-500 text-center">点击上方按钮开始测试...</p>
-              ) : (
-                <div className="space-y-1">
-                  {testResults.map((result, index) => (
-                    <div key={index} className="text-sm font-mono">
-                      {result}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 验证指南 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>验证分析数据</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-semibold text-green-700 mb-2">🔍 Google Analytics 4</h4>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• 登录 Google Analytics → 实时报告</li>
-                  <li>• 查看"事件"部分，应该能看到测试事件</li>
-                  <li>• 事件名称：page_view, button_click, quote_submit 等</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold text-blue-700 mb-2">📹 Microsoft Clarity</h4>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• 登录 Microsoft Clarity → 查看会话</li>
-                  <li>• 点击最新的会话录屏</li>
-                  <li>• 在录屏中应该能看到你的测试操作</li>
-                  <li>• 检查自定义标签是否正确设置</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 开发提示 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>开发提示</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <p><strong>浏览器控制台：</strong> 打开开发者工具查看详细日志</p>
-              <p><strong>网络面板：</strong> 查看发送到 Google Analytics 的请求</p>
-              <p><strong>调试面板：</strong> 页面右下角的蓝色"Analytics Debug"按钮</p>
-              <p><strong>实时验证：</strong> 事件通常在 1-2 分钟内出现在 GA4 实时报告中</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Test Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>🧪 Analytics Testing</CardTitle>
+          <CardDescription>
+            Run various analytics tests and check browser console for results
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <Button onClick={runBasicTests} className="w-full">
+              🚀 Run Basic Tests
+            </Button>
+            
+            <Button onClick={debugAnalytics} variant="outline" className="w-full">
+              🔧 Debug Analytics
+            </Button>
+            
+            <Button 
+              onClick={() => trackCustomEvent('manual_test', { trigger: 'button_click' })}
+              variant="outline" 
+              className="w-full"
+            >
+              📤 Send Test Event
+            </Button>
+          </div>
+          
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h4 className="font-semibold text-yellow-800 mb-2">⚠️ GA4 Console Errors</h4>
+            <p className="text-sm text-yellow-700">
+              如果你在 Google Analytics 控制台看到 400 错误，这通常是因为：
+            </p>
+            <ul className="text-sm text-yellow-700 mt-2 space-y-1">
+              <li>• GA4 Measurement ID 配置错误</li>
+              <li>• GA4 属性权限不足</li>
+              <li>• GA4 属性还在初始化中（新创建的属性需要几小时）</li>
+              <li>• 浏览器缓存问题</li>
+            </ul>
+          </div>
+          
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-semibold text-blue-800 mb-2">✅ 检查步骤</h4>
+            <ol className="text-sm text-blue-700 space-y-1">
+              <li>1. 确认环境变量 NEXT_PUBLIC_GA4_MEASUREMENT_ID 已设置</li>
+              <li>2. 检查 GA4 属性是否正确创建（格式：G-XXXXXXXXXX）</li>
+              <li>3. 在 GA4 实时报告中查看是否有数据</li>
+              <li>4. 打开浏览器开发者工具查看 Network 标签页中的 GA 请求</li>
+            </ol>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

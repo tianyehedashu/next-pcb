@@ -6,6 +6,8 @@ import { Toaster } from "sonner";
 import Providers from '@/app/components/Providers';
 import { ChatwootProvider } from '@/app/components/ChatwootProvider';
 import { AnalyticsProvider } from '@/app/components/AnalyticsProvider';
+import CookieConsentBanner from '@/app/components/CookieConsentBanner';
+import CookieSettingsButton from '@/app/components/CookieSettingsButton';
 import { Metadata } from 'next';
 
 const geistSans = Geist({
@@ -172,6 +174,8 @@ export default function RootLayout({
             </Providers>
           </ChatwootProvider>
           <Toaster />
+          <CookieConsentBanner />
+          <CookieSettingsButton />
         </AnalyticsProvider>
       </body>
     </html>
