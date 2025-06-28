@@ -69,8 +69,8 @@ class AnalyticsManager {
 
   private ensureInitialized() {
     if (!this.initialized && typeof window !== 'undefined') {
+      this.initialized = true; // Set this BEFORE calling initializeTracking to prevent circular calls
       this.initializeTracking();
-      this.initialized = true;
     }
   }
 
@@ -141,7 +141,16 @@ class AnalyticsManager {
 
   // Page tracking
   trackPageView(url: string, title?: string) {
-    this.ensureInitialized();
+    // If not initialized yet and not in browser, return early
+    if (typeof window === 'undefined') return;
+    
+    // If not initialized yet, ensure initialization happens first
+    // But only if we're not currently in the middle of initialization
+    if (!this.initialized) {
+      this.ensureInitialized();
+      return; // Return early as ensureInitialized will call trackPageView again
+    }
+    
     googleAnalytics.trackPageView(url, title);
     
     if (mixpanel) {
@@ -310,6 +319,63 @@ class AnalyticsManager {
     }
   }
 
+  // Generic event tracking
+  trackEvent(eventName: string, parameters?: {
+    event_category?: string;
+    event_label?: string;
+    value?: number;
+    currency?: string;
+    custom_parameters?: Record<string, any>;
+  }) {
+    this.ensureInitialized();
+    
+    // Google Analytics with standard parameters
+    googleAnalytics.trackEvent(eventName, {
+      event_category: parameters?.event_category || 'general',
+      event_label: parameters?.event_label,
+      value: parameters?.value,
+      ...parameters?.custom_parameters,
+    });
+
+    // Microsoft Clarity - use custom tags
+    microsoftClarity.setCustomTag('event_name', eventName);
+    if (parameters?.event_category) {
+      microsoftClarity.setCustomTag('event_category', parameters.event_category);
+    }
+    if (parameters?.event_label) {
+      microsoftClarity.setCustomTag('event_label', parameters.event_label);
+    }
+    if (parameters?.value) {
+      microsoftClarity.setCustomTag('event_value', parameters.value.toString());
+    }
+
+    // Mixpanel
+    if (mixpanel) {
+      mixpanel.track(eventName, {
+        event_category: parameters?.event_category,
+        event_label: parameters?.event_label,
+        value: parameters?.value,
+        currency: parameters?.currency,
+        ...parameters?.custom_parameters,
+      });
+    }
+
+    // PostHog
+    if (posthog) {
+      posthog.capture(eventName, {
+        event_category: parameters?.event_category,
+        event_label: parameters?.event_label,
+        value: parameters?.value,
+        currency: parameters?.currency,
+        ...parameters?.custom_parameters,
+      });
+    }
+
+    if (ANALYTICS_CONFIG.DEBUG) {
+      console.log(`📊 Event tracked: ${eventName}`, parameters);
+    }
+  }
+
   // Performance tracking
   private trackWebVitals() {
     if (typeof window === 'undefined') return;
@@ -318,7 +384,13 @@ class AnalyticsManager {
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         const metricName = entry.name;
-        const value = Math.round(entry.value);
+        // Use startTime for paint metrics, duration for others, or fallback to 0
+        const value = Math.round(
+          (entry as any).value || 
+          entry.startTime || 
+          (entry as any).duration || 
+          0
+        );
 
         googleAnalytics.trackPerformance(metricName, value);
 
