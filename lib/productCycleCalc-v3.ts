@@ -138,26 +138,26 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
     }
   }
   if (form.goldFingers) {
-    const add = 1 * areaFactor;
+    const add = 3 
     extraDays += add;
-    reason.push(`Gold fingers: +1 day × ${areaFactor} = +${add} days`);
+    reason.push(`Gold fingers: +3 day = +${add} days`);
   }
   if (form.impedance) {
-    const add = 1 * areaFactor;
+    const add = 1 
     extraDays += add;
-    reason.push(`Impedance control: +1 day × ${areaFactor} = +${add} days`);
+    reason.push(`Impedance control: +1 day  = +${add} days`);
   }
   if (form.edgePlating) {
-    const add = 1 * areaFactor;
+    const add = 1 
     extraDays += add;
-    reason.push(`Edge plating: +1 day × ${areaFactor} = +${add} days`);
+    reason.push(`Edge plating: +1 day  = +${add} days`);
   }
 
-  if (form.productReport && form.productReport.length > 0 && !form.productReport.includes(ProductReport.None)) {
-    const add = 1 * areaFactor;
-    extraDays += add;
-    reason.push(`Product report: +1 day × ${areaFactor} = +${add} days`);
-  }
+  // if (form.productReport && form.productReport.length > 0 && !form.productReport.includes(ProductReport.None)) {
+  //   const add = 1 * areaFactor;
+  //   extraDays += add;
+  //   reason.push(`Product report: +1 day × ${areaFactor} = +${add} days`);
+  // }
 
   // 6. 加急服务：使用精细化减天数，支持v4加急系统
   let totalDays = baseDays + extraDays;
@@ -192,21 +192,21 @@ export function calcProductionCycle(form: PcbQuoteForm, orderTime: Date = new Da
 const DELIVERY_DAYS_TABLE: Record<number, { area: number, days: number }[]> = {
   1: [
     { area: 0.5, days: 5 },
-    { area: 1, days: 7 },
-    { area: 3, days: 8 },
-    { area: 5, days: 10 },
-    { area: 10, days: 12 },
+    { area: 1, days: 5 },
+    { area: 3, days: 7 },
+    { area: 5, days: 8 },
+    { area: 10, days: 10 },
     { area: 20, days: 15 },
     { area: 30, days: 15 },
     { area: Infinity, days: 20 },
   ],
   2: [
     { area: 0.5, days: 5 },
-    { area: 1, days: 7 },
-    { area: 3, days: 9 },
-    { area: 5, days: 11 },
-    { area: 10, days: 13 },
-    { area: 20, days: 15 },
+    { area: 1, days: 5 },
+    { area: 3, days: 7 },
+    { area: 5, days: 9 },
+    { area: 10, days: 11 },
+    { area: 20, days: 13 },
     { area: 30, days: 15 },
     { area: Infinity, days: 20 },
   ],
@@ -232,23 +232,23 @@ const DELIVERY_DAYS_TABLE: Record<number, { area: number, days: number }[]> = {
   ],
   8: [
     { area: 0.5, days: 10 },
-    { area: 1, days: 12 },
-    { area: 3, days: 14 },
-    { area: 5, days: 16 },
-    { area: 10, days: 18 },
-    { area: 20, days: 20 },
+    { area: 1, days: 10 },
+    { area: 3, days: 12 },
+    { area: 5, days: 14 },
+    { area: 10, days: 16 },
+    { area: 20, days: 18 },
     { area: 30, days: 20 },
-    { area: Infinity, days: 20 },
+    { area: Infinity, days: 22 },
   ],
   10: [
     { area: 0.5, days: 11 },
-    { area: 1, days: 13 },
-    { area: 3, days: 15 },
-    { area: 5, days: 17 },
-    { area: 10, days: 18 },
-    { area: 20, days: 20 },
-    { area: 30, days: 20 },
-    { area: Infinity, days: 20 },
+    { area: 1, days: 11 },
+    { area: 3, days: 13 },
+    { area: 5, days: 15 },
+    { area: 10, days: 17 },
+    { area: 20, days: 18 },
+    { area: 30, days: 22 },
+    { area: Infinity, days: 25 },
   ],
   12: [
     { area: 0.5, days: 12 },
@@ -306,8 +306,8 @@ const DELIVERY_DAYS_TABLE: Record<number, { area: number, days: number }[]> = {
 const DELIVERY_DAYS_TABLE_COPPER: Record<number, { area: number, days: number }[]> = {
   1: [
     { area: 0.5, days: 5 },
-    { area: 1, days: 7 },
-    { area: 3, days: 8 },
+    { area: 1, days: 5 },
+    { area: 3, days: 7 },
     { area: 5, days: 10 },
     { area: 10, days: 12 },
     { area: 20, days: 15 },
@@ -316,53 +316,53 @@ const DELIVERY_DAYS_TABLE_COPPER: Record<number, { area: number, days: number }[
   ],
   2: [
     { area: 0.5, days: 5 },
-    { area: 1, days: 7 },
-    { area: 3, days: 9 },
-    { area: 5, days: 11 },
-    { area: 10, days: 13 },
-    { area: 20, days: 15 },
+    { area: 1, days: 5 },
+    { area: 3, days: 7 },
+    { area: 5, days: 9 },
+    { area: 10, days: 11 },
+    { area: 20, days: 13 },
     { area: 30, days: 15 },
     { area: Infinity, days: 20 },
   ],
   4: [
     { area: 0.5, days: 7 },
-    { area: 1, days: 9 },
-    { area: 3, days: 11 },
-    { area: 5, days: 13 },
-    { area: 10, days: 15 },
-    { area: 20, days: 17 },
+    { area: 1, days: 7 },
+    { area: 3, days: 9 },
+    { area: 5, days: 11 },
+    { area: 10, days: 13 },
+    { area: 20, days: 15 },
     { area: 30, days: 17 },
     { area: Infinity, days: 20 },
   ],
   6: [
     { area: 0.5, days: 8 },
+    { area: 1, days: 8 },
+    { area: 3, days: 11 },
+    { area: 5, days: 13 },
+    { area: 10, days: 15 },
+    { area: 20, days: 17 },
+    { area: 30, days: 19 },
+    { area: Infinity, days: 22 },
+  ],
+  8: [
+    { area: 0.5, days: 10 },
+    { area: 1, days: 10 },
+    { area: 3, days: 12 },
+    { area: 5, days: 14 },
+    { area: 10, days: 16 },
+    { area: 20, days: 18 },
+    { area: 30, days: 20 },
+    { area: Infinity, days: 25 },
+  ],
+  10: [
+    { area: 0.5, days: 11 },
     { area: 1, days: 11 },
     { area: 3, days: 13 },
     { area: 5, days: 15 },
     { area: 10, days: 17 },
-    { area: 20, days: 19 },
-    { area: 30, days: 19 },
-    { area: Infinity, days: 20 },
-  ],
-  8: [
-    { area: 0.5, days: 10 },
-    { area: 1, days: 12 },
-    { area: 3, days: 14 },
-    { area: 5, days: 16 },
-    { area: 10, days: 18 },
-    { area: 20, days: 20 },
-    { area: 30, days: 20 },
-    { area: Infinity, days: 20 },
-  ],
-  10: [
-    { area: 0.5, days: 11 },
-    { area: 1, days: 13 },
-    { area: 3, days: 15 },
-    { area: 5, days: 17 },
-    { area: 10, days: 18 },
     { area: 20, days: 18 },
-    { area: 30, days: 18 },
-    { area: Infinity, days: 20 },
+    { area: 30, days: 22 },
+    { area: Infinity, days: 25 },
   ],
   12: [
     { area: 0.5, days: 12 },

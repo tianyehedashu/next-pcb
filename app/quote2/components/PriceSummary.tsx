@@ -11,6 +11,9 @@ import { useQuoteStore } from "@/lib/stores/quote-store";
 import { useExchangeRate } from '@/lib/hooks/useExchangeRate';
 import { calculateShippingCost } from "@/lib/shipping-calculator";
 import { QuoteFormData as PcbQuoteForm } from "@/app/quote2/schema/quoteSchema";
+import { useProductCalculation } from "../hooks/useProductCalculation";
+import { DeliveryType } from "../schema/shared-types";
+import { StencilPriceExplainer } from "./StencilPriceExplainer";
 
 interface PriceBreakdown {
   totalPrice: number;
@@ -37,6 +40,9 @@ export default function PriceSummary() {
   const [showProductionCycleDetail, setShowProductionCycleDetail] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  
+  // === 新增：修复hydration不匹配问题 ===
+  const [clientProductType, setClientProductType] = useState<string>('PCB'); // 默认为PCB避免hydration不匹配
 
   // 从 quote-store 获取数据
   const formData = useQuoteFormData();
@@ -45,6 +51,9 @@ export default function PriceSummary() {
   
   // 获取实时汇率
   const { cnyToUsdRate } = useExchangeRate();
+
+  // === 新增：产品计算Hook ===
+  const { calculator, getProductType, isStencilProduct } = useProductCalculation();
 
   // 运费计算状态
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo>({
@@ -57,10 +66,19 @@ export default function PriceSummary() {
     error: null
   });
 
-  // 确保只在客户端渲染
+  // 确保只在客户端渲染 + 更新产品类型
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    // 客户端加载后立即更新产品类型显示
+    setClientProductType(isStencilProduct() ? 'Stencil' : 'PCB');
+  }, [isStencilProduct]);
+
+  // 监听产品类型变化并更新显示
+  useEffect(() => {
+    if (isClient) {
+      setClientProductType(isStencilProduct() ? 'Stencil' : 'PCB');
+    }
+  }, [isClient, isStencilProduct, formData]);
 
   // CNY 转 USD 的辅助函数 - 使用实时汇率
   const convertCnyToUsd = useCallback((cnyAmount: number): number => {
@@ -172,14 +190,14 @@ export default function PriceSummary() {
     return () => clearTimeout(timeoutId);
   }, [formData, isClient, calculated.totalQuantity, convertCnyToUsd]);
 
-  // 使用 calcPcbPriceV3 进行价格计算（只做纯计算，不做副作用）
+  // 统一产品价格计算（支持PCB和钢网）
   const priceBreakdown = useMemo((): PriceBreakdown => {
     if (!isClient) {
       return {
         totalPrice: 0,
         unitPrice: 0,
         detail: {
-          "PCB Cost": 0,
+          "Product Cost": 0,
           "Shipping": 0,
           "Tax": 0,
           "Discount": 0
@@ -192,12 +210,42 @@ export default function PriceSummary() {
     }
 
     try {
-      const { total, detail, notes } = calcPcbPriceV3(formData); // total 是 CNY
+      const isStencil = isStencilProduct();
+      
+      let total: number, detail: Record<string, number>, notes: string[];
+      let productLabel: string;
+      
+      if (isStencil) {
+        // 钢网价格计算
+        const stencilResult = calculator.calculatePrice(formData);
+        total = stencilResult.totalPrice; // 修正：使用totalPrice字段
+        detail = stencilResult.breakdown || {};
+        notes = stencilResult.notes || [];
+        productLabel = "Stencil Cost";
+      } else {
+        // PCB价格计算（使用原有逻辑）
+        const pcbResult = calcPcbPriceV3(formData);
+        total = pcbResult.total; // CNY
+        detail = pcbResult.detail;
+        notes = pcbResult.notes;
+        productLabel = "PCB Cost";
+      }
+
       const totalCount = calculated.totalQuantity;
-      const pcbCostUsd = convertCnyToUsd(total); // 转换为 USD
-      const unitPrice = totalCount > 0 ? pcbCostUsd / totalCount : 0;
-      const delivery = formData.deliveryOptions?.delivery || 'standard';
-      const leadTimeResult = calculateLeadTime(formData, new Date(), delivery);
+      const productCostUsd = convertCnyToUsd(total); // 转换为 USD
+      const unitPrice = totalCount > 0 ? productCostUsd / totalCount : 0;
+      
+      // 计算交期
+      let leadTimeDays: number;
+      
+      if (isStencil) {
+        // 钢网交期计算
+        leadTimeDays = calculator.calculateLeadTime(formData, new Date()); // 修正：添加日期参数
+      } else {
+        // PCB交期计算
+        const leadTimeResult = calculateLeadTime(formData, new Date(), 'standard');
+        leadTimeDays = leadTimeResult.cycleDays;
+      }
       
       // 转换detail中的价格
       const detailUsd: Record<string, number> = {};
@@ -206,27 +254,27 @@ export default function PriceSummary() {
       });
       
       return {
-        totalPrice: pcbCostUsd,
+        totalPrice: productCostUsd,
         unitPrice,
         detail: {
-          "PCB Cost": pcbCostUsd,
+          [productLabel]: productCostUsd,
           "Shipping": shippingInfo.cost,
           "Tax": 0,
           "Discount": 0,
           ...detailUsd
         },
         notes: [...notes, `※ Prices converted from CNY to USD at rate ${cnyToUsdRate > 0 ? cnyToUsdRate : 0.14}`],
-        minOrderQty: 5, // 默认最小起订量
-        leadTime: `${leadTimeResult.cycleDays} days`,
+        minOrderQty: isStencil ? 1 : 5, // 钢网最小起订量为1
+        leadTime: `${leadTimeDays} days`,
         totalCount
       };
-    } catch {
-      // 可选：错误处理
+    } catch (error) {
+      console.error('Price calculation error:', error);
       return {
         totalPrice: 0,
         unitPrice: 0,
         detail: {
-          "PCB Cost": 0,
+          "Product Cost": 0,
           "Shipping": 0,
           "Tax": 0,
           "Discount": 0
@@ -237,25 +285,52 @@ export default function PriceSummary() {
         totalCount: 0
       };
     }
-  }, [formData, calculated.totalQuantity, isClient, convertCnyToUsd, shippingInfo.cost]);
+  }, [formData, calculated.totalQuantity, isClient, convertCnyToUsd, shippingInfo.cost, calculator, getProductType, isStencilProduct]);
 
   // 计算 calValues 并写入 store（副作用）
   useEffect(() => {
     if (!isClient) return;
     try {
-      const { total, detail, notes } = calcPcbPriceV3(formData); // total 是 CNY
+      const isStencil = isStencilProduct();
+      let total: number, detail: Record<string, number>, notes: string[];
+      
+      if (isStencil) {
+        // 钢网价格计算
+        const stencilResult = calculator.calculatePrice(formData);
+        total = stencilResult.totalPrice; // CNY
+        detail = stencilResult.breakdown || {};
+        notes = stencilResult.notes || [];
+      } else {
+        // PCB价格计算（使用原有逻辑）
+        const pcbResult = calcPcbPriceV3(formData);
+        total = pcbResult.total; // CNY
+        detail = pcbResult.detail;
+        notes = pcbResult.notes;
+      }
+
       const totalCount = calculated.totalQuantity;
-      const pcbCostUsd = convertCnyToUsd(total); // 转换为 USD
-      const unitPrice = totalCount > 0 ? pcbCostUsd / totalCount : 0;
-      const delivery = formData.deliveryOptions?.delivery || 'standard';
-      const leadTimeResult = calculateLeadTime(formData, new Date(), delivery);
+      const productCostUsd = convertCnyToUsd(total); // 转换为 USD
+      const unitPrice = totalCount > 0 ? productCostUsd / totalCount : 0;
+      
+      // 计算交期
+      let leadTimeDays: number;
+      
+      if (isStencil) {
+        // 钢网交期计算
+        leadTimeDays = calculator.calculateLeadTime(formData, new Date());
+      } else {
+        // PCB交期计算
+        const leadTimeResult = calculateLeadTime(formData, new Date(), 'standard'); // 转换为字符串
+        leadTimeDays = leadTimeResult.cycleDays;
+      }
+
       const shippingCost = shippingInfo.cost;
       const shippingWeight = shippingInfo.weight;
       const actualWeight = shippingInfo.actualWeight;
       const volumetricWeight = shippingInfo.volumetricWeight;
       const courier = formData.shippingAddress?.courier || "";
       const courierDays = shippingInfo.days || "";
-      const estimatedFinishDate = getRealDeliveryDate(new Date(), leadTimeResult.cycleDays).toISOString().slice(0, 10);
+      const estimatedFinishDate = getRealDeliveryDate(new Date(), leadTimeDays).toISOString().slice(0, 10);
 
       // 转换detail中的价格为USD
       const detailUsd: Record<string, number> = {};
@@ -264,8 +339,8 @@ export default function PriceSummary() {
       });
 
       setCalValues({
-        totalPrice: pcbCostUsd + shippingCost, // 总价：PCB(USD) + 运费(USD)
-        pcbPrice: pcbCostUsd, // PCB价格转换为USD
+        totalPrice: productCostUsd + shippingCost, // 总价：产品(USD) + 运费(USD)
+        pcbPrice: productCostUsd, // 产品价格转换为USD（兼容性考虑，仍叫pcbPrice）
         shippingCost, // 运费已经是USD
         shippingWeight,
         shippingActualWeight: actualWeight,
@@ -273,13 +348,13 @@ export default function PriceSummary() {
         tax: 0,
         discount: 0,
         unitPrice, // 单价基于USD
-        minOrderQty: 5,
+        minOrderQty: isStencil ? 1 : 5,
         totalCount,
         leadTimeResult: {
-          cycleDays: leadTimeResult.cycleDays,
-          reason: leadTimeResult.reason || [],
+          cycleDays: leadTimeDays,
+          reason: [`${isStencil ? 'Stencil' : 'PCB'} manufacturing: ${leadTimeDays} days`],
         },
-        leadTimeDays: leadTimeResult.cycleDays,
+        leadTimeDays: leadTimeDays,
         estimatedFinishDate,
         priceNotes: [...notes, `※ All prices converted to USD (rate: ${cnyToUsdRate > 0 ? cnyToUsdRate : 0.14})`],
         breakdown: detailUsd, // 价格明细转换为USD
@@ -288,10 +363,36 @@ export default function PriceSummary() {
         singlePcbArea: calculated.singlePcbArea,
         totalArea: calculated.totalArea,
       });
-    } catch {
-      // 可选：错误处理
+    } catch (error) {
+      console.error('Price calculation error in calValues update:', error);
+      // 出错时仍然设置基本值
+      setCalValues({
+        totalPrice: 0,
+        pcbPrice: 0,
+        shippingCost: 0,
+        shippingWeight: 0,
+        shippingActualWeight: 0,
+        shippingVolumetricWeight: 0,
+        tax: 0,
+        discount: 0,
+        unitPrice: 0,
+        minOrderQty: isStencilProduct() ? 1 : 5,
+        totalCount: 0,
+        leadTimeResult: {
+          cycleDays: 0,
+          reason: ['Error calculating lead time'],
+        },
+        leadTimeDays: 0,
+        estimatedFinishDate: new Date().toISOString().slice(0, 10),
+        priceNotes: ['Price calculation error - please check form data'],
+        breakdown: {},
+        courier: "",
+        courierDays: "",
+        singlePcbArea: calculated.singlePcbArea,
+        totalArea: calculated.totalArea,
+      });
     }
-  }, [formData, calculated.totalQuantity, isClient, calculated.singlePcbArea, calculated.totalArea, setCalValues, shippingInfo.cost, shippingInfo.weight, shippingInfo.actualWeight, shippingInfo.volumetricWeight, shippingInfo.days, convertCnyToUsd]);
+  }, [formData, calculated.totalQuantity, isClient, calculated.singlePcbArea, calculated.totalArea, setCalValues, shippingInfo.cost, shippingInfo.weight, shippingInfo.actualWeight, shippingInfo.volumetricWeight, shippingInfo.days, convertCnyToUsd, calculator, isStencilProduct]);
 
   // 获取生产周期信息
   const getProductionCycle = () => {
@@ -370,7 +471,9 @@ export default function PriceSummary() {
         {/* Price Summary */}
         <div className="space-y-2">
           <div className="flex justify-between items-center py-1">
-            <span className="text-sm font-medium text-gray-700">PCB Cost</span>
+            <span className="text-sm font-medium text-gray-700">
+              {clientProductType} Cost
+            </span>
             {!isClient ? (
               <div className="animate-pulse bg-gray-200 h-4 w-16 rounded"></div>
                           ) : priceBreakdown.totalPrice === 0 ? (
@@ -379,6 +482,35 @@ export default function PriceSummary() {
               <span className="font-semibold text-green-600 bg-green-50 px-2 py-1 rounded">${priceBreakdown.totalPrice.toFixed(2)}</span>
             )}
           </div>
+
+          {/* === 新增：钢网价格明细展开 === */}
+          {isClient && clientProductType === 'Stencil' && priceBreakdown.totalPrice > 0 && (
+            <div className="ml-4 mt-2">
+              <StencilPriceExplainer 
+                priceBreakdown={priceBreakdown.detail}
+                totalPrice={priceBreakdown.totalPrice}
+                showDetails={showPriceDetails}
+              />
+            </div>
+          )}
+
+          {/* === 新增：PCB价格明细展开 === */}
+          {isClient && clientProductType === 'PCB' && priceBreakdown.totalPrice > 0 && showPriceDetails && (
+            <div className="ml-4 space-y-1 border-l-2 border-blue-100 pl-3 bg-blue-50/30 py-2 rounded-r">
+              {Object.entries(priceBreakdown.detail)
+                .filter(([key]) => !["PCB Cost", "Shipping", "Tax", "Discount"].includes(key))
+                .map(([key, value]) => (
+                  <div key={key} className="flex justify-between items-center text-xs">
+                    <span className="text-gray-600 capitalize">
+                      • {key.replace(/([A-Z])/g, ' $1').trim()}
+                    </span>
+                    <span className={`font-medium ${value >= 0 ? 'text-gray-700' : 'text-blue-600'}`}>
+                      {value >= 0 ? '+' : ''}${value.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
           
           <div className="flex justify-between items-center py-1">
             <span className="text-sm font-medium text-gray-700">Shipping</span>
@@ -452,7 +584,7 @@ export default function PriceSummary() {
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-base font-semibold text-gray-900 flex items-center">
               <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
-              Production Cycle
+              {clientProductType === 'Stencil' ? 'Manufacturing Cycle' : 'Production Cycle'}
             </h3>
             {process.env.NODE_ENV === 'development' && isClient && calculated.totalQuantity > 0 && (
               <button
@@ -476,10 +608,10 @@ export default function PriceSummary() {
             <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-md p-3 text-center">
               <div className="text-amber-800 text-sm font-medium mb-1 flex items-center justify-center">
                 <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-2"></span>
-                Ready to Calculate Production Time
+                Ready to Calculate {clientProductType === 'Stencil' ? 'Manufacturing' : 'Production'} Time
               </div>
               <div className="text-amber-600 text-xs">
-                Please enter your PCB quantity to see lead time and delivery date
+                Please enter your {clientProductType === 'Stencil' ? 'stencil' : 'PCB'} quantity to see lead time and delivery date
               </div>
             </div>
           ) : (
@@ -497,6 +629,33 @@ export default function PriceSummary() {
                   {productionCycle.standard.finish}
                 </span>
               </div>
+
+              {/* === 新增：钢网工艺详情 === */}
+              {isClient && clientProductType === 'Stencil' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <div className="text-xs font-medium text-blue-800 mb-2">
+                    🔧 Manufacturing Process Information:
+                  </div>
+                  <div className="space-y-1 text-xs text-blue-700">
+                    <div className="flex justify-between">
+                      <span>• Manufacturing Lead Time:</span>
+                      <span className="font-medium">
+                        {productionCycle.standard.cycle}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>• Process Type:</span>
+                      <span className="font-medium">Based on specifications</span>
+                    </div>
+                    {formData.deliveryOptions?.delivery === DeliveryType.Urgent && (
+                      <div className="flex justify-between text-orange-700">
+                        <span>• Rush Processing:</span>
+                        <span className="font-medium">Additional fee applies</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               
               {/* Shipping Time */}
               {isClient && (
@@ -524,7 +683,7 @@ export default function PriceSummary() {
               {showProductionCycleDetail && (
                 <div className="mt-3 bg-gray-50 rounded-md p-3 border border-gray-200">
                   <div className="text-xs font-medium text-gray-700 mb-2">
-                    Production Details:
+                    {clientProductType === 'Stencil' ? 'Manufacturing Details:' : 'Production Details:'}
                   </div>
                   <ul className="space-y-1">
                     {productionCycle.standard.reasons.map((reason: string, idx: number) => (
@@ -563,29 +722,43 @@ export default function PriceSummary() {
                 <span className="text-xs text-gray-600">Unit Price:</span>
                 {!isClient ? (
                   <div className="animate-pulse bg-gray-200 h-3 w-12 rounded"></div>
-                ) : priceBreakdown.totalCount === 0 || priceBreakdown.totalPrice === 0 ? (
+                ) : priceBreakdown.unitPrice === 0 ? (
                   <span className="text-gray-400 text-xs">-</span>
                 ) : (
-                  <span className="text-xs font-medium text-gray-900">${priceBreakdown.unitPrice.toFixed(3)}</span>
+                  <span className="text-xs font-medium text-gray-900">${priceBreakdown.unitPrice.toFixed(3)}/pc</span>
                 )}
               </div>
               
-              {isClient && priceBreakdown.minOrderQty > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">Min Order:</span>
+                <span className="text-xs font-medium text-gray-900">{priceBreakdown.minOrderQty} pcs</span>
+              </div>
+
+              {/* === 钢网专用信息 === */}
+              {isClient && clientProductType === 'Stencil' && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-600">Product Type:</span>
+                    <span className="text-xs font-medium text-blue-600">Stencil</span>
+                  </div>
+                </>
+              )}
+
+              {/* === PCB专用信息 === */}
+              {isClient && clientProductType === 'PCB' && (
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-600">Min Order Qty:</span>
-                  <span className="text-xs font-medium text-gray-900">{priceBreakdown.minOrderQty} pcs</span>
+                  <span className="text-xs text-gray-600">Product Type:</span>
+                  <span className="text-xs font-medium text-green-600">PCB</span>
                 </div>
               )}
-              
+            </div>
+            
+            <div className="space-y-3">
+              {/* 通用面积显示 */}
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-600">Single/Panel Area:</span>
-                <span className="text-xs font-medium text-gray-900">
-                  {isClient ? `${calculated.singlePcbArea.toFixed(4)} m²` : 'Loading...'}
+                <span className="text-xs text-gray-600">
+                  {clientProductType === 'Stencil' ? 'Stencil Area:' : 'Total Area:'}
                 </span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-600">Total Area:</span>
                 {!isClient ? (
                   <div className="animate-pulse bg-gray-200 h-3 w-12 rounded"></div>
                 ) : calculated.totalQuantity === 0 ? (
@@ -596,9 +769,7 @@ export default function PriceSummary() {
                   </span>
                 )}
               </div>
-            </div>
-            
-            <div className="space-y-3">
+              
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-600">Chargeable Weight:</span>
                 {!isClient ? (
@@ -633,10 +804,56 @@ export default function PriceSummary() {
               </div>
             </div>
           </div>
+
+          {/* === 新增：产品规格概览 === */}
+          {isClient && calculated.totalQuantity > 0 && (
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <div className="text-xs font-medium text-gray-700 mb-2">
+                {clientProductType === 'Stencil' ? 'Stencil Specifications:' : 'PCB Specifications:'}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600">
+                {clientProductType === 'Stencil' ? (
+                  // 钢网规格信息
+                  <>
+                    <div>Material: Premium Stainless Steel</div>
+                    <div>Thickness: As specified</div>
+                    <div>Process: Laser cutting/Electroforming</div>
+                    <div>Quality: Professional grade</div>
+                  </>
+                ) : (
+                  // PCB规格信息
+                  <>
+                    <div>Layers: {formData.layers || 2}</div>
+                    <div>Thickness: {formData.thickness || 1.6}mm</div>
+                    <div>Surface: {formData.surfaceFinish || 'HASL'}</div>
+                    <div>Color: {formData.solderMask || 'Green'}</div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Show Price Details Toggle - 只在开发模式下显示 */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* === 新增：钢网价格详情控制 === */}
+        {isClient && clientProductType === 'Stencil' && priceBreakdown.totalPrice > 0 && (
+          <div className="border-t border-gray-200 pt-4">
+            <Button
+              variant="ghost"
+              onClick={() => setShowPriceDetails(!showPriceDetails)}
+              className="w-full justify-start text-green-600 hover:text-green-800 hover:bg-green-50 p-2 rounded-md text-sm"
+            >
+              {showPriceDetails ? (
+                <ChevronDown className="h-4 w-4 mr-2" />
+              ) : (
+                <ChevronRight className="h-4 w-4 mr-2" />
+              )}
+              {showPriceDetails ? 'Hide' : 'Show'} Stencil Price Details
+            </Button>
+          </div>
+        )}
+
+        {/* Show Price Details Toggle - 只在开发模式下显示PCB价格详情 */}
+        {process.env.NODE_ENV === 'development' && clientProductType === 'PCB' && (
           <div className="border-t border-gray-200 pt-4">
             <Button
               variant="ghost"
@@ -648,7 +865,7 @@ export default function PriceSummary() {
               ) : (
                 <ChevronRight className="h-4 w-4 mr-2" />
               )}
-              Show Price Details
+              Show PCB Price Details
             </Button>
           </div>
         )}

@@ -3,11 +3,11 @@
 import React from "react";
 import { createForm, Form, onFieldValueChange, Field } from "@formily/core";
 import { FormProvider, FormConsumer, useForm } from "@formily/react";
-import { useQuoteStore, DEFAULT_FORM_DATA, useQuoteCalculated, useQuoteCalValues } from "@/lib/stores/quote-store";
+import { useQuoteStore, useQuoteCalculated, useQuoteCalValues } from "@/lib/stores/quote-store";
 import { useUserStore } from "@/lib/userStore";
 import { supabase } from "@/lib/supabaseClient";
 import SchemaField from "./FormilyComponents";
-import { pcbFormilySchema, fieldGroups } from "../schema/pcbFormilySchema";
+// import { pcbFormilySchema } from "../schema/pcbFormilySchema";
 import { QuoteFormGroup } from "./QuoteFormGroup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,6 +28,18 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+
+// === 新增：产品类型支持 ===
+import { ProductTypeSelector } from "./ProductTypeSelector";
+import { ProductType } from "../schema/stencilTypes";
+import { 
+  getSchemaByProductType, 
+  getFieldGroups, 
+  getDefaultFormData,
+  getProductTypeInfo,
+  ProductTypeManager 
+} from "../schema/productSchemas";
+import { useProductCalculation } from "../hooks/useProductCalculation";
 
 // 使用 React.memo 包装字段分组组件
 interface QuoteFormGroupMemoProps {
@@ -381,6 +393,67 @@ export function QuoteForm({ editId }: { editId?: string }) {
   const calculated = useQuoteCalculated();
   const calValues = useQuoteCalValues();
   
+  // === 新增：产品类型管理 ===
+  useProductCalculation(); // 启用产品计算功能
+  const [currentProductType, setCurrentProductType] = React.useState<ProductType>(ProductType.PCB);
+  const [isProductTypeSwitching, setIsProductTypeSwitching] = React.useState(false);
+  
+  // === 产品类型初始化 ===
+  React.useEffect(() => {
+    // 从表单数据中获取产品类型
+    const formData = useQuoteStore.getState().formData;
+    const productType = ProductTypeManager.getProductTypeFromFormData(formData);
+    setCurrentProductType(productType);
+  }, []);
+
+  // === 产品类型切换处理 ===
+  const handleProductTypeChange = React.useCallback(async (newProductType: ProductType) => {
+    if (newProductType === currentProductType || isProductTypeSwitching) {
+      return;
+    }
+
+    setIsProductTypeSwitching(true);
+    
+    try {
+      // 获取当前表单数据
+      const currentFormData = form?.values || useQuoteStore.getState().formData;
+      
+      // 执行产品类型切换
+      const newFormData = ProductTypeManager.switchProductType(
+        currentFormData,
+        currentProductType,
+        newProductType
+      );
+
+      // 更新store
+      updateFormData(newFormData);
+      
+      // 如果表单已创建，更新表单值
+      if (form) {
+        isUpdatingFromHydrationRef.current = true;
+        form.setValues(newFormData);
+        isUpdatingFromHydrationRef.current = false;
+      }
+
+      // 更新当前产品类型
+      setCurrentProductType(newProductType);
+      
+      // 显示切换成功提示
+      const productInfo = getProductTypeInfo(newProductType);
+      toast.success(`Switched to ${productInfo.title}`, {
+        description: `Form fields updated for ${productInfo.description.toLowerCase()}`
+      });
+
+    } catch (error) {
+      console.error('产品类型切换失败:', error);
+      toast.error('Failed to switch product type', {
+        description: 'Please try again or refresh the page'
+      });
+    } finally {
+      setIsProductTypeSwitching(false);
+    }
+  }, [currentProductType, form, updateFormData, isProductTypeSwitching]);
+  
   // 编辑模式相关状态
   const [isEditMode] = React.useState(!!editId);
   const [editData, setEditData] = React.useState<Record<string, any> | null>(null);
@@ -613,13 +686,34 @@ export function QuoteForm({ editId }: { editId?: string }) {
     }
   }, [form, uploadState.uploadUrl, uploadState.uploadStatus, updateFormData]);
 
-  // 使用 useMemo 缓存字段分组
+  // 使用 useMemo 缓存字段分组 - 动态根据产品类型获取
+  const currentFieldGroups = React.useMemo(() => {
+    return getFieldGroups(currentProductType);
+  }, [currentProductType]);
+
   const getVisibleFieldGroups = React.useMemo(() => {
+    // 运费信息对所有用户都应该显示
+    const shippingGroupIndex = currentFieldGroups.findIndex(group => 
+      group.title === "Shipping Information" || 
+      group.title === "Shipping Cost Estimation"
+    );
+    
     if (user) {
-      return fieldGroups.filter((group, index) => index < 3 || index === 4);
+      // 已登录用户：显示更多分组，包括运费信息
+      return currentFieldGroups.filter((group, index) => 
+        index < 3 || index === 4 || index === shippingGroupIndex
+      );
     }
-    return fieldGroups.filter((group, index) => index < 4);
-  }, [user]);
+    // 游客用户：显示基础分组 + 运费信息
+    return currentFieldGroups.filter((group, index) => 
+      index < 4 || index === shippingGroupIndex
+    );
+  }, [user, currentFieldGroups]);
+
+  // 动态获取当前产品类型的schema
+  const currentSchema = React.useMemo(() => {
+    return getSchemaByProductType(currentProductType);
+  }, [currentProductType]);
 
   // 使用 useCallback 优化事件处理函数
   const handleSubmit = React.useCallback(async () => {
@@ -830,13 +924,6 @@ export function QuoteForm({ editId }: { editId?: string }) {
     }
   }, [form, uploadState, router, user, calculated, setSubmitError, calValues, updateFormData, isSubmitting]);
 
-  const handleReset = React.useCallback(() => {
-    if (!form) return;
-    form.setValues(DEFAULT_FORM_DATA);
-    form.setSubmitting(false);
-    form.clearErrors();
-  }, [form]);
-
   const handleGuestSubmit = React.useCallback(async () => {
     if (!form || !guestEmail || isSubmitting) return;
     
@@ -927,6 +1014,31 @@ export function QuoteForm({ editId }: { editId?: string }) {
     router.push("/auth?redirect=/quote2");
   }, [router]);
 
+  // 重置表单处理
+  const handleReset = React.useCallback(() => {
+    if (isEditMode) {
+      // 编辑模式下重置为原始数据
+      if (editData?.pcb_spec && form) {
+        isUpdatingFromHydrationRef.current = true;
+        form.setValues(editData.pcb_spec);
+        isUpdatingFromHydrationRef.current = false;
+      }
+    } else {
+      // 新建模式下重置为默认数据
+      const defaultData = getDefaultFormData(currentProductType);
+      updateFormData(defaultData);
+      if (form) {
+        isUpdatingFromHydrationRef.current = true;
+        form.setValues(defaultData);
+        isUpdatingFromHydrationRef.current = false;
+      }
+    }
+    
+    toast.success("Form has been reset", {
+      description: "All fields have been reset to default values"
+    });
+  }, [isEditMode, editData, form, currentProductType, updateFormData]);
+
   // 编辑模式加载状态
   if (isEditMode && isLoadingEditData) {
     return (
@@ -999,11 +1111,21 @@ export function QuoteForm({ editId }: { editId?: string }) {
 
   return (
     <FormProvider form={form}>
+      {/* 产品类型选择器 */}
+      {!isEditMode && (
+        <ProductTypeSelector
+          value={currentProductType}
+          onChange={handleProductTypeChange}
+        />
+      )}
+
       {/* 文件上传区块 */}
       <Card className="border-blue-200 bg-blue-50/50">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h3 className="text-lg font-semibold text-blue-900">Upload Gerber File</h3>
+            <h3 className="text-lg font-semibold text-blue-900">
+              Upload {currentProductType === ProductType.STENCIL ? 'Design' : 'Gerber'} File
+            </h3>
           </div>
           <FileUploadSection /> 
         </CardContent>
@@ -1018,7 +1140,10 @@ export function QuoteForm({ editId }: { editId?: string }) {
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
-              {isEditMode ? 'Edit PCB Quote' : 'PCB Quote Request'}
+              {isEditMode 
+                ? `Edit ${currentProductType === ProductType.STENCIL ? 'Stencil' : 'PCB'} Quote` 
+                : `${currentProductType === ProductType.STENCIL ? 'Stencil' : 'PCB'} Quote Request`
+              }
             </h2>
             <p className="text-blue-600 font-medium mt-2 text-base">
               {isEditMode 
@@ -1050,7 +1175,7 @@ export function QuoteForm({ editId }: { editId?: string }) {
                   key={group.title}
                   group={group}
                   index={index}
-                  schema={pcbFormilySchema}
+                  schema={currentSchema}
                   SchemaField={SchemaField}
                 />
               ))}

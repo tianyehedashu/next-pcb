@@ -5,6 +5,7 @@ import { Order } from '../types/order';
 import { OrderTable } from '../components/OrderTable';
 import { OrderDetailModal } from '../components/OrderDetailModal';
 import { OrderFilterForm, orderFilterSchema } from '../components/OrderFilterForm';
+import { StencilOrderCard } from '../components/StencilOrderCard';
 import { Pagination } from '@/app/components/ui/pagination';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -50,14 +51,21 @@ export default function AdminOrdersPage() {
       const data = await response.json();
       const ordersWithType = (data.items || []).map((item: unknown) => {
         const orderItem = item as Record<string, unknown>;
+        
+        // === 新增：产品类型检测 ===
+        const pcbSpec = orderItem.pcb_spec as Record<string, unknown> | null;
+        const productType = pcbSpec?.productType || 
+          (pcbSpec?.stencilMaterial ? 'stencil' : 'pcb');
+        
         return {
           ...orderItem,
           type: orderItem.user_id ? 'Order' : 'Inquiry',
+          productType, // 添加产品类型字段
           // 标准化 admin_orders 字段
           admin_orders: Array.isArray(orderItem.admin_orders) 
             ? (orderItem.admin_orders.length > 0 ? orderItem.admin_orders[0] : null)
             : orderItem.admin_orders,
-        } as Order;
+        } as Order & { productType: string };
       });
       setOrders(ordersWithType);
       setPagination(p => ({ ...p, total: data.total || 0 }));
@@ -201,18 +209,79 @@ export default function AdminOrdersPage() {
         <div className="mb-6">
           <OrderFilterForm value={filter} onChange={handleFilterChange} />
         </div>
-        <div className="overflow-x-auto rounded-xl shadow-lg bg-white">
-          <OrderTable
-            data={sortedOrders}
-            selectedIds={selectedOrderIds}
-            onSelectChange={setSelectedOrderIds}
-            onDeleteSelected={() => setDeleteDialogOpen(true)}
-            deleting={deleting}
-            sortField={sortField}
-            sortDirection={sortDirection}
-            onSort={handleSort}
-          />
-        </div>
+        
+        {/* === 新增：分离显示PCB和钢网订单 === */}
+        {(() => {
+          const pcbOrders = sortedOrders.filter(order => (order as unknown as { productType: string }).productType !== 'stencil');
+          const stencilOrders = sortedOrders.filter(order => (order as unknown as { productType: string }).productType === 'stencil');
+          
+          return (
+            <div className="space-y-8">
+              {/* PCB订单表格 */}
+              {pcbOrders.length > 0 && (
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                    📱 PCB Orders ({pcbOrders.length})
+                  </h3>
+                  <div className="overflow-x-auto rounded-xl shadow-lg bg-white">
+                    <OrderTable
+                      data={pcbOrders}
+                      selectedIds={selectedOrderIds}
+                      onSelectChange={setSelectedOrderIds}
+                      onDeleteSelected={() => setDeleteDialogOpen(true)}
+                      deleting={deleting}
+                      sortField={sortField}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* 钢网订单卡片 */}
+              {stencilOrders.length > 0 && (
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                    🔧 Stencil Orders ({stencilOrders.length})
+                  </h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                         {stencilOrders.map((order) => (
+                       <StencilOrderCard
+                         key={order.id}
+                         order={order as never}
+                        onStatusChange={async (orderId, newStatus) => {
+                          try {
+                            const response = await fetch(`/api/admin/orders?id=${orderId}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ status: newStatus }),
+                            });
+                            if (!response.ok) throw new Error('Failed to update status');
+                            toast.success('Order status updated');
+                            await fetchOrders();
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : 'Failed to update status');
+                          }
+                        }}
+                        onViewDetails={(orderId) => {
+                          const order = stencilOrders.find(o => o.id === orderId);
+                          if (order) setSelectedOrder(order);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* 如果没有订单 */}
+              {pcbOrders.length === 0 && stencilOrders.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  No orders found
+                </div>
+              )}
+            </div>
+          );
+        })()}
         <div className="flex justify-center mt-8">
           <Pagination
             page={pagination.page}

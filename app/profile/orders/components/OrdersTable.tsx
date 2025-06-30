@@ -90,7 +90,7 @@ export default function OrdersTable({
                   </Button>
                 </th>
                 <th className="text-left py-3 px-4 font-medium text-gray-700 min-w-[200px]">
-                  PCB Specifications
+                  Product Specifications
                 </th>
                 <th className="text-left py-3 px-4 min-w-[100px]">
                   <Button

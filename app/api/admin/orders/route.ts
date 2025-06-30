@@ -44,7 +44,15 @@ export async function GET(request: NextRequest) {
       if (error || !data) {
         return NextResponse.json({ error: 'Order not found' }, { status: 404 });
       }
-      return NextResponse.json(data);
+
+      // === 新增：添加产品类型信息 ===
+      const productType = data.pcb_spec?.productType || 
+        (data.pcb_spec?.stencilMaterial ? 'stencil' : 'pcb');
+
+      return NextResponse.json({
+        ...data,
+        productType
+      });
     } else {
       // 列表查询
       let query = supabase
@@ -123,6 +131,15 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
+  
+  // === 新增：状态验证 ===
+  if (body.status) {
+    const validStatuses = ['pending', 'quoted', 'confirmed', 'production', 'shipped', 'completed', 'cancelled'];
+    if (!validStatuses.includes(body.status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    }
+  }
+
   const updateData: UpdateData = {
       updated_at: new Date().toISOString()
   };
@@ -134,15 +151,32 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ message: 'No fields to update' }, { status: 200 });
   }
 
-  const { error: updateError } = await supabase
+  // === 修改：获取更新后的数据以检测产品类型 ===
+  const { data, error: updateError } = await supabase
       .from(USER_ORDER)
       .update(updateData)
-      .eq('id', id);
+      .eq('id', id)
+      .select()
+      .single();
 
   if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
-  return NextResponse.json({ message: 'Quote updated successfully', id });
+
+  // === 新增：产品类型检测和日志 ===
+  const productType = data?.pcb_spec?.productType || 
+    (data?.pcb_spec?.stencilMaterial ? 'stencil' : 'pcb');
+  
+  if (body.status) {
+    console.log(`Updated ${productType} order ${id} status to ${body.status}`);
+  }
+
+  return NextResponse.json({ 
+    message: 'Quote updated successfully', 
+    id,
+    productType,
+    updatedFields: Object.keys(updateData).filter(key => key !== 'updated_at')
+  });
 }
 
 // POST /api/admin/orders/batch

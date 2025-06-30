@@ -2,6 +2,8 @@ import React from 'react';
 import { QuoteFormData } from '@/app/quote2/schema/quoteSchema';
 import { calcPcbPriceV3 } from '@/lib/pcb-calc-v3';
 import { calcProductionCycle } from '@/lib/productCycleCalc-v3';
+import { calculateUrgentFee, isUrgentSupported } from '@/lib/urgentDeliverySystem-v4';
+import { calculateTotalPcbArea } from '@/lib/utils/precision';
 
 interface CalculationResultPanelsProps {
   pcbFormData: QuoteFormData | null;
@@ -66,12 +68,37 @@ export function CalculationResultPanels({
                   </div>
                 )}
                 
-                {pcbFormData.delivery === 'urgent' && (
-                  <div className="flex justify-between text-red-600">
-                    <span>加急费</span>
-                    <span className="font-mono">¥100.00</span>
-                  </div>
-                )}
+                {(pcbFormData.deliveryOptions?.delivery === 'urgent') && (() => {
+                  try {
+                    const { totalArea } = calculateTotalPcbArea(pcbFormData);
+                    const urgentReduceDays = pcbFormData.deliveryOptions?.urgentReduceDays || 0;
+                    if (isUrgentSupported(pcbFormData, totalArea) && urgentReduceDays > 0) {
+                      const feeInfo = calculateUrgentFee(pcbFormData, totalArea, urgentReduceDays);
+                      if (feeInfo.supported) {
+                        return (
+                          <div className="flex justify-between text-red-600">
+                            <span>加急费</span>
+                            <span className="font-mono">¥{feeInfo.fee.toFixed(2)}</span>
+                          </div>
+                        );
+                      }
+                    }
+                    // 回退到固定费用
+                    return (
+                      <div className="flex justify-between text-red-600">
+                        <span>加急费</span>
+                        <span className="font-mono">¥100.00</span>
+                      </div>
+                    );
+                  } catch {
+                    return (
+                      <div className="flex justify-between text-red-600">
+                        <span>加急费</span>
+                        <span className="font-mono">¥100.00</span>
+                      </div>
+                    );
+                  }
+                })()}
                 
                 <div className="flex justify-between border-t pt-1 mt-2">
                   <span className="font-medium">预估总价</span>
@@ -83,7 +110,24 @@ export function CalculationResultPanels({
                         if (pcbFormData.impedance) total += 50;
                         if (pcbFormData.goldFingers) total += 30;
                         if (pcbFormData.edgePlating) total += 25;
-                        if (pcbFormData.delivery === 'urgent') total += 100;
+                        if (pcbFormData.deliveryOptions?.delivery === 'urgent') {
+                          try {
+                            const { totalArea } = calculateTotalPcbArea(pcbFormData);
+                            const urgentReduceDays = pcbFormData.deliveryOptions?.urgentReduceDays || 0;
+                            if (isUrgentSupported(pcbFormData, totalArea) && urgentReduceDays > 0) {
+                              const feeInfo = calculateUrgentFee(pcbFormData, totalArea, urgentReduceDays);
+                              if (feeInfo.supported) {
+                                total += feeInfo.fee;
+                              } else {
+                                total += 100; // 回退费用
+                              }
+                            } else {
+                              total += 100; // 回退费用
+                            }
+                          } catch {
+                            total += 100; // 错误时回退费用
+                          }
+                        }
                         return `¥${total.toFixed(2)}`;
                       } catch {
                         return '¥0.00';
@@ -123,7 +167,7 @@ export function CalculationResultPanels({
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span>基础周期</span>
-                  <span>{pcbFormData.delivery === 'urgent' ? '2天' : '5天'}</span>
+                  <span>{pcbFormData.deliveryOptions?.delivery === 'urgent' ? '2天' : '5天'}</span>
                 </div>
                 
                 {Number(pcbFormData.layers) > 4 && (
@@ -145,7 +189,7 @@ export function CalculationResultPanels({
                   <span className="font-mono font-bold">
                     {(() => {
                       try {
-                        const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+                        const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.deliveryOptions?.delivery);
                         return `${cycle.cycleDays}天`;
                       } catch {
                         return '计算中...';
@@ -159,7 +203,7 @@ export function CalculationResultPanels({
                   <span className="font-mono">
                     {(() => {
                       try {
-                        const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+                        const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.deliveryOptions?.delivery);
                         const targetDate = new Date();
                         targetDate.setDate(targetDate.getDate() + cycle.cycleDays);
                         return targetDate.toLocaleDateString('zh-CN');

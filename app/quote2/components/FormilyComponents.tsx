@@ -18,6 +18,7 @@ import { BoardEdgeInput } from './BoardEdgeInput';
 import { DimensionsInput } from "../../components/ui/DimensionsInput";
 import { FormFieldLayout } from "./FormFieldLayout";
 import { UrgentDeliverySelector } from "./UrgentDeliverySelector";
+import { StencilProcessGuide } from "./StencilProcessGuide";
 
 
 interface OptionWithDisabled {
@@ -38,6 +39,7 @@ interface FormilyFieldProps {
     options?: OptionWithDisabled[];
     isProductReport?: boolean;
     userId?: string;
+    productType?: string;
   };
   isProductReport?: boolean;
   userId?: string;
@@ -612,6 +614,187 @@ export const formilyComponents = {
   UrgentDeliverySelector,
   BoardEdgeInput,
   FormFieldLayout,
+  DeliverySelector: (props: FormilyFieldProps) => {
+    const deliveryData = (props.value as { delivery?: string; urgentReduceDays?: number }) || {};
+    const productType = props.componentProps?.productType || 'pcb';
+    
+    const deliveryOptions = productType === 'stencil' ? [
+      { label: "Standard (5-7 days)", value: "standard", description: "Regular production timeline" },
+      { label: "Express (3-4 days)", value: "express", description: "Priority processing (+25%)" },
+      { label: "Rush (1-2 days)", value: "rush", description: "Expedited manufacturing (+50%)" }
+    ] : [
+      { label: "Standard (7-10 days)", value: "standard", description: "Regular production timeline" },
+      { label: "Express (5-7 days)", value: "express", description: "Priority processing (+30%)" },
+      { label: "Rush (3-5 days)", value: "rush", description: "Expedited manufacturing (+60%)" }
+    ];
+
+    const urgentOptions = [
+      { label: "No Rush", value: 0, description: "Standard timeline" },
+      { label: "1 Day Rush (+30%)", value: 1, description: "Reduce 1 day" },
+      { label: "2 Days Rush (+60%)", value: 2, description: "Reduce 2 days" }
+    ];
+
+    return (
+      <div className="space-y-4">
+        {/* Delivery Type Selection */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Delivery Type
+          </label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {deliveryOptions.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const newData = { ...deliveryData, delivery: option.value };
+                  props.onChange?.(newData);
+                }}
+                className={cn(
+                  "p-4 h-auto text-left flex flex-col items-start space-y-1 transition-colors",
+                  deliveryData.delivery === option.value
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white border-gray-300 hover:border-blue-300"
+                )}
+              >
+                <span className="font-medium">{option.label}</span>
+                <span className={cn(
+                  "text-xs",
+                  deliveryData.delivery === option.value ? "text-blue-100" : "text-gray-500"
+                )}>
+                  {option.description}
+                </span>
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Rush Options (only for standard delivery) */}
+        {deliveryData.delivery === 'standard' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Rush Options
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              {urgentOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newData = { ...deliveryData, urgentReduceDays: option.value };
+                    props.onChange?.(newData);
+                  }}
+                  className={cn(
+                    "text-left flex flex-col items-start space-y-1",
+                    deliveryData.urgentReduceDays === option.value
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "bg-white border-gray-300 hover:border-orange-300"
+                  )}
+                >
+                  <span className="text-xs font-medium">{option.label}</span>
+                  <span className={cn(
+                    "text-xs",
+                    deliveryData.urgentReduceDays === option.value ? "text-orange-100" : "text-gray-500"
+                  )}>
+                    {option.description}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  },
+  CountrySelect: (props: FormilyFieldProps) => {
+    const commonCountries = [
+      { code: "US", name: "United States", flag: "🇺🇸" },
+      { code: "CA", name: "Canada", flag: "🇨🇦" },
+      { code: "GB", name: "United Kingdom", flag: "🇬🇧" },
+      { code: "DE", name: "Germany", flag: "🇩🇪" },
+      { code: "FR", name: "France", flag: "🇫🇷" },
+      { code: "JP", name: "Japan", flag: "🇯🇵" },
+      { code: "AU", name: "Australia", flag: "🇦🇺" },
+      { code: "SG", name: "Singapore", flag: "🇸🇬" },
+      { code: "HK", name: "Hong Kong", flag: "🇭🇰" },
+      { code: "CN", name: "China", flag: "🇨🇳" },
+    ];
+
+    const selectedCountry = commonCountries.find(c => c.code === props.value);
+
+    return (
+      <UISelect 
+        value={String(props.value || "")} 
+        onValueChange={props.onChange}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select country">
+            {selectedCountry && (
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{selectedCountry.flag}</span>
+                <span>{selectedCountry.name}</span>
+              </div>
+            )}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {commonCountries.map((country) => (
+            <SelectItem key={country.code} value={country.code}>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{country.flag}</span>
+                <span>{country.name}</span>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </UISelect>
+    );
+  },
+  CourierSelect: (props: FormilyFieldProps) => {
+    const couriers = [
+      { id: "dhl", name: "DHL Express", icon: "📦", description: "3-5 business days" },
+      { id: "fedex", name: "FedEx International", icon: "📮", description: "4-6 business days" },
+      { id: "ups", name: "UPS Worldwide", icon: "📫", description: "5-7 business days" },
+      { id: "standard", name: "Standard Shipping", icon: "📪", description: "7-15 business days" },
+    ];
+
+    const selectedCourier = couriers.find(c => c.id === props.value);
+
+    return (
+      <UISelect 
+        value={String(props.value || "")} 
+        onValueChange={props.onChange}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select courier">
+            {selectedCourier && (
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{selectedCourier.icon}</span>
+                <span>{selectedCourier.name}</span>
+              </div>
+            )}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {couriers.map((courier) => (
+            <SelectItem key={courier.id} value={courier.id}>
+              <div className="flex items-center gap-2 text-left">
+                <span className="text-lg">{courier.icon}</span>
+                <div>
+                  <div className="font-medium">{courier.name}</div>
+                  <div className="text-xs text-gray-500">{courier.description}</div>
+                </div>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </UISelect>
+    );
+  },
+  StencilProcessGuide,
 };
 
 // 创建 SchemaField
