@@ -55,29 +55,8 @@ export async function GET(request: NextRequest) {
       total = totalCount ?? 0;
     }
 
-    // Get user profiles to include role information
-    const userIds = users.map(user => user.id);
-    const { data: profiles, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, role')
-      .in('id', userIds);
-
-    if (profileError) {
-      console.error('Error fetching user profiles:', profileError);
-      // Continue without profile data rather than failing
-    }
-
-    // Merge user data with profile data
-    const usersWithRoles = users.map(user => {
-      const profile = profiles?.find(p => p.id === user.id);
-      return {
-        ...user,
-        role: profile?.role || 'user'
-      };
-    });
-
     return NextResponse.json({
-      items: usersWithRoles,
+      items: users,
       total: total,
     });
   } catch (error) {

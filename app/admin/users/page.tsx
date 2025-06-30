@@ -71,7 +71,7 @@ export default function AdminUsersPage() {
   const totalUsers = pagination.total;
   const activeUsers = users.filter(user => user.email_confirmed_at).length;
   const unverifiedUsers = users.filter(user => !user.email_confirmed_at).length;
-  const adminUsers = users.filter(user => user.user_metadata?.role === 'admin' || user.role === 'admin').length;
+  const adminUsers = users.filter(user => user.user_metadata?.role === 'admin').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-6">

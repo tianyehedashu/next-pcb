@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/utils/supabase/server';
 
 export async function GET(
-  request: NextRequest
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
   try {
     const supabaseAdmin = createSupabaseAdminClient();
-    const urlParts = request.url.split('/');
-    // The user ID is before '/profile'
-    const id = urlParts[urlParts.length - 2];
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });

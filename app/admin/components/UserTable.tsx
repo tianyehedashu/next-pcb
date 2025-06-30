@@ -210,7 +210,7 @@ export function UserTable({ users, onUserUpdated }: UserTableProps) {
                 </TableCell>
                 
                 <TableCell className="py-4">
-                  {getRoleBadge(user.user_metadata?.role || user.role)}
+                  {getRoleBadge(user.user_metadata?.role)}
                 </TableCell>
                 
                 <TableCell className="py-4">
@@ -243,7 +243,7 @@ export function UserTable({ users, onUserUpdated }: UserTableProps) {
                       {resettingPassword.has(user.id) ? 'Sending...' : 'Reset Pass'}
                     </Button>
 
-                    {(user.user_metadata?.role !== 'admin' && user.role !== 'admin') && (
+                    {user.user_metadata?.role !== 'admin' && (
                       <Button
                         onClick={() => handleMakeAdmin(user.id)}
                         disabled={promotingUsers.has(user.id)}

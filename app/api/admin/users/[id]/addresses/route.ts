@@ -3,7 +3,8 @@ import { createClient } from '@/utils/supabase/server';
 import { checkAdminAuth } from '@/lib/auth-utils';
 
 export async function GET(
-  request: NextRequest
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
   const { error } = await checkAdminAuth();
   if (error) {
@@ -12,10 +13,7 @@ export async function GET(
 
   try {
     const supabase = await createClient();
-
-    const urlParts = request.url.split('/');
-    // The user ID is before '/addresses'
-    const userId = urlParts[urlParts.length - 2];
+    const { id: userId } = await params;
     
     if (!userId) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });

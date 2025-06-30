@@ -3,7 +3,8 @@ import { createAdminClient } from '@/utils/supabase/server';
 import { checkAdminAuth } from '@/lib/auth-utils';
 
 export async function GET(
-  request: NextRequest
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
   // Check admin authentication
   const { error } = await checkAdminAuth();
@@ -11,14 +12,7 @@ export async function GET(
 
   try {
     const supabaseAdmin = createAdminClient();
-    // Workaround for Next.js params handling issue.
-    const urlParts = request.url.split('/');
-    let id = urlParts[urlParts.length - 1];
-
-    // Handle potential query params in the last part
-    if (id.includes('?')) {
-      id = id.split('?')[0];
-    }
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });

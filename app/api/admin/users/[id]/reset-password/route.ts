@@ -1,27 +1,14 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient, createSupabaseAdminClient } from '@/utils/supabase/server';
+import { createSupabaseAdminClient } from '@/utils/supabase/server';
+import { checkAdminAuth } from '@/lib/auth-utils';
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createSupabaseServerClient();
-
-  const { data: { user: currentUser } } = await supabase.auth.getUser();
-
-  if (!currentUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', currentUser.id)
-    .single();
-
-  if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden: Admins only' }, { status: 403 });
-  }
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
 
   const { id: userIdToReset } = await params;
   if (!userIdToReset) {
