@@ -187,35 +187,35 @@ export const stencilSizeSpecs: Record<BorderType, StencilSizeSpec[]> = {
       size: '280x380',
       maxEffectiveArea: '200×360/260×300',
       pricePerPcs: 130.00,
-      weightKgPerPcs: 1,
+      weightKgPerPcs: 2,
       shippingExtraPerPcs: 0
     },
     {
       size: '320x420',
       maxEffectiveArea: '240×400/300×340',
       pricePerPcs: 234.30,
-      weightKgPerPcs: 1,
+      weightKgPerPcs: 2,
       shippingExtraPerPcs: 0
     },
     {
       size: '420x520',
       maxEffectiveArea: '320×500',
       pricePerPcs: 121.71,
-      weightKgPerPcs: 1.5,
+      weightKgPerPcs: 2,
       shippingExtraPerPcs: 0
     },
     {
       size: '460x460',
       maxEffectiveArea: '380×430',
       pricePerPcs: 241.40,
-      weightKgPerPcs: 1.5,
+      weightKgPerPcs: 2,
       shippingExtraPerPcs: 0
     },
     {
       size: '600x600',
       maxEffectiveArea: '520×560',
       pricePerPcs: 294.14,
-      weightKgPerPcs: 1.5,
+      weightKgPerPcs: 2,
       shippingExtraPerPcs: 0
     }
   ],

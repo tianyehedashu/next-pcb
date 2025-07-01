@@ -1,48 +1,24 @@
 import { BaseProductCalculator, ProductCalculationResult } from './productCalculator';
 import { 
   BorderType, 
-  StencilThickness,
   Electropolishing,
-  getStencilSpec,
-  StencilSizeSpec
+  getStencilSpec
 } from '@/app/quote2/schema/stencilTypes';
 
-// 钢网表单数据接口
 interface StencilFormData {
   borderType: BorderType;
   size: string;
-  thickness: StencilThickness;
   electropolishing: Electropolishing;
   quantity: number;
+  [key: string]: unknown;
 }
 
 export class StencilCalculator extends BaseProductCalculator {
 
-  // 厚度价格调整系数
-  private readonly thicknessMultipliers: Record<StencilThickness, number> = {
-    [StencilThickness.T0_10]: 1.0,   // 基础价格
-    [StencilThickness.T0_12]: 1.1,   // 10% 加价
-    [StencilThickness.T0_15]: 1.2    // 20% 加价
-  };
-
-  // 电抛光处理费用
-  private readonly electropolishingCosts: Record<Electropolishing, number> = {
-    [Electropolishing.GRINDING_POLISHING]: 0,     // 研磨抛光无额外费用
-    [Electropolishing.ELECTROPOLISHING]: 50       // 电抛光额外50元
-  };
-
-  // 数量折扣配置
-  private readonly quantityBreakpoints = [
-    { qty: 100, discount: 0.15 }, // 15% 折扣
-    { qty: 50, discount: 0.10 },  // 10% 折扣
-    { qty: 20, discount: 0.05 }   // 5% 折扣
-  ];
-
-  calculatePrice(formData: any): ProductCalculationResult {
+  calculatePrice(formData: StencilFormData): ProductCalculationResult {
     const { 
       borderType,
       size,
-      thickness,
       electropolishing,
       quantity 
     } = formData;
@@ -52,38 +28,28 @@ export class StencilCalculator extends BaseProductCalculator {
       return this.getEmptyResult();
     }
 
-    // 获取尺寸价格信息
+    // 获取尺寸价格信息 - 严格按照钢网规格数据表
     const sizeInfo = getStencilSpec(borderType, size);
     if (!sizeInfo) {
       return this.getEmptyResult();
     }
 
-    // 基础价格
+    // 基础价格 - 直接使用规格数据表价格
     const basePrice = sizeInfo.pricePerPcs;
-    
-    // 厚度调整
-    const thicknessMultiplier = this.thicknessMultipliers[thickness as StencilThickness] || 1.0;
-    
-    // 电抛光费用
-    const electropolishingCost = this.electropolishingCosts[electropolishing as Electropolishing] || 0;
-    
-    // 数量折扣
-    const quantityDiscount = this.getQuantityDiscount(quantity, this.quantityBreakpoints);
     
     // 运费附加费 - 严格按照钢网规格数据表
     const shippingExtra = sizeInfo.shippingExtraPerPcs;
     
+    // 电抛光处理费用（仅在选择电抛光时）
+    const electropolishingCost = electropolishing === Electropolishing.ELECTROPOLISHING ? 50 : 0;
+    
     // 单价计算 - 严格按照钢网规格数据表
-    const adjustedBasePrice = basePrice * thicknessMultiplier;
-    const unitCostBeforeDiscount = adjustedBasePrice + electropolishingCost + shippingExtra;
-    const unitCost = unitCostBeforeDiscount * quantityDiscount;
+    const unitCost = basePrice + shippingExtra + electropolishingCost;
     const totalPrice = unitCost * quantity;
 
-    // 价格明细 - 严格按照钢网规格数据表
+    // 价格明细 - 仅显示实际涉及的项目
     const breakdown: Record<string, number> = {
-      "Base Price": this.formatPrice(basePrice * quantity),
-      "Thickness Adjustment": this.formatPrice((adjustedBasePrice - basePrice) * quantity),
-      "Electropolishing": this.formatPrice(electropolishingCost * quantity)
+      "Base Price": this.formatPrice(basePrice * quantity)
     };
 
     // 仅在有运费附加费时显示
@@ -91,9 +57,9 @@ export class StencilCalculator extends BaseProductCalculator {
       breakdown["Shipping Extra"] = this.formatPrice(shippingExtra * quantity);
     }
 
-    // 仅在有折扣时显示
-    if (quantityDiscount < 1.0) {
-      breakdown["Quantity Discount"] = this.formatPrice((unitCostBeforeDiscount * (1 - quantityDiscount)) * quantity * -1);
+    // 仅在选择电抛光时显示
+    if (electropolishingCost > 0) {
+      breakdown["Electropolishing"] = this.formatPrice(electropolishingCost * quantity);
     }
 
     return {
@@ -107,14 +73,12 @@ export class StencilCalculator extends BaseProductCalculator {
     };
   }
 
-
-
-  calculateLeadTime(_formData: any, _startDate: Date): number {
+  calculateLeadTime(_formData: StencilFormData, _startDate: Date): number {
     // 钢网交期固定为2-3天，不受其他参数影响
     return 2; // 统一2天交期
   }
 
-  calculateWeight(formData: any): number {
+  calculateWeight(formData: StencilFormData): number {
     const { borderType, size, quantity } = formData;
     
     if (!size || !quantity) {
@@ -129,8 +93,11 @@ export class StencilCalculator extends BaseProductCalculator {
     return this.formatPrice(sizeInfo.weightKgPerPcs * quantity);
   }
 
-  private generatePriceNotes(formData: any, sizeInfo: any): string[] {
+  private generatePriceNotes(formData: StencilFormData, sizeInfo: { pricePerPcs: number; maxEffectiveArea: string; shippingExtraPerPcs: number; weightKgPerPcs: number }): string[] {
     const notes: string[] = [];
+    
+    // 基础价格说明
+    notes.push(`💰 Base price: ¥${sizeInfo.pricePerPcs.toFixed(2)} per piece (as per specification table)`);
     
     if (formData.borderType === BorderType.FRAMEWORK) {
       notes.push("🔧 Framework included for production use");
@@ -139,11 +106,7 @@ export class StencilCalculator extends BaseProductCalculator {
     }
     
     if (formData.electropolishing === Electropolishing.ELECTROPOLISHING) {
-      notes.push("✨ Electropolishing enhances print quality and durability");
-    }
-    
-    if (formData.quantity >= 20) {
-      notes.push("💰 Quantity discount applied");
+      notes.push("✨ Electropolishing: +¥50 per piece for enhanced surface finish");
     }
 
     if (sizeInfo.maxEffectiveArea) {
@@ -152,16 +115,16 @@ export class StencilCalculator extends BaseProductCalculator {
 
     // 运费附加费说明 - 严格按照钢网规格数据表
     if (sizeInfo.shippingExtraPerPcs > 0) {
-      notes.push(`📦 Large size shipping extra: ¥${sizeInfo.shippingExtraPerPcs} per piece`);
+      notes.push(`📦 Large size shipping extra: ¥${sizeInfo.shippingExtraPerPcs} per piece (as per specification table)`);
     }
 
-    notes.push(`💰 Base price: ¥${sizeInfo.pricePerPcs.toFixed(2)} per piece`);
     notes.push(`⚖️ Weight: ${sizeInfo.weightKgPerPcs}kg per piece`);
+    notes.push("🎯 All prices are based on stencil specification data table");
     
     return notes;
   }
 
-  private getLeadTimeReasons(_formData: any): string[] {
+  private getLeadTimeReasons(_formData: StencilFormData): string[] {
     const reasons: string[] = [];
     
     reasons.push("📐 Stencil manufacturing lead time:");
