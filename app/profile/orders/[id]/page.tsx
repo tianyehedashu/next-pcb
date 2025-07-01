@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { 
   Pencil, DollarSign, MapPin, AlertCircle, 
   ArrowLeft, CheckCircle, Truck, AlertTriangle, CreditCard, Info, Loader2,
-  Shield, Download, Phone, Mail, RefreshCw
+  Shield, Download, Phone, Mail, RefreshCw, FileText
 } from 'lucide-react';
 import DownloadButton from '@/app/components/custom-ui/DownloadButton';
 import OrderStepBar from '@/components/ui/OrderStepBar';
@@ -27,32 +27,79 @@ import { StencilSpecificationDisplay } from '@/app/components/custom-ui/StencilS
 import { DeliveryInfoDisplay } from '@/app/components/custom-ui/DeliveryInfoDisplay';
 
 
-// Define cal_values type
+// Define cal_values type - 使用新的分离式计算值结构
 interface CalValues {
-  tax?: number;
-  courier?: string;
-  discount?: number;
-  pcbPrice?: number;
-  breakdown?: {
-    basePrice?: number;
-    testMethod?: number;
-    multilayerCopperWeight?: number;
-  };
-  totalArea?: number;
-  unitPrice?: number;
-  priceNotes?: string[];
-  totalCount?: number;
-  totalPrice?: number;
-  courierDays?: string;
-  minOrderQty?: number;
+  // === 产品类型标识 ===
+  product_type?: 'pcb' | 'stencil' | 'smt' | 'combo';
+  
+  // === 通用计算值（所有产品类型共享） ===
+  totalPrice?: number; // 总价（产品价格 + 运费）
+  unitPrice?: number; // 单价
+  totalCount?: number; // 总数量
+  minOrderQty?: number; // 最小起订量
+  
+  // 交期相关
   leadTimeDays?: number;
-  shippingCost?: number;
-  singlePcbArea?: number;
   leadTimeResult?: {
     reason?: string[];
     cycleDays?: number;
   };
   estimatedFinishDate?: string;
+  
+  // 运费相关
+  shippingCost?: number;
+  shippingWeight?: number; // Chargeable weight
+  shippingActualWeight?: number;
+  shippingVolumetricWeight?: number;
+  courier?: string;
+  courierDays?: string;
+  
+  // 税费和折扣
+  tax?: number;
+  discount?: number;
+  
+  // 价格说明
+  priceNotes?: string[];
+  
+  // === 产品专用计算值（根据product_type只使用其中一个） ===
+  pcb_calculation?: {
+    pcbPrice: number; // PCB产品价格（不含运费）
+    singlePcbArea: number; // 单片PCB面积
+    totalArea: number; // 总PCB面积
+    breakdown: Record<string, number>; // PCB价格明细
+  };
+  stencil_calculation?: {
+    stencilPrice: number; // 钢网产品价格（不含运费）
+    stencilArea: number; // 钢网面积
+    totalWeight: number; // 钢网总重量
+    breakdown: Record<string, number>; // 钢网价格明细
+  };
+  smt_calculation?: {
+    smtPrice: number; // SMT产品价格（不含运费）
+    componentCount: number; // 元件数量
+    assemblyComplexity: string; // 组装复杂度
+    breakdown: Record<string, number>; // SMT价格明细
+  };
+  combo_calculation?: {
+    comboPrice: number; // 组合产品总价格（不含运费）
+    productBreakdown: {
+      pcb?: Partial<CalValues['pcb_calculation']>;
+      stencil?: Partial<CalValues['stencil_calculation']>;
+      smt?: Partial<CalValues['smt_calculation']>;
+    };
+    breakdown: Record<string, number>; // 组合产品价格明细
+  };
+  
+  // === 向后兼容字段（暂时保留，逐步迁移） ===
+  // @deprecated 使用通用字段或对应的 product_calculation 字段
+  pcbPrice?: number;
+  breakdown?: {
+    basePrice?: number;
+    testMethod?: number;
+    multilayerCopperWeight?: number;
+  } | Record<string, number>;
+  totalArea?: number;
+  singlePcbArea?: number;
 }
 
 // Define more specific types
@@ -86,6 +133,27 @@ interface AdminOrder {
   surcharges?: Array<{ name: string; amount: number }>;
 }
 
+// 产品类型枚举
+export enum ProductType {
+  PCB = 'pcb',
+  STENCIL = 'stencil'
+}
+
+// === 新钢网字段枚举定义 ===
+
+// 边框类型
+export enum BorderType {
+  FRAMEWORK = 'framework',
+  NON_FRAMEWORK = 'non_framework'
+}
+
+// 钢网类型
+export enum StencilType {
+  SOLDER_PASTE = 'solder_paste',
+  ADHESIVES = 'adhesives',
+  STEP_DOWN = 'step_down'
+}
+
 // Order interface matching pcb_quotes table
 interface Order {
   id: string;
@@ -94,6 +162,11 @@ interface Order {
   phone: string | null;
   shipping_address: AddressFormValue | null;
   pcb_spec: Record<string, unknown> | null;
+  product_type?: string | null;
+  product_types?: string[] | null;
+  stencil_spec?: Record<string, unknown> | null;
+  smt_spec?: Record<string, unknown> | null;
+  assembly_spec?: Record<string, unknown> | null;
   gerber_file_url: string | null;
   status: string | null;
   payment_status?: string | null;
@@ -185,6 +258,106 @@ const ORDER_STEPS = [
   { label: "Receiving", key: "receiving" },
   { label: "Complete", key: "complete" },
 ];
+
+// 定义文件类型和配置
+enum FileType {
+  GERBER = 'gerber',
+  DESIGN_FILES = 'design_files',
+  BOM = 'bom',
+  PLACEMENT = 'placement',
+  STENCIL = 'stencil',
+  SPECIFICATION = 'specification',
+  ADDITIONAL = 'additional'
+}
+
+interface FileConfig {
+  type: FileType;
+  label: string;
+  fieldName: string;
+  bucket: string;
+}
+
+// 文件类型配置
+const fileConfigs: FileConfig[] = [
+  { type: FileType.GERBER, label: 'Gerber Files', fieldName: 'gerber_file_url', bucket: 'gerber' },
+  { type: FileType.DESIGN_FILES, label: 'Design Files', fieldName: 'design_files_url', bucket: 'gerber' },
+  { type: FileType.BOM, label: 'BOM File', fieldName: 'bom_file_url', bucket: 'documents' },
+  { type: FileType.PLACEMENT, label: 'Pick & Place File', fieldName: 'placement_file_url', bucket: 'documents' },
+  { type: FileType.STENCIL, label: 'Stencil Design', fieldName: 'stencil_file_url', bucket: 'stencil' },
+  { type: FileType.SPECIFICATION, label: 'Specification', fieldName: 'specification_file_url', bucket: 'documents' },
+  { type: FileType.ADDITIONAL, label: 'Additional Files', fieldName: 'additional_files_url', bucket: 'documents' }
+];
+
+// 根据产品类型获取可用的文件配置
+function getAvailableFileConfigs(productType: string): FileConfig[] {
+  switch (productType) {
+    case 'stencil':
+      return fileConfigs.filter(f => 
+        [FileType.STENCIL, FileType.SPECIFICATION, FileType.ADDITIONAL].includes(f.type)
+      );
+    case 'smt':
+      return fileConfigs.filter(f => 
+        [FileType.BOM, FileType.PLACEMENT, FileType.SPECIFICATION, FileType.ADDITIONAL].includes(f.type)
+      );
+    case 'pcb_smt':
+      return fileConfigs.filter(f => 
+        [FileType.GERBER, FileType.DESIGN_FILES, FileType.BOM, FileType.PLACEMENT, FileType.ADDITIONAL].includes(f.type)
+      );
+    case 'pcb_stencil':
+      return fileConfigs.filter(f => 
+        [FileType.GERBER, FileType.DESIGN_FILES, FileType.STENCIL, FileType.SPECIFICATION, FileType.ADDITIONAL].includes(f.type)
+      );
+    case 'hybrid':
+      return fileConfigs; // 所有文件类型
+    case 'pcb':
+    default:
+      return fileConfigs.filter(f => 
+        [FileType.GERBER, FileType.DESIGN_FILES, FileType.BOM, FileType.SPECIFICATION, FileType.ADDITIONAL].includes(f.type)
+      );
+  }
+}
+
+// 文件下载组件
+function FileDownloadSection({ order }: { order: Order }) {
+  const productType = order.product_type || 'pcb';
+  const availableConfigs = getAvailableFileConfigs(productType);
+  
+  const availableFiles = availableConfigs.filter(config => {
+    const fileUrl = order[config.fieldName as keyof Order] as string;
+    return fileUrl && fileUrl.trim() !== '';
+  });
+
+  if (availableFiles.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <FileText className="w-5 h-5 text-blue-600" />
+          Download Files
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {availableFiles.map(config => {
+          const fileUrl = order[config.fieldName as keyof Order] as string;
+          return (
+            <DownloadButton 
+              key={config.type}
+              filePath={fileUrl} 
+              bucket={config.bucket}
+              className="w-full border border-gray-300 hover:bg-gray-50 justify-start"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {config.label}
+            </DownloadButton>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -907,11 +1080,36 @@ export default function OrderDetailPage() {
             {/* Product Specifications */}
             <div className="space-y-4">
               {(() => {
-                const productType = pcbFormData?.productType || 
-                  (pcbFormData?.borderType ? 'stencil' : 'pcb');
+                // === 更新：使用新的数据结构检测产品类型 ===
+                let productType = order?.product_type;
+                let specData: Record<string, unknown> | null = null;
+                
+                if (!productType) {
+                  // 兼容旧数据：如果没有product_type字段，根据数据内容判断
+                  const pcbSpec = order?.pcb_spec as Record<string, unknown> | null;
+                  const stencilSpec = order?.stencil_spec as Record<string, unknown> | null;
+                  
+                  if (stencilSpec) {
+                    productType = 'stencil';
+                    specData = stencilSpec;
+                  } else if (pcbSpec?.borderType || pcbSpec?.stencilType) {
+                    productType = 'stencil';
+                    specData = pcbSpec;
+                  } else {
+                    productType = 'pcb';
+                    specData = pcbSpec;
+                  }
+                } else {
+                  // 使用新的数据结构
+                  if (productType === 'stencil') {
+                    specData = order?.stencil_spec as Record<string, unknown> | null;
+                  } else {
+                    specData = order?.pcb_spec as Record<string, unknown> | null;
+                  }
+                }
                 
                 if (productType === 'stencil') {
-                  return <StencilSpecificationDisplay stencilFormData={pcbFormData as any} />;
+                  return <StencilSpecificationDisplay stencilFormData={specData as Record<string, unknown>} />;
                 } else {
                   return <PCBSpecificationDisplay pcbFormData={pcbFormData} />;
                 }
@@ -1068,16 +1266,7 @@ export default function OrderDetailPage() {
                 </Button>
               )}
               
-              {order.gerber_file_url && (
-                <DownloadButton 
-                  filePath={order.gerber_file_url} 
-                  bucket="gerber"
-                  className="w-full border border-gray-300 hover:bg-gray-50"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download Files
-                </DownloadButton>
-              )}
+              <FileDownloadSection order={order} />
               
               {canCancel && (
                 <Button 
@@ -1183,8 +1372,23 @@ export default function OrderDetailPage() {
           <DialogHeader>
             <DialogTitle>
               {(() => {
-                const productType = pcbFormData?.productType || 
-                  (pcbFormData?.borderType ? 'stencil' : 'pcb');
+                // === 使用与上面一致的产品类型检测逻辑 ===
+                let productType = order?.product_type;
+                
+                if (!productType) {
+                  // 兼容旧数据：如果没有product_type字段，根据数据内容判断
+                  const pcbSpec = order?.pcb_spec as Record<string, unknown> | null;
+                  const stencilSpec = order?.stencil_spec as Record<string, unknown> | null;
+                  
+                  if (stencilSpec) {
+                    productType = 'stencil';
+                  } else if (pcbSpec?.borderType || pcbSpec?.stencilType) {
+                    productType = 'stencil';
+                  } else {
+                    productType = 'pcb';
+                  }
+                }
+                
                 return productType === 'stencil' ? 'Complete Stencil Specifications' : 'Complete PCB Specifications';
               })()}
             </DialogTitle>

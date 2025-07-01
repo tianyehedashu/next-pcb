@@ -19,7 +19,23 @@ async function getOrder(
     .from('pcb_quotes')
     .select(
       `
-      *,
+      id,
+      user_id,
+      email,
+      phone,
+      shipping_address,
+      pcb_spec,
+      product_type,
+      product_types,
+      stencil_spec,
+      smt_spec,
+      assembly_spec,
+      gerber_file_url,
+      status,
+      created_at,
+      updated_at,
+      cal_values,
+      payment_intent_id,
       admin_orders(*)
     `
     )

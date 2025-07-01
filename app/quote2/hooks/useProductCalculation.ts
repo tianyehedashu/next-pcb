@@ -185,32 +185,106 @@ export const useProductCalculation = () => {
       const estimatedFinishDate = new Date();
       estimatedFinishDate.setDate(estimatedFinishDate.getDate() + priceResult.leadTimeDays);
 
-      // 6. 更新store
-      setCalValues({
-        totalPrice: Math.round(totalPriceUsd * 100) / 100,
-        pcbPrice: Math.round(totalPriceUsd * 100) / 100,
-        unitPrice: Math.round(unitPriceUsd * 100) / 100,
-        breakdown: breakdownUsd,
-        leadTimeDays: priceResult.leadTimeDays,
-        leadTimeResult: {
-          cycleDays: priceResult.leadTimeDays,
-          reason: priceResult.leadTimeReason
-        },
-        shippingCost: Math.round(shippingCost * 100) / 100,
-        shippingWeight: Math.round(shippingWeight * 100) / 100,
-        shippingActualWeight: Math.round(shippingActualWeight * 100) / 100,
-        shippingVolumetricWeight: Math.round(shippingVolumetricWeight * 100) / 100,
-        priceNotes: priceResult.notes,
-        minOrderQty: priceResult.minOrderQty,
-        totalCount: productType === ProductType.STENCIL ? 
-          (formData.singleCount || 0) : 
-          Math.max(formData.singleCount || 0, 1),
-        estimatedFinishDate: estimatedFinishDate.toISOString().split('T')[0],
-        courier: courierInfo.courierName,
-        courierDays: courierInfo.days,
-        tax: 0, // 暂时设为0
-        discount: 0 // 暂时设为0
-      });
+      // 6. 更新store - 使用新的分离式计算值结构
+      if (productType === ProductType.STENCIL) {
+        // 钢网计算值 - 使用新的分离结构
+        const stencilCalculation = {
+          stencilPrice: Math.round(totalPriceUsd * 100) / 100, // 钢网产品价格（USD，不含运费）
+          stencilArea: 0, // TODO: 从表单数据计算钢网面积
+          totalWeight: Math.round(shippingActualWeight * 100) / 100, // 钢网总重量
+          breakdown: breakdownUsd, // 钢网价格明细
+        };
+
+        setCalValues({
+          // === 产品类型标识 ===
+          product_type: 'stencil',
+          
+          // === 通用计算值（所有产品类型共享） ===
+          totalPrice: Math.round((totalPriceUsd + shippingCost) * 100) / 100, // 总价（产品+运费）
+          unitPrice: Math.round(unitPriceUsd * 100) / 100, // 单价
+          totalCount: formData.singleCount || 0, // 总数量
+          minOrderQty: priceResult.minOrderQty, // 最小起订量
+          
+          // 交期相关
+          leadTimeDays: priceResult.leadTimeDays,
+          leadTimeResult: {
+            cycleDays: priceResult.leadTimeDays,
+            reason: priceResult.leadTimeReason
+          },
+          estimatedFinishDate: estimatedFinishDate.toISOString().split('T')[0],
+          
+          // 运费相关
+          shippingCost: Math.round(shippingCost * 100) / 100,
+          shippingWeight: Math.round(shippingWeight * 100) / 100,
+          shippingActualWeight: Math.round(shippingActualWeight * 100) / 100,
+          shippingVolumetricWeight: Math.round(shippingVolumetricWeight * 100) / 100,
+          courier: courierInfo.courierName,
+          courierDays: courierInfo.days,
+          
+          // 税费和折扣
+          tax: 0,
+          discount: 0,
+          
+          // 价格说明
+          priceNotes: priceResult.notes,
+          
+          // === 钢网专用计算值 ===
+          stencil_calculation: stencilCalculation,
+          
+          // === 向后兼容字段（暂时保留） ===
+          pcbPrice: Math.round(totalPriceUsd * 100) / 100, // 临时兼容
+          breakdown: breakdownUsd,
+        });
+      } else {
+        // PCB计算值 - 使用新的分离结构
+        const pcbCalculation = {
+          pcbPrice: Math.round(totalPriceUsd * 100) / 100, // PCB产品价格（USD，不含运费）
+          singlePcbArea: 0, // TODO: 从表单数据计算单片PCB面积
+          totalArea: 0, // TODO: 从表单数据计算总PCB面积
+          breakdown: breakdownUsd, // PCB价格明细
+        };
+
+        setCalValues({
+          // === 产品类型标识 ===
+          product_type: 'pcb',
+          
+          // === 通用计算值（所有产品类型共享） ===
+          totalPrice: Math.round((totalPriceUsd + shippingCost) * 100) / 100, // 总价（产品+运费）
+          unitPrice: Math.round(unitPriceUsd * 100) / 100, // 单价
+          totalCount: Math.max(formData.singleCount || 0, 1), // 总数量
+          minOrderQty: priceResult.minOrderQty, // 最小起订量
+          
+          // 交期相关
+          leadTimeDays: priceResult.leadTimeDays,
+          leadTimeResult: {
+            cycleDays: priceResult.leadTimeDays,
+            reason: priceResult.leadTimeReason
+          },
+          estimatedFinishDate: estimatedFinishDate.toISOString().split('T')[0],
+          
+          // 运费相关
+          shippingCost: Math.round(shippingCost * 100) / 100,
+          shippingWeight: Math.round(shippingWeight * 100) / 100,
+          shippingActualWeight: Math.round(shippingActualWeight * 100) / 100,
+          shippingVolumetricWeight: Math.round(shippingVolumetricWeight * 100) / 100,
+          courier: courierInfo.courierName,
+          courierDays: courierInfo.days,
+          
+          // 税费和折扣
+          tax: 0,
+          discount: 0,
+          
+          // 价格说明
+          priceNotes: priceResult.notes,
+          
+          // === PCB专用计算值 ===
+          pcb_calculation: pcbCalculation,
+          
+          // === 向后兼容字段（暂时保留） ===
+          pcbPrice: Math.round(totalPriceUsd * 100) / 100,
+          breakdown: breakdownUsd,
+        });
+      }
 
     } catch (error) {
       console.error('产品计算失败:', error);

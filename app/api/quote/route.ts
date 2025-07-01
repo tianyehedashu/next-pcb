@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { filterFormDataByProductType } from '@/app/quote2/schema/productSchemas';
+import { ProductType } from '@/app/quote2/schema/stencilTypes';
 
 // === 新增：类型定义 ===
 interface PcbSpecData {
@@ -89,6 +91,39 @@ function validateQuoteData(pcbSpecData: PcbSpecData, productType: 'pcb' | 'stenc
   return errors;
 }
 
+
+
+// === 新增：数据分离函数 ===
+function separateProductSpecs(rawData: PcbSpecData, productType: 'pcb' | 'stencil') {
+  // 过滤数据，只保留当前产品类型相关的字段
+  const filteredData = filterFormDataByProductType(rawData, productType as ProductType);
+  
+  // 根据产品类型确定product_types数组
+  const productTypes = [productType];
+  
+  if (productType === 'stencil') {
+    // 钢网产品：数据存储到stencil_spec字段
+    return {
+      product_type: productType,
+      product_types: productTypes,
+      pcb_spec: null, // 钢网订单不需要PCB规格
+      stencil_spec: filteredData,
+      smt_spec: null, // 暂不支持SMT
+      assembly_spec: null // 单一产品不需要组装配置
+    };
+  } else {
+    // PCB产品：数据存储到pcb_spec字段
+    return {
+      product_type: productType,
+      product_types: productTypes,
+      pcb_spec: filteredData,
+      stencil_spec: null, // PCB订单不需要钢网规格
+      smt_spec: null, // 暂不支持SMT
+      assembly_spec: null // 单一产品不需要组装配置
+    };
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Create client that works for both authenticated and anonymous users
@@ -127,22 +162,29 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
     
-    // === 新增：标准化pcb_spec数据 ===
-    const standardizedPcbSpec = {
-      ...pcbSpecData,
-      productType, // 明确标记产品类型
-      detectedAt: new Date().toISOString(), // 记录检测时间
-    };
+    // === 新增：数据分离处理 ===
+    const separatedSpecs = separateProductSpecs(pcbSpecData, productType);
     
-    // 构建插入数据
+    // 构建插入数据 - 使用新的数据结构和多文件支持
     const insertData = {
       user_id: user?.id || null, // 游客报价时为null
       email,
       phone: phone || null,
-      pcb_spec: standardizedPcbSpec, // 使用标准化后的数据
-      cal_values: cal_values || null, // 新增：存所有计算字段
+      product_type: separatedSpecs.product_type, // 产品类型字段
+      product_types: separatedSpecs.product_types, // 产品类型数组
+      pcb_spec: separatedSpecs.pcb_spec, // PCB规格（仅PCB订单有数据）
+      stencil_spec: separatedSpecs.stencil_spec, // 钢网规格（仅钢网订单有数据）
+      smt_spec: separatedSpecs.smt_spec, // SMT规格（预留）
+      assembly_spec: separatedSpecs.assembly_spec, // 组装配置（预留）
+      cal_values: cal_values || null, // 计算值
       shipping_address: shippingAddress || null,
-      gerber_file_url: gerberFileUrl || null,
+      
+      // 文件字段 - 简化为单文件上传
+      gerber_file_url: gerberFileUrl || null, // 通用文件字段（PCB用Gerber，钢网用设计文件）
+      
+      // 文件信息（简化版本）
+      // gerber_file_url 字段已在上面设置
+      
       status: 'pending'
     };
     

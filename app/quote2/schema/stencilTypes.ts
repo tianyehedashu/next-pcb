@@ -61,11 +61,7 @@ export enum Electropolishing {
   ELECTROPOLISHING = 'electropolishing'
 }
 
-// 工程要求
-export enum EngineeringRequirements {
-  SPEEDX_SPEC = 'speedx_spec',
-  CUSTOMER_CONFIRM = 'customer_confirm'
-}
+
 
 // === 显示标签映射 ===
 
@@ -113,6 +109,12 @@ export const ElectropolishingLabels: Record<Electropolishing, string> = {
   [Electropolishing.GRINDING_POLISHING]: 'Grinding and Polishing',
   [Electropolishing.ELECTROPOLISHING]: 'Electropolishing'
 };
+
+// === 工程要求枚举和标签 ===
+export enum EngineeringRequirements {
+  SPEEDX_SPEC = 'speedx_spec',
+  CUSTOMER_CONFIRM = 'customer_confirm'
+}
 
 export const EngineeringRequirementsLabels: Record<EngineeringRequirements, string> = {
   [EngineeringRequirements.SPEEDX_SPEC]: 'SpeedX specification',
@@ -162,7 +164,6 @@ export const electropolishingOptions = [
   { label: ElectropolishingLabels[Electropolishing.ELECTROPOLISHING], value: Electropolishing.ELECTROPOLISHING }
 ];
 
-// 工程要求选项
 export const engineeringRequirementsOptions = [
   { label: EngineeringRequirementsLabels[EngineeringRequirements.SPEEDX_SPEC], value: EngineeringRequirements.SPEEDX_SPEC },
   { label: EngineeringRequirementsLabels[EngineeringRequirements.CUSTOMER_CONFIRM], value: EngineeringRequirements.CUSTOMER_CONFIRM }

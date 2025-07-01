@@ -1,3 +1,5 @@
+"use client";
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useEffect, useState } from "react";
@@ -31,33 +33,131 @@ interface CalculatedProperties {
   totalArea: number;
 }
 
+// === 产品专用计算值接口 ===
+interface PcbCalculationDetails {
+  pcbPrice: number; // PCB产品价格（不含运费）
+  singlePcbArea: number; // 单片PCB面积
+  totalArea: number; // 总PCB面积
+  breakdown: Record<string, number>; // PCB价格明细
+}
+
+interface StencilCalculationDetails {
+  stencilPrice: number; // 钢网产品价格（不含运费）
+  stencilArea: number; // 钢网面积
+  totalWeight: number; // 钢网总重量
+  breakdown: Record<string, number>; // 钢网价格明细
+}
+
+interface SmtCalculationDetails {
+  smtPrice: number; // SMT组装价格（不含运费）
+  componentCount: number; // 元器件总数
+  breakdown: Record<string, number>; // SMT价格明细
+}
+
+interface ComboCalculationDetails {
+  comboPrice: number; // 组合产品总价格（不含运费）
+  productBreakdown: {
+    pcb?: Partial<PcbCalculationDetails>;
+    stencil?: Partial<StencilCalculationDetails>;
+    smt?: Partial<SmtCalculationDetails>;
+  };
+  breakdown: Record<string, number>; // 组合产品价格明细
+}
+
 // === 新增 计算值类型 ===
 interface LeadTimeResult {
   cycleDays: number;
   reason: string[];
 }
+
 interface CalValues {
-  totalPrice: number;
-  pcbPrice: number;
+  // === 产品类型标识 ===
+  product_type: 'pcb' | 'stencil' | 'smt' | 'combo';
+  
+  // === 通用计算值（所有产品类型共享） ===
+  totalPrice: number; // 总价（产品价格 + 运费）
+  unitPrice: number; // 单价
+  totalCount: number; // 总数量
+  minOrderQty: number; // 最小起订量
+  
+  // 交期相关
+  leadTimeDays: number;
+  leadTimeResult: LeadTimeResult | null;
+  estimatedFinishDate: string;
+  
+  // 运费相关
   shippingCost: number;
   shippingWeight: number; // Chargeable weight
   shippingActualWeight: number;
   shippingVolumetricWeight: number;
-  tax: number;
-  discount: number;
-  unitPrice: number;
-  minOrderQty: number;
-  totalCount: number;
-  leadTimeResult: LeadTimeResult | null;
-  leadTimeDays: number;
-  estimatedFinishDate: string;
-  priceNotes: string[];
-  breakdown: Record<string, number>;
   courier: string;
   courierDays: string;
-  singlePcbArea: number;
-  totalArea: number;
+  
+  // 税费和折扣
+  tax: number;
+  discount: number;
+  
+  // 价格说明
+  priceNotes: string[];
+  
+  // === 产品专用计算值（根据product_type只使用其中一个） ===
+  pcb_calculation?: PcbCalculationDetails;
+  stencil_calculation?: StencilCalculationDetails;
+  smt_calculation?: SmtCalculationDetails;
+  combo_calculation?: ComboCalculationDetails;
+  
+  // === 向后兼容字段（暂时保留，逐步迁移） ===
+  // @deprecated 使用通用字段或对应的 product_calculation 字段
+  pcbPrice?: number;
+  breakdown?: Record<string, number>;
+  singlePcbArea?: number;
+  totalArea?: number;
 }
+
+// === 计算值辅助函数 ===
+export const getCalculationDetails = (calValues: CalValues) => {
+  switch (calValues.product_type) {
+    case 'pcb':
+      return calValues.pcb_calculation;
+    case 'stencil':
+      return calValues.stencil_calculation;
+    case 'smt':
+      return calValues.smt_calculation;
+    case 'combo':
+      return calValues.combo_calculation;
+    default:
+      return null;
+  }
+};
+
+export const getTotalPrice = (calValues: CalValues): number => {
+  // 总价现在是通用字段
+  return calValues.totalPrice;
+};
+
+export const getUnitPrice = (calValues: CalValues): number => {
+  // 单价现在是通用字段
+  return calValues.unitPrice;
+};
+
+export const getProductPrice = (calValues: CalValues): number => {
+  const details = getCalculationDetails(calValues);
+  if (details) {
+    switch (calValues.product_type) {
+      case 'pcb':
+        return (details as PcbCalculationDetails).pcbPrice;
+      case 'stencil':
+        return (details as StencilCalculationDetails).stencilPrice;
+      case 'smt':
+        return (details as SmtCalculationDetails).smtPrice;
+      case 'combo':
+        return (details as ComboCalculationDetails).comboPrice;
+      default:
+        return 0;
+    }
+  }
+  return calValues.pcbPrice || 0;
+};
 
 // === Store 状态类型 ===
 interface QuoteStoreState {
@@ -212,24 +312,38 @@ const DEFAULT_FORM_DATA: QuoteFormData = {
 };
 
 const DEFAULT_CAL_VALUES: CalValues = {
-  totalPrice: 0,
-  pcbPrice: 0,
+  // === 产品类型标识 ===
+  product_type: 'pcb', // 默认PCB产品
+  
+  // === 通用计算值（所有产品类型共享） ===
+  totalPrice: 0, // 总价（产品价格 + 运费）
+  unitPrice: 0, // 单价
+  totalCount: 0, // 总数量
+  minOrderQty: 0, // 最小起订量
+  
+  // 交期相关
+  leadTimeDays: 0,
+  leadTimeResult: null,
+  estimatedFinishDate: "",
+  
+  // 运费相关
   shippingCost: 0,
-  shippingWeight: 0,
+  shippingWeight: 0, // Chargeable weight
   shippingActualWeight: 0,
   shippingVolumetricWeight: 0,
-  tax: 0,
-  discount: 0,
-  unitPrice: 0,
-  minOrderQty: 0,
-  totalCount: 0,
-  leadTimeResult: null,
-  leadTimeDays: 0,
-  estimatedFinishDate: "",
-  priceNotes: [],
-  breakdown: {},
   courier: "",
   courierDays: "",
+  
+  // 税费和折扣
+  tax: 0,
+  discount: 0,
+  
+  // 价格说明
+  priceNotes: [],
+  
+  // === 向后兼容字段（暂时保留，逐步迁移） ===
+  pcbPrice: 0,
+  breakdown: {},
   singlePcbArea: 0,
   totalArea: 0,
 };

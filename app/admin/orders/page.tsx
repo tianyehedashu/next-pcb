@@ -4,12 +4,12 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Order } from '../types/order';
 import { OrderTable } from '../components/OrderTable';
 import { OrderDetailModal } from '../components/OrderDetailModal';
-import { OrderFilterForm, orderFilterSchema } from '../components/OrderFilterForm';
-import { StencilOrderCard } from '../components/StencilOrderCard';
+import { OrderFilterForm } from '../components/OrderFilterForm';
 import { Pagination } from '@/app/components/ui/pagination';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { z } from "zod";
 
 interface OrderFilter {
   keyword?: string;
@@ -17,6 +17,13 @@ interface OrderFilter {
   status?: string;
   dateRange?: [string, string];
 }
+
+const orderFilterSchema = z.object({
+  keyword: z.string().optional(),
+  id: z.string().optional(),
+  status: z.string().optional(),
+  dateRange: z.tuple([z.string(), z.string()]).optional(),
+});
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -49,23 +56,34 @@ export default function AdminOrdersPage() {
         throw new Error(errorData.error || 'Failed to fetch orders');
       }
       const data = await response.json();
-      const ordersWithType = (data.items || []).map((item: unknown) => {
+      const ordersWithType = (data.data || []).map((item: unknown) => {
         const orderItem = item as Record<string, unknown>;
         
-        // === 新增：产品类型检测 ===
-        const pcbSpec = orderItem.pcb_spec as Record<string, unknown> | null;
-        const productType = pcbSpec?.productType || 
-          (pcbSpec?.stencilMaterial ? 'stencil' : 'pcb');
+        // === 新增：使用新的数据结构检测产品类型 ===
+        let productType = orderItem.product_type as string;
+        if (!productType) {
+          // 兼容旧数据：如果没有product_type字段，根据数据内容判断
+          const pcbSpec = orderItem.pcb_spec as Record<string, unknown> | null;
+          const stencilSpec = orderItem.stencil_spec as Record<string, unknown> | null;
+          
+          if (stencilSpec) {
+            productType = 'stencil';
+          } else if (pcbSpec?.borderType || pcbSpec?.stencilType) {
+            productType = 'stencil';
+          } else {
+            productType = 'pcb';
+          }
+        }
         
         return {
           ...orderItem,
           type: orderItem.user_id ? 'Order' : 'Inquiry',
-          productType, // 添加产品类型字段
+          productType, // 产品类型字段
           // 标准化 admin_orders 字段
           admin_orders: Array.isArray(orderItem.admin_orders) 
             ? (orderItem.admin_orders.length > 0 ? orderItem.admin_orders[0] : null)
             : orderItem.admin_orders,
-        } as Order & { productType: string };
+        } as any;
       });
       setOrders(ordersWithType);
       setPagination(p => ({ ...p, total: data.total || 0 }));
@@ -100,10 +118,6 @@ export default function AdminOrdersPage() {
         case 'email':
           aValue = a.email || '';
           bValue = b.email || '';
-          break;
-        case 'type':
-          aValue = a.type || '';
-          bValue = b.type || '';
           break;
         default:
           return 0;
@@ -203,29 +217,20 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <div className="w-full p-2 md:p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6">
-        <h2 className="text-3xl md:text-4xl font-extrabold mb-8 text-gray-900 tracking-tight">Order Management</h2>
-        <div className="mb-6">
+    <div className="w-full p-2 md:p-4 lg:p-6">
+      <div className="bg-white rounded-2xl shadow-xl p-3 md:p-4 lg:p-6">
+        <h2 className="text-2xl md:text-3xl lg:text-4xl font-extrabold mb-6 md:mb-8 text-gray-900 tracking-tight">
+          Order Management
+        </h2>
+        
+        <div className="mb-4 md:mb-6">
           <OrderFilterForm value={filter} onChange={handleFilterChange} />
         </div>
         
-        {/* === 新增：分离显示PCB和钢网订单 === */}
-        {(() => {
-          const pcbOrders = sortedOrders.filter(order => (order as unknown as { productType: string }).productType !== 'stencil');
-          const stencilOrders = sortedOrders.filter(order => (order as unknown as { productType: string }).productType === 'stencil');
-          
-          return (
-            <div className="space-y-8">
-              {/* PCB订单表格 */}
-              {pcbOrders.length > 0 && (
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                    📱 PCB Orders ({pcbOrders.length})
-                  </h3>
-        <div className="overflow-x-auto rounded-xl shadow-lg bg-white">
+        {/* === 统一订单表格 - 显示所有产品类型 === */}
+        <div className="rounded-xl shadow-lg bg-white mb-6 md:mb-8">
           <OrderTable
-                      data={pcbOrders}
+            data={sortedOrders}
             selectedIds={selectedOrderIds}
             onSelectChange={setSelectedOrderIds}
             onDeleteSelected={() => setDeleteDialogOpen(true)}
@@ -235,54 +240,8 @@ export default function AdminOrdersPage() {
             onSort={handleSort}
           />
         </div>
-                </div>
-              )}
-              
-              {/* 钢网订单卡片 */}
-              {stencilOrders.length > 0 && (
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                    🔧 Stencil Orders ({stencilOrders.length})
-                  </h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                         {stencilOrders.map((order) => (
-                       <StencilOrderCard
-                         key={order.id}
-                         order={order as never}
-                        onStatusChange={async (orderId, newStatus) => {
-                          try {
-                            const response = await fetch(`/api/admin/orders?id=${orderId}`, {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ status: newStatus }),
-                            });
-                            if (!response.ok) throw new Error('Failed to update status');
-                            toast.success('Order status updated');
-                            await fetchOrders();
-                          } catch (err) {
-                            toast.error(err instanceof Error ? err.message : 'Failed to update status');
-                          }
-                        }}
-                        onViewDetails={(orderId) => {
-                          const order = stencilOrders.find(o => o.id === orderId);
-                          if (order) setSelectedOrder(order);
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* 如果没有订单 */}
-              {pcbOrders.length === 0 && stencilOrders.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  No orders found
-                </div>
-              )}
-            </div>
-          );
-        })()}
-        <div className="flex justify-center mt-8">
+        
+        <div className="flex justify-center">
           <Pagination
             page={pagination.page}
             pageSize={pagination.pageSize}
@@ -290,22 +249,31 @@ export default function AdminOrdersPage() {
             onPageChange={handlePageChange}
           />
         </div>
+        
         <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       </div>
+      
       {/* 删除确认弹窗 */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="rounded-2xl shadow-xl">
+        <DialogContent className="rounded-2xl shadow-xl max-w-md mx-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-gray-900">Delete Orders</DialogTitle>
           </DialogHeader>
           <div className="py-4 text-gray-700">
             Are you sure you want to delete the selected orders? This action cannot be undone.
           </div>
-          <DialogFooter>
-            <Button variant="outline" className="rounded-lg" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>Cancel</Button>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              className="rounded-lg w-full sm:w-auto" 
+              onClick={() => setDeleteDialogOpen(false)} 
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
             <Button
               variant="default"
-              className="bg-primary text-white hover:bg-primary/90 rounded-lg font-semibold px-6"
+              className="bg-primary text-white hover:bg-primary/90 rounded-lg font-semibold px-6 w-full sm:w-auto"
               onClick={handleDeleteSelected}
               disabled={deleting}
             >

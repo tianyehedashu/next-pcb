@@ -14,16 +14,25 @@ export interface AdminOrderInfo {
 
 export interface OrderListItem {
   id: string;
-  created_at: string | null;
-  status: string | null;
-  pcb_spec?: Record<string, unknown>;
-  cal_values?: { leadTimeDays?: number; totalPrice?: number };
+  user_id?: string | null;
+  email: string;
+  phone?: string | null;
+  product_type: 'pcb' | 'stencil' | 'smt' | 'combo';
+  product_types?: string[];
+  pcb_spec: Record<string, unknown>;
+  stencil_spec?: Record<string, unknown>;
+  smt_spec?: Record<string, unknown>;
+  assembly_spec?: Record<string, unknown>;
+  cal_values?: Record<string, unknown>;
+  shipping_address?: Record<string, unknown>;
+  gerber_file_url?: string | null;
+  status: 'pending' | 'quoted' | 'confirmed' | 'production' | 'shipped' | 'completed' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+  user_name?: string | null;
   payment_intent_id?: string | null;
   admin_orders?: AdminOrderInfo[] | AdminOrderInfo;
   payment_status_info?: PaymentIntentStatus;
-  email?: string;
-  phone?: string;
-  [key: string]: unknown;
 }
 
 export type SortField = 'created_at' | 'status' | 'admin_price' | 'lead_time';

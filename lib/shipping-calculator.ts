@@ -183,9 +183,9 @@ function calculateStencilWeight(formData: StencilFormData): number {
 
 // 钢网不需要体积重量计算，因为是高密度金属产品
 
-// 计算实际运费（异步版本，使用动态汇率）- 支持PCB和钢网产品
+// 计算实际运费（异步版本，使用动态汇率）- 支持PCB、钢网、SMT产品
 export async function calculateShippingCost(
-  specs: PcbQuoteForm | StencilFormData, // 支持PCB和钢网产品
+  specs: PcbQuoteForm | StencilFormData, // 支持PCB、钢网、SMT产品
   usdToCnyRateOverride?: number // 可选的汇率参数，避免重复请求
 ): Promise<{
   actualWeight: number;
@@ -197,9 +197,11 @@ export async function calculateShippingCost(
   finalCost: number;
   deliveryTime: string;
 }> {
-  // 判断产品类型
+  // 判断产品类型 - 支持新的数据结构
   const productType = (specs as { productType?: string }).productType || ProductType.PCB;
   const isStencil = productType === ProductType.STENCIL || productType === 'stencil';
+  // 为未来SMT支持预留 - 暂时使用字符串比较
+  // const isSmtAssembly = productType === 'smt';
 
   // 计算总数量
   let totalCount = 0;

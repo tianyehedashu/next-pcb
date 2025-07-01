@@ -41,7 +41,10 @@ interface StencilOrderCardProps {
     id: string;
     email: string;
     phone?: string;
-    pcb_spec: StencilSpec;
+    pcb_spec?: StencilSpec | null;
+    stencil_spec?: StencilSpec | null;
+    product_type?: string;
+    product_types?: string[];
     cal_values?: {
       totalPrice: number;
       leadTimeDays: number;
@@ -60,7 +63,21 @@ export const StencilOrderCard: React.FC<StencilOrderCardProps> = ({
   onStatusChange,
   onViewDetails
 }) => {
-  const { pcb_spec: spec, cal_values } = order;
+  const spec = order.stencil_spec || order.pcb_spec;
+  const { cal_values } = order;
+  
+  if (!spec) {
+    return (
+      <Card className="hover:shadow-md transition-shadow">
+        <CardContent className="p-4">
+          <div className="text-center text-gray-500">
+            <p>⚠️ Invalid stencil order data</p>
+            <p className="text-sm">Order ID: {order.id.slice(-8)}</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
   
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -125,28 +142,28 @@ export const StencilOrderCard: React.FC<StencilOrderCardProps> = ({
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Border Type:</span>
-                <span className="font-medium">{BorderTypeLabels[spec.borderType]}</span>
+                <span className="font-medium">{spec.borderType ? BorderTypeLabels[spec.borderType as BorderType] : 'N/A'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Stencil Type:</span>
-                <Badge className={`${getTypeColor(spec.stencilType)} text-xs`}>
-                  {StencilTypeLabels[spec.stencilType]}
+                <Badge className={`${spec.stencilType ? getTypeColor(spec.stencilType as StencilType) : 'bg-gray-100 text-gray-700'} text-xs`}>
+                  {spec.stencilType ? StencilTypeLabels[spec.stencilType as StencilType] : 'N/A'}
                 </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Thickness:</span>
-                <span className="font-medium">{StencilThicknessLabels[spec.thickness]}</span>
+                <span className="font-medium">{spec.thickness ? StencilThicknessLabels[spec.thickness as StencilThickness] : 'N/A'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Stencil Side:</span>
-                <span className="font-medium">{StencilSideLabels[spec.stencilSide]}</span>
+                <span className="font-medium">{spec.stencilSide ? StencilSideLabels[spec.stencilSide as StencilSide] : 'N/A'}</span>
               </div>
             </div>
             
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Size:</span>
-                <span className="font-medium">{spec.size}mm</span>
+                <span className="font-medium">{spec.size || 'N/A'}mm</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Area:</span>
@@ -154,11 +171,11 @@ export const StencilOrderCard: React.FC<StencilOrderCardProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Quantity:</span>
-                <span className="font-medium">{spec.quantity} pcs</span>
+                <span className="font-medium">{spec.quantity || 0} pcs</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Fiducials:</span>
-                <span className="font-medium">{ExistingFiducialsLabels[spec.existingFiducials]}</span>
+                <span className="font-medium">{spec.existingFiducials ? ExistingFiducialsLabels[spec.existingFiducials as ExistingFiducials] : 'N/A'}</span>
               </div>
             </div>
           </div>
@@ -167,10 +184,10 @@ export const StencilOrderCard: React.FC<StencilOrderCardProps> = ({
           <div className="mt-3 pt-3 border-t border-blue-200">
             <div className="flex flex-wrap gap-2 text-xs">
               <Badge variant="outline">
-                {ElectropolishingLabels[spec.electropolishing]}
+                {spec.electropolishing ? ElectropolishingLabels[spec.electropolishing as Electropolishing] : 'N/A'}
               </Badge>
               <Badge variant="outline">
-                {EngineeringRequirementsLabels[spec.engineeringRequirements]}
+                {spec.engineeringRequirements ? EngineeringRequirementsLabels[spec.engineeringRequirements as EngineeringRequirements] : 'N/A'}
               </Badge>
             </div>
           </div>

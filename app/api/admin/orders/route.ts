@@ -34,10 +34,30 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end');
 
     if (detailId) {
-      // 详情查询
+      // 详情查询 - 使用新的数据结构和文件字段
       const { data, error } = await supabase
         .from(USER_ORDER)
-        .select('*,admin_orders(*)')
+        .select(`
+          id,
+          user_id,
+          email,
+          phone,
+          product_type,
+          product_types,
+          pcb_spec,
+          stencil_spec,
+          smt_spec,
+          assembly_spec,
+          cal_values,
+          shipping_address,
+          gerber_file_url,
+          status,
+          created_at,
+          updated_at,
+          user_name,
+          payment_intent_id,
+          admin_orders(*)
+        `)
         .eq('id', detailId)
         .single();
 
@@ -45,19 +65,52 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Order not found' }, { status: 404 });
       }
 
-      // === 新增：添加产品类型信息 ===
-      const productType = data.pcb_spec?.productType || 
-        (data.pcb_spec?.stencilMaterial ? 'stencil' : 'pcb');
+      // === 新增：根据数据结构确定产品类型 ===
+      let productType = data.product_type;
+      let productTypes = data.product_types;
+      
+      if (!productType || !productTypes) {
+        // 兼容旧数据：如果没有新字段，根据数据内容判断
+        if (data.stencil_spec) {
+          productType = 'stencil';
+          productTypes = ['stencil'];
+        } else if (data.pcb_spec?.borderType || data.pcb_spec?.stencilType) {
+          productType = 'stencil';
+          productTypes = ['stencil'];
+        } else {
+          productType = 'pcb';
+          productTypes = ['pcb'];
+        }
+      }
 
       return NextResponse.json({
         ...data,
-        productType
+        product_type: productType,
+        product_types: productTypes
       });
     } else {
-      // 列表查询
+      // 列表查询 - 使用新的数据结构，包含部分文件字段
       let query = supabase
         .from(USER_ORDER)
-        .select('*,admin_orders(*)', { count: 'exact' })
+        .select(`
+          id,
+          user_id,
+          email,
+          phone,
+          product_type,
+          product_types,
+          pcb_spec,
+          stencil_spec,
+          smt_spec,
+          assembly_spec,
+          status,
+          created_at,
+          updated_at,
+          user_name,
+          payment_intent_id,
+          gerber_file_url,
+          admin_orders(*)
+        `, { count: 'exact' })
         .order('created_at', { ascending: false });
 
       if (status && status !== 'all') query = query.eq('status', status);
@@ -75,44 +128,60 @@ export async function GET(request: NextRequest) {
         query = query.lt('created_at', endOfDay.toISOString());
       }
 
-      // Handle UUID search via RPC
       if (id) {
-        const { data: idData, error: rpcError } = await supabase
-          .rpc('search_orders_by_uuid', { search_text: id });
-        
-        if (rpcError) {
-          console.error('RPC search_orders_by_uuid failed:', rpcError);
-          return NextResponse.json({ error: 'Failed to search by ID due to a database error.' }, { status: 500 });
-        }
-
-        if (idData && idData.length > 0) {
-          const foundIds = idData.map((item: { id: string }) => item.id);
-          query = query.in('id', foundIds);
-        } else {
-          // If no IDs match the partial search, return no results
-          query = query.eq('id', '00000000-0000-0000-0000-000000000000');
-        }
+        query = query.ilike('id', `%${id}%`);
       }
 
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-      query = query.range(from, to);
+      const offset = (page - 1) * pageSize;
+      query = query.range(offset, offset + pageSize - 1);
 
       const { data, error, count } = await query;
-
       if (error) {
-        console.error("Error fetching orders:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
+      // === 新增：为列表数据添加产品类型信息 ===
+      const processedData = (data || []).map(order => {
+        let productType = order.product_type;
+        let productTypes = order.product_types;
+        
+        if (!productType || !productTypes) {
+          // 兼容旧数据：如果没有新字段，根据数据内容判断
+          if (order.stencil_spec) {
+            productType = 'stencil';
+            productTypes = ['stencil'];
+          } else if (order.pcb_spec?.borderType || order.pcb_spec?.stencilType) {
+            productType = 'stencil';
+            productTypes = ['stencil'];
+          } else {
+            productType = 'pcb';
+            productTypes = ['pcb'];
+          }
+        }
+
+        return {
+          ...order,
+          product_type: productType,
+          product_types: productTypes
+        };
+      });
+
       return NextResponse.json({
-        items: data || [],
-        total: count || 0,
+        data: processedData,
+        pagination: {
+          page,
+          pageSize,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / pageSize)
+        }
       });
     }
   } catch (error) {
-    console.error('Unexpected error in GET:', error);
-    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
+    console.error('Admin orders API error:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 

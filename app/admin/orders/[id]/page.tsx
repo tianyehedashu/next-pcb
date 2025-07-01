@@ -112,7 +112,7 @@ export default function AdminOrderDetailPage() {
     production_days: '',
     delivery_date: '',
     currency: 'USD',
-    exchange_rate: '7.2',
+    exchange_rate: '7.1',
     ship_price: '',
     custom_duty: '',
     coupon: '0',
@@ -190,6 +190,12 @@ export default function AdminOrderDetailPage() {
       setAdminOrderEdits([adminOrderDefaultValues]);
     }
   }, [order?.admin_orders]);
+
+  // 获取管理员订单信息
+  const currentAdminOrder = order && order.admin_orders ? (getAdminOrders(order.admin_orders)[0] || null) : null;
+  
+  // 计算相关状态
+  const isAdminOrderCreated = Boolean(currentAdminOrder);
 
   // 价格计算更新函数
   const updatePriceCalculation = useCallback((values: Record<string, unknown>) => {
@@ -299,7 +305,7 @@ export default function AdminOrderDetailPage() {
 
       // 自动计算交期
       try {
-        cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+        cycle = calcProductionCycle(pcbFormData, new Date(), 'standard');
         production_days = String(cycle.cycleDays);
         
         const today = new Date();
@@ -534,10 +540,6 @@ export default function AdminOrderDetailPage() {
     }
   }, [adminOrderEdits[0]?.currency, adminOrderEdits[0]?.exchange_rate, updatePriceCalculation]);
 
-  // 计算是否已创建管理员订单
-  const isAdminOrderCreated = !!order?.admin_orders;
-  const adminOrder = order ? getAdminOrders(order.admin_orders)[0] : null;
-
   // 字段更新函数
   const handleFieldChange = (field: string, value: unknown) => {
     setAdminOrderEdits(prev => {
@@ -621,7 +623,7 @@ export default function AdminOrderDetailPage() {
     if (!pcbFormData) return;
     
     try {
-      const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+      const cycle = calcProductionCycle(pcbFormData, new Date(), 'standard');
       const newProductionDays = String(cycle.cycleDays);
       
       setDeliveryNotes(cycle.reason || []);
@@ -677,7 +679,7 @@ export default function AdminOrderDetailPage() {
       }
       
       // 计算交期
-      const cycle = calcProductionCycle(pcbFormData, new Date(), pcbFormData?.delivery);
+      const cycle = calcProductionCycle(pcbFormData, new Date(), 'standard');
       const production_days = String(cycle.cycleDays);
       
       const today = new Date();
@@ -822,7 +824,7 @@ export default function AdminOrderDetailPage() {
       } else {
         // 没有运输信息时的简化估算
         const totalArea = Number(pcbFormData.singleDimensions?.length || 0) * Number(pcbFormData.singleDimensions?.width || 0) * Number(pcbFormData.singleCount || 1) / 10000;
-        const isUrgent = pcbFormData.delivery === 'urgent';
+        const isUrgent = false; // 默认非紧急
         
         // 使用已获取的币种设置（避免重复获取）
         
@@ -1085,7 +1087,7 @@ export default function AdminOrderDetailPage() {
   return (
     <div className="p-2 md:p-4 space-y-3 md:space-y-4">
       {/* 页面标题 */}
-      <PageHeader order={order} adminOrder={adminOrder} />
+      <PageHeader order={order} adminOrder={currentAdminOrder} />
 
       {/* 移动端管理面板 - 只在小屏幕上显示 */}
       <div className="xl:hidden">
@@ -1181,29 +1183,50 @@ export default function AdminOrderDetailPage() {
         {/* 左侧：订单详情 */}
         <div className="xl:col-span-9 space-y-3 md:space-y-4">
           {/* 订单概览 */}
-          <OrderOverview order={order} pcbFormData={pcbFormData} adminOrder={adminOrder} />
+          <OrderOverview order={order} pcbFormData={pcbFormData} adminOrder={currentAdminOrder} />
 
-          {/* 技术规格审核 - 根据产品类型显示不同组件 */}
+          {/* 技术规格审核 - 简化的产品类型检测 */}
           {(() => {
-            const productType = pcbFormData?.productType || 
-              (pcbFormData?.borderType ? 'stencil' : 'pcb');
+            // 简化的产品类型检测：如果有 product_type 字段就使用，否则基于存在的规格数据判断
+            const isStencil = order?.product_type === 'stencil' || (!order?.pcb_spec && order?.stencil_spec);
             
-            if (productType === 'stencil') {
+            if (isStencil && order?.stencil_spec) {
+              // 钢网订单规格审核
               return (
                 <StencilSpecReview 
-                  stencilFormData={pcbFormData as any}
+                  stencilFormData={order.stencil_spec as any}
                   shippingAddress={order?.shipping_address as any}
                 />
               );
-            } else {
+            } else if (order?.pcb_spec) {
+              // PCB订单规格审核（包括PCB、PCB+SMT等）
               return (
                 <PCBSpecReview 
-                  pcbFormData={pcbFormData as QuoteFormData | null} 
+                  pcbFormData={order.pcb_spec as QuoteFormData | null} 
                   shippingAddress={order?.shipping_address as AddressFormValue | null}
                 />
               );
+            } else {
+              // 没有有效规格数据的情况
+              return (
+                <div className="bg-white border-2 border-gray-200 rounded">
+                  <div className="bg-gray-50 px-3 py-2 border-b">
+                    <h3 className="text-sm font-semibold text-gray-800">产品规格审核</h3>
+                  </div>
+                  <div className="p-4 text-center text-gray-500">
+                    <p>未找到有效的产品规格数据</p>
+                    <p className="text-xs mt-2">
+                      产品类型: {order?.product_type || '未设置'} | 
+                      PCB规格: {order?.pcb_spec ? '✓' : '✗'} | 
+                      钢网规格: {order?.stencil_spec ? '✓' : '✗'}
+                    </p>
+                  </div>
+                </div>
+              );
             }
           })()}
+          
+
           
           {/* 价格管理 */}
           <PriceManagementPanel 
@@ -1222,6 +1245,7 @@ export default function AdminOrderDetailPage() {
 
           {/* 计算结果面板 */}
           <CalculationResultPanels 
+            order={order}
             pcbFormData={pcbFormData as QuoteFormData | null}
             calculationNotes={calculationNotes}
             deliveryNotes={deliveryNotes}
@@ -1241,7 +1265,7 @@ export default function AdminOrderDetailPage() {
           />
 
           {/* 退款处理 */}
-          {adminOrder?.refund_status === 'requested' && (
+          {currentAdminOrder?.refund_status === 'requested' && (
             <div className="bg-white border border-yellow-400 rounded">
               <div className="bg-yellow-50 px-3 py-2 border-b">
                 <h3 className="text-sm font-semibold text-yellow-700 flex items-center gap-2">
@@ -1249,7 +1273,7 @@ export default function AdminOrderDetailPage() {
                   退款申请
                 </h3>
                 <p className="text-xs text-yellow-600">
-                  申请金额: ¥{adminOrder.requested_refund_amount || '0.00'}
+                  申请金额: ¥{currentAdminOrder.requested_refund_amount || '0.00'}
                 </p>
               </div>
               <div className="p-3 space-y-2">
@@ -1298,7 +1322,7 @@ export default function AdminOrderDetailPage() {
             </div>
           )}
 
-          {adminOrder?.refund_status === 'processing' && (
+          {currentAdminOrder?.refund_status === 'processing' && (
             <div className="bg-white border border-green-400 rounded">
               <div className="bg-green-50 px-3 py-2 border-b">
                 <h3 className="text-sm font-semibold text-green-700 flex items-center gap-2">
@@ -1306,7 +1330,7 @@ export default function AdminOrderDetailPage() {
                   处理退款
                 </h3>
                 <p className="text-xs text-green-600">
-                  批准金额: ¥{adminOrder.approved_refund_amount || '0.00'}
+                  批准金额: ¥{currentAdminOrder.approved_refund_amount || '0.00'}
                 </p>
               </div>
               <div className="p-3">

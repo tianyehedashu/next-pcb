@@ -67,43 +67,78 @@ export function OrderFilterForm({ value, onChange }: { value: OrderFilterFormVal
   };
 
   return (
-    <form onSubmit={handleChange} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
-      <div className="w-full">
-        <label className="block mb-1 text-sm font-medium">Keyword</label>
-        <Input name="keyword" defaultValue={value?.keyword || ''} placeholder="Search by email, phone..." className="w-full" />
-      </div>
-      <div className="w-full">
-        <label className="block mb-1 text-sm font-medium">Order ID</label>
-        <Input 
-          name="id" 
-          defaultValue={value?.id || ''} 
-          placeholder="Search by ID (supports partial UUID)..." 
-          className="w-full font-mono text-sm" 
-        />
-      </div>
-      <div className="w-full">
-        <label className="block mb-1 text-sm font-medium">Status</label>
-        <Select name="status" defaultValue={value?.status || 'all'}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="All" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="w-full">
-        <label className="block mb-1 text-sm font-medium">Date Start</label>
-        <Input type="date" name="dateStart" defaultValue={value?.dateRange?.[0] || ''} className="w-full" />
-      </div>
-      <div className="w-full">
-        <label className="block mb-1 text-sm font-medium">Date End</label>
-        <Input type="date" name="dateEnd" defaultValue={value?.dateRange?.[1] || ''} className="w-full" />
-      </div>
-      <Button type="submit" className="w-full sm:w-auto">Search</Button>
-    </form>
+    <div className="bg-gray-50 rounded-lg p-4 mb-4">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Filter Orders</h3>
+      <form onSubmit={handleChange} className="space-y-4">
+        {/* 移动端：垂直布局，桌面端：网格布局 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="w-full">
+            <label className="block mb-1 text-sm font-medium text-gray-700">Keyword</label>
+            <Input 
+              name="keyword" 
+              defaultValue={value?.keyword || ''} 
+              placeholder="Search email, phone..." 
+              className="w-full" 
+            />
+          </div>
+          
+          <div className="w-full">
+            <label className="block mb-1 text-sm font-medium text-gray-700">Order ID</label>
+            <Input 
+              name="id" 
+              defaultValue={value?.id || ''} 
+              placeholder="Enter order ID..." 
+              className="w-full font-mono text-sm" 
+            />
+          </div>
+          
+          <div className="w-full">
+            <label className="block mb-1 text-sm font-medium text-gray-700">Status</label>
+            <Select name="status" defaultValue={value?.status || 'all'}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* 移动端：日期范围在一行 */}
+          <div className="w-full md:col-span-2 xl:col-span-1">
+            <label className="block mb-1 text-sm font-medium text-gray-700">Date Range</label>
+            <div className="grid grid-cols-2 gap-2">
+              <Input 
+                type="date" 
+                name="dateStart" 
+                defaultValue={value?.dateRange?.[0] || ''} 
+                className="w-full text-sm" 
+                placeholder="Start date"
+              />
+              <Input 
+                type="date" 
+                name="dateEnd" 
+                defaultValue={value?.dateRange?.[1] || ''} 
+                className="w-full text-sm" 
+                placeholder="End date"
+              />
+            </div>
+          </div>
+        </div>
+        
+        {/* 搜索按钮 */}
+        <div className="flex justify-end pt-2">
+          <Button 
+            type="submit" 
+            className="w-full sm:w-auto bg-primary text-white hover:bg-primary/90 rounded-lg font-semibold px-8"
+          >
+            🔍 Search Orders
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 } 

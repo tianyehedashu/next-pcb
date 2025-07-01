@@ -1,149 +1,194 @@
-import { BaseProductCalculator, ProductCalculationResult } from './productCalculator';
-import { 
-  BorderType, 
-  Electropolishing,
-  getStencilSpec
-} from '@/app/quote2/schema/stencilTypes';
+import { ProductCalculationResult, BaseProductCalculator } from './productCalculator';
+import { getStencilSpec, BorderType } from '@/app/quote2/schema/stencilTypes';
 
+// 钢网表单数据接口
 interface StencilFormData {
+  productType: string;
   borderType: BorderType;
   size: string;
-  electropolishing: Electropolishing;
   quantity: number;
+  thickness: number;
+  stencilType: string;
+  stencilSide: string;
+  existingFiducials: string;
+  electropolishing: string;
+  engineeringRequirements: string;
   [key: string]: unknown;
 }
 
 export class StencilCalculator extends BaseProductCalculator {
-
   calculatePrice(formData: StencilFormData): ProductCalculationResult {
-    const { 
-      borderType,
-      size,
-      electropolishing,
-      quantity 
-    } = formData;
-
-    // 验证必要参数
-    if (!size || !quantity || quantity < 1) {
-      return this.getEmptyResult();
-    }
-
-    // 获取尺寸价格信息 - 严格按照钢网规格数据表
+    const { borderType, size, quantity } = formData;
+    
+    // 获取钢网规格
     const sizeInfo = getStencilSpec(borderType, size);
     if (!sizeInfo) {
-      return this.getEmptyResult();
+      throw new Error(`未找到钢网规格: ${borderType} ${size}`);
     }
 
-    // 基础价格 - 直接使用规格数据表价格
-    const basePrice = sizeInfo.pricePerPcs;
+    // 基础价格计算（人民币）
+    const basePrice = sizeInfo.pricePerPcs * quantity;
     
-    // 运费附加费 - 严格按照钢网规格数据表
-    const shippingExtra = sizeInfo.shippingExtraPerPcs;
+    // 工艺加价
+    const processAddons = this.calculateProcessAddons(formData);
     
-    // 电抛光处理费用（仅在选择电抛光时）
-    const electropolishingCost = electropolishing === Electropolishing.ELECTROPOLISHING ? 50 : 0;
+    // 总价格（人民币）
+    const totalPriceCny = basePrice + processAddons;
     
-    // 单价计算 - 严格按照钢网规格数据表
-    const unitCost = basePrice + shippingExtra + electropolishingCost;
-    const totalPrice = unitCost * quantity;
+    // 转换为USD（用于统一显示）
+    const totalPriceUsd = this.convertCnyToUsd(totalPriceCny);
+    const unitPriceUsd = totalPriceUsd / quantity;
 
-    // 价格明细 - 仅显示实际涉及的项目
-    const breakdown: Record<string, number> = {
-      "Base Price": this.formatPrice(basePrice * quantity)
+    // 价格明细
+    const breakdown = {
+      basePrice: this.convertCnyToUsd(basePrice),
+      processAddons: this.convertCnyToUsd(processAddons),
     };
 
-    // 仅在有运费附加费时显示
-    if (shippingExtra > 0) {
-      breakdown["Shipping Extra"] = this.formatPrice(shippingExtra * quantity);
-    }
-
-    // 仅在选择电抛光时显示
-    if (electropolishingCost > 0) {
-      breakdown["Electropolishing"] = this.formatPrice(electropolishingCost * quantity);
-    }
+    // 计算说明
+    const notes = [
+      `钢网规格: ${size}mm (${borderType === BorderType.FRAMEWORK ? '含框' : '无框'})`,
+      `基础价格: ¥${basePrice.toFixed(2)} (¥${sizeInfo.pricePerPcs}/片 × ${quantity}片)`,
+      `工艺加价: ¥${processAddons.toFixed(2)}`,
+      `总价: $${totalPriceUsd.toFixed(2)} (¥${totalPriceCny.toFixed(2)})`
+    ];
 
     return {
-      totalPrice: this.formatPrice(totalPrice),
-      unitPrice: this.formatPrice(unitCost),
+      totalPrice: totalPriceUsd,
+      unitPrice: unitPriceUsd,
       breakdown,
-      notes: this.generatePriceNotes(formData, sizeInfo),
-      leadTimeDays: this.calculateLeadTime(formData, new Date()),
-      leadTimeReason: this.getLeadTimeReasons(formData),
-      minOrderQty: 1
+      notes,
+      leadTimeDays: this.calculateLeadTime(formData),
+      leadTimeReason: ['钢网制作周期: 3-5个工作日'],
+      minOrderQty: 1,
     };
   }
 
-  calculateLeadTime(_formData: StencilFormData, _startDate: Date): number {
-    // 钢网交期固定为2-3天，不受其他参数影响
-    return 2; // 统一2天交期
+  calculateLeadTime(formData: StencilFormData): number {
+    // 钢网标准制作周期
+    let leadDays = 5; // 基础5天
+
+    // 特殊工艺延长交期
+    if (formData.electropolishing === 'electropolishing') {
+      leadDays += 1; // 电抛光+1天
+    }
+
+    if (formData.engineeringRequirements === 'customer_confirm') {
+      leadDays += 2; // 客户确认+2天
+    }
+
+    return leadDays;
   }
 
   calculateWeight(formData: StencilFormData): number {
     const { borderType, size, quantity } = formData;
     
-    if (!size || !quantity) {
-      return 0;
-    }
-
     const sizeInfo = getStencilSpec(borderType, size);
-    if (!sizeInfo) {
-      return 0;
-    }
-    
-    return this.formatPrice(sizeInfo.weightKgPerPcs * quantity);
+    if (!sizeInfo) return 0.5; // 默认最小重量0.5kg
+
+    // 钢网重量计算（严格按照规格表）
+    return sizeInfo.weightKgPerPcs * quantity;
   }
 
-  private generatePriceNotes(formData: StencilFormData, sizeInfo: { pricePerPcs: number; maxEffectiveArea: string; shippingExtraPerPcs: number; weightKgPerPcs: number }): string[] {
-    const notes: string[] = [];
-    
-    // 基础价格说明
-    notes.push(`💰 Base price: ¥${sizeInfo.pricePerPcs.toFixed(2)} per piece (as per specification table)`);
-    
-    if (formData.borderType === BorderType.FRAMEWORK) {
-      notes.push("🔧 Framework included for production use");
-    } else {
-      notes.push("📦 Frameless stencil for cost-effective prototyping");
-    }
-    
-    if (formData.electropolishing === Electropolishing.ELECTROPOLISHING) {
-      notes.push("✨ Electropolishing: +¥50 per piece for enhanced surface finish");
+  private calculateProcessAddons(formData: StencilFormData): number {
+    let addons = 0;
+
+    // 厚度加价
+    const thickness = formData.thickness || 0.12;
+    if (thickness > 0.12) {
+      addons += 20; // 厚钢网加价
     }
 
-    if (sizeInfo.maxEffectiveArea) {
-      notes.push(`📐 Effective printing area: ${sizeInfo.maxEffectiveArea}mm`);
+    // 电抛光加价
+    if (formData.electropolishing === 'electropolishing') {
+      addons += 50;
     }
 
-    // 运费附加费说明 - 严格按照钢网规格数据表
-    if (sizeInfo.shippingExtraPerPcs > 0) {
-      notes.push(`📦 Large size shipping extra: ¥${sizeInfo.shippingExtraPerPcs} per piece (as per specification table)`);
+    // 特殊孔加价
+    if (formData.existingFiducials !== 'none') {
+      addons += 30;
     }
 
-    notes.push(`⚖️ Weight: ${sizeInfo.weightKgPerPcs}kg per piece`);
-    notes.push("🎯 All prices are based on stencil specification data table");
-    
-    return notes;
+    // 双面钢网加价
+    if (formData.stencilSide?.includes('top_bottom')) {
+      addons += 100;
+    }
+
+    return addons;
   }
 
-  private getLeadTimeReasons(_formData: StencilFormData): string[] {
-    const reasons: string[] = [];
+  // 生成新格式的计算值
+  generateCalValues(formData: StencilFormData, shippingCost: number = 0): Record<string, unknown> {
+    const calculation = this.calculatePrice(formData);
+    const weight = this.calculateWeight(formData);
     
-    reasons.push("📐 Stencil manufacturing lead time:");
-    reasons.push("• Fast production: 2-3 days");
-    reasons.push("• All processes included");
-    reasons.push("• Quality guaranteed");
-    
-    return reasons;
-  }
+    // 钢网专用计算详情
+    const stencilCalculation = {
+      stencilPrice: calculation.totalPrice, // 钢网产品价格（USD，不含运费）
+      stencilArea: this.calculateStencilArea(formData), // 钢网面积
+      totalWeight: weight, // 钢网总重量
+      breakdown: calculation.breakdown, // 钢网价格明细
+    };
 
-  private getEmptyResult(): ProductCalculationResult {
+    // 返回新格式的CalValues
     return {
-      totalPrice: 0,
-      unitPrice: 0,
-      breakdown: {},
-      notes: ["Please select stencil size and enter quantity"],
-      leadTimeDays: 0,
-      leadTimeReason: [],
-      minOrderQty: 1
+      // === 产品类型标识 ===
+      product_type: 'stencil',
+      
+      // === 通用计算值 ===
+      totalPrice: calculation.totalPrice + shippingCost, // 总价（产品+运费）
+      unitPrice: calculation.unitPrice,
+      totalCount: formData.quantity,
+      minOrderQty: calculation.minOrderQty,
+      
+      // 交期相关
+      leadTimeDays: calculation.leadTimeDays,
+      leadTimeResult: {
+        cycleDays: calculation.leadTimeDays,
+        reason: calculation.leadTimeReason,
+      },
+      estimatedFinishDate: this.calculateFinishDate(calculation.leadTimeDays),
+      
+      // 运费相关（由运费计算器填充）
+      shippingCost,
+      shippingWeight: 0,
+      shippingActualWeight: 0,
+      shippingVolumetricWeight: 0,
+      courier: "",
+      courierDays: "",
+      
+      // 税费和折扣
+      tax: 0,
+      discount: 0,
+      
+      // 价格说明
+      priceNotes: calculation.notes,
+      
+      // === 钢网专用计算值 ===
+      stencil_calculation: stencilCalculation,
     };
   }
-} 
+
+  private calculateStencilArea(formData: StencilFormData): number {
+    const { borderType, size } = formData;
+    const sizeInfo = getStencilSpec(borderType, size);
+    
+    if (!sizeInfo) return 0;
+    
+    // 从size字符串解析尺寸 (例如: "420x520")
+    const [width, height] = size.split('x').map(Number);
+    return (width * height) / 1000000; // 转换为平方米
+  }
+
+  private calculateFinishDate(leadDays: number): string {
+    const finishDate = new Date();
+    finishDate.setDate(finishDate.getDate() + leadDays);
+    return finishDate.toISOString().slice(0, 10);
+  }
+}
+
+// 使用示例
+export const useStencilCalculation = (formData: StencilFormData) => {
+  const calculator = new StencilCalculator();
+  return calculator.generateCalValues(formData);
+}; 

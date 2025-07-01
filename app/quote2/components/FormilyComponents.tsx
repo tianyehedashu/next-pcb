@@ -1,7 +1,6 @@
 "use client"
 import React from "react";
 import { createSchemaField, connect, mapProps } from "@formily/react";
-import { isField } from "@formily/core";
 import { Input } from "@/components/ui/input";
 import { Select as UISelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,7 +17,6 @@ import { BoardEdgeInput } from './BoardEdgeInput';
 import { DimensionsInput } from "../../components/ui/DimensionsInput";
 import { FormFieldLayout } from "./FormFieldLayout";
 import { UrgentDeliverySelector } from "./UrgentDeliverySelector";
-import { StencilProcessGuide } from "./StencilProcessGuide";
 
 
 interface OptionWithDisabled {
@@ -93,9 +91,7 @@ export const formilyComponents = {
       </UISelect>
     );
   },
-  TextArea: connect(Textarea, mapProps({
-    className: true
-  })),
+  TextArea: connect(Textarea),
   Checkbox: (props: FormilyFieldProps) => (
     <Checkbox 
       checked={Boolean(props.value)}
@@ -242,7 +238,7 @@ export const formilyComponents = {
     );
   },
   DimensionsInput: (props: FormilyFieldProps) => {
-    return <DimensionsInput value={props.value} onChange={props.onChange} label={props.title} />;
+    return <DimensionsInput value={props.value as any} onChange={props.onChange} label={props.title} />;
   },
   PanelDimensionsInput: (props: FormilyFieldProps) => {
     const panelDimensions = (props.value as { row?: number; column?: number }) || {};
@@ -794,7 +790,6 @@ export const formilyComponents = {
       </UISelect>
     );
   },
-  StencilProcessGuide,
 };
 
 // 创建 SchemaField

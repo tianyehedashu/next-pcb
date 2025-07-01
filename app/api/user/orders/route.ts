@@ -50,7 +50,12 @@ export async function GET(request: Request) {
         status,
         email,
         phone,
-        pcb_spec,
+                  product_type,
+          product_types,
+          pcb_spec,
+          stencil_spec,
+          smt_spec,
+          assembly_spec,
         cal_values,
         payment_intent_id,
         admin_orders (

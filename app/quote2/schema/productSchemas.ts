@@ -62,20 +62,39 @@ export function filterFormDataByProductType(formData: any, productType: ProductT
   const fieldGroups = getFieldGroups(productType);
   const validFields = fieldGroups.flatMap(group => group.fields);
   
-  // 添加通用字段
-  const commonFields = [
-    'productType',
-    'singleDimensions', 
-    'singleCount',
-    'size',
-    'quantity',
-    'deliveryOptions',
-    'gerberUrl',
-    'shippingCostEstimation',
-    'shippingAddress',
-    'specialRequests',
-    'userNote'
-  ];
+  // 根据产品类型定义通用字段
+  let commonFields: string[] = [];
+  
+  if (productType === ProductType.STENCIL) {
+    // 钢网产品只保留这些字段
+    commonFields = [
+      'productType',
+      'gerberUrl', // 钢网也可能有设计文件
+      'shippingCostEstimation',
+      'shippingAddress',
+      'customsNote', // 海关申报
+      'userNote' // 用户备注
+    ];
+  } else {
+    // PCB产品保留更多通用字段
+    commonFields = [
+      'productType',
+      'singleDimensions', 
+      'singleCount',
+      'deliveryOptions',
+      'gerberUrl',
+      'shippingCostEstimation',
+      'shippingAddress',
+      'customs',
+      'customsNote',
+      'userNote',
+      // PCB特有的通用字段
+      'shipmentType',
+      'panelDimensions',
+      'panelSet',
+      'differentDesignsCount'
+    ];
+  }
   
   const allValidFields = [...validFields, ...commonFields];
   
@@ -85,6 +104,20 @@ export function filterFormDataByProductType(formData: any, productType: ProductT
     if (formData.hasOwnProperty(field)) {
       filteredData[field] = formData[field];
     }
+  }
+  
+  // 调试输出：显示过滤结果
+  if (process.env.NODE_ENV === 'development') {
+    const originalFieldCount = Object.keys(formData).length;
+    const filteredFieldCount = Object.keys(filteredData).length;
+    const removedFields = Object.keys(formData).filter(field => !allValidFields.includes(field));
+    
+    console.log(`🔧 ${productType} 数据过滤:`, {
+      原始字段数: originalFieldCount,
+      过滤后字段数: filteredFieldCount,
+      移除的字段: removedFields,
+      保留的字段: allValidFields
+    });
   }
   
   return filteredData;

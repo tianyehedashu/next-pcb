@@ -61,9 +61,33 @@ export default function OrderTableRow({ order, viewMode = 'table' }: OrderTableR
         {/* Product Specifications */}
         <td className="py-4 px-4">
           {(() => {
-            const pcbSpec = order.pcb_spec as Record<string, unknown> | null;
-            const productType = pcbSpec?.productType || 
-              (pcbSpec?.borderType ? 'stencil' : 'pcb');
+            // === 新增：使用新的数据结构检测产品类型 ===
+            let productType = (order as any).product_type;
+            let specData: Record<string, unknown> | null = null;
+            
+            if (!productType) {
+              // 兼容旧数据：如果没有product_type字段，根据数据内容判断
+              const pcbSpec = order.pcb_spec as Record<string, unknown> | null;
+              const stencilSpec = (order as any).stencil_spec as Record<string, unknown> | null;
+              
+              if (stencilSpec) {
+                productType = 'stencil';
+                specData = stencilSpec;
+              } else if (pcbSpec?.borderType || pcbSpec?.stencilType) {
+                productType = 'stencil';
+                specData = pcbSpec;
+              } else {
+                productType = 'pcb';
+                specData = pcbSpec;
+              }
+            } else {
+              // 使用新的数据结构
+              if (productType === 'stencil') {
+                specData = (order as any).stencil_spec as Record<string, unknown> | null;
+              } else {
+                specData = order.pcb_spec as Record<string, unknown> | null;
+              }
+            }
             
             if (productType === 'stencil') {
               return (
@@ -72,34 +96,34 @@ export default function OrderTableRow({ order, viewMode = 'table' }: OrderTableR
                     <span className="text-xs text-blue-600 font-medium">🔧 STENCIL</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <span><strong>Border:</strong> {pcbSpec?.borderType || '-'}</span>
-                    <span><strong>Qty:</strong> {pcbSpec?.quantity || summary.quantity}</span>
-                    <span><strong>Size:</strong> {pcbSpec?.size || summary.size}mm</span>
+                    <span><strong>Border:</strong> {specData?.borderType || '-'}</span>
+                    <span><strong>Qty:</strong> {specData?.quantity || summary.quantity}</span>
+                    <span><strong>Size:</strong> {specData?.size || summary.size}mm</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
-                    <span><strong>Thickness:</strong> {pcbSpec?.thickness || '-'}mm</span>
-                    <span><strong>Type:</strong> {pcbSpec?.stencilType || '-'}</span>
-                    <span><strong>Side:</strong> {pcbSpec?.stencilSide || '-'}</span>
+                    <span><strong>Thickness:</strong> {specData?.thickness || '-'}mm</span>
+                    <span><strong>Type:</strong> {specData?.stencilType || '-'}</span>
+                    <span><strong>Side:</strong> {specData?.stencilSide || '-'}</span>
                   </div>
                 </div>
               );
             } else {
               return (
-          <div className="text-sm space-y-1">
+                <div className="text-sm space-y-1">
                   <div className="flex items-center gap-1 mb-1">
                     <span className="text-xs text-green-600 font-medium">📱 PCB</span>
                   </div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <span><strong>Layers:</strong> {summary.layers}</span>
-              <span><strong>Qty:</strong> {summary.quantity}</span>
-              <span><strong>Size:</strong> {summary.size}</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
-              <span><strong>Delivery:</strong> {summary.delivery}</span>
-              <span><strong>Thickness:</strong> {summary.thickness}</span>
-              <span><strong>Finish:</strong> {summary.surfaceFinish}</span>
-            </div>
-          </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <span><strong>Layers:</strong> {summary.layers}</span>
+                    <span><strong>Qty:</strong> {summary.quantity}</span>
+                    <span><strong>Size:</strong> {summary.size}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
+                    <span><strong>Delivery:</strong> {summary.delivery}</span>
+                    <span><strong>Thickness:</strong> {summary.thickness}</span>
+                    <span><strong>Finish:</strong> {summary.surfaceFinish}</span>
+                  </div>
+                </div>
               );
             }
           })()}
@@ -194,9 +218,33 @@ export default function OrderTableRow({ order, viewMode = 'table' }: OrderTableR
         {/* Product 规格信息 */}
         <div className="mb-4">
           {(() => {
-            const pcbSpec = order.pcb_spec as Record<string, unknown> | null;
-            const productType = pcbSpec?.productType || 
-              (pcbSpec?.borderType ? 'stencil' : 'pcb');
+            // === 新增：使用新的数据结构检测产品类型 ===
+            let productType = (order as any).product_type;
+            let specData: Record<string, unknown> | null = null;
+            
+            if (!productType) {
+              // 兼容旧数据：如果没有product_type字段，根据数据内容判断
+              const pcbSpec = order.pcb_spec as Record<string, unknown> | null;
+              const stencilSpec = (order as any).stencil_spec as Record<string, unknown> | null;
+              
+              if (stencilSpec) {
+                productType = 'stencil';
+                specData = stencilSpec;
+              } else if (pcbSpec?.borderType || pcbSpec?.stencilType) {
+                productType = 'stencil';
+                specData = pcbSpec;
+              } else {
+                productType = 'pcb';
+                specData = pcbSpec;
+              }
+            } else {
+              // 使用新的数据结构
+              if (productType === 'stencil') {
+                specData = (order as any).stencil_spec as Record<string, unknown> | null;
+              } else {
+                specData = order.pcb_spec as Record<string, unknown> | null;
+              }
+            }
             
             if (productType === 'stencil') {
               return (
@@ -208,27 +256,27 @@ export default function OrderTableRow({ order, viewMode = 'table' }: OrderTableR
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                     <div className="flex justify-between">
                       <span className="text-gray-500">Border Type:</span>
-                      <span className="font-medium">{pcbSpec?.borderType || '-'}</span>
+                      <span className="font-medium">{specData?.borderType || '-'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Quantity:</span>
-                      <span className="font-medium">{pcbSpec?.quantity || summary.quantity}</span>
+                      <span className="font-medium">{specData?.quantity || summary.quantity}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Size:</span>
-                      <span className="font-medium">{pcbSpec?.size || summary.size}mm</span>
+                      <span className="font-medium">{specData?.size || summary.size}mm</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Thickness:</span>
-                      <span className="font-medium">{pcbSpec?.thickness || '-'}mm</span>
+                      <span className="font-medium">{specData?.thickness || '-'}mm</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Stencil Type:</span>
-                      <span className="font-medium">{pcbSpec?.stencilType || '-'}</span>
+                      <span className="font-medium">{specData?.stencilType || '-'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Stencil Side:</span>
-                      <span className="font-medium">{pcbSpec?.stencilSide || '-'}</span>
+                      <span className="font-medium">{specData?.stencilSide || '-'}</span>
                     </div>
                   </div>
                 </>
