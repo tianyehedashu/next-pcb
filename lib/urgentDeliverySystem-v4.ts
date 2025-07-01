@@ -259,19 +259,21 @@ const URGENT_DATA_TABLE: Record<string, UrgentConfig> = {
     ]
   },
   '6-2oz-0.5-1': {
-    maxReduceDays: 4,
+    maxReduceDays: 5,
     options: [
       { reduceDays: 2, fee: 400, feeType: 'fixed', supported: true, label: '减2天 (+400元)' },
       { reduceDays: 3, fee: 600, feeType: 'fixed', supported: true, label: '减3天 (+600元)' },
-      { reduceDays: 4, fee: 1500, feeType: 'fixed', supported: true, label: '减4天 (+1500元)' },
+      { reduceDays: 4, fee: 800, feeType: 'fixed', supported: true, label: '减4天 (+1000元)' },
+      { reduceDays: 5, fee: 1500, feeType: 'fixed', supported: true, label: '减5天 (+1500元)' },
     ]
   },
   '6-2oz-1-3': {
-    maxReduceDays: 3,
+    maxReduceDays: 4,
     options: [
       { reduceDays: 1, fee: 100, feeType: 'per_sqm', supported: true, label: '减1天 (+100元/㎡)' },
       { reduceDays: 2, fee: 200, feeType: 'per_sqm', supported: true, label: '减2天 (+200元/㎡)' },
       { reduceDays: 3, fee: 400, feeType: 'per_sqm', supported: true, label: '减3天 (+400元/㎡)' },
+      { reduceDays: 4, fee: 700, feeType: 'per_sqm', supported: true, label: '减4天 (+600元/㎡)' },
     ]
   },
 

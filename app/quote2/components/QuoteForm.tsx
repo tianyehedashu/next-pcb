@@ -736,8 +736,8 @@ export function QuoteForm({ editId }: { editId?: string }) {
     try {
       await form.validate(); // 校验通过不抛异常
       
-      // 已登录用户的额外验证：检查gerberUrl
-      if (user) {
+      // 已登录用户的额外验证：检查gerberUrl（仅对PCB产品）
+      if (user && currentProductType !== ProductType.STENCIL) {
         const storeData = useQuoteStore.getState().formData;
         const gerberFileUrl = uploadState.uploadUrl || storeData.gerberUrl || form.values.gerberUrl;
         
@@ -747,7 +747,7 @@ export function QuoteForm({ editId }: { editId?: string }) {
         if (!hasExistingFile && (!gerberFileUrl || gerberFileUrl.trim() === '')) {
           throw [{
             title: 'Gerber File',
-            message: 'Gerber file is required for logged-in users',
+            message: 'Gerber file is required for PCB quotes',
             address: 'gerberUrl',
             path: 'gerberUrl'
           }];

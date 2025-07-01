@@ -38,6 +38,16 @@ function fullWidth(schema: ISchema): ISchema {
 export const stencilFormilySchema: ISchema = {
   type: "object",
   properties: {
+    // === Product Type（隐藏字段，确保正确标识产品类型）===
+    productType: {
+      type: "string",
+      "x-component": "Input",
+      "x-component-props": {
+        style: { display: 'none' }
+      },
+      default: "stencil"
+    },
+
     // === Border Type ===
     borderType: {
       type: "string",

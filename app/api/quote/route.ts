@@ -4,15 +4,18 @@ import { createClient } from '@/utils/supabase/server';
 // === 新增：类型定义 ===
 interface PcbSpecData {
   productType?: 'pcb' | 'stencil';
-  // 钢网字段
-  stencilMaterial?: string;
-  stencilThickness?: number;
-  stencilProcess?: string;
-  frameType?: string;
-  surfaceTreatment?: string;
+  // 新钢网字段（基于更新后的schema）
+  borderType?: string;
+  stencilType?: string;
+  size?: string;
+  stencilSide?: string;
+  thickness?: number;
+  existingFiducials?: string;
+  electropolishing?: string;
+  engineeringRequirements?: string;
+  quantity?: number;
   // PCB字段
   layers?: number;
-  thickness?: number;
   // 通用字段
   singleDimensions?: {
     length: number;
@@ -24,14 +27,14 @@ interface PcbSpecData {
 
 // === 新增：产品类型检测函数 ===
 function detectProductType(pcbSpecData: PcbSpecData): 'pcb' | 'stencil' {
-  // 检查是否包含钢网特有字段
+  // 检查是否包含新钢网特有字段
   const stencilFields = [
-    'stencilMaterial', 'stencilThickness', 'stencilProcess', 
-    'frameType', 'surfaceTreatment'
+    'borderType', 'stencilType', 'stencilSide', 
+    'existingFiducials', 'electropolishing', 'engineeringRequirements'
   ];
   
   const hasStencilFields = stencilFields.some(field => 
-    pcbSpecData[field] !== undefined && pcbSpecData[field] !== null
+    pcbSpecData[field] !== undefined && pcbSpecData[field] !== null && pcbSpecData[field] !== ''
   );
   
   // 如果有明确的productType字段，优先使用
@@ -48,20 +51,23 @@ function validateQuoteData(pcbSpecData: PcbSpecData, productType: 'pcb' | 'stenc
   const errors: string[] = [];
   
   if (productType === 'stencil') {
-    // 钢网数据验证
-    if (!pcbSpecData.stencilMaterial) {
-      errors.push('Stencil material is required');
+    // 钢网数据验证（基于新schema）
+    if (!pcbSpecData.borderType) {
+      errors.push('Border type is required for stencil');
     }
-    if (!pcbSpecData.stencilThickness) {
+    if (!pcbSpecData.stencilType) {
+      errors.push('Stencil type is required');
+    }
+    if (!pcbSpecData.size) {
+      errors.push('Stencil size is required');
+    }
+    if (!pcbSpecData.stencilSide) {
+      errors.push('Stencil side is required');
+    }
+    if (!pcbSpecData.thickness) {
       errors.push('Stencil thickness is required');
     }
-    if (!pcbSpecData.stencilProcess) {
-      errors.push('Stencil manufacturing process is required');
-    }
-    if (!pcbSpecData.singleDimensions?.length || !pcbSpecData.singleDimensions?.width) {
-      errors.push('Stencil dimensions are required');
-    }
-    if (!pcbSpecData.singleCount || pcbSpecData.singleCount < 1) {
+    if (!pcbSpecData.quantity || pcbSpecData.quantity < 1) {
       errors.push('Stencil quantity must be at least 1');
     }
   } else {
@@ -101,7 +107,8 @@ export async function POST(req: NextRequest) {
     const productType = detectProductType(pcbSpecData);
     
     console.log(`Detected product type: ${productType}`, {
-      hasStencilMaterial: !!pcbSpecData.stencilMaterial,
+      hasBorderType: !!pcbSpecData.borderType,
+      hasStencilType: !!pcbSpecData.stencilType,
       hasLayers: !!pcbSpecData.layers,
       productTypeField: pcbSpecData.productType
     });
