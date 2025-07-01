@@ -692,22 +692,19 @@ export function QuoteForm({ editId }: { editId?: string }) {
   }, [currentProductType]);
 
   const getVisibleFieldGroups = React.useMemo(() => {
-    // 运费信息对所有用户都应该显示
-    const shippingGroupIndex = currentFieldGroups.findIndex(group => 
-      group.title === "Shipping Information" || 
-      group.title === "Shipping Cost Estimation"
-    );
-    
-    if (user) {
-      // 已登录用户：显示更多分组，包括运费信息
-      return currentFieldGroups.filter((group, index) => 
-        index < 3 || index === 4 || index === shippingGroupIndex
-      );
-    }
-    // 游客用户：显示基础分组 + 运费信息
-    return currentFieldGroups.filter((group, index) => 
-      index < 4 || index === shippingGroupIndex
-    );
+    return currentFieldGroups.filter(group => {
+      // 根据用户登录状态决定显示哪些运费相关的字段组
+      if (group.title === "Shipping Cost Estimation") {
+        // 游客显示运费估算
+        return !user;
+      }
+      if (group.title === "Shipping Information") {
+        // 已登录用户显示收货地址
+        return !!user;
+      }
+      // 其他字段组都显示
+      return true;
+    });
   }, [user, currentFieldGroups]);
 
   // 动态获取当前产品类型的schema

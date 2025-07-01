@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/utils/supabase/server';
 import { ExchangeRateUpdateInput } from '@/types/exchange-rate';
+import { checkAdminAuth } from '@/lib/auth-utils';
 
 // GET /api/admin/exchange-rates/[id] - 获取单个汇率（所有人可访问）
 export async function GET(
@@ -39,26 +40,13 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
     const { id } = await params;
     const supabase = await createSupabaseServerClient();
-    
-    // 验证用户权限
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // 检查管理员权限
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
 
     const body: ExchangeRateUpdateInput = await request.json();
 
@@ -109,26 +97,13 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
     const { id } = await params;
     const supabase = await createSupabaseServerClient();
-    
-    // 验证用户权限
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // 检查管理员权限
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
 
     const { error } = await supabase
       .from('exchange_rates')

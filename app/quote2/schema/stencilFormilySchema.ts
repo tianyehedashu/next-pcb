@@ -112,11 +112,20 @@ export const stencilFormilySchema: ISchema = {
     },
 
     frameSize: fullWidth({
-      type: "object",
-      title: "Frame Size (mm)",
-      "x-component": "DimensionsInput",
+      type: "string",
+      title: "Frame Size",
+      "x-component": "Select",
       "x-component-props": {
-        placeholder: { length: "Frame Length", width: "Frame Width" }
+        placeholder: "Select standard frame size",
+        options: [
+          { label: "300×400mm (Hand printing)", value: "300x400" },
+          { label: "370×470mm (Hand printing)", value: "370x470" },
+          { label: "420×520mm (Semi-auto/Auto)", value: "420x520" },
+          { label: "450×550mm (Semi-auto/Auto)", value: "450x550" },
+          { label: "550×650mm (Standard)", value: "550x650" },
+          { label: "584×584mm (23″×23″)", value: "584x584" },
+          { label: "736×736mm (29″×29″)", value: "736x736" }
+        ]
       },
       "x-reactions": {
         dependencies: ["frameType"],
@@ -126,7 +135,7 @@ export const stencilFormilySchema: ISchema = {
           }
         }
       },
-      default: { length: 120, width: 80 }
+      default: "550x650"
     }),
 
     // === 工艺要求 ===
@@ -167,8 +176,9 @@ export const stencilFormilySchema: ISchema = {
       "x-component": "DimensionsInput",
       "x-component-props": {
         placeholder: { length: "Length", width: "Width" },
-        min: 10,
-        max: 500
+        min: 5,
+        max: 600,
+        description: "Maximum size depends on frame selection"
       },
       default: { length: 100, width: 80 }
     }),
@@ -179,9 +189,9 @@ export const stencilFormilySchema: ISchema = {
       "x-component": "QuantityInput",
       "x-component-props": {
         placeholder: "Enter quantity",
-        options: [1, 2, 5, 10, 20, 50, 100, 200, 500],
+        options: [1, 2, 3, 5, 10, 15, 20, 30, 50, 100],
         min: 1,
-        max: 1000
+        max: 500
       },
       default: 1
     },
@@ -201,9 +211,9 @@ export const stencilFormilySchema: ISchema = {
           "x-component": "TabSelect",
           "x-component-props": {
             options: [
-              { label: "Standard (5-7 days)", value: "standard" },
-              { label: "Express (3-4 days)", value: "express" },
-              { label: "Rush (1-2 days)", value: "rush" }
+              { label: "Standard (3-5 days)", value: "standard" },
+              { label: "Express (1-2 days)", value: "express" },
+              { label: "Same Day (24 hours)", value: "same_day" }
             ]
           },
           default: "standard"
@@ -239,13 +249,10 @@ export const stencilFormilySchema: ISchema = {
     // === 文件上传 ===
     gerberUrl: fullWidth({
       type: "string",
-      title: "Design Files",
-      "x-component": "FileUploadSection",
+      title: "Design File URL",
+      "x-component": "Input",
       "x-component-props": {
-        accept: ".zip,.rar,.gerber,.gbr,.pdf,.dxf,.dwg",
-        maxSize: 50, // MB
-        description: "Upload Gerber files, PDF drawings, or DXF/DWG files",
-        helpText: "Supported formats: ZIP, RAR, Gerber, PDF, DXF, DWG (Max 50MB)"
+        placeholder: "Design file URL will be automatically filled after upload...",
       },
       default: ""
     }),
@@ -274,7 +281,7 @@ export const stencilFormilySchema: ISchema = {
     shippingAddress: fullWidth({
       type: "object",
       title: "Shipping Address",
-      "x-component": "AddressFormComponent",
+      "x-component": "AddressInput",
       "x-component-props": {
         productType: "stencil"
       }
@@ -286,22 +293,9 @@ export const stencilFormilySchema: ISchema = {
       title: "Special Requirements",
       "x-component": "TextArea",
       "x-component-props": {
-        placeholder: "Any special requirements for your stencil manufacturing...\n\nExample:\n- Custom aperture modifications\n- Specific cleaning requirements\n- Special packaging needs\n- Quality inspection requirements",
+        placeholder: "Any special requirements for your stencil manufacturing...\n\nExample:\n- Custom aperture modifications\n- Specific cleaning requirements\n- Special packaging needs\n- Quality inspection requirements\n- Additional notes or questions",
         maxLength: 1000,
         rows: 4
-      },
-      default: ""
-    }),
-
-    // === 用户备注 ===
-    userNote: fullWidth({
-      type: "string", 
-      title: "Additional Notes",
-      "x-component": "TextArea",
-      "x-component-props": {
-        placeholder: "Any additional information or questions...",
-        maxLength: 500,
-        rows: 3
       },
       default: ""
     })
@@ -335,12 +329,16 @@ export const stencilFieldGroups = [
     fields: ["gerberUrl"]
   },
   {
+    title: "Shipping Cost Estimation",
+    fields: ["shippingCostEstimation"]
+  },
+  {
     title: "Shipping Information",
-    fields: ["shippingCostEstimation", "shippingAddress"]
+    fields: ["shippingAddress"]
   },
   {
     title: "Additional Information",
-    fields: ["specialRequests", "userNote"]
+    fields: ["specialRequests"]
   }
 ];
 
@@ -351,7 +349,7 @@ export const stencilDefaultFormData = {
   stencilThickness: StencilThickness.T0_12,
   stencilProcess: StencilProcess.LASER_CUT,
   frameType: FrameType.SMT_FRAME,
-  frameSize: { length: 120, width: 80 },
+  frameSize: "550x650",
   surfaceTreatment: SurfaceTreatment.NONE,
   tensionMesh: false,
   fiducialMarks: true,
@@ -373,6 +371,5 @@ export const stencilDefaultFormData = {
     contactName: "",
     courier: ""
   },
-  specialRequests: "",
-  userNote: ""
+  specialRequests: ""
 }; 

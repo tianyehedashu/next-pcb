@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { ContentPageFormData } from '@/types/content';
+import { checkAdminAuth } from '@/lib/auth-utils';
 
 export async function GET(
   request: NextRequest,
@@ -46,26 +47,14 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
     const supabase = await createSupabaseServerClient();
     const { id } = await params;
     const body: ContentPageFormData = await request.json();
-    
-    // Verify admin access
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
 
     const { tag_ids, ...pageData } = body;
 
@@ -123,25 +112,13 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Check admin authentication
+  const { error } = await checkAdminAuth();
+  if (error) return error;
+
   try {
     const supabase = await createSupabaseServerClient();
     const { id } = await params;
-    
-    // Verify admin access
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
 
     // Delete the page (tags will be deleted automatically due to CASCADE)
     const { error } = await supabase

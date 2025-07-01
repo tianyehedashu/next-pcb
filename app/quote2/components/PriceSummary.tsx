@@ -729,10 +729,10 @@ export default function PriceSummary() {
                 )}
               </div>
               
-              <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-600">Min Order:</span>
-                <span className="text-xs font-medium text-gray-900">{priceBreakdown.minOrderQty} pcs</span>
-              </div>
+                  <span className="text-xs font-medium text-gray-900">{priceBreakdown.minOrderQty} pcs</span>
+                </div>
 
               {/* === 钢网专用信息 === */}
               {isClient && clientProductType === 'Stencil' && (
@@ -746,13 +746,13 @@ export default function PriceSummary() {
 
               {/* === PCB专用信息 === */}
               {isClient && clientProductType === 'PCB' && (
-                <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-600">Product Type:</span>
                   <span className="text-xs font-medium text-green-600">PCB</span>
                 </div>
               )}
-            </div>
-            
+              </div>
+              
             <div className="space-y-3">
               {/* 通用面积显示 */}
               <div className="flex justify-between items-center">
@@ -768,8 +768,8 @@ export default function PriceSummary() {
                     {isClient ? `${calculated.totalArea.toFixed(4)} m²` : 'Loading...'}
                   </span>
                 )}
-              </div>
-              
+            </div>
+            
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-600">Chargeable Weight:</span>
                 {!isClient ? (

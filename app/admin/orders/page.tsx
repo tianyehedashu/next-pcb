@@ -223,18 +223,18 @@ export default function AdminOrdersPage() {
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">
                     📱 PCB Orders ({pcbOrders.length})
                   </h3>
-                  <div className="overflow-x-auto rounded-xl shadow-lg bg-white">
-                    <OrderTable
+        <div className="overflow-x-auto rounded-xl shadow-lg bg-white">
+          <OrderTable
                       data={pcbOrders}
-                      selectedIds={selectedOrderIds}
-                      onSelectChange={setSelectedOrderIds}
-                      onDeleteSelected={() => setDeleteDialogOpen(true)}
-                      deleting={deleting}
-                      sortField={sortField}
-                      sortDirection={sortDirection}
-                      onSort={handleSort}
-                    />
-                  </div>
+            selectedIds={selectedOrderIds}
+            onSelectChange={setSelectedOrderIds}
+            onDeleteSelected={() => setDeleteDialogOpen(true)}
+            deleting={deleting}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+          />
+        </div>
                 </div>
               )}
               

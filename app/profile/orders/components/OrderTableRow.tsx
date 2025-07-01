@@ -85,21 +85,21 @@ export default function OrderTableRow({ order, viewMode = 'table' }: OrderTableR
               );
             } else {
               return (
-                <div className="text-sm space-y-1">
+          <div className="text-sm space-y-1">
                   <div className="flex items-center gap-1 mb-1">
                     <span className="text-xs text-green-600 font-medium">📱 PCB</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <span><strong>Layers:</strong> {summary.layers}</span>
-                    <span><strong>Qty:</strong> {summary.quantity}</span>
-                    <span><strong>Size:</strong> {summary.size}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
-                    <span><strong>Delivery:</strong> {summary.delivery}</span>
-                    <span><strong>Thickness:</strong> {summary.thickness}</span>
-                    <span><strong>Finish:</strong> {summary.surfaceFinish}</span>
-                  </div>
-                </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <span><strong>Layers:</strong> {summary.layers}</span>
+              <span><strong>Qty:</strong> {summary.quantity}</span>
+              <span><strong>Size:</strong> {summary.size}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
+              <span><strong>Delivery:</strong> {summary.delivery}</span>
+              <span><strong>Thickness:</strong> {summary.thickness}</span>
+              <span><strong>Finish:</strong> {summary.surfaceFinish}</span>
+            </div>
+          </div>
               );
             }
           })()}
@@ -236,36 +236,36 @@ export default function OrderTableRow({ order, viewMode = 'table' }: OrderTableR
             } else {
               return (
                 <>
-                  <div className="flex items-center gap-1 mb-2">
-                    <Package className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700">PCB Specifications</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Layers:</span>
-                      <span className="font-medium">{summary.layers}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Quantity:</span>
-                      <span className="font-medium">{summary.quantity}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Size:</span>
-                      <span className="font-medium">{summary.size}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Delivery:</span>
-                      <span className="font-medium">{summary.delivery}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Thickness:</span>
-                      <span className="font-medium">{summary.thickness}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Finish:</span>
-                      <span className="font-medium">{summary.surfaceFinish}</span>
-                    </div>
-                  </div>
+          <div className="flex items-center gap-1 mb-2">
+            <Package className="w-4 h-4 text-gray-400" />
+            <span className="text-sm font-medium text-gray-700">PCB Specifications</span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Layers:</span>
+              <span className="font-medium">{summary.layers}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Quantity:</span>
+              <span className="font-medium">{summary.quantity}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Size:</span>
+              <span className="font-medium">{summary.size}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Delivery:</span>
+              <span className="font-medium">{summary.delivery}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Thickness:</span>
+              <span className="font-medium">{summary.thickness}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Finish:</span>
+              <span className="font-medium">{summary.surfaceFinish}</span>
+            </div>
+          </div>
                 </>
               );
             }
