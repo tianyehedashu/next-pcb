@@ -2,6 +2,20 @@ import type { QuoteFormData as PcbQuoteForm } from '@/app/quote2/schema/quoteSch
 import { calculateTotalPcbArea } from './utils/precision';
 import { ShipmentType } from '@/types/form';
 import { shippingZones } from './shipping-constants';
+import { getStencilSpec, ProductType, BorderType } from '@/app/quote2/schema/stencilTypes';
+
+// 钢网表单数据接口（用于运费计算）
+interface StencilFormData {
+  productType: string;
+  borderType: BorderType;
+  size: string;
+  quantity: number;
+  shippingAddress?: {
+    country: string;
+    courier: string;
+  };
+  [key: string]: unknown; // 允许其他字段
+}
 
 interface Dimensions {
   length: number;
@@ -142,9 +156,29 @@ function isPeakSeason(date: Date = new Date()): boolean {
   return month >= 11 || month === 1;
 }
 
-// 计算实际运费（异步版本，使用动态汇率）
+// 钢网专用重量计算（基于规格数据表）
+function calculateStencilWeight(formData: StencilFormData): number {
+  const { borderType, size, quantity } = formData;
+  
+  if (!size || !quantity) {
+    return 0;
+  }
+
+  // 获取钢网规格信息
+  const sizeInfo = getStencilSpec(borderType, size);
+  if (!sizeInfo) {
+    return 0;
+  }
+  
+  // 严格按照钢网规格数据表的重量计算（克）
+  return sizeInfo.weightKgPerPcs * quantity * 1000; // 转换为克
+}
+
+// 钢网不需要体积重量计算，因为是高密度金属产品
+
+// 计算实际运费（异步版本，使用动态汇率）- 支持PCB和钢网产品
 export async function calculateShippingCost(
-  specs: PcbQuoteForm,
+  specs: PcbQuoteForm | StencilFormData, // 支持PCB和钢网产品
   usdToCnyRateOverride?: number // 可选的汇率参数，避免重复请求
 ): Promise<{
   actualWeight: number;
@@ -156,19 +190,31 @@ export async function calculateShippingCost(
   finalCost: number;
   deliveryTime: string;
 }> {
-  // 计算总数量，与 quote-store 保持一致
+  // 判断产品类型
+  const productType = (specs as { productType?: string }).productType || ProductType.PCB;
+  const isStencil = productType === ProductType.STENCIL || productType === 'stencil';
+
+  // 计算总数量
   let totalCount = 0;
   
-  if (specs.shipmentType === ShipmentType.Single) {
-    totalCount = (specs.singleCount || 0) * (specs.differentDesignsCount || 1);
-  } else if (
-    specs.shipmentType === ShipmentType.PanelByGerber ||
-    specs.shipmentType === ShipmentType.PanelBySpeedx
-  ) {
-    const row = specs.panelDimensions?.row ?? 0;
-    const column = specs.panelDimensions?.column ?? 0;
-    const panelSet = specs.panelSet ?? 0;
-    totalCount = row * column * panelSet;
+  if (isStencil) {
+    // 钢网产品：直接使用quantity
+    const stencilSpecs = specs as StencilFormData;
+    totalCount = stencilSpecs.quantity || 0;
+  } else {
+    // PCB产品：使用原有逻辑
+    const pcbSpecs = specs as PcbQuoteForm;
+    if (pcbSpecs.shipmentType === ShipmentType.Single) {
+      totalCount = (pcbSpecs.singleCount || 0) * (pcbSpecs.differentDesignsCount || 1);
+    } else if (
+      pcbSpecs.shipmentType === ShipmentType.PanelByGerber ||
+      pcbSpecs.shipmentType === ShipmentType.PanelBySpeedx
+    ) {
+      const row = pcbSpecs.panelDimensions?.row ?? 0;
+      const column = pcbSpecs.panelDimensions?.column ?? 0;
+      const panelSet = pcbSpecs.panelSet ?? 0;
+      totalCount = row * column * panelSet;
+    }
   }
   
   // 如果总数为0，则无法计算运费
@@ -185,32 +231,56 @@ export async function calculateShippingCost(
     };
   }
 
-  const singleWeight = calculateSinglePCBWeight(specs);
-  const totalWeight = (singleWeight * totalCount) / 1000;
+  let totalWeight: number;
+  let volumetricWeight: number;
 
-  // 使用PCB专用体积重量计算（基于PCB实际体积而非包装盒）
-  const pcbLength = Number(specs.singleDimensions.length);
-  const pcbWidth = Number(specs.singleDimensions.width);
-  const pcbThickness = Number(specs.thickness);
-  
-  // 使用PCB专用体积重量计算
-  const volumetricWeight = calculatePCBVolumetricWeight(
-    pcbLength, 
-    pcbWidth, 
-    pcbThickness, 
-    totalCount
-  );
+  if (isStencil) {
+    // 钢网重量计算：严格按照钢网规格数据表，无需计算体积重量
+    const stencilSpecs = specs as StencilFormData;
+    totalWeight = calculateStencilWeight(stencilSpecs) / 1000; // 转换为kg
+    volumetricWeight = 0; // 钢网不计算体积重量
 
-  // 调试信息（开发环境）
-  if (process.env.NODE_ENV === 'development') {
-    console.log('PCB体积重量计算:', {
-      pcb: { length: pcbLength, width: pcbWidth, thickness: pcbThickness },
-      quantity: totalCount,
-      volumetricWeight: volumetricWeight,
-      actualWeight: totalWeight,
-      ratio: volumetricWeight / totalWeight
-    });
+    // 调试信息（开发环境）
+    if (process.env.NODE_ENV === 'development') {
+      console.log('钢网重量计算:', {
+        borderType: stencilSpecs.borderType,
+        size: stencilSpecs.size,
+        quantity: totalCount,
+        totalWeight: totalWeight,
+        volumetricWeight: '不计算体积重量',
+        note: '钢网为高密度产品，直接使用实际重量'
+      });
+    }
+  } else {
+    // PCB重量计算：使用原有逻辑
+    const pcbSpecs = specs as PcbQuoteForm;
+    const singleWeight = calculateSinglePCBWeight(pcbSpecs);
+    totalWeight = (singleWeight * totalCount) / 1000;
+
+    // PCB体积重量计算
+    const pcbLength = Number(pcbSpecs.singleDimensions.length);
+    const pcbWidth = Number(pcbSpecs.singleDimensions.width);
+    const pcbThickness = Number(pcbSpecs.thickness);
+    
+    volumetricWeight = calculatePCBVolumetricWeight(
+      pcbLength, 
+      pcbWidth, 
+      pcbThickness, 
+      totalCount
+    );
+
+    // 调试信息（开发环境）
+    if (process.env.NODE_ENV === 'development') {
+      console.log('PCB体积重量计算:', {
+        pcb: { length: pcbLength, width: pcbWidth, thickness: pcbThickness },
+        quantity: totalCount,
+        volumetricWeight: volumetricWeight,
+        actualWeight: totalWeight,
+        ratio: volumetricWeight / totalWeight
+      });
+    }
   }
+
   const chargeableWeight = Math.max(volumetricWeight, totalWeight);
   
   // 读取国家、快递公司、服务类型、下单时间

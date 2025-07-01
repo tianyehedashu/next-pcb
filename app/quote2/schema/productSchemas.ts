@@ -67,6 +67,8 @@ export function filterFormDataByProductType(formData: any, productType: ProductT
     'productType',
     'singleDimensions', 
     'singleCount',
+    'size',
+    'quantity',
     'deliveryOptions',
     'gerberUrl',
     'shippingCostEstimation',
@@ -135,8 +137,9 @@ export function getFieldsToResetOnProductTypeChange(
   // 钢网 -> PCB时需要重置的字段  
   if (fromProductType === ProductType.STENCIL && toProductType === ProductType.PCB) {
     return [
-      'stencilMaterial', 'stencilThickness', 'stencilProcess', 'frameType',
-      'frameSize', 'surfaceTreatment', 'tensionMesh', 'fiducialMarks'
+      'borderType', 'stencilType', 'printingMethod', 'size', 'stencilSide',
+      'quantity', 'thickness', 'existingFiducials', 'electropolishing',
+      'engineeringRequirements', 'addPoNo'
     ];
   }
 
@@ -160,7 +163,9 @@ export class ProductTypeManager {
     // 保留通用字段的值
     const commonFieldsToKeep = [
       'singleDimensions',
-      'singleCount', 
+      'singleCount',
+      'size',
+      'quantity',
       'deliveryOptions',
       'gerberUrl',
       'shippingCostEstimation',

@@ -1,16 +1,21 @@
 // 钢网报价表单 Formily Schema
 import { ISchema } from "@formily/react";
 import {
-  StencilMaterial,
-  StencilThickness, 
-  StencilProcess,
-  FrameType,
-  SurfaceTreatment,
-  StencilMaterialLabels,
-  StencilThicknessLabels,
-  StencilProcessLabels,
-  FrameTypeLabels,
-  SurfaceTreatmentLabels
+  BorderType,
+  StencilType,
+  StencilSide,
+  StencilThickness,
+  ExistingFiducials,
+  Electropolishing,
+  EngineeringRequirements,
+  borderTypeOptions,
+  stencilTypeOptions,
+  stencilSideOptions,
+  stencilThicknessOptions,
+  existingFiducialsOptions,
+  electropolishingOptions,
+  engineeringRequirementsOptions,
+  sizeOptions
 } from "./stencilTypes";
 
 // === 辅助函数：标记字段为全宽显示 ===
@@ -24,276 +29,156 @@ function fullWidth(schema: ISchema): ISchema {
   };
 }
 
-// 枚举转选项函数
-function enumToOptions<T extends Record<string, string | number>>(
-  enumObj: T, 
-  labels?: Record<string, string>
-) {
-  return Object.entries(enumObj).map(([key, value]) => ({
-    label: labels?.[value as string] || String(value),
-    value
-  }));
-}
+
 
 /**
  * 钢网报价 Formily Schema
- * 专为钢网制造设计的表单字段配置
+ * 严格按照图片中的字段设计
  */
 export const stencilFormilySchema: ISchema = {
   type: "object",
   properties: {
-    // === 钢网工艺指导 ===
-    stencilGuide: {
-      type: "void",
-      title: "Manufacturing Process Guide",
-      "x-decorator": "FormFieldLayout",
-      "x-decorator-props": {
-        title: "🔧 Manufacturing Process Guide",
-        description: "Learn about different stencil manufacturing processes to make the best choice for your project",
+    // === Border Type ===
+    borderType: {
+      type: "string",
+      title: "Border Type",
+      "x-component": "TabSelect",
+      "x-component-props": {
+        options: borderTypeOptions
       },
-      "x-component": "StencilProcessGuide",
+      default: BorderType.FRAMEWORK
+    },
+
+    // === Stencil Type ===
+    stencilType: {
+      type: "string",
+      title: "Stencil Type",
+      "x-component": "TabSelect",
+      "x-component-props": {
+        options: stencilTypeOptions
+      },
+      default: StencilType.SOLDER_PASTE
+    },
+
+    // === Size ===
+    size: fullWidth({
+      type: "string",
+      title: "Size(mm)",
+      "x-component": "Select",
+      "x-component-props": {
+        placeholder: "Select size",
+        options: sizeOptions.framework
+      },
       "x-reactions": [
         {
-          dependencies: ["stencilMaterial", "stencilThickness", "stencilProcess", "frameType"],
+          dependencies: ["borderType"],
+          when: "{{$deps[0] === 'framework'}}",
           fulfill: {
             state: {
               componentProps: {
-                selectedProcess: "{{$deps[2]}}",
-                selectedMaterial: "{{$deps[0]}}",
-                selectedThickness: "{{$deps[1]}}",
-                selectedFrameType: "{{$deps[3]}}"
+                options: sizeOptions.framework
+              }
+            }
+          },
+          otherwise: {
+            state: {
+              componentProps: {
+                options: sizeOptions.non_framework
               }
             }
           }
         }
-      ]
-    },
-
-    // === 基础信息 ===
-    stencilMaterial: {
-      type: "string",
-      title: "Stencil Material",
-      "x-component": "TabSelect",
-      "x-component-props": {
-        options: enumToOptions(StencilMaterial, StencilMaterialLabels)
-      },
-      default: StencilMaterial.STAINLESS_STEEL_304
-    },
-    
-    stencilThickness: {
-      type: "number", 
-      title: "Stencil Thickness",
-      "x-component": "TabSelect",
-      "x-component-props": {
-        options: enumToOptions(StencilThickness, StencilThicknessLabels)
-      },
-      default: StencilThickness.T0_12
-    },
-
-    stencilProcess: {
-      type: "string",
-      title: "Manufacturing Process", 
-      "x-component": "TabSelect",
-      "x-component-props": {
-        options: enumToOptions(StencilProcess, StencilProcessLabels)
-      },
-      default: StencilProcess.LASER_CUT
-    },
-
-    // === 框架配置 ===
-    frameType: {
-      type: "string",
-      title: "Frame Type",
-      "x-component": "TabSelect", 
-      "x-component-props": {
-        options: enumToOptions(FrameType, FrameTypeLabels)
-      },
-      default: FrameType.SMT_FRAME
-    },
-
-    frameSize: fullWidth({
-      type: "string",
-      title: "Frame Size",
-      "x-component": "Select",
-      "x-component-props": {
-        placeholder: "Select standard frame size",
-        options: [
-          { label: "300×400mm (Hand printing)", value: "300x400" },
-          { label: "370×470mm (Hand printing)", value: "370x470" },
-          { label: "420×520mm (Semi-auto/Auto)", value: "420x520" },
-          { label: "450×550mm (Semi-auto/Auto)", value: "450x550" },
-          { label: "550×650mm (Standard)", value: "550x650" },
-          { label: "584×584mm (23″×23″)", value: "584x584" },
-          { label: "736×736mm (29″×29″)", value: "736x736" }
-        ]
-      },
-      "x-reactions": {
-        dependencies: ["frameType"],
-        fulfill: {
-          state: {
-            visible: "{{$deps[0] !== 'no_frame'}}"
-          }
-        }
-      },
-      default: "550x650"
+      ],
+      default: "420x520"
     }),
 
-    // === 工艺要求 ===
-    surfaceTreatment: {
+    // === Stencil Side ===
+    stencilSide: {
       type: "string",
-      title: "Surface Treatment",
+      title: "Stencil Side",
       "x-component": "TabSelect",
       "x-component-props": {
-        options: enumToOptions(SurfaceTreatment, SurfaceTreatmentLabels)
+        options: stencilSideOptions
       },
-      default: SurfaceTreatment.NONE
+      default: "top"
     },
 
-    tensionMesh: {
-      type: "boolean",
-      title: "Tension Mesh Required",
-      "x-component": "BooleanTabs",
-      "x-component-props": {
-        description: "Recommended for fine pitch components (≤0.4mm)"
-      },
-      default: false
-    },
-
-    fiducialMarks: {
-      type: "boolean", 
-      title: "Fiducial Marks",
-      "x-component": "BooleanTabs",
-      "x-component-props": {
-        description: "Alignment marks for automated placement"
-      },
-      default: true
-    },
-
-    // === 尺寸和数量 ===
-    singleDimensions: fullWidth({
-      type: "object",
-      title: "Stencil Size (mm)",
-      "x-component": "DimensionsInput",
-      "x-component-props": {
-        placeholder: { length: "Length", width: "Width" },
-        min: 5,
-        max: 600,
-        description: "Maximum size depends on frame selection"
-      },
-      default: { length: 100, width: 80 }
-    }),
-
-    singleCount: {
+    // === Quantity ===
+    quantity: {
       type: "number",
       title: "Quantity",
       "x-component": "QuantityInput",
       "x-component-props": {
         placeholder: "Enter quantity",
-        options: [1, 2, 3, 5, 10, 15, 20, 30, 50, 100],
         min: 1,
-        max: 500
+        max: 500,
+        unit: "pcs"
       },
       default: 1
     },
 
-    // === 交期选项 ===
-    deliveryOptions: {
-      type: "object",
-      title: "Delivery Options",
-      "x-component": "DeliverySelector", 
+    // === Thickness ===
+    thickness: {
+      type: "number", 
+      title: "Thickness",
+      "x-component": "TabSelect",
       "x-component-props": {
-        productType: "stencil"
+        options: stencilThicknessOptions
       },
-      properties: {
-        delivery: {
-          type: "string",
-          title: "Delivery Type",
-          "x-component": "TabSelect",
-          "x-component-props": {
-            options: [
-              { label: "Standard (3-5 days)", value: "standard" },
-              { label: "Express (1-2 days)", value: "express" },
-              { label: "Same Day (24 hours)", value: "same_day" }
-            ]
-          },
-          default: "standard"
-        },
-        urgentReduceDays: {
-          type: "number",
-          title: "Rush Days Reduction", 
-          "x-component": "TabSelect",
-          "x-component-props": {
-            options: [
-              { label: "No Rush", value: 0 },
-              { label: "1 Day Rush (+30%)", value: 1 },
-              { label: "2 Days Rush (+60%)", value: 2 }
-            ]
-          },
-          "x-reactions": {
-            dependencies: ["deliveryOptions.delivery"],
-            fulfill: {
-              state: {
-                visible: "{{$deps[0] === 'standard'}}"
-              }
-            }
-          },
-          default: 0
-        }
-      },
-      default: {
-        delivery: "standard",
-        urgentReduceDays: 0
-      }
+      default: 0.12
     },
 
-    // === 文件上传 ===
-    gerberUrl: fullWidth({
+    // === Existing Fiducials ===
+    existingFiducials: {
       type: "string",
-      title: "Design File URL",
+      title: "Existing Fiducials",
+      "x-component": "TabSelect",
+      "x-component-props": {
+        options: existingFiducialsOptions
+      },
+      default: "none"
+    },
+
+    // === Electropolishing ===
+    electropolishing: {
+      type: "string",
+      title: "Electropolishing",
+      "x-component": "TabSelect",
+      "x-component-props": {
+        options: electropolishingOptions
+      },
+      default: "grinding_polishing"
+    },
+
+    // === Engineering Requirements ===
+    engineeringRequirements: {
+      type: "string",
+      title: "Engineering Requirements",
+      "x-component": "TabSelect",
+      "x-component-props": {
+        options: engineeringRequirementsOptions
+      },
+      default: "nextpcb_spec"
+    },
+
+    // === Add PO No. ===
+    addPoNo: fullWidth({
+      type: "string",
+      title: "Add PO No.",
       "x-component": "Input",
       "x-component-props": {
-        placeholder: "Design file URL will be automatically filled after upload...",
+        placeholder: "Enter PO Number"
       },
       default: ""
     }),
 
-    // === 运费估算 ===
-    shippingCostEstimation: fullWidth({
-      type: "object",
-      title: "Shipping Cost Estimation",
-      "x-component": "ShippingCostEstimation",
-      properties: {
-        country: {
-          type: "string",
-          title: "Destination Country",
-          "x-component": "CountrySelect"
-        },
-        courier: {
-          type: "string", 
-          title: "Preferred Courier",
-          "x-component": "CourierSelect"
-        }
-      },
-      default: { country: "", courier: "" }
-    }),
-
-    // === 收货地址 ===
-    shippingAddress: fullWidth({
-      type: "object",
-      title: "Shipping Address",
-      "x-component": "AddressInput",
-      "x-component-props": {
-        productType: "stencil"
-      }
-    }),
-
-    // === 特殊要求 ===
+    // === Special Requests ===
     specialRequests: fullWidth({
       type: "string",
-      title: "Special Requirements",
+      title: "Special Requests",
       "x-component": "TextArea",
       "x-component-props": {
-        placeholder: "Any special requirements for your stencil manufacturing...\n\nExample:\n- Custom aperture modifications\n- Specific cleaning requirements\n- Special packaging needs\n- Quality inspection requirements\n- Additional notes or questions",
+        placeholder: "Please fill in your special requirements for the stencil order(within 5-1000 characters).",
         maxLength: 1000,
         rows: 4
       },
@@ -305,71 +190,31 @@ export const stencilFormilySchema: ISchema = {
 // 钢网字段分组配置
 export const stencilFieldGroups = [
   {
-    title: "Basic Specifications",
-    fields: ["stencilMaterial", "stencilThickness", "stencilProcess"]
+    title: "Stencil Configuration",
+    fields: ["borderType", "stencilType",  "size", "stencilSide", "quantity"]
   },
   {
-    title: "Frame Configuration", 
-    fields: ["frameType", "frameSize"]
+    title: "Manufacturing Process", 
+    fields: ["thickness", "existingFiducials", "electropolishing", "engineeringRequirements"]
   },
   {
-    title: "Surface & Quality",
-    fields: ["surfaceTreatment", "tensionMesh", "fiducialMarks"]
-  },
-  {
-    title: "Dimensions & Quantity",
-    fields: ["singleDimensions", "singleCount"]
-  },
-  {
-    title: "Delivery Options",
-    fields: ["deliveryOptions"]
-  },
-  {
-    title: "File Upload",
-    fields: ["gerberUrl"]
-  },
-  {
-    title: "Shipping Cost Estimation",
-    fields: ["shippingCostEstimation"]
-  },
-  {
-    title: "Shipping Information",
-    fields: ["shippingAddress"]
-  },
-  {
-    title: "Additional Information",
-    fields: ["specialRequests"]
+    title: "Order Information",
+    fields: ["addPoNo", "specialRequests"]
   }
 ];
 
 // 钢网默认表单数据
 export const stencilDefaultFormData = {
   productType: "stencil",
-  stencilMaterial: StencilMaterial.STAINLESS_STEEL_304,
-  stencilThickness: StencilThickness.T0_12,
-  stencilProcess: StencilProcess.LASER_CUT,
-  frameType: FrameType.SMT_FRAME,
-  frameSize: "550x650",
-  surfaceTreatment: SurfaceTreatment.NONE,
-  tensionMesh: false,
-  fiducialMarks: true,
-  singleDimensions: { length: 100, width: 80 },
-  singleCount: 1,
-  deliveryOptions: {
-    delivery: "standard",
-    urgentReduceDays: 0
-  },
-  gerberUrl: "",
-  shippingCostEstimation: { country: "", courier: "" },
-  shippingAddress: {
-    country: "",
-    state: "",
-    city: "",
-    address: "",
-    zipCode: "",
-    phone: "",
-    contactName: "",
-    courier: ""
-  },
+  borderType: BorderType.FRAMEWORK,
+  stencilType: StencilType.SOLDER_PASTE,
+  size: "420x520",
+  stencilSide: StencilSide.TOP,
+  quantity: 1,
+  thickness: StencilThickness.T0_12,
+  existingFiducials: ExistingFiducials.NONE,
+  electropolishing: Electropolishing.GRINDING_POLISHING,
+  engineeringRequirements: EngineeringRequirements.SPEEDX_SPEC,
+  addPoNo: "",
   specialRequests: ""
 }; 
