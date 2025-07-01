@@ -66,16 +66,14 @@ export class StencilCalculator extends BaseProductCalculator {
 
   calculateLeadTime(formData: StencilFormData): number {
     // 钢网标准制作周期
-    let leadDays = 5; // 基础5天
+    let leadDays = 1; // 基础5天
 
     // 特殊工艺延长交期
     if (formData.electropolishing === 'electropolishing') {
       leadDays += 1; // 电抛光+1天
     }
 
-    if (formData.engineeringRequirements === 'customer_confirm') {
-      leadDays += 2; // 客户确认+2天
-    }
+  
 
     return leadDays;
   }

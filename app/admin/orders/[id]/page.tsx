@@ -1241,7 +1241,7 @@ export default function AdminOrderDetailPage() {
         {/* 右侧：管理员操作面板 - 只在大屏幕上显示 */}
         <div className="hidden xl:block xl:col-span-3 space-y-3 md:space-y-4">
           {/* 审核状态 */}
-          <ReviewStatusPanel pcbFormData={pcbFormData} />
+          <ReviewStatusPanel pcbFormData={pcbFormData} order={order} />
 
           {/* 计算结果面板 */}
           <CalculationResultPanels 
