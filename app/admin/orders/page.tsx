@@ -56,6 +56,14 @@ export default function AdminOrdersPage() {
         throw new Error(errorData.error || 'Failed to fetch orders');
       }
       const data = await response.json();
+      
+      // 添加调试信息
+      if (process.env.NODE_ENV === 'development') {
+        console.log('API Response:', data);
+        console.log('Pagination data:', data.pagination);
+        console.log('Total count:', data.pagination?.total || data.total);
+      }
+      
       const ordersWithType = (data.data || []).map((item: unknown) => {
         const orderItem = item as Record<string, unknown>;
         
@@ -83,10 +91,14 @@ export default function AdminOrdersPage() {
           admin_orders: Array.isArray(orderItem.admin_orders) 
             ? (orderItem.admin_orders.length > 0 ? orderItem.admin_orders[0] : null)
             : orderItem.admin_orders,
-        } as any;
+        } as unknown as Order;
       });
       setOrders(ordersWithType);
-      setPagination(p => ({ ...p, total: data.total || 0 }));
+      // 修复：正确访问 API 返回的分页数据结构
+      setPagination(p => ({ 
+        ...p, 
+        total: data.pagination?.total || data.total || 0 
+      }));
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
       setError(errorMessage);

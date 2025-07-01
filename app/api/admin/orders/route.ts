@@ -129,7 +129,18 @@ export async function GET(request: NextRequest) {
       }
 
       if (id) {
-        query = query.ilike('id', `%${id}%`);
+        // 使用数据库函数解决UUID查询问题
+        // 不能直接对UUID使用ilike，需要通过数据库函数
+        const { data: matchingIds } = await supabase
+          .rpc('search_orders_by_uuid', { search_text: id });
+        
+        if (matchingIds && matchingIds.length > 0) {
+          const uuidList = matchingIds.map((item: { id: string }) => item.id);
+          query = query.in('id', uuidList);
+        } else {
+          // 如果没有匹配的ID，返回空结果
+          query = query.eq('id', '00000000-0000-0000-0000-000000000000'); // 不存在的UUID
+        }
       }
 
       const offset = (page - 1) * pageSize;

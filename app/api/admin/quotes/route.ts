@@ -27,9 +27,20 @@ export async function GET(request: NextRequest) {
       query = query.eq("status", status);
     }
 
-    // 添加搜索条件
+    // 添加搜索条件 - 修复UUID查询问题
     if (search) {
-      query = query.or(`id.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+      // 先尝试UUID搜索
+      const { data: matchingIds } = await supabase
+        .rpc('search_orders_by_uuid', { search_text: search });
+      
+      if (matchingIds && matchingIds.length > 0) {
+        // 如果找到匹配的UUID，组合UUID、email、phone查询
+        const uuidList = matchingIds.map((item: { id: string }) => item.id);
+        query = query.or(`id.in.(${uuidList.join(',')}),email.ilike.%${search}%,phone.ilike.%${search}%`);
+      } else {
+        // 如果没有匹配的UUID，只搜索email和phone
+        query = query.or(`email.ilike.%${search}%,phone.ilike.%${search}%`);
+      }
     }
 
     // 添加分页

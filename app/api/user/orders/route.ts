@@ -99,9 +99,18 @@ export async function GET(request: Request) {
       console.log('Applying search filter for term:', searchTerm, 'in column:', searchColumn);
       
       switch (searchColumn) {
-                case 'order_id':
-          // 使用 UUID 部分匹配搜索
-          query = query.or(`id.ilike.%${searchTerm}%`);
+        case 'order_id':
+          // 使用数据库函数解决UUID查询问题
+          const { data: matchingIds } = await supabase
+            .rpc('search_orders_by_uuid', { search_text: searchTerm });
+          
+          if (matchingIds && matchingIds.length > 0) {
+            const uuidList = matchingIds.map((item: { id: string }) => item.id);
+            query = query.in('id', uuidList);
+          } else {
+            // 如果没有匹配的ID，返回空结果
+            query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+          }
           break;
         case 'email':
           query = query.ilike('email', `%${searchTerm}%`);
