@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from './components/PageHeader';
 import { OrderOverview } from './components/OrderOverview';
 import { PCBSpecReview } from './components/PCBSpecReview';
+import { StencilSpecReview } from './components/StencilSpecReview';
 import { CalculationResultPanels } from './components/CalculationResultPanels';
 import { ReviewStatusPanel } from './components/ReviewStatusPanel';
 import { PriceManagementPanel } from './components/PriceManagementPanel';
@@ -1182,11 +1183,27 @@ export default function AdminOrderDetailPage() {
           {/* 订单概览 */}
           <OrderOverview order={order} pcbFormData={pcbFormData} adminOrder={adminOrder} />
 
-          {/* PCB技术规格审核 */}
-          <PCBSpecReview 
-            pcbFormData={pcbFormData as QuoteFormData | null} 
-            shippingAddress={order?.shipping_address as AddressFormValue | null}
-          />
+          {/* 技术规格审核 - 根据产品类型显示不同组件 */}
+          {(() => {
+            const productType = pcbFormData?.productType || 
+              (pcbFormData?.borderType ? 'stencil' : 'pcb');
+            
+            if (productType === 'stencil') {
+              return (
+                <StencilSpecReview 
+                  stencilFormData={pcbFormData as any}
+                  shippingAddress={order?.shipping_address as any}
+                />
+              );
+            } else {
+              return (
+                <PCBSpecReview 
+                  pcbFormData={pcbFormData as QuoteFormData | null} 
+                  shippingAddress={order?.shipping_address as AddressFormValue | null}
+                />
+              );
+            }
+          })()}
           
           {/* 价格管理 */}
           <PriceManagementPanel 

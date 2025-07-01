@@ -23,6 +23,7 @@ import { quoteSchema, QuoteFormData } from '@/app/quote2/schema/quoteSchema';
 import { useToast } from '@/components/ui/use-toast';
 import { AddressFormComponent, AddressFormValue } from '@/app/quote2/components/AddressFormComponent';
 import { PCBSpecificationDisplay } from '@/app/components/custom-ui/PCBSpecificationDisplay';
+import { StencilSpecificationDisplay } from '@/app/components/custom-ui/StencilSpecificationDisplay';
 import { DeliveryInfoDisplay } from '@/app/components/custom-ui/DeliveryInfoDisplay';
 
 
@@ -903,9 +904,18 @@ export default function OrderDetailPage() {
               stripeRefundId={adminOrder?.stripe_refund_id || undefined}
             />
 
-            {/* PCB Specifications */}
+            {/* Product Specifications */}
             <div className="space-y-4">
-              <PCBSpecificationDisplay pcbFormData={pcbFormData} />
+              {(() => {
+                const productType = pcbFormData?.productType || 
+                  (pcbFormData?.borderType ? 'stencil' : 'pcb');
+                
+                if (productType === 'stencil') {
+                  return <StencilSpecificationDisplay stencilFormData={pcbFormData as any} />;
+                } else {
+                  return <PCBSpecificationDisplay pcbFormData={pcbFormData} />;
+                }
+              })()}
               
               {/* Delivery Information */}
               {pcbFormData && (
@@ -1167,11 +1177,17 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      {/* PCB Details Dialog */}
+      {/* Product Details Dialog */}
       <Dialog open={showPcbDetails} onOpenChange={setShowPcbDetails}>
         <DialogContent className="max-w-sm sm:max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Complete PCB Specifications</DialogTitle>
+            <DialogTitle>
+              {(() => {
+                const productType = pcbFormData?.productType || 
+                  (pcbFormData?.borderType ? 'stencil' : 'pcb');
+                return productType === 'stencil' ? 'Complete Stencil Specifications' : 'Complete PCB Specifications';
+              })()}
+            </DialogTitle>
           </DialogHeader>
           <div className="py-4">
             {pcbFormData ? (
@@ -1190,7 +1206,7 @@ export default function OrderDetailPage() {
                   ))}
               </div>
             ) : (
-              <p className="text-center text-gray-500 py-8">No PCB specifications available</p>
+              <p className="text-center text-gray-500 py-8">No product specifications available</p>
             )}
           </div>
         </DialogContent>

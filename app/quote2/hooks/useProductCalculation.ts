@@ -216,7 +216,7 @@ export const useProductCalculation = () => {
       console.error('产品计算失败:', error);
       
       // 设置错误状态
-      setCalValues({
+      setCalValues({ 
         totalPrice: 0,
         pcbPrice: 0,
         unitPrice: 0,

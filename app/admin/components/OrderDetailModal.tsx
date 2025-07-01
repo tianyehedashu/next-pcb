@@ -95,29 +95,69 @@ export function OrderDetailModal({ order, onClose }: { order: Order | null; onCl
           {/* PCB 规格信息 */}
           {order.pcb_spec && (
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-gray-800">PCB Specifications</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div><span className="font-medium">Layers:</span> {order.pcb_spec.layers || '-'}</div>
-                <div><span className="font-medium">PCB Type:</span> {order.pcb_spec.pcbType || '-'}</div>
-                <div><span className="font-medium">Thickness:</span> {order.pcb_spec.thickness ? `${order.pcb_spec.thickness}mm` : '-'}</div>
-                <div><span className="font-medium">Surface Finish:</span> {order.pcb_spec.surfaceFinish || '-'}</div>
-                <div><span className="font-medium">Solder Mask:</span> {order.pcb_spec.solderMask || '-'}</div>
-                <div><span className="font-medium">Silkscreen:</span> {order.pcb_spec.silkscreen || '-'}</div>
-                <div><span className="font-medium">Min Trace:</span> {order.pcb_spec.minTrace || '-'}</div>
-                <div><span className="font-medium">Min Hole:</span> {order.pcb_spec.minHole || '-'}</div>
-                <div><span className="font-medium">Delivery:</span> {order.pcb_spec.delivery || '-'}</div>
-              </div>
-              {order.pcb_spec.singleDimensions && (
-                <div className="mt-2">
-                  <span className="font-medium">Dimensions:</span> {order.pcb_spec.singleDimensions.length} × {order.pcb_spec.singleDimensions.width} mm
-                </div>
-              )}
-              {order.pcb_spec.pcbNote && (
-                <div className="mt-2">
-                  <span className="font-medium">PCB Note:</span>
-                  <p className="mt-1 text-gray-600">{order.pcb_spec.pcbNote}</p>
-                </div>
-              )}
+              {(() => {
+                const spec = order.pcb_spec as Record<string, unknown>;
+                const productType = spec?.productType || (spec?.borderType ? 'stencil' : 'pcb');
+                
+                if (productType === 'stencil') {
+                  return (
+                    <>
+                      <h3 className="text-lg font-semibold text-gray-800">Stencil Specifications</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                        <div><span className="font-medium">Border Type:</span> {spec?.borderType || '-'}</div>
+                        <div><span className="font-medium">Stencil Type:</span> {spec?.stencilType || '-'}</div>
+                        <div><span className="font-medium">Size:</span> {spec?.size ? `${spec.size}mm` : '-'}</div>
+                        <div><span className="font-medium">Stencil Side:</span> {spec?.stencilSide || '-'}</div>
+                        <div><span className="font-medium">Quantity:</span> {spec?.quantity || '-'}</div>
+                        <div><span className="font-medium">Thickness:</span> {spec?.thickness ? `${spec.thickness}mm` : '-'}</div>
+                        <div><span className="font-medium">Fiducials:</span> {spec?.existingFiducials || '-'}</div>
+                        <div><span className="font-medium">Electropolishing:</span> {spec?.electropolishing || '-'}</div>
+                        <div><span className="font-medium">Engineering Requirements:</span> {spec?.engineeringRequirements || '-'}</div>
+                      </div>
+                      {spec?.addPoNo && (
+                        <div className="mt-2">
+                          <span className="font-medium">PO Number:</span> {spec.addPoNo}
+                        </div>
+                      )}
+                      {spec?.specialRequests && (
+                        <div className="mt-2">
+                          <span className="font-medium">Special Requests:</span>
+                          <p className="mt-1 text-gray-600">{spec.specialRequests}</p>
+                        </div>
+                      )}
+                    </>
+                  );
+                } else {
+                  return (
+                    <>
+                      <h3 className="text-lg font-semibold text-gray-800">PCB Specifications</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                        <div><span className="font-medium">Layers:</span> {spec?.layers || '-'}</div>
+                        <div><span className="font-medium">PCB Type:</span> {spec?.pcbType || '-'}</div>
+                        <div><span className="font-medium">Thickness:</span> {spec?.thickness ? `${spec.thickness}mm` : '-'}</div>
+                        <div><span className="font-medium">Surface Finish:</span> {spec?.surfaceFinish || '-'}</div>
+                        <div><span className="font-medium">Solder Mask:</span> {spec?.solderMask || '-'}</div>
+                        <div><span className="font-medium">Silkscreen:</span> {spec?.silkscreen || '-'}</div>
+                        <div><span className="font-medium">Min Trace:</span> {spec?.minTrace || '-'}</div>
+                        <div><span className="font-medium">Min Hole:</span> {spec?.minHole || '-'}</div>
+                        <div><span className="font-medium">Delivery:</span> {spec?.delivery || '-'}</div>
+                      </div>
+                      {spec?.singleDimensions && typeof spec.singleDimensions === 'object' && 
+                        'length' in spec.singleDimensions && 'width' in spec.singleDimensions && (
+                        <div className="mt-2">
+                          <span className="font-medium">Dimensions:</span> {(spec.singleDimensions as any).length} × {(spec.singleDimensions as any).width} mm
+                        </div>
+                      )}
+                      {spec?.pcbNote && (
+                        <div className="mt-2">
+                          <span className="font-medium">PCB Note:</span>
+                          <p className="mt-1 text-gray-600">{spec.pcbNote}</p>
+                        </div>
+                      )}
+                    </>
+                  );
+                }
+              })()}
             </div>
           )}
 

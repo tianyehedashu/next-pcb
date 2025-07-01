@@ -63,7 +63,7 @@ export default function OrderTableRow({ order, viewMode = 'table' }: OrderTableR
           {(() => {
             const pcbSpec = order.pcb_spec as Record<string, unknown> | null;
             const productType = pcbSpec?.productType || 
-              (pcbSpec?.stencilMaterial ? 'stencil' : 'pcb');
+              (pcbSpec?.borderType ? 'stencil' : 'pcb');
             
             if (productType === 'stencil') {
               return (
@@ -72,14 +72,14 @@ export default function OrderTableRow({ order, viewMode = 'table' }: OrderTableR
                     <span className="text-xs text-blue-600 font-medium">🔧 STENCIL</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <span><strong>Material:</strong> {pcbSpec?.stencilMaterial || '-'}</span>
-                    <span><strong>Qty:</strong> {summary.quantity}</span>
-                    <span><strong>Size:</strong> {summary.size}</span>
+                    <span><strong>Border:</strong> {pcbSpec?.borderType || '-'}</span>
+                    <span><strong>Qty:</strong> {pcbSpec?.quantity || summary.quantity}</span>
+                    <span><strong>Size:</strong> {pcbSpec?.size || summary.size}mm</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
-                    <span><strong>Thickness:</strong> {pcbSpec?.stencilThickness || '-'}mm</span>
-                    <span><strong>Process:</strong> {pcbSpec?.stencilProcess || '-'}</span>
-                    <span><strong>Frame:</strong> {pcbSpec?.frameType || 'None'}</span>
+                    <span><strong>Thickness:</strong> {pcbSpec?.thickness || '-'}mm</span>
+                    <span><strong>Type:</strong> {pcbSpec?.stencilType || '-'}</span>
+                    <span><strong>Side:</strong> {pcbSpec?.stencilSide || '-'}</span>
                   </div>
                 </div>
               );
@@ -196,7 +196,7 @@ export default function OrderTableRow({ order, viewMode = 'table' }: OrderTableR
           {(() => {
             const pcbSpec = order.pcb_spec as Record<string, unknown> | null;
             const productType = pcbSpec?.productType || 
-              (pcbSpec?.stencilMaterial ? 'stencil' : 'pcb');
+              (pcbSpec?.borderType ? 'stencil' : 'pcb');
             
             if (productType === 'stencil') {
               return (
@@ -207,28 +207,28 @@ export default function OrderTableRow({ order, viewMode = 'table' }: OrderTableR
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Material:</span>
-                      <span className="font-medium">{pcbSpec?.stencilMaterial || '-'}</span>
+                      <span className="text-gray-500">Border Type:</span>
+                      <span className="font-medium">{pcbSpec?.borderType || '-'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Quantity:</span>
-                      <span className="font-medium">{summary.quantity}</span>
+                      <span className="font-medium">{pcbSpec?.quantity || summary.quantity}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Size:</span>
-                      <span className="font-medium">{summary.size}</span>
+                      <span className="font-medium">{pcbSpec?.size || summary.size}mm</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Thickness:</span>
-                      <span className="font-medium">{pcbSpec?.stencilThickness || '-'}mm</span>
+                      <span className="font-medium">{pcbSpec?.thickness || '-'}mm</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Process:</span>
-                      <span className="font-medium">{pcbSpec?.stencilProcess || '-'}</span>
+                      <span className="text-gray-500">Stencil Type:</span>
+                      <span className="font-medium">{pcbSpec?.stencilType || '-'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Frame:</span>
-                      <span className="font-medium">{pcbSpec?.frameType || 'None'}</span>
+                      <span className="text-gray-500">Stencil Side:</span>
+                      <span className="font-medium">{pcbSpec?.stencilSide || '-'}</span>
                     </div>
                   </div>
                 </>

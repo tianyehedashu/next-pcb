@@ -1124,7 +1124,10 @@ export function QuoteForm({ editId }: { editId?: string }) {
               Upload {currentProductType === ProductType.STENCIL ? 'Design' : 'Gerber'} File
             </h3>
           </div>
-          <FileUploadSection /> 
+          <FileUploadSection 
+            enableAnalysis={currentProductType !== ProductType.STENCIL}
+            productType={currentProductType}
+          /> 
         </CardContent>
       </Card>
       <Separator className="my-6" />

@@ -183,6 +183,51 @@ export const stencilFormilySchema: ISchema = {
         rows: 4
       },
       default: ""
+    }),
+
+    // === 运输信息 ===
+
+    shippingCostEstimation: fullWidth({
+      type: "object",
+      "x-component": "ShippingCostEstimation",
+      properties: {
+        country: {
+          type: "string",
+          title: "Country",
+          "x-component": "Select"
+        },
+        courier: {
+          type: "string",
+          title: "Courier",
+          "x-component": "Select"
+        }
+      }
+    }),
+
+    shippingAddress: fullWidth({
+      type: "object",
+      title: "Shipping Address",
+      "x-component": "AddressInput",
+      "x-component-props": {
+        // userId 将通过 form context 或 reactions 传递
+      },
+      required: true,
+      "x-validator": [
+        {
+          required: true,
+          message: "Shipping Address is required"
+        }
+      ],
+      default: {
+        country: "",
+        state: "",
+        city: "",
+        address: "",
+        zipCode: "",
+        contactName: "",
+        phone: "",
+        courier: ""
+      }
     })
   }
 };
@@ -200,6 +245,14 @@ export const stencilFieldGroups = [
   {
     title: "Order Information",
     fields: ["addPoNo", "specialRequests"]
+  },
+  {
+    title: "Shipping Cost Estimation",
+    fields: ["shippingCostEstimation"]
+  },
+  {
+    title: "Shipping Information", 
+    fields: ["shippingAddress"]
   }
 ];
 
@@ -216,5 +269,19 @@ export const stencilDefaultFormData = {
   electropolishing: Electropolishing.GRINDING_POLISHING,
   engineeringRequirements: EngineeringRequirements.SPEEDX_SPEC,
   addPoNo: "",
-  specialRequests: ""
+  specialRequests: "",
+  shippingCostEstimation: {
+    country: "",
+    courier: ""
+  },
+  shippingAddress: {
+    country: "",
+    state: "",
+    city: "",
+    address: "",
+    zipCode: "",
+    contactName: "",
+    phone: "",
+    courier: ""
+  }
 }; 

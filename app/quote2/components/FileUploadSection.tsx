@@ -32,7 +32,15 @@ interface CompatibleUploadState {
   isAnalyzing?: boolean;
 }
 
-export function FileUploadSection() {
+interface FileUploadSectionProps {
+  enableAnalysis?: boolean; // 是否启用文件分析，默认true
+  productType?: string; // 产品类型，用于显示不同的提示文本
+}
+
+export function FileUploadSection({ 
+  enableAnalysis = true,
+  productType = 'pcb'
+}: FileUploadSectionProps) {
   const { uploadState, handleFileSelect, retryUpload, clearFile } = useFileUpload();
   const form = useForm();
   const { updateFormData } = useQuoteStore();
@@ -41,7 +49,7 @@ export function FileUploadSection() {
   const handleFileInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // 选择文件后会自动解析并上传
+      // 钢网产品不进行文件分析，直接上传
       handleFileSelect(file);
     }
     // 清空input值，允许重复选择同一文件
@@ -56,7 +64,7 @@ export function FileUploadSection() {
       // 清空之前的URL以确保使用新上传的文件
       updateFormData({ gerberUrl: '' });
       
-      // 拖放文件后会自动解析并上传
+      // 钢网产品不进行文件分析，直接上传
       handleFileSelect(file);
     }
   }, [handleFileSelect, updateFormData]);
@@ -78,8 +86,8 @@ export function FileUploadSection() {
     
     const fieldsToUpdate: { [key: string]: unknown } = {};
 
-    // 1. 同步分析结果（如果存在）
-    if (uploadState.analysisResult) {
+    // 1. 同步分析结果（如果存在且启用分析）
+    if (uploadState.analysisResult && enableAnalysis) {
       const { analysisResult } = uploadState;
 
       // PCB尺寸
@@ -142,7 +150,7 @@ export function FileUploadSection() {
         });
       }, 0);
     }
-  }, [uploadState.analysisResult, uploadState.uploadUrl, uploadState.uploadStatus, form, updateFormData]);
+  }, [uploadState.analysisResult, uploadState.uploadUrl, uploadState.uploadStatus, form, updateFormData, enableAnalysis]);
 
   const hasFile = !!uploadState.file;
 
@@ -186,13 +194,22 @@ export function FileUploadSection() {
           <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
           <div className="space-y-2">
             <h3 className="text-lg font-medium text-gray-900">
-              Drop your Gerber files here
+              {productType === 'stencil' 
+                ? 'Drop your design files here' 
+                : 'Drop your Gerber files here'
+              }
             </h3>
             <p className="text-sm text-gray-500">
-              Support .zip, .rar files or individual CAD files
+              {productType === 'stencil'
+                ? 'Support .zip, .rar files or individual design files'
+                : 'Support .zip, .rar files or individual CAD files'
+              }
             </p>
             <p className="text-xs text-gray-400">
-              Supported formats: All Gerber files (.gbr, .gtl, .gbl, etc.), drill files (.drl, .nc), inner layers (.g1-.g32), reports (.rep, .apr), pick & place (.xy, .pos), BOM files, and more
+              {productType === 'stencil'
+                ? 'Supported formats: Design files, CAD files, DXF, DWG, PDF, images and more'
+                : 'Supported formats: All Gerber files (.gbr, .gtl, .gbl, etc.), drill files (.drl, .nc), inner layers (.g1-.g32), reports (.rep, .apr), pick & place (.xy, .pos), BOM files, and more'
+              }
             </p>
           </div>
           <div className="mt-6">
@@ -223,12 +240,31 @@ export function FileUploadSection() {
         />
       )}
 
-      {/* 分析结果显示 */}
-      {uploadState.analysisResult && (
+      {/* 分析结果显示 - 仅在启用分析时显示 */}
+      {uploadState.analysisResult && enableAnalysis && (
         <AnalysisResultDisplay
           analysisResult={uploadState.analysisResult}
           isAnalyzing={uploadState.uploadStatus === 'parsing'}
         />
+      )}
+
+      {/* 钢网产品提示信息 */}
+      {productType === 'stencil' && hasFile && (
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              ℹ️
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-blue-900 mb-1">
+                Stencil File Upload
+              </h4>
+              <p className="text-sm text-blue-700">
+                Your design file has been uploaded successfully. For stencil orders, file analysis is not required - our team will review your design manually to ensure optimal manufacturing.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 隐藏的替换文件input */}

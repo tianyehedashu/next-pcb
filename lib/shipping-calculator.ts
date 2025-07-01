@@ -160,18 +160,25 @@ function isPeakSeason(date: Date = new Date()): boolean {
 function calculateStencilWeight(formData: StencilFormData): number {
   const { borderType, size, quantity } = formData;
   
-  if (!size || !quantity) {
-    return 0;
+  if (!size || !quantity || quantity <= 0) {
+    console.warn('钢网重量计算: 缺少必要参数', { borderType, size, quantity });
+    return 500; // 返回默认最小重量0.5kg (500g)
   }
 
   // 获取钢网规格信息
   const sizeInfo = getStencilSpec(borderType, size);
   if (!sizeInfo) {
-    return 0;
+    console.warn('钢网重量计算: 未找到对应规格', { borderType, size });
+    // 返回默认重量：框架钢网2kg/件，无框钢网1kg/件
+    const defaultWeight = borderType === BorderType.FRAMEWORK ? 2000 : 1000; // 克
+    return defaultWeight * quantity;
   }
   
   // 严格按照钢网规格数据表的重量计算（克）
-  return sizeInfo.weightKgPerPcs * quantity * 1000; // 转换为克
+  const totalWeight = sizeInfo.weightKgPerPcs * quantity * 1000; // 转换为克
+  
+  // 确保最小重量
+  return Math.max(totalWeight, 500); // 最小0.5kg
 }
 
 // 钢网不需要体积重量计算，因为是高密度金属产品
@@ -240,6 +247,15 @@ export async function calculateShippingCost(
     totalWeight = calculateStencilWeight(stencilSpecs) / 1000; // 转换为kg
     volumetricWeight = 0; // 钢网不计算体积重量
 
+    // 确保钢网重量满足最小要求
+    if (totalWeight < 0.5) {
+      console.warn('钢网重量过低，使用最小重量0.5kg', { 
+        原始重量: totalWeight, 
+        调整后重量: 0.5 
+      });
+      totalWeight = 0.5;
+    }
+
     // 调试信息（开发环境）
     if (process.env.NODE_ENV === 'development') {
       console.log('钢网重量计算:', {
@@ -307,11 +323,21 @@ export async function calculateShippingCost(
     console.log(`使用默认运输区域处理国家: ${countryCode}`);
   }
 
-  // 只检查最小重量限制
+  // 计费重量处理
   const MIN_WEIGHT = 0.5; // 国际快递普遍最低计费重量为0.5kg
+  // 确保计费重量不低于最小值
+  const safeChargeableWeight = Math.max(chargeableWeight, MIN_WEIGHT);
   // 计费重量按0.5kg向上取整
-  const chargeableWeightRounded = Math.ceil(chargeableWeight * 2) / 2;
+  const chargeableWeightRounded = Math.ceil(safeChargeableWeight * 2) / 2;
+  
+  // 最终检查（冗余保护）
   if (chargeableWeightRounded < MIN_WEIGHT) {
+    console.error('计费重量异常:', { 
+      chargeableWeight, 
+      safeChargeableWeight, 
+      chargeableWeightRounded,
+      productType: isStencil ? 'stencil' : 'pcb'
+    });
     throw new Error(`Minimum weight requirement is ${MIN_WEIGHT}kg`);
   }
 

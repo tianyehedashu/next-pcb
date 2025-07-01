@@ -109,28 +109,9 @@ export class StencilCalculator extends BaseProductCalculator {
 
 
 
-  calculateLeadTime(formData: any, startDate: Date): number {
-    const { borderType, electropolishing, quantity } = formData;
-    
-    // 基础工期
-    let baseDays = 3; // 标准钢网制作3天
-    
-    // 含框钢网额外时间
-    if (borderType === BorderType.FRAMEWORK) {
-      baseDays += 1; // 框架安装额外1天
-    }
-    
-    // 电抛光额外时间
-    if (electropolishing === Electropolishing.ELECTROPOLISHING) {
-      baseDays += 1; // 电抛光处理额外1天
-    }
-    
-    // 数量加时
-    if (quantity > 50) {
-      baseDays += 1; // 大批量额外1天
-    }
-    
-    return baseDays;
+  calculateLeadTime(_formData: any, _startDate: Date): number {
+    // 钢网交期固定为2-3天，不受其他参数影响
+    return 2; // 统一2天交期
   }
 
   calculateWeight(formData: any): number {
@@ -180,22 +161,13 @@ export class StencilCalculator extends BaseProductCalculator {
     return notes;
   }
 
-  private getLeadTimeReasons(formData: any): string[] {
+  private getLeadTimeReasons(_formData: any): string[] {
     const reasons: string[] = [];
-    const { borderType, electropolishing } = formData;
     
-    reasons.push("📐 Stencil manufacturing lead time includes:");
-    reasons.push("• Laser cutting: 1-2 days");
-    
-    if (borderType === BorderType.FRAMEWORK) {
-      reasons.push("• Frame mounting: 1 day");
-    }
-    
-    if (electropolishing === Electropolishing.ELECTROPOLISHING) {
-      reasons.push("• Electropolishing: 1 day");
-    }
-    
-    reasons.push("• Quality inspection: 1 day");
+    reasons.push("📐 Stencil manufacturing lead time:");
+    reasons.push("• Fast production: 2-3 days");
+    reasons.push("• All processes included");
+    reasons.push("• Quality guaranteed");
     
     return reasons;
   }

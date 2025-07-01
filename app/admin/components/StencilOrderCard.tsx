@@ -5,35 +5,35 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  StencilMaterial, 
-  StencilProcess, 
-  StencilThickness, 
-  FrameType, 
-  SurfaceTreatment,
-  StencilMaterialLabels,
-  StencilProcessLabels,
+  BorderType,
+  StencilType,
+  StencilSide,
+  StencilThickness,
+  ExistingFiducials,
+  Electropolishing,
+  EngineeringRequirements,
+  BorderTypeLabels,
+  StencilTypeLabels,
+  StencilSideLabels,
   StencilThicknessLabels,
-  FrameTypeLabels,
-  SurfaceTreatmentLabels
+  ExistingFiducialsLabels,
+  ElectropolishingLabels,
+  EngineeringRequirementsLabels
 } from '../../quote2/schema/stencilTypes';
 
 interface StencilSpec {
   productType: 'stencil';
-  stencilMaterial: StencilMaterial;
-  stencilThickness: StencilThickness;
-  stencilProcess: StencilProcess;
-  frameType?: FrameType;
-  surfaceTreatment?: SurfaceTreatment;
-  singleDimensions: {
-    length: number;
-    width: number;
-  };
-  singleCount: number;
-  deliveryOptions?: {
-    delivery: string;
-    urgentReduceDays?: number;
-  };
-  notes?: string;
+  borderType: BorderType;
+  stencilType: StencilType;
+  size: string;
+  stencilSide: StencilSide;
+  quantity: number;
+  thickness: StencilThickness;
+  existingFiducials: ExistingFiducials;
+  electropolishing: Electropolishing;
+  engineeringRequirements: EngineeringRequirements;
+  addPoNo?: string;
+  specialRequests?: string;
 }
 
 interface StencilOrderCardProps {
@@ -74,16 +74,23 @@ export const StencilOrderCard: React.FC<StencilOrderCardProps> = ({
     }
   };
 
-  const getProcessColor = (process: StencilProcess) => {
-    switch (process) {
-      case StencilProcess.LASER_CUT: return 'bg-blue-100 text-blue-700';
-      case StencilProcess.ELECTROFORM: return 'bg-purple-100 text-purple-700';
-      case StencilProcess.CHEMICAL_ETCH: return 'bg-green-100 text-green-700';
+  const getTypeColor = (stencilType: StencilType) => {
+    switch (stencilType) {
+      case StencilType.SOLDER_PASTE: return 'bg-blue-100 text-blue-700';
+      case StencilType.ADHESIVES: return 'bg-purple-100 text-purple-700';
+      case StencilType.STEP_DOWN: return 'bg-green-100 text-green-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
 
-  const area = spec.singleDimensions.length * spec.singleDimensions.width;
+  // 解析尺寸信息
+  const parseSizeInfo = (size: string) => {
+    const [length, width] = size.split('x').map(d => parseInt(d) || 0);
+    const area = length * width;
+    return { length, width, area };
+  };
+
+  const sizeInfo = parseSizeInfo(spec.size || '0x0');
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -117,57 +124,54 @@ export const StencilOrderCard: React.FC<StencilOrderCardProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-gray-600">Material:</span>
-                <span className="font-medium">{StencilMaterialLabels[spec.stencilMaterial]}</span>
+                <span className="text-gray-600">Border Type:</span>
+                <span className="font-medium">{BorderTypeLabels[spec.borderType]}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Stencil Type:</span>
+                <Badge className={`${getTypeColor(spec.stencilType)} text-xs`}>
+                  {StencilTypeLabels[spec.stencilType]}
+                </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Thickness:</span>
-                <span className="font-medium">{StencilThicknessLabels[spec.stencilThickness]}</span>
+                <span className="font-medium">{StencilThicknessLabels[spec.thickness]}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Process:</span>
-                <Badge className={`${getProcessColor(spec.stencilProcess)} text-xs`}>
-                  {StencilProcessLabels[spec.stencilProcess]}
-                </Badge>
+                <span className="text-gray-600">Stencil Side:</span>
+                <span className="font-medium">{StencilSideLabels[spec.stencilSide]}</span>
               </div>
             </div>
             
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-gray-600">Dimensions:</span>
-                <span className="font-medium">
-                  {spec.singleDimensions.length} × {spec.singleDimensions.width} mm
-                </span>
+                <span className="text-gray-600">Size:</span>
+                <span className="font-medium">{spec.size}mm</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Area:</span>
-                <span className="font-medium">{area.toFixed(1)} mm²</span>
+                <span className="font-medium">{sizeInfo.area.toLocaleString()} mm²</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Quantity:</span>
-                <span className="font-medium">{spec.singleCount} pcs</span>
+                <span className="font-medium">{spec.quantity} pcs</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Fiducials:</span>
+                <span className="font-medium">{ExistingFiducialsLabels[spec.existingFiducials]}</span>
               </div>
             </div>
           </div>
 
-          {/* 附加选项 */}
+          {/* 制造工艺信息 */}
           <div className="mt-3 pt-3 border-t border-blue-200">
-            <div className="flex flex-wrap gap-2">
-              {spec.frameType && (
-                <Badge variant="outline" className="text-xs">
-                  {FrameTypeLabels[spec.frameType]}
-                </Badge>
-              )}
-              {spec.surfaceTreatment && spec.surfaceTreatment !== 'none' && (
-                <Badge variant="outline" className="text-xs">
-                  {SurfaceTreatmentLabels[spec.surfaceTreatment]}
-                </Badge>
-              )}
-              {spec.deliveryOptions?.delivery === 'urgent' && (
-                <Badge className="bg-orange-100 text-orange-700 text-xs">
-                  Rush Order
-                </Badge>
-              )}
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge variant="outline">
+                {ElectropolishingLabels[spec.electropolishing]}
+              </Badge>
+              <Badge variant="outline">
+                {EngineeringRequirementsLabels[spec.engineeringRequirements]}
+              </Badge>
             </div>
           </div>
         </div>
@@ -179,7 +183,7 @@ export const StencilOrderCard: React.FC<StencilOrderCardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
               <div className="text-center">
                 <div className="text-gray-600">Total Price</div>
-                <div className="font-bold text-green-700">${cal_values.totalPrice.toFixed(2)}</div>
+                <div className="font-bold text-green-700">¥{cal_values.totalPrice.toFixed(2)}</div>
               </div>
               <div className="text-center">
                 <div className="text-gray-600">Lead Time</div>
@@ -187,17 +191,27 @@ export const StencilOrderCard: React.FC<StencilOrderCardProps> = ({
               </div>
               <div className="text-center">
                 <div className="text-gray-600">Shipping</div>
-                <div className="font-medium">${cal_values.shippingCost.toFixed(2)}</div>
+                <div className="font-medium">¥{cal_values.shippingCost.toFixed(2)}</div>
               </div>
             </div>
           </div>
         )}
 
-        {/* 备注 */}
-        {spec.notes && (
+        {/* PO号码和特殊要求 */}
+        {(spec.addPoNo || spec.specialRequests) && (
           <div className="bg-amber-50 rounded-md p-3">
-            <h4 className="text-sm font-medium text-amber-800 mb-1">Customer Notes</h4>
-            <p className="text-sm text-amber-700">{spec.notes}</p>
+            <h4 className="text-sm font-medium text-amber-800 mb-2">Order Information</h4>
+            <div className="space-y-1 text-sm text-amber-700">
+              {spec.addPoNo && (
+                <div><span className="font-medium">PO Number:</span> {spec.addPoNo}</div>
+              )}
+              {spec.specialRequests && (
+                <div>
+                  <span className="font-medium">Special Requests:</span>
+                  <p className="mt-1">{spec.specialRequests}</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
